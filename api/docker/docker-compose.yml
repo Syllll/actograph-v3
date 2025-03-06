@@ -1,0 +1,55 @@
+name: actograph-v3
+
+networks:
+  actograph-v3-api-network:
+
+volumes:
+  actograph-v3-api-db:
+
+services:
+  actograph-v3-api:
+    container_name: actograph-v3-api
+    image: actograph-v3-api:latest
+    networks:
+      - actograph-v3-api-network
+    restart: 'unless-stopped'
+    build:
+      context: '../'
+      dockerfile: ./docker/Dockerfile
+    environment:
+      - DB_TYPE=${DB_TYPE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_HOST=${DB_HOST:-actograph-v3-api-psql} # name of the psql service
+      - DB_PORT=${DB_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./../.env:/app-prod/.env
+      - ./../uploads:/uploads
+    ports:
+      - '${BACKEND_DOCKER_APP_PORT_EXPOSED:-3235}:3000'
+    # If starting on kubernetes, this is not required
+    # Required if runing on classical docker-compose
+    #command: bash -c 'while !</dev/tcp/api-psql/5432; do sleep 1; done; yarn run migration:run && yarn run start:prod'
+
+  actograph-v3-api-db:
+    platform: linux/x86_64 # For MacOS
+    container_name: actograph-v3-api-db
+    image: actograph-v3-api-db
+    networks:
+      - actograph-v3-api-network
+    build:
+      context: '../'
+      dockerfile: ./docker/Dockerfile.db
+    restart: 'unless-stopped'
+    ports:
+      - '${BACKEND_DOCKER_PSQL_PORT_EXPOSED:-5633}:5432'
+    environment:
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - PGDATA=/data/postgres
+      - NODE_OPTIONS=--max-old-space-size=4096
+    volumes:
+      - actograph-v3-api-db:/data/postgres

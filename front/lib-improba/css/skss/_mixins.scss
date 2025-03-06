@@ -1,0 +1,161 @@
+@mixin setGlobalColors($light, $dark, $name) {
+  @include setGlobalClass($name, $light, 'body--light');
+  @include setGlobalClass($name, $dark, 'body--dark');
+}
+
+@mixin setGlobalClass($name, $color, $theme) {
+  :root {
+    body.#{$theme} {
+      #{"--"+$name}: $color;
+
+      @if $color != transparent {
+        @each $opacity, $hex in $background-opacity {
+          #{"--"+$name+"-"+$opacity}: #{rgba(red($color), green($color), blue($color), $hex)};
+        }
+      }
+    }
+  }
+
+  body.#{$theme} {
+    // ? #region TEXT
+    .text-#{$name},
+    .hover\:text-#{$name}:hover,
+    .not-hover\:text-#{$name}:not(:hover) {
+      color: var(#{"--"+$name}) !important;
+    }
+    // #endregion
+
+    // ? #region BACKGROUND
+    .bg-#{$name},
+    .hover\:bg-#{$name}:hover,
+    .not-hover\:bg-#{$name}:not(:hover) {
+      background-color: var(#{"--"+$name}) !important;
+    }
+    @each $opacity, $hex in $background-opacity {
+      .bg-#{$name}-#{$opacity},
+      .hover\:bg-#{$name}-#{$opacity}:hover,
+      .not-hover\:bg-#{$name}-#{$opacity}:not(:hover) {
+        background-color: var(#{"--"+$name+"-"+$opacity}) !important;
+      }
+    }
+    // #endregion
+
+    @if $name == 'none' {
+      // ? #region BORDERS
+      .border-#{$name},
+      .hover\:border-#{$name}:hover,
+      .not-hover\:border-#{$name}:not(:hover) {
+        border: none !important;
+      }
+      // #endregion
+
+      // ? #region INNER BORDERS
+      .inner-border-#{$name},
+      .hover\:inner-border-#{$name}:hover,
+      .not-hover\:inner-border-#{$name}:not(:hover) {
+        box-shadow: inset none !important;
+      }
+      // #endregion
+
+      // ? #region SHADOW
+      .shadow-#{$name},
+      .hover\:shadow-#{$name}:hover,
+      .not-hover\:shadow-#{$name}:not(:hover) {
+        box-shadow: none !important;
+      }
+      // #endregion
+    } @else {
+      // ? #region BORDERS
+      .border-#{$name},
+      .hover\:border-#{$name}:hover,
+      .not-hover\:border-#{$name}:not(:hover) {
+        border-color: var(#{"--"+$name}) !important;
+        border-width: #{$default-border-width};
+        border-style: solid
+      }
+      // #endregion
+
+      // ? #region INNER BORDERS
+      .inner-border-#{$name},
+      .hover\:inner-border-#{$name}:hover,
+      .not-hover\:inner-border-#{$name}:not(:hover) {
+        box-shadow: inset
+          0px
+          0px
+          0px
+          #{$default-inner-border-width}
+          var(#{"--"+$name}) !important;
+      }
+
+      @each $width-name, $width-value in $inner-border-widths {
+        .inner-border-#{$name}-#{$width-name},
+        .hover\:inner-border-#{$name}-#{$width-name}:hover,
+        .not-hover\:inner-border-#{$name}-#{$width-name}:not(:hover) {
+          box-shadow: inset
+            0px
+            0px
+            0px
+            #{$width-value}
+            var(#{"--"+$name}) !important;
+        }
+      }
+      // #endregion
+
+      // ? #region SHADOW
+      .shadow-#{$name},
+      .hover\:shadow-#{$name}:hover,
+      .not-hover\:shadow-#{$name}:not(:hover) {
+        box-shadow: #{$default-shadow} var(#{"--"+$name}) !important;
+      }
+
+      @each $width-name, $width-value in $shadow-widths {
+        .shadow-#{$name}-#{$width-name},
+        .hover\:shadow-#{$name}-#{$width-name}:hover,
+        .not-hover\:shadow-#{$name}-#{$width-name}:not(:hover) {
+          box-shadow: $width-value var(#{"--"+$name}) !important;
+        }
+      }
+      // #endregion
+    }
+    // #endregion
+  }
+}
+
+@mixin setButtonColors($type, $state, $colors) {
+  .button {
+    &::before {
+      box-shadow: none;
+    }
+    border: 1px solid;
+
+    &.#{ $type } {
+      &:not(.flat) {
+        @if $state == '' {
+          background-color: map-get($colors, 'background');
+          border-color: map-get($colors, 'border');
+          color: map-get($colors, 'color');
+        } @else {
+          &.#{ $state } {
+            background-color: map-get($colors, 'background');
+            border-color: map-get($colors, 'border');
+            color: map-get($colors, 'color');
+          }
+        }
+      }
+
+      &.flat {
+        @if $state == '' {
+          background-color: transparent;
+          border-color: transparent;
+          color: map-get($colors, 'flat');
+        } @else {
+          &.-#{ $state } {
+            background-color: transparent;
+            border-color: transparent;
+            color: map-get($colors, 'flat');
+          }
+        }
+      }
+    }
+  }
+}

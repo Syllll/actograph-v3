@@ -1,0 +1,32 @@
+@import './../../../../../../lib-improba/css/mixins';
+
+// Couleurs de test
+$pb-editor-red: #ff0000;
+$pb-editor-white: #f3f3f3;
+// Thème original
+$pb-editor-midnight-grey: #1f3555;
+$pb-editor-blue: #4062ff;
+$pb-editor-grey: #2b2e3b;
+// Light grey
+$pb-editor-light-grey: #999999;
+// Thème 1
+$pb-editor-cyan: #6bdaff;
+$pb-editor-dark-blue: #003283;
+// Thème Violet clair
+$pb-editor-purple: #a592ee;
+$pb-editor-light-purple: #f1f3fc;
+$pb-editor-dark-purple: darken($pb-editor-light-purple, 5);
+$pb-editor-purple-ish-white: #ebeafd;
+$pb-editor-purple-ish-black: #27223e;
+$pb-editor-clear-dark-purple: #dfddf2;
+// green
+$pb-editor-green: #00ff00;
+
+@include defineColor('pb-editor-text', $pb-editor-purple-ish-black);
+@include defineColor('pb-editor-background', $pb-editor-white);
+@include defineColor('pb-editor-primary', $pb-editor-light-purple);
+@include defineColor('pb-editor-secondary', $pb-editor-dark-purple);
+@include defineColor('pb-editor-accent', $pb-editor-purple);
+@include defineColor('pb-editor-positive', $pb-editor-green);
+@include defineColor('pb-editor-negative', $pb-editor-red);
+@include defineColor('pb-editor-neutral', $pb-editor-light-grey);

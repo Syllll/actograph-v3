@@ -1,0 +1,3 @@
+import PBScrollArea from '@lib-improba/components/page-builder/lib/ui/local-components/scroll-areas/PBScrollArea.vue';
+
+export { PBScrollArea };

@@ -1,0 +1,141 @@
+.not-selectable {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.clickable {
+  cursor: pointer !important;
+}
+
+.not-clickable {
+  cursor: not-allowed !important;
+}
+
+.smooth {
+  transition-duration: #{$default-duration} !important;
+}
+@each $name, $duration in $animation-durations {
+  .smooth-#{$name} {
+    transition-duration: $duration !important;
+  }
+}
+
+@each $position in $positions {
+  .position-#{$position},
+  .hover\:position-#{$position}:hover,
+  .not-hover\:position-#{$position}:not(:hover) {
+    position: #{$position} !important;
+  }
+}
+
+@each $style in $border-styles {
+  .border-#{$style},
+  .hover\:border-#{$style}:hover,
+  .not-hover\:border-#{$style}:not(:hover) {
+    border-style: #{$style} !important;
+  }
+}
+
+@each $name, $width in $border-widths {
+  .border-#{$name},
+  .hover\:border-#{$name}:hover,
+  .not-hover\:border-#{$name}:not(:hover) {
+    border-width: #{$width} !important;
+  }
+}
+
+.rounded,
+.hover\:rounded:hover,
+.not-hover\:rounded:not(:hover) {
+  border-radius: #{$default-border-radius};
+}
+@each $name, $accentuation in $border-radiuses {
+  .rounded-#{$name},
+  .hover\:rounded-#{$name}:hover,
+  .not-hover\:rounded-#{$name}:not(:hover) {
+    border-radius: $accentuation !important;
+  }
+}
+
+
+.blur,
+.hover\:blur:hover,
+.not-hover\:blur:not(:hover) {
+  backdrop-filter: blur(3px) !important;
+}
+
+@each $name, $size in $sizes-steps {
+  .width-#{$name},
+  .hover\:width-#{$name}:hover,
+  .not-hover\:width-#{$name}:not(:hover) {
+    width: #{$size} !important;
+  }
+
+  .height-#{$name},
+  .hover\:height-#{$name}:hover,
+  .not-hover\:height-#{$name}:not(:hover) {
+    height: #{$size} !important;
+  }
+
+  .blur-#{$name},
+  .hover\:blur-#{$name}:hover,
+  .not-hover\:blur-#{$name}:not(:hover) {
+    backdrop-filter: blur(#{$size}) !important;
+  }
+
+  .padding-#{$name},
+  .hover\:padding-#{$name}:hover,
+  .not-hover\:padding-#{$name}:not(:hover) {
+    padding: #{$size} !important;
+  }
+
+  .margin-#{$name},
+  .hover\:margin-#{$name}:hover,
+  .not-hover\:margin-#{$name}:not(:hover) {
+    margin: #{$size} !important;
+  }
+
+  @each $alignment in $alignments {
+    .padding-#{$alignment}-#{$name},
+    .hover\:padding-#{$alignment}-#{$name}:hover,
+    .not-hover\:padding-#{$alignment}-#{$name}:not(:hover) {
+      padding-#{$alignment}: #{$size} !important;
+    }
+
+    .margin-#{$alignment}-#{$name},
+    .hover\:margin-#{$alignment}-#{$name}:hover,
+    .not-hover\:margin-#{$alignment}-#{$name}:not(:hover) {
+      margin-#{$alignment}: #{$size} !important;
+    }
+  }
+}
+
+.inherit {
+  width: inherit;
+  height: inherit;
+
+  &-width {
+    width: inherit;
+  }
+
+  &-height {
+    height: inherit;
+  }
+}
+
+.full {
+  width: 100%;
+  height: 100%;
+
+  &-width {
+    width: 100%;
+  }
+
+  &-height {
+    height: 100%;
+  }
+}

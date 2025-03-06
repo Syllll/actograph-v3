@@ -1,0 +1,45 @@
+{
+  "_maxId": 4,
+  "id": 0,
+  "name": "MainSection",
+  "slot": null,
+  "props": {},
+  "children": [
+    {
+      "id": 1,
+      "name": "Column",
+      "slot": "default",
+      "props": {},
+      "children": [
+        {
+          "id": 3,
+          "name": "ImageWithTitle",
+          "slot": "default",
+          "readonly": true,
+          "props": {
+            "height": "30rem"
+          },
+          "children": []
+        },
+        {
+          "id": 2,
+          "name": "ImageAndText",
+          "slot": "default",
+          "props": {
+            "text": "Hello World {{MESSAGE}}, {{ MESSAGE }}, {{ MESSAGE2 }}"
+          },
+          "children": []
+        },
+        {
+          "id": 4,
+          "name": "Bloc",
+          "slot": "default",
+          "props": {
+            "name": "Bloc1"
+          },
+          "children": []
+        }
+      ]
+    }
+  ]
+}

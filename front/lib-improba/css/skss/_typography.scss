@@ -1,0 +1,77 @@
+.font {
+  &-weight {
+    @each $weight in $font-weights {
+      &-#{$weight},
+      &-#{$weight}-hover:hover,
+      &-#{$weight}-not-hover:not(:hover) {
+        font-weight: #{$weight};
+      }
+    }
+  }
+}
+
+.text {
+  &-capitalize,
+  &-capitalize-hover:hover,
+  &-capitalize-not-hover:not(:hover) {
+    text-transform: capitalize !important;
+  }
+  &-uppercase,
+  &-uppercase-hover:hover,
+  &-uppercase-not-hover:not(:hover) {
+    text-transform: uppercase !important;
+  }
+  &-lowercase,
+  &-lowercase-hover:hover,
+  &-lowercase-not-hover:not(:hover) {
+    text-transform: lowercase !important;
+  }
+
+  &-italic,
+  &-italic-hover:hover,
+  &-italic-not-hover:not(:hover) {
+    font-style: italic !important;
+  }
+
+
+  &-bold {
+    font-weight: bold;
+
+    &-700,
+    &-700-hover:hover,
+    &-700-not-hover:not(:hover) {
+      font-weight: 700 !important;
+    }
+
+    &-900,
+    &-900-hover:hover,
+    &-900-not-hover:not(:hover) {
+      font-weight: 900 !important;
+    }
+  }
+
+  &-center,
+  &-center-hover:hover,
+  &-center-not-hover:not(:hover) {
+    text-align: center;
+  }
+  &-right,
+  &-right-hover:hover,
+  &-right-not-hover:not(:hover) {
+    text-align: right;
+  }
+  &-left,
+  &-left-hover:hover,
+  &-left-not-hover:not(:hover) {
+    text-align: left;
+  }
+
+  &-ellipsis,
+  &-ellipsis-hover:hover,
+  &-ellipsis-not-hover:not(:hover) {
+    max-width: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

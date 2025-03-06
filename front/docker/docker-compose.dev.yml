@@ -1,0 +1,22 @@
+name: actograph-v3
+
+services:
+  actograph-v3-front-dev:
+    container_name: actograph-v3-front-dev
+    image: actograph-v3-front-dev
+    build:
+      context: ./../
+      dockerfile: ./docker/Dockerfile.dev
+    ports:
+      - ${FRONT_DOCKER_PORT_EXPOSED:-8080}:${FRONT_DOCKER_PORT_EXPOSED:-8080}  # 8080 is used in the quasar.conf.js/devServer/client
+    restart: 'unless-stopped'
+    volumes:
+      - ./../:/app/
+    environment:
+      - API_URL=${API_URL}
+      - DOCKER_DEV=${DOCKER_DEV:-false}
+      - FRONT_DOCKER_PORT_EXPOSED=${FRONT_DOCKER_PORT_EXPOSED:-8080}
+      - APP_NAME:${APP_NAME}
+    # If DOCKER_DEV is not set then run the containers in normal mode (install dependencies and run the dev server)
+    # else, just run it and wait (a console will be open in it)
+    command: bash -c "if [[ -z \"${DOCKER_DEV}\" ]]; then cd /app; yarn install; ./node_modules/.bin/quasar dev; else tail -f /dev/null; fi"

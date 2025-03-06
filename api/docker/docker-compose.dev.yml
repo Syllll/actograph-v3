@@ -1,0 +1,56 @@
+name: actograph-v3
+
+networks:
+  actograph-v3-api-dev-network:
+
+volumes:
+  actograph-v3-api-dev-db:
+
+services:
+  actograph-v3-api-dev-db:
+    platform: linux/x86_64 # For MacOS
+    container_name: actograph-v3-api-dev-db
+    image: actograph-v3-api-dev-db
+    networks:
+      - actograph-v3-api-dev-network
+    build:
+      context: '../'
+      dockerfile: ./docker/Dockerfile.db
+    restart: 'unless-stopped'
+    ports:
+      - '${BACKEND_DOCKER_PSQL_PORT_EXPOSED:-5633}:5432'
+    environment:
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - PGDATA=/data/postgres
+      - NODE_OPTIONS=--max-old-space-size=4096
+    volumes:
+      - actograph-v3-api-dev-db:/data/postgres
+  actograph-v3-api-dev:
+    platform: linux/x86_64 # For MacOS
+    container_name: actograph-v3-api-dev
+    image: actograph-v3-api-dev
+    depends_on:
+      - actograph-v3-api-dev-db
+    networks:
+      - actograph-v3-api-dev-network
+    restart: 'unless-stopped'
+    build:
+      context: './../'
+      dockerfile: ./docker/Dockerfile.dev
+    environment:
+      - DB_TYPE=${DB_TYPE:-postgres}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_SSLCERT=${DB_SSLCERT}
+      - DB_HOST=${DB_HOST:-actograph-v3-api-dev-db} # name of the psql service
+      - DB_PORT=${DB_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+      - DOCKER_DEV=${DOCKER_DEV:-false}
+    volumes:
+      - ./../:/app/
+    ports:
+      - '${BACKEND_DOCKER_APP_PORT_EXPOSED:-3236}:3000'
+    command: bash -c "if [ ! -d "$DOCKER_DEV" ]; then tail -f /dev/null; else yarn install && yarn run migration:run && yarn run start:dev; fi"

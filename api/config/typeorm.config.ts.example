@@ -1,0 +1,24 @@
+PLACE THIS FILE IN /config FOLDER WITH YOUR LOCAL INFORMATIONS
+
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+
+// TypeOrmModuleOptions = interface des options de typeorm
+
+export const typeOrmConfig: TypeOrmModuleOptions = {
+  type: "mysql",
+  host: "localhost",
+  port: 3306,
+  username: "****",
+  password: "****",
+  database: "databaseName",
+  // Tous les fichiers dans le dossier source qui finissent par entity.ts ou js seront pris en compte
+  entities: [__dirname + '/../src/**/*.entity.{js,ts}'],
+  synchronize: false,
+  migrations: [__dirname + '/../migrations/**/*.ts'],
+  migrationsTableName: "migrations_typeorm",
+  migrationsRun: true,
+  cli: {
+      "migrationsDir": "migrations"
+  },
+  logging: true
+}

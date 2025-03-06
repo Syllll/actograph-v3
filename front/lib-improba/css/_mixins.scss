@@ -1,0 +1,67 @@
+// ******************************
+// Defines used to setup light and dark themes
+// ******************************
+
+@import './skss/presets';
+@import './skss/mixins';
+
+@mixin defineColorLight($name, $color) {
+  body.body--light {
+    .text-#{$name} {
+      color: var(#{"--"+$name});
+    }
+
+    .bg-#{$name} {
+      background: var(#{"--"+$name});
+    }
+
+    .border-#{$name} {
+      border-color: var(#{"--"+$name});
+    }
+  }
+
+  :root {
+    body.body--light {
+      #{"--"+$name}: $color;
+    }
+  }
+}
+
+@mixin defineColorDark($name, $color) {
+  body.body--dark {
+    .text-#{$name} {
+      color: var(#{"--"+$name});
+    }
+
+    .bg-#{$name} {
+      background: var(#{"--"+$name});
+    }
+
+    .border-#{$name} {
+      border-color: var(#{"--"+$name});
+    }
+  }
+
+  :root {
+    body.body--dark {
+      #{"--"+$name}: $color;
+    }
+  }
+}
+
+@mixin defineColorDarkAndLight($name, $darkColor, $lightColor) {
+  @include setGlobalClass($name, $lightColor, 'body--light');
+  @include setGlobalClass($name, $darkColor, 'body--dark');
+}
+
+@mixin defineColorLightAndDark($name, $lightColor, $darkColor) {
+  @include setGlobalColors($lightColor, $darkColor, $name);
+}
+
+@mixin defineColor($name, $color) {
+  @include defineColorDarkAndLight($name, $color, $color);
+}
+
+@mixin defineColorForClass($name, $color, $theme) {
+  @include setGlobalClass($name, $color, $theme);
+}

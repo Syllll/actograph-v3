@@ -1,0 +1,94 @@
+{
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "es2017",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    // strict mode
+    "strict": true,
+    // says if a code will never execute
+    "allowUnreachableCode": false,
+    // https://www.typescriptlang.org/tsconfig#allowUnusedLabels
+    "allowUnusedLabels": false,
+    // https://www.typescriptlang.org/tsconfig#noImplicitReturns
+    "noImplicitReturns": true,
+    // https://www.typescriptlang.org/tsconfig#noPropertyAccessFromIndexSignature
+    // "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitOverride": true,
+    "resolveJsonModule": true,
+    "noErrorTruncation": true,
+    "paths": {
+      "@auth-jwt/*": [
+        "src/general/auth-jwt/*"
+      ],
+      "@utils/*": [
+        "src/utils/*"
+      ],
+      "@users/*": [
+        "src/core/users/*"
+      ],
+      "@alerts/*": [
+        "src/core/alerts/*"
+      ],
+      "@dose/*": [
+        "src/core/dose/*"
+      ],
+      "@analysis/*": [
+        "src/core/analysis/*"
+      ],
+      "@computation/*": [
+        "src/core/computation/*"
+      ],
+      "@log/*": [
+        "src/core/log/*"
+      ],
+      "@global-parameters/*": [
+        "src/core/global-parameters/*"
+      ],
+      "@carrier/*": [
+        "src/core/carrier/*"
+      ],
+      "@comment/*": [
+        "src/core/comment/*"
+      ],
+      "@tag/*": [
+        "src/core/tag/*"
+      ],
+      "@core/*": [
+        "src/core/*"
+      ],
+      "@dosip/*": [
+        "src/core/dosip/*"
+      ],
+      "@threshold/*": [
+        "src/core/threshold/*"
+      ],
+      "@experimentation/*": [
+        "src/core/experimentation/*"
+      ],
+      "@filesystem/*": [
+        "src/core/filesystem/*"
+      ]
+    }
+  },
+  "ts-node": {
+    "require": [
+      "tsconfig-paths/register"
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "data_dev"
+  ]
+}
