@@ -46,7 +46,7 @@ if [ "$args" = "console" ]; then
   docker compose ${envFiles} -f ./docker-compose.dev.yml up -d
 
   # Execute the bash command in the front-dev container top open a console in the container
-  docker compose ${envFiles} -f ./docker-compose.dev.yml exec glutamat-api-dev bash || true
+  docker compose ${envFiles} -f ./docker-compose.dev.yml exec actograph-v3-api-dev bash || true
 
   # When the terminal is closed, stop the containers
   docker compose ${envFiles} -f ./docker-compose.dev.yml down

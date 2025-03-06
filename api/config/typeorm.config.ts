@@ -1,8 +1,13 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { config } from 'dotenv';
 
-config();
+// When nestjs is called with --subprocess, the env path is passed as the 4th argument
+// This is the case when the software is run as a desktop app
+export const envPath = process.argv[2] === '--subprocess' ? process.argv[4] : undefined
 
+config({
+  path: envPath
+});
 // TypeOrmModuleOptions = interface des options de typeorm
 
 export const typeOrmConfig: TypeOrmModuleOptions = {

@@ -35,19 +35,18 @@ export class User extends BaseEntity {
     this.fullname = `${this.firstname} ${this.lastname}`;
   }
 
-  @Column('bool', { nullable: false, default: false })
+  @Column({ nullable: false, default: false })
   resetPasswordOngoing!: boolean;
 
   @Column({
-    type: 'enum',
+    type: 'simple-array',
     enum: UserRoleEnum,
-    default: [UserRoleEnum.User],
-    array: true,
+    default: UserRoleEnum.User,
     nullable: false,
   })
   roles!: UserRoleEnum[];
 
-  @Column('bool', { nullable: false, default: true })
+  @Column({ nullable: false, default: true })
   preferDarkTheme!: boolean;
 
   @Expose()

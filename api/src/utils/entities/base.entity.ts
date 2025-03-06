@@ -14,13 +14,13 @@ export abstract class BaseEntity implements ObjectLiteral {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn()
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn()
   updatedAt!: Date;
 
   @Expose({ groups: [GROUP_ADMIN] })
-  @DeleteDateColumn({ type: 'timestamptz', nullable: true, default: null })
+  @DeleteDateColumn({ nullable: true, default: null })
   deletedAt?: Date;
 }
