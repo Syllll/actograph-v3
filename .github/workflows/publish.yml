@@ -6,30 +6,7 @@ on:
       - 'prod-v*.*.*'
 
 jobs:
-  create-draft-release:
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    permissions:
-      contents: write
-    steps:
-      - name: Extract version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
-
-      - name: Create Draft Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
-          tag_name: actograph-v3_v${{ steps.get_version.outputs.VERSION }}
-          draft: true
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   build-and-upload:
-    needs: create-draft-release
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -120,12 +97,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v1
+      # Instead of uploading to release here, let's save artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
         with:
-          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
-          tag_name: actograph-v3_v${{ steps.get_version.outputs.VERSION }}
-          files: |
+          name: electron-artifacts-${{ matrix.os }}
+          path: |
             front/dist/electron/Packaged/*.exe
             front/dist/electron/Packaged/*.dmg
             front/dist/electron/Packaged/*.AppImage
@@ -134,12 +111,8 @@ jobs:
             front/dist/electron/Packaged/latest*.yaml
             front/dist/electron/Packaged/*-mac.zip
             front/dist/electron/Packaged/*.blockmap
-          draft: true
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish-release:
+  create-release:
     needs: build-and-upload
     runs-on: ubuntu-latest
     permissions:
@@ -149,11 +122,17 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
 
-      - name: Publish Release
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
           tag_name: actograph-v3_v${{ steps.get_version.outputs.VERSION }}
+          files: artifacts/**/*
           draft: false
           prerelease: false
         env:
