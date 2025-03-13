@@ -58,9 +58,9 @@ jobs:
           mv front/package.json.tmp front/package.json
 
       - name: Create API .env file
+        shell: bash
         run: |
-          cat > api/.env << 'EOL'
-          # Container exposed ports on the host
+          echo "# Container exposed ports on the host
           BACKEND_DOCKER_APP_PORT_EXPOSED=3044
           BACKEND_DOCKER_PSQL_PORT_EXPOSED=5644
 
@@ -84,18 +84,16 @@ jobs:
 
           # This will create the first admin user upon first start
           ADMINUSER_LOGIN=${{ vars.ADMINUSER_LOGIN }}
-          ADMINUSER_PASSWORD=${{ secrets.ADMINUSER_PASSWORD }}
-          EOL
+          ADMINUSER_PASSWORD=${{ secrets.ADMINUSER_PASSWORD }}" > api/.env
 
       - name: Create Frontend .env file
+        shell: bash
         run: |
-          cat > front/.env << 'EOL'
-          FRONT_DOCKER_PORT_EXPOSED=8044
+          echo "FRONT_DOCKER_PORT_EXPOSED=8044
           API_URL=http://localhost:3044
           APP_NAME=actograph-v3
           # Modes = dark|light
-          DEFAULT_COLOR_MODE=light
-          EOL
+          DEFAULT_COLOR_MODE=light" > front/.env
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
