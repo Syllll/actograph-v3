@@ -15,6 +15,16 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
 
+      - name: Update package.json versions
+        run: |
+          # Update API package.json
+          jq '.version = "${{ steps.get_version.outputs.VERSION }}"' api/package.json > api/package.json.tmp
+          mv api/package.json.tmp api/package.json
+          
+          # Update Frontend package.json
+          jq '.version = "${{ steps.get_version.outputs.VERSION }}"' front/package.json > front/package.json.tmp
+          mv front/package.json.tmp front/package.json
+
       - name: Checkout code
         uses: actions/checkout@v4
 
