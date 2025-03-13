@@ -131,7 +131,7 @@ module.exports = configure(function (/* ctx */) {
         DEFAULT_COLOR_MODE: process.env.DEFAULT_COLOR_MODE || 'light',
       },
       beforeBuild: (ctx) => {
-        const promise = new Promise((resolve) => {
+        const promise = new Promise((resolve, reject) => {
           const child = spawn(
             `cd ../api && \
             yarn install --production=false && \
@@ -164,7 +164,7 @@ module.exports = configure(function (/* ctx */) {
             if (code === 0) {
               resolve();
             } else {
-              rejects();
+              reject();
             }
           });
 
