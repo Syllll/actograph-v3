@@ -1,7 +1,7 @@
 import { useRouter, Router } from 'vue-router';
 
 const queryStore = {
-  query: {} as {[key: string]: any},
+  query: {} as { [key: string]: any },
 };
 
 export const useQueryParams = (router?: Router) => {
@@ -16,7 +16,10 @@ export const useQueryParams = (router?: Router) => {
       const value = queryStore.query[queryParamName];
       return <string>value;
     },
-    updateRouteQuery: async (query: {[key: string]: any}, replace = false) => {
+    updateRouteQuery: async (
+      query: { [key: string]: any },
+      replace = false
+    ) => {
       queryStore.query = { ...queryStore.query, ...query };
 
       if (replace) {
@@ -61,7 +64,6 @@ export const useQueryParams = (router?: Router) => {
           query: { ...queryStore.query },
         });
       }
-
     },
   };
 

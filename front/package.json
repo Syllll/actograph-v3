@@ -1,8 +1,8 @@
 {
-  "name": "actograph-v3-front",
+  "name": "actograph",
   "version": "0.0.1",
   "description": "A Quasar Project",
-  "productName": "Quasar App",
+  "productName": "actograph",
   "author": "Sylvain Meylan <sylvain@ateliom.fr>",
   "private": true,
   "scripts": {
@@ -19,8 +19,10 @@
     "@types/file-saver": "^2.0.7",
     "axios": "^1.2.1",
     "dotenv": "^16.4.5",
+    "electron-updater": "^6.3.9",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
+    "get-port-please": "^3.1.2",
     "node-sass": "^9.0.0",
     "quasar": "^2.8.0",
     "vue": "^3.4.18",
@@ -36,6 +38,7 @@
     "@typescript-eslint/parser": "^5.10.0",
     "autoprefixer": "^10.4.2",
     "electron": "^35.0.0",
+    "electron-builder": "^24.3.0",
     "eslint": "^8.11.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-vue": "^9.0.0",
@@ -48,5 +51,6 @@
     "node": "^20 || ^18",
     "npm": ">= 6.13.4",
     "yarn": ">= 1.21.1"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

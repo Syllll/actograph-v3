@@ -27,7 +27,7 @@
     font-weight: 400;
     line-height: 28px;
 
-    color: #78756E;
+    color: #78756e;
     display: block;
   }
 }
@@ -35,28 +35,19 @@
 
 <template>
   <div
-    class="
-      q-px-sm
-
-      bg-white
-      a1-shadow
-
-      row
-      items-center
-      justify-center
-    "
+    class="q-px-sm bg-white a1-shadow row items-center justify-center"
     :class="`${props.customClass}`"
     :style="{
       ...props.customStyle,
-      'height': props.customHeight || '500px',
-      'width': props.customWidth || '1000px',
+      height: props.customHeight || '500px',
+      width: props.customWidth || '1000px',
     }"
   >
     <div class="col-4 flex justify-center">
       <q-img :src="props.imageSource" />
     </div>
     <div class="col column items-start">
-      <img src="/a1/talking/quote.svg" alt="">
+      <img src="/a1/talking/quote.svg" alt="" />
       <span class="text" v-html="props.citation" />
 
       <div class="author">
@@ -66,7 +57,7 @@
     </div>
   </div>
 
-<!--
+  <!--
 <v-row
   v-for="(review, i) in reviews"
   :key="'review_' + i"
@@ -90,18 +81,17 @@
   </v-col>
 </v-row>
 </script> -->
-
 </template>
 
 <script lang="ts">
 import { defineComponent, onMounted, reactive, watch } from 'vue';
 import { useProps } from '@lib-improba/components/page-builder/lib/ui/use-props';
 
-const { methods: propsMethods } = useProps()
+const { methods: propsMethods } = useProps();
 
-const treeProps: any = propsMethods.getPropsByTheme('tree')
-const styleProps: any = propsMethods.getPropsByTheme('style')
-const sizeProps: any = propsMethods.getPropsByTheme('size')
+const treeProps: any = propsMethods.getPropsByTheme('tree');
+const styleProps: any = propsMethods.getPropsByTheme('style');
+const sizeProps: any = propsMethods.getPropsByTheme('size');
 
 export default defineComponent({
   props: {
@@ -109,8 +99,14 @@ export default defineComponent({
     ...treeProps,
     ...styleProps,
     ...propsMethods.createMultipleStringProps(['imageSource'], 'Image'),
-    citation: propsMethods.createStringProp('citation', 'Citation', null, { editor: true }),
-    ...propsMethods.createMultipleStringProps(['author', 'authorPosition'], 'Citation', null)
+    citation: propsMethods.createStringProp('citation', 'Citation', null, {
+      editor: true,
+    }),
+    ...propsMethods.createMultipleStringProps(
+      ['author', 'authorPosition'],
+      'Citation',
+      null
+    ),
   },
   builderOptions: {
     slots: [],
@@ -119,19 +115,13 @@ export default defineComponent({
   },
   emits: [],
   setup(props) {
+    const stateless = {};
 
-    const stateless = {
-    };
+    const state = reactive({});
 
-    const state = reactive({
-    });
+    const methods = {};
 
-    const methods = {
-    };
-
-    const computedState = {
-    };
-
+    const computedState = {};
 
     watch(
       () => state,
@@ -142,17 +132,15 @@ export default defineComponent({
       }
     );
 
-    onMounted(() => {
-    });
+    onMounted(() => {});
 
     return {
       props,
       stateless,
       state,
       methods,
-      computedState
+      computedState,
     };
   },
 });
 </script>
-

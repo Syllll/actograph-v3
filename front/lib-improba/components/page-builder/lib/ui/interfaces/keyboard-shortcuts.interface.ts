@@ -3,21 +3,21 @@ export enum ESpecialKeys {
   altKey = 'altKey',
   ctrlKey = 'ctrlKey',
   metaKey = 'metaKey',
-  shiftKey = 'shiftKey'
+  shiftKey = 'shiftKey',
 }
-export type TSpecialKeys = keyof typeof ESpecialKeys
+export type TSpecialKeys = keyof typeof ESpecialKeys;
 // #endregion
 
 // ? #region ORIGINS
 export enum EOrigins {
   global = 'global',
   cmsEditor = 'cmsEditor',
-  test = 'test'
+  test = 'test',
 }
-export type TOrigins = keyof typeof EOrigins
+export type TOrigins = keyof typeof EOrigins;
 export type TOriginPaths = {
-  [key in TOrigins]: string[]
-}
+  [key in TOrigins]: string[];
+};
 // #endregion
 
 // ? #region TYPES
@@ -26,34 +26,34 @@ export enum ETypes {
   default = 'default',
 
   // Triggers on matching keydown, stops on keyup
-  passive = 'passive'
+  passive = 'passive',
 }
-export type TTypes = keyof typeof ETypes
+export type TTypes = keyof typeof ETypes;
 // #endregions
 
 // ? #region COMBINAISON / SHORTCUT
 export interface ICombinaison {
-  key: string,
-  altMode?: boolean,
-  specialKeys?: TSpecialKeys[]
+  key: string;
+  altMode?: boolean;
+  specialKeys?: TSpecialKeys[];
 }
 export interface IShortcut {
-  id?: string // Used to identity customShorcut and prevent duplicates
+  id?: string; // Used to identity customShorcut and prevent duplicates
 
-  description: string
+  description: string;
 
-  origin: TOrigins
-  type: TTypes
+  origin: TOrigins;
+  type: TTypes;
 
-  combinaisons: ICombinaison[]
+  combinaisons: ICombinaison[];
 
-  preserveAltMode?: boolean,
-  bypassPreventDefault?: boolean,
+  preserveAltMode?: boolean;
+  bypassPreventDefault?: boolean;
 
-  condition?: () => boolean,
-  action?: () => void // Used in default export type shortcuts
+  condition?: () => boolean;
+  action?: () => void; // Used in default export type shortcuts
 
-  keydown?: () => void // Used in passive export type shortcuts
-  keyup?: () => void // Used in passive export type shortcuts
+  keydown?: () => void; // Used in passive export type shortcuts
+  keyup?: () => void; // Used in passive export type shortcuts
 }
 // #endregion

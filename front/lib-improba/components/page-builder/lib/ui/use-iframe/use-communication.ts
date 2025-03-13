@@ -1,11 +1,16 @@
 import { watch } from 'vue';
-import { ESyncMessageType, ISyncMessage, ISyncMessageContent, ISyncParsedMessage } from '../interfaces/iframe.interface';
+import {
+  ESyncMessageType,
+  ISyncMessage,
+  ISyncMessageContent,
+  ISyncParsedMessage,
+} from '../interfaces/iframe.interface';
 
 export const useCommunication = (options: {
-  myTreeId: string,
-  iframe: boolean,
-  sharedIFrameState: any,
-  handleMessage: (event: MessageEvent) => void
+  myTreeId: string;
+  iframe: boolean;
+  sharedIFrameState: any;
+  handleMessage: (event: MessageEvent) => void;
 }) => {
   const methods = {
     /**
@@ -37,53 +42,59 @@ export const useCommunication = (options: {
     /**
      * _ Posts a message to the opposite composable (iframe/parent)
      */
-    postMessage (type: ESyncMessageType, content?: ISyncMessageContent): void {
+    postMessage(type: ESyncMessageType, content?: ISyncMessageContent): void {
       const target = methods.getTargetWindow();
 
       const message = {
-        type
-      } as ISyncParsedMessage
+        type,
+      } as ISyncParsedMessage;
 
       if (content) {
-        message.content = JSON.stringify(content)
+        message.content = JSON.stringify(content);
       }
 
-      target?.postMessage({ message }, '*')
+      target?.postMessage({ message }, '*');
     },
 
     /**
      * _ Add the `message` event listener to the current window
      */
-    init () {
+    init() {
       const currentWindow = methods.getCurrentWindow();
       currentWindow?.addEventListener('message', options.handleMessage);
 
-      console.log({ listening: 'message', [options.sharedIFrameState.currentType]: true });
+      console.log({
+        listening: 'message',
+        [options.sharedIFrameState.currentType]: true,
+      });
     },
 
     /**
      * _ Remove the `message` event listener from the current window
      */
-    down () {
+    down() {
       const currentWindow = methods.getCurrentWindow();
       currentWindow?.removeEventListener('message', options.handleMessage);
 
-      console.log({ stopListening: 'message', [options.sharedIFrameState.currentType]: true });
-    }
-  }
+      console.log({
+        stopListening: 'message',
+        [options.sharedIFrameState.currentType]: true,
+      });
+    },
+  };
 
   watch(
     () => options.myTreeId,
     () => {
-      methods.down()
+      methods.down();
 
       if (options.myTreeId) {
-        methods.init()
+        methods.init();
       }
     }
-  )
+  );
 
   return {
-    methods
-  }
-}
+    methods,
+  };
+};

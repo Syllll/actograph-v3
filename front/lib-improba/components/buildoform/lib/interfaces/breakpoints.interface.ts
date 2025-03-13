@@ -3,18 +3,18 @@ export enum EBreakpoints {
   sm = 'sm',
   md = 'md',
   lg = 'lg',
-  xl = 'xl'
+  xl = 'xl',
 }
 
 export interface IBreakpoints {
-  base?: string|number;
-  xs?: string|number;
-  sm?: string|number;
-  md?: string|number;
-  lg?: string|number;
-  xl?: string|number;
+  base?: string | number;
+  xs?: string | number;
+  sm?: string | number;
+  md?: string | number;
+  lg?: string | number;
+  xl?: string | number;
 }
 
 export interface ICols {
-  cols?: string|number|IBreakpoints
+  cols?: string | number | IBreakpoints;
 }

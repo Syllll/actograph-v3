@@ -5,33 +5,10 @@
   <template v-else>
     <div
       style="min-height: 150px"
-      class="
-        column
-        items-center
-        justify-center
-
-        relative-position
-        rounded-less
-
-        border-neutral-high
-        border-thicker
-        border-dashed
-      "
+      class="column items-center justify-center relative-position rounded-less border-neutral-high border-thicker border-dashed"
     >
       <div
-        class="
-          column
-          items-center
-          justify-center
-
-          q-pa-sm
-          rounded
-
-          text-center
-          text-accent-high
-
-          bg-neutral-high-20
-        "
+        class="column items-center justify-center q-pa-sm rounded text-center text-accent-high bg-neutral-high-20"
       >
         Veuillez choisir un contenu de bloc
         <q-icon size="md" name="mdi-select-place" />
@@ -63,21 +40,24 @@ export default defineComponent({
       required: false,
       builderOptions: {
         options: async () => {
-          const blocs = await adminBlocService.findWithPagination({
-            offset: 0,
-            limit: 20,
-            orderBy: 'id',
-            order: 'DESC',
-          }, {
-            type: 'others'
-          });
+          const blocs = await adminBlocService.findWithPagination(
+            {
+              offset: 0,
+              limit: 20,
+              orderBy: 'id',
+              order: 'DESC',
+            },
+            {
+              type: 'others',
+            }
+          );
 
           return blocs.results.map((bloc: IBloc) => ({
             label: bloc.name,
             value: bloc.id,
           }));
-        }
-      }
+        },
+      },
     },
   },
   emits: [],
@@ -98,12 +78,13 @@ export default defineComponent({
         state.blocId = null;
 
         if (props.blocId) {
-            state.blocId = props.blocId ?? null;
+          state.blocId = props.blocId ?? null;
         }
-      }, {
-        immediate: true
+      },
+      {
+        immediate: true,
       }
-    )
+    );
 
     return {
       props,

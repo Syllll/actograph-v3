@@ -2,16 +2,16 @@ export const tabs = [
   {
     label: 'Global',
     name: 'global',
-    shortcut: 'g'
+    shortcut: 'g',
   },
   {
     label: 'Elément',
     name: 'selectedComponent',
-    shortcut: 'e'
+    shortcut: 'e',
   },
   {
     label: 'Bibliothèque',
     name: 'library',
-    shortcut: 'l'
+    shortcut: 'l',
   },
 ];

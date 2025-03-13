@@ -3,9 +3,7 @@
     color="a1-primary"
     class="a1-button a1-primary"
     :class="props.class"
-    :label="
-      props.label ?? i18n.t('components.buttons.DSubmitBtn.label')
-    "
+    :label="props.label ?? i18n.t('components.buttons.DSubmitBtn.label')"
     no-caps
   >
     <slot></slot>
@@ -26,15 +24,14 @@ export default defineComponent({
       type: String,
       default: '',
       builderOptions: { label: 'Class' },
-    }
+    },
   },
   builderOptions: {
     slots: [],
     category: 'A1',
     description: 'A1 Themed button',
   },
-  mounted() {
-  },
+  mounted() {},
   setup(props, context) {
     const i18n = useI18n();
     return {

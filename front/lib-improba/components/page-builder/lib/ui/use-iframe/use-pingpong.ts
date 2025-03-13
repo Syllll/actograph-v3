@@ -1,5 +1,10 @@
 import { reactive } from 'vue';
-import { ESources, ESyncMessageType, ESyncPingpongType, ISyncMessageContent } from '../interfaces/iframe.interface';
+import {
+  ESources,
+  ESyncMessageType,
+  ESyncPingpongType,
+  ISyncMessageContent,
+} from '../interfaces/iframe.interface';
 import { notify } from '@lib-improba/utils/notify.utils';
 
 export const usePingpong = (options: {
@@ -24,12 +29,12 @@ export const usePingpong = (options: {
      * @param type Either 'ping' or 'pong'
      */
     postMessage(type: keyof typeof ESyncPingpongType): void {
-      options.postMessage(ESyncMessageType[type])
+      options.postMessage(ESyncMessageType[type]);
     },
 
     /**
      * _ Sends back a 'pong' message
-    */
+     */
     handlePingMessage(): void {
       methods.postMessage('pong');
       // methods.postPongMessage();
@@ -38,7 +43,7 @@ export const usePingpong = (options: {
     /**
      * _ Sets the composable communication state as ready.
      * @note If this instance is the parent, call `builderJson.postUpdateMessage()`
-    */
+     */
     handlePongMessage(): void {
       console.log({ [options.sharedIFrameState.currentType]: 'ready' });
       options.sharedIFrameState.ready = true;
@@ -65,7 +70,9 @@ export const usePingpong = (options: {
 
       // Send a ping and wait for a pong, resend a ping if required
       setTimeout(() => {
-        if (options.sharedIFrameState.ready) { return }
+        if (options.sharedIFrameState.ready) {
+          return;
+        }
 
         if (retries < maxRetries) {
           console.log({ [options.sharedIFrameState.currentType]: 'timeout' });
@@ -86,7 +93,7 @@ export const usePingpong = (options: {
      */
     down: () => {
       options.sharedIFrameState.ready = false;
-    }
+    },
   };
   return {
     methods,

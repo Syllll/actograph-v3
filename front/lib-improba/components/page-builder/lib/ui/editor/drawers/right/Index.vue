@@ -1,10 +1,6 @@
 <template>
-  <PBDrawer
-    :myTreeId="props.myTreeId"
-    type="right"
-  >
+  <PBDrawer :myTreeId="props.myTreeId" type="right">
     <div class="fit column">
-
       <!-- ? COPIED NODE -->
       <div v-if="!!treeState.copiedNode" class="q-mb-md">
         <div class="text-pb-editor-text text-h4">Noeud Copié</div>
@@ -12,7 +8,7 @@
           readonly
           class="clickable"
           :my-tree-id="props.myTreeId"
-          :node="{...treeState.copiedNode, readonly: true, copied: true }"
+          :node="{ ...treeState.copiedNode, readonly: true, copied: true }"
           :selected-node-key="computedState.selectedNodeKey.value || undefined"
           @click="treeState.selected = treeState.copiedNode"
         />
@@ -40,7 +36,9 @@
                 :ref="`pbtree_node_${scope.node.id}`"
                 :node="scope.node"
                 :my-tree-id="props.myTreeId"
-                :selected-node-key="computedState.selectedNodeKey.value || undefined"
+                :selected-node-key="
+                  computedState.selectedNodeKey.value || undefined
+                "
               />
             </template>
           </PBTree>
@@ -51,7 +49,14 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, computed, ref, watch, getCurrentInstance } from 'vue';
+import {
+  defineComponent,
+  reactive,
+  computed,
+  ref,
+  watch,
+  getCurrentInstance,
+} from 'vue';
 import { useQuasar } from 'quasar';
 import { useTree } from './../../../../tree';
 import components from './../../../../components';
@@ -87,7 +92,7 @@ export default defineComponent({
 
     const treeRef = ref<any>(null);
 
-    const { proxy } = getCurrentInstance() || { proxy: null }
+    const { proxy } = getCurrentInstance() || { proxy: null };
 
     const state = reactive({
       expandedNodeKeys: [] as number[],
@@ -145,15 +150,19 @@ export default defineComponent({
     watch(
       () => treeState.selected,
       (selected) => {
-        if (!selected || !proxy) { return }
-        const { id } = selected
+        if (!selected || !proxy) {
+          return;
+        }
+        const { id } = selected;
 
-        const nodeRef = (proxy.$refs[`pbtree_node_${id}`] as any)?.$el
-        if (!nodeRef) { return }
+        const nodeRef = (proxy.$refs[`pbtree_node_${id}`] as any)?.$el;
+        if (!nodeRef) {
+          return;
+        }
 
-        nodeRef.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        nodeRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    )
+    );
 
     return {
       props,

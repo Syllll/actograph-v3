@@ -1,19 +1,24 @@
-import { onMounted, reactive, watch } from 'vue'
+import { onMounted, reactive, watch } from 'vue';
 import { useTree } from '../tree';
-import { IDrawer, IDrawerState, ITab, TDrawerTypes } from './interfaces/drawers.interface';
+import {
+  IDrawer,
+  IDrawerState,
+  ITab,
+  TDrawerTypes,
+} from './interfaces/drawers.interface';
 
 const defaultDrawer = {
   width: '25rem',
   active: false,
   show: true,
-  sticky: false
-} as IDrawer
+  sticky: false,
+} as IDrawer;
 
 const sharedState = reactive({
   left: { ...defaultDrawer } as IDrawer,
   right: { ...defaultDrawer } as IDrawer,
 
-  tabs: null as ITab[]|null,
+  tabs: null as ITab[] | null,
 
   showOnHover: false,
 
@@ -22,16 +27,16 @@ const sharedState = reactive({
     minHeight: 300,
 
     width: window.innerWidth - 100 + 'px',
-    height: window.innerHeight - 100 + 'px'
+    height: window.innerHeight - 100 + 'px',
   },
-})
+});
 
 export const useDrawers = (
   myTreeId: string,
   params?: {
-    tabs?: ITab[]
-  }) => {
-
+    tabs?: ITab[];
+  }
+) => {
   const tree = useTree(myTreeId);
   const treeState = tree.sharedState;
 
@@ -57,61 +62,66 @@ export const useDrawers = (
           icon: 'mdi-fit-to-screen-outline',
           width: () => window.innerWidth - 100 + 'px',
           height: () => window.innerHeight - 100 + 'px',
-        }
-      }
-    }
-  }
+        },
+      },
+    },
+  };
   const state = reactive({
     altMode: false,
-  })
+  });
 
   const methods = {
-    toggleDrawerState (field: keyof IDrawerState, type?: TDrawerTypes|null, state?: boolean) {
+    toggleDrawerState(
+      field: keyof IDrawerState,
+      type?: TDrawerTypes | null,
+      state?: boolean
+    ) {
       if (!type) {
-        const newState = state ?? !(sharedState.left[field] && sharedState.right[field])
+        const newState =
+          state ?? !(sharedState.left[field] && sharedState.right[field]);
 
-        sharedState.left[field] = newState
-        sharedState.right[field] = newState
+        sharedState.left[field] = newState;
+        sharedState.right[field] = newState;
 
         switch (field) {
           case 'show':
-            !newState && methods.toggleDrawerState('active', type, false)
+            !newState && methods.toggleDrawerState('active', type, false);
         }
 
-        return
+        return;
       }
 
-      sharedState[type][field] = state ?? !sharedState[type][field]
+      sharedState[type][field] = state ?? !sharedState[type][field];
     },
     openTab(tab: string) {
-      sharedState.left.currentTab = tab
-      sharedState.left.show = true
+      sharedState.left.currentTab = tab;
+      sharedState.left.show = true;
     },
-  }
+  };
 
   watch(
     () => treeState.selected,
     (selected: any) => {
       if (selected) {
-        sharedState.left.show = true
-        sharedState.left.currentTab = 'selectedComponent'
+        sharedState.left.show = true;
+        sharedState.left.currentTab = 'selectedComponent';
       }
     }
-  )
+  );
 
   onMounted(() => {
     if (params?.tabs?.length) {
-      sharedState.tabs = params.tabs
+      sharedState.tabs = params.tabs;
     }
     if (!sharedState.left.currentTab && params?.tabs?.length) {
-      sharedState.left.currentTab = params.tabs[0].name
+      sharedState.left.currentTab = params.tabs[0].name;
     }
-  })
+  });
 
   return {
     stateless,
     state,
     sharedState,
     methods,
-  }
-}
+  };
+};

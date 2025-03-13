@@ -1,5 +1,4 @@
-<style>
-</style>
+<style></style>
 
 <template>
   <!-- <slot name="field" v-bind="{ ...props }"> -->
@@ -10,7 +9,11 @@
       </label>
     </slot>
 
-    <q-icon class="q-ml-xs" v-if="props.infophrase" :name="props.infophraseIcon">
+    <q-icon
+      class="q-ml-xs"
+      v-if="props.infophrase"
+      :name="props.infophraseIcon"
+    >
       <slot name="tooltip" v-bind="{ ...props }">
         <q-tooltip>
           <div v-html="props.infophrase" />
@@ -32,7 +35,7 @@ export default defineComponent({
   props: {
     // <!-- ? use title instead of label in case the <slot> uses label for whatever reason -->
     title: {
-      type: String
+      type: String,
     },
     disabled: {
       type: Boolean,
@@ -42,24 +45,18 @@ export default defineComponent({
     },
     infophraseIcon: {
       type: String,
-      default: 'mdi-help-circle'
-    }
+      default: 'mdi-help-circle',
+    },
   },
   emits: ['update:modelValue'],
   setup(props, { emit }) {
+    const stateless = {};
 
-    const stateless = {
-    };
+    const state = reactive({});
 
-    const state = reactive({
-    });
+    const methods = {};
 
-    const methods = {
-    };
-
-    const computedState = {
-    };
-
+    const computedState = {};
 
     watch(
       () => state,
@@ -79,7 +76,7 @@ export default defineComponent({
       stateless,
       state,
       methods,
-      computedState
+      computedState,
     };
   },
 });

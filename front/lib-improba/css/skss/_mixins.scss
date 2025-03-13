@@ -10,7 +10,12 @@
 
       @if $color != transparent {
         @each $opacity, $hex in $background-opacity {
-          #{"--"+$name+"-"+$opacity}: #{rgba(red($color), green($color), blue($color), $hex)};
+          #{"--"+$name+"-"+$opacity}: #{rgba(
+              red($color),
+              green($color),
+              blue($color),
+              $hex
+            )};
         }
       }
     }
@@ -21,7 +26,7 @@
     .text-#{$name},
     .hover\:text-#{$name}:hover,
     .not-hover\:text-#{$name}:not(:hover) {
-      color: var(#{"--"+$name}) !important;
+      color: var(#{'--' + $name}) !important;
     }
     // #endregion
 
@@ -29,13 +34,13 @@
     .bg-#{$name},
     .hover\:bg-#{$name}:hover,
     .not-hover\:bg-#{$name}:not(:hover) {
-      background-color: var(#{"--"+$name}) !important;
+      background-color: var(#{'--' + $name}) !important;
     }
     @each $opacity, $hex in $background-opacity {
       .bg-#{$name}-#{$opacity},
       .hover\:bg-#{$name}-#{$opacity}:hover,
       .not-hover\:bg-#{$name}-#{$opacity}:not(:hover) {
-        background-color: var(#{"--"+$name+"-"+$opacity}) !important;
+        background-color: var(#{'--' + $name + '-' + $opacity}) !important;
       }
     }
     // #endregion
@@ -69,9 +74,9 @@
       .border-#{$name},
       .hover\:border-#{$name}:hover,
       .not-hover\:border-#{$name}:not(:hover) {
-        border-color: var(#{"--"+$name}) !important;
+        border-color: var(#{'--' + $name}) !important;
         border-width: #{$default-border-width};
-        border-style: solid
+        border-style: solid;
       }
       // #endregion
 
@@ -84,7 +89,7 @@
           0px
           0px
           #{$default-inner-border-width}
-          var(#{"--"+$name}) !important;
+          var(#{'--' + $name}) !important;
       }
 
       @each $width-name, $width-value in $inner-border-widths {
@@ -96,7 +101,7 @@
             0px
             0px
             #{$width-value}
-            var(#{"--"+$name}) !important;
+            var(#{'--' + $name}) !important;
         }
       }
       // #endregion
@@ -105,14 +110,14 @@
       .shadow-#{$name},
       .hover\:shadow-#{$name}:hover,
       .not-hover\:shadow-#{$name}:not(:hover) {
-        box-shadow: #{$default-shadow} var(#{"--"+$name}) !important;
+        box-shadow: #{$default-shadow} var(#{'--' + $name}) !important;
       }
 
       @each $width-name, $width-value in $shadow-widths {
         .shadow-#{$name}-#{$width-name},
         .hover\:shadow-#{$name}-#{$width-name}:hover,
         .not-hover\:shadow-#{$name}-#{$width-name}:not(:hover) {
-          box-shadow: $width-value var(#{"--"+$name}) !important;
+          box-shadow: $width-value var(#{'--' + $name}) !important;
         }
       }
       // #endregion

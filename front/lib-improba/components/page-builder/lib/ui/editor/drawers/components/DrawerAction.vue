@@ -10,7 +10,9 @@
       dense
       class="q-mx-sm"
       icon="mdi-dock-left"
-      :title="`${drawers.sharedState[EDrawerTypes.left].sticky ? 'Désa' : 'A' }ncrer le panneau de gauche`"
+      :title="`${
+        drawers.sharedState[EDrawerTypes.left].sticky ? 'Désa' : 'A'
+      }ncrer le panneau de gauche`"
       @click="methods.toggleStickyDrawers('left')"
     />
     <DBtn
@@ -26,16 +28,24 @@
       dense
       class="q-mx-sm"
       icon="mdi-dock-right"
-      :title="`${drawers.sharedState[EDrawerTypes.right].sticky ? 'Désa' : 'A' }ncrer le panneau de gauche`"
+      :title="`${
+        drawers.sharedState[EDrawerTypes.right].sticky ? 'Désa' : 'A'
+      }ncrer le panneau de gauche`"
       @click="methods.toggleStickyDrawers('right')"
     />
     <DBtn
       flat
       dense
       class="q-mx-sm"
-      :icon="drawers.sharedState.showOnHover ? 'mdi-cursor-default-click-outline' : 'mdi-cursor-default-click'"
+      :icon="
+        drawers.sharedState.showOnHover
+          ? 'mdi-cursor-default-click-outline'
+          : 'mdi-cursor-default-click'
+      "
       title="Ouvrir les panneaux avec un clic"
-      @click="drawers.sharedState.showOnHover = !drawers.sharedState.showOnHover"
+      @click="
+        drawers.sharedState.showOnHover = !drawers.sharedState.showOnHover
+      "
     />
   </DBtnDropdown>
 </template>
@@ -49,28 +59,31 @@ export default defineComponent({
   props: {
     type: {
       type: String,
-      default: ''
-    }
+      default: '',
+    },
   },
   setup(props) {
-    const drawers = useDrawers('')
+    const drawers = useDrawers('');
 
-    const stateless = {
-    };
+    const stateless = {};
 
-    const state = reactive({
-    });
+    const state = reactive({});
 
     const methods = {
-      toggleStickyDrawers (type?: string) {
-        drawers.methods.toggleDrawerState('show', type as EDrawerTypes|null, true)
-        drawers.methods.toggleDrawerState('sticky', type as EDrawerTypes|null)
-      }
+      toggleStickyDrawers(type?: string) {
+        drawers.methods.toggleDrawerState(
+          'show',
+          type as EDrawerTypes | null,
+          true
+        );
+        drawers.methods.toggleDrawerState(
+          'sticky',
+          type as EDrawerTypes | null
+        );
+      },
     };
 
-    const computedState = {
-    };
-
+    const computedState = {};
 
     watch(
       () => state,
@@ -81,8 +94,7 @@ export default defineComponent({
       }
     );
 
-    onMounted(() => {
-    });
+    onMounted(() => {});
 
     return {
       EDrawerTypes,
@@ -91,7 +103,7 @@ export default defineComponent({
       stateless,
       state,
       methods,
-      computedState
+      computedState,
     };
   },
 });

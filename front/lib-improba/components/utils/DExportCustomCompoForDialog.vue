@@ -55,8 +55,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, onMounted } from 'vue'
-import { useDialogPluginComponent } from 'quasar'
+import { defineComponent, reactive, onMounted } from 'vue';
+import { useDialogPluginComponent } from 'quasar';
 
 export default defineComponent({
   components: {},
@@ -79,7 +79,7 @@ export default defineComponent({
   setup() {
     // REQUIRED; must be called inside of setup()
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
-      useDialogPluginComponent()
+      useDialogPluginComponent();
     // dialogRef      - Vue ref to be applied to QDialog
     // onDialogHide   - Function to be used as handler for @hide on QDialog
     // onDialogOK     - Function to call to settle dialog with "ok" outcome
@@ -104,12 +104,12 @@ export default defineComponent({
           value: 'excel',
         },
       ],
-    }
+    };
 
     const state = reactive({
       name: '',
       type: 'excel',
-    })
+    });
 
     return {
       // This is REQUIRED;
@@ -126,7 +126,7 @@ export default defineComponent({
         onDialogOK({
           type: state.type,
           name: state.name,
-        })
+        });
         // or with payload: onDialogOK({ ... })
         // ...and it will also hide the dialog automatically
       },
@@ -135,7 +135,7 @@ export default defineComponent({
       onCancelClick: onDialogCancel,
       state,
       stateless,
-    }
+    };
   },
-})
+});
 </script>

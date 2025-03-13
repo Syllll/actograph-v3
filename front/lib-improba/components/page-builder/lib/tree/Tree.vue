@@ -50,8 +50,7 @@ export default defineComponent({
 
     const methods = {};
 
-    onMounted(() => {
-    });
+    onMounted(() => {});
 
     return {
       props,
@@ -62,6 +61,4 @@ export default defineComponent({
 });
 </script>
 
-<style lang="scss" scoped>
-
-</style>
+<style lang="scss" scoped></style>

@@ -55,6 +55,16 @@ export const init = (
   // Register the check auth function to the router
   router.beforeEach(checkAuth);
 
+  // If electron
+  if (process.env.MODE === 'electron') {
+    // Get the url param named targetRoute
+    const url = new URL(window.location.href);
+    const targetRoute = url.searchParams.get('targetRoute');
+    if (targetRoute) {
+      router.push(targetRoute);
+    }
+  }
+
   // We call the check auth function manually here so that it will trigger at startup
   // If not call, it does not fire because the route is already resolve when we init the app
   checkAuth(

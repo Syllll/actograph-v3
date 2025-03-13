@@ -1,4 +1,11 @@
-import { reactive, watch, onMounted, onBeforeMount, nextTick, onUnmounted } from 'vue';
+import {
+  reactive,
+  watch,
+  onMounted,
+  onBeforeMount,
+  nextTick,
+  onUnmounted,
+} from 'vue';
 import { replaceAll } from '@lib-improba/utils/general.utils';
 import { useQuasar } from 'quasar';
 import { useTree } from './use-tree';
@@ -20,19 +27,20 @@ export const useBuilderVars = (props: any, context?: any) => {
       if (props.builderJson.props.__screen) {
         const screenProps = props.builderJson.props.__screen as any;
         if (screenProps.sm && screen.lt.sm) {
-          componentProps = {...componentProps, ...screenProps.sm};
-        } else if (screenProps.md && screen.lt.md ) {
-          componentProps = {...componentProps, ...screenProps.md};
-        } else if ( screenProps.lg && screen.lt.lg) {
-          componentProps = {...componentProps, ...screenProps.lg};
+          componentProps = { ...componentProps, ...screenProps.sm };
+        } else if (screenProps.md && screen.lt.md) {
+          componentProps = { ...componentProps, ...screenProps.md };
+        } else if (screenProps.lg && screen.lt.lg) {
+          componentProps = { ...componentProps, ...screenProps.lg };
         } else if (screenProps.xl && screen.lt.xl) {
-          componentProps = {...componentProps, ...screenProps.xl};
+          componentProps = { ...componentProps, ...screenProps.xl };
         }
       }
 
-      return componentProps
+      return componentProps;
     },
-    populateProps: () => {// We have two things:
+    populateProps: () => {
+      // We have two things:
       // - props.builderJson.props: the props of the component
       // - props.builderVars: the variables that we want to replace in the props
       // In this methods, we will look for the variables in the props ({{ MESSAGE }}) and replace them by the given variables in props.builderVars (builderVars.MESSAGE='toto' for example)
@@ -120,7 +128,7 @@ export const useBuilderVars = (props: any, context?: any) => {
     nextTick(() => {
       window.addEventListener('resize', methods.onResize);
     });
-  })
+  });
 
   onUnmounted(() => {
     window.removeEventListener('resize', methods.onResize);

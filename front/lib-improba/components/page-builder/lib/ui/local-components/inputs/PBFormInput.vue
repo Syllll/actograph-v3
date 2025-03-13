@@ -5,7 +5,7 @@
       :class="`q-mr-sm ${props.labelColClass}`"
       :style="`
         max-height: 40px;
-        ${ props.labelMinWidth ? 'min-width: ' + props.labelMinWidth : ''}
+        ${props.labelMinWidth ? 'min-width: ' + props.labelMinWidth : ''}
       `"
     >
       <slot name="label">
@@ -17,9 +17,13 @@
       </slot>
     </div>
     <div class="col column full-width">
-      <div class="col-auto row" v-if="props.label && props.labelPosition === 'top'">
+      <div
+        class="col-auto row"
+        v-if="props.label && props.labelPosition === 'top'"
+      >
         <slot name="inner-label" :props="$props">
-          <PBFormInputLabel class="col-auto"
+          <PBFormInputLabel
+            class="col-auto"
             :textRight="false"
             :label="label || ''"
             :tooltip="props.labelTooltip"

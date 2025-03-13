@@ -1,16 +1,16 @@
-import { INode } from '../../tree/types'
-import { IDragSharedState } from './drag.interface'
-import { EDrawerTypes, IDrawer, IDrawerSharedState } from './drawers.interface'
+import { INode } from '../../tree/types';
+import { IDragSharedState } from './drag.interface';
+import { EDrawerTypes, IDrawer, IDrawerSharedState } from './drawers.interface';
 
 export enum ESources {
   parent = 'parent',
-  iframe = 'iframe'
+  iframe = 'iframe',
 }
 // export type TSources = keyof typeof ESources
 
 export enum EUpdateType {
   change = 'change',
-  sync = 'sync'
+  sync = 'sync',
 }
 // export type TUpdateType = keyof typeof EUpdateType
 
@@ -22,24 +22,24 @@ export enum EUpdateType {
 // export type TComposables = keyof typeof EComposables
 
 export interface IContentUpdateSelection {
-  selectedId?: number
+  selectedId?: number;
 }
 
 export interface IContentUpdatePageBuilderJson {
-  pageBuilderJson: INode | null
+  pageBuilderJson: INode | null;
 }
 
 export interface IDrawerUpdateState {
-  type: EDrawerTypes,
+  type: EDrawerTypes;
 
-  show?: boolean,
-  active?: boolean,
-  sticky?: boolean,
+  show?: boolean;
+  active?: boolean;
+  sticky?: boolean;
 }
 
 export enum ESyncPingpongType {
   ping = 'ping',
-  pong = 'pong'
+  pong = 'pong',
 }
 
 export enum ESyncMessageType {
@@ -63,28 +63,25 @@ export enum ESyncMessageType {
   drag = 'drag',
   drop = 'drop',
   // * create from component modal
-  create = 'create'
+  create = 'create',
 }
 
 // Every possible message content
-export interface ISyncMessageContent extends
-  Partial<IContentUpdateSelection>,
-  Partial<IContentUpdatePageBuilderJson>,
-
-  // Drawers
-  // Partial<IDrawerSharedState>,
-  Partial<IDrawerUpdateState>,
-
-  // DragCard
-  Partial<IDragSharedState>
-{}
+export interface ISyncMessageContent
+  extends Partial<IContentUpdateSelection>,
+    Partial<IContentUpdatePageBuilderJson>,
+    // Drawers
+    // Partial<IDrawerSharedState>,
+    Partial<IDrawerUpdateState>,
+    // DragCard
+    Partial<IDragSharedState> {}
 
 export interface ISyncMessage {
-  type: ESyncMessageType,
-  content?: ISyncMessageContent
+  type: ESyncMessageType;
+  content?: ISyncMessageContent;
 }
 
 export interface ISyncParsedMessage {
-  type: ESyncMessageType,
-  content?: string
+  type: ESyncMessageType;
+  content?: string;
 }

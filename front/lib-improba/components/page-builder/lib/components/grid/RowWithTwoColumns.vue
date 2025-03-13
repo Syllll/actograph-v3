@@ -46,8 +46,9 @@ export default defineComponent({
       builderOptions: {
         label: 'First column width',
         rules: [
-          (v: number|string) =>
-              (Number(v) >= 1 && Number(v) <= 12) || 'Column 1 width must be between 1 and 12',
+          (v: number | string) =>
+            (Number(v) >= 1 && Number(v) <= 12) ||
+            'Column 1 width must be between 1 and 12',
         ],
       },
     },
@@ -57,8 +58,9 @@ export default defineComponent({
       builderOptions: {
         label: 'Second column width',
         rules: [
-          (v: number|string) =>
-            (Number(v) >= 1 && Number(v) <= 12) || 'Column 2 width must be between 1 and 12',
+          (v: number | string) =>
+            (Number(v) >= 1 && Number(v) <= 12) ||
+            'Column 2 width must be between 1 and 12',
         ],
       },
     },

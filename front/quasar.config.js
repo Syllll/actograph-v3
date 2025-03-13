@@ -10,6 +10,7 @@
 
 const { configure } = require('quasar/wrappers');
 const path = require('path');
+const { spawn } = require('child_process');
 
 const fs = require('fs');
 const packageJson = fs.readFileSync('./package.json');
@@ -53,7 +54,7 @@ module.exports = configure(function (/* ctx */) {
         node: 'node20',
       },
 
-      vueRouterMode: process.env.VUE_ROUTER_MODE ?? 'history', // available values: 'hash', 'history'
+      vueRouterMode: process.env.VUE_ROUTER_MODE ?? 'hash', // available values: 'hash', 'history'
       // vueRouterBase,
       // vueDevtools,
       // vueOptionsAPI: false,
@@ -82,7 +83,7 @@ module.exports = configure(function (/* ctx */) {
           '@services': path.resolve(__dirname, './src/services'),
           '@components': path.resolve(__dirname, './src/components'),
           '@utils': path.resolve(__dirname, './src/utils'),
-          '@lib-improba': path.resolve(__dirname, './lib-improba'),
+          '@lib-improba': path.resolve(__dirname, './lib-improba')
         });
       },
 
@@ -115,7 +116,7 @@ module.exports = configure(function (/* ctx */) {
                     tsconfigPath: 'tsconfig.vue-tsc.json',
                   },
             eslint: {
-              lintCommand: 'eslint "./**/*.{js,ts,mjs,cjs,vue}"',
+              lintCommand: 'eslint "./**/*.{js,ts,mjs,cjs,vue}" --ignore-pattern "src-electron/extra-resources/*"',
             },
           },
           { server: false },
@@ -126,9 +127,54 @@ module.exports = configure(function (/* ctx */) {
         API_URL: process.env.API_URL, // 'http://localhost:3000',
         APP_VERSION: version,
         APP_NAME: appname,
-        VUE_ROUTER_MODE: process.env.VUE_ROUTER_MODE || 'history',
+        VUE_ROUTER_MODE: process.env.VUE_ROUTER_MODE || 'hash',
         DEFAULT_COLOR_MODE: process.env.DEFAULT_COLOR_MODE || 'light',
       },
+      beforeBuild: (ctx) => {
+        const promise = new Promise((resolve) => {
+          const child = spawn(
+            `cd ../api && \
+            yarn install --production=false && \
+            ./node_modules/.bin/rimraf dist && \
+            ./node_modules/.bin/nest build && \
+            cd ../front && \
+            ./node_modules/.bin/rimraf ./src-electron/extra-resources/api && \
+            mkdir ./src-electron/extra-resources/api && \
+            cp -r ./../api/dist ./src-electron/extra-resources/api/dist && \
+            cp -r ./../api/node_modules ./src-electron/extra-resources/api/dist/node_modules && \
+            cp -r ./../api/.env ./src-electron/extra-resources/api/.env`,
+            {
+              stdio: 'inherit',
+              shell: true,
+            }
+          );
+
+          /*child.stdout.on('data', (data) => {
+            console.log(`stdout: ${data}`);
+          });
+
+          child.stderr.on('data', (data) => {
+            console.log(`stderr: ${data}`);
+          });*/
+
+          child.on('close', function (code, signal) {
+            console.log(
+              'child process exited with ' + `code ${code} and signal ${signal}`
+            );
+            if (code === 0) {
+              resolve();
+            } else {
+              rejects();
+            }
+          });
+
+          // child.stdin() << "cd ./src-nestjs" << "yarn install; yarn build; yarn start:prod";
+        });
+        return promise;
+      },
+      afterBuild: ({ quasarConf }) => {},
+      beforeDev: ({ quasarConf }) => {},
+      afterDev: ({ quasarConf }) => {},
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
@@ -237,7 +283,7 @@ module.exports = configure(function (/* ctx */) {
 
       inspectPort: 5858,
 
-      bundler: 'packager', // 'packager' or 'builder'
+      bundler: 'builder', // 'packager' or 'builder'
 
       packager: {
         // https://github.com/electron-userland/electron-packager/blob/master/docs/api.md#options
@@ -253,7 +299,28 @@ module.exports = configure(function (/* ctx */) {
       builder: {
         // https://www.electron.build/configuration/configuration
 
-        appId: 'front',
+        appId: 'actograph-v3',
+        extraResources: ['./src-electron/extra-resources/**'],
+
+        productName: 'ActoGraph-v3',
+        copyright: '©2025 SymAlgo Technologies',
+        mac: {
+          'category': 'public.app-category.utilities'
+        },
+        win: {
+          'target': 'nsis'
+        },
+        linux: {
+          'target': ['AppImage'],
+          'category': 'Utility'
+        },
+        publish: [
+          {
+            provider: 'github',
+            owner: 'Syllll',
+            repo: 'actograph-v3'
+          }
+        ]
       },
     },
 

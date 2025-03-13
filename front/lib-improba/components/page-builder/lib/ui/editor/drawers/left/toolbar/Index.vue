@@ -10,7 +10,6 @@
         <ShortcutAction />
         <DrawerAction />
         <ResizeAction />
-
       </div>
     </div>
   </div>
@@ -28,7 +27,7 @@ export default defineComponent({
   components: {
     ShortcutAction,
     DrawerAction,
-    ResizeAction
+    ResizeAction,
   },
   props: {
     myTreeId: {
@@ -44,14 +43,13 @@ export default defineComponent({
       previousUrl: router.currentRoute.value.query.previousUrl,
     });
 
-    const methods = {
-    }
+    const methods = {};
 
     return {
       props,
       router,
       state,
-      methods
+      methods,
     };
   },
 });

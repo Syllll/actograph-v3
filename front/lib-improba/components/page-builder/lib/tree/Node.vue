@@ -28,7 +28,9 @@
         @mouseenter="state.hoverToolbar = true"
         @mouseleave="state.hoverToolbar = false"
       >
-        <div class="row bg-pb-editor-background-dark-60 blur text-pb-editor-text">
+        <div
+          class="row bg-pb-editor-background-dark-60 blur text-pb-editor-text"
+        >
           <div class="non-selectable">
             {{ props.builderJson.id }} - {{ props.builderJson.name }}
           </div>
@@ -58,7 +60,7 @@
       'rounded-less inner-border-pb-editor-accent-thin':
         !computedState.isReadonly.value &&
         tree.sharedState.selected?.id === props.builderJson.id,
-        // || tree.sharedState.softSelected?.id === props.builderJson.id,
+      // || tree.sharedState.softSelected?.id === props.builderJson.id,
 
       // ? COPIED
       'rounded-lesser inner-border-pb-editor-secondary-thin':
@@ -180,7 +182,7 @@ export default defineComponent({
 
     const computedState = {
       isReadonly: computed(() => {
-        return tree.sharedState.readonly || props.builderJson.readonly
+        return tree.sharedState.readonly || props.builderJson.readonly;
       }),
       componentPosition: computed(() => {
         const output = {
@@ -221,7 +223,7 @@ export default defineComponent({
         event.stopPropagation();
         // if (tree.sharedState.softSelected?.id === props.builderJson.id) {
         tree.sharedState.selected = props.builderJson;
-          // tree.sharedState.softSelected = null;
+        // tree.sharedState.softSelected = null;
         // } else {
         //   tree.sharedState.softSelected = props.builderJson;
         // }
@@ -326,7 +328,6 @@ export default defineComponent({
 
 <style scoped lang="scss">
 .node {
-
   &-hover {
     position: relative;
 
@@ -388,7 +389,7 @@ export default defineComponent({
 
   &-copied {
     position: relative;
-    box-shadow: inset 0 0 0 0.2rem var(--pb-editor-secondary)
+    box-shadow: inset 0 0 0 0.2rem var(--pb-editor-secondary);
   }
 }
 

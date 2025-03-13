@@ -12,22 +12,11 @@
   >
     <!-- Card content -->
     <div
-      class="
-        q-pa-sm
-        column
-
-        full-width
-        full-height
-
-        smooth
-        rounded-less
-
-        bg-pb-editor-secondary-60
-        hover:inner-border-pb-editor-primary-low
-      "
+      class="q-pa-sm column full-width full-height smooth rounded-less bg-pb-editor-secondary-60 hover:inner-border-pb-editor-primary-low"
       style="font-size: 0.7rem"
       :class="{
-        'inner-border-pb-editor-primary-medium': props.selectedName === props._name
+        'inner-border-pb-editor-primary-medium':
+          props.selectedName === props._name,
       }"
     >
       <!-- The title "header" -->

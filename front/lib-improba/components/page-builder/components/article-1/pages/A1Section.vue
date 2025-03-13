@@ -23,7 +23,7 @@
     `"
     :style="{
       ...props.customStyle,
-      'height': props.customHeight || 'fit-content'
+      height: props.customHeight || 'fit-content',
     }"
   >
     <slot name="default" />
@@ -47,11 +47,14 @@ import { useProps } from '@lib-improba/components/page-builder/lib/ui/use-props'
 const { methods: propsMethods } = useProps();
 const treeProps: any = propsMethods.getPropsByTheme('tree');
 const styleProps: any = propsMethods.getPropsByTheme('style');
-const customHeight: any = propsMethods.getPropByName('customHeight', 'Background');
+const customHeight: any = propsMethods.getPropByName(
+  'customHeight',
+  'Background'
+);
 
 export default defineComponent({
   components: {
-    EmptySlot
+    EmptySlot,
   },
   props: {
     ...treeProps,
@@ -77,14 +80,14 @@ export default defineComponent({
           },
           {
             label: 'Secondaire',
-            value: 'secondary'
+            value: 'secondary',
           },
           {
             label: 'Tertiaire',
-            value: 'tertiary'
-          }
-        ]
-      }
+            value: 'tertiary',
+          },
+        ],
+      },
     },
     imageSource: {
       type: String,
@@ -95,32 +98,32 @@ export default defineComponent({
       },
     },
     paralax: {
-        type: Boolean,
-        default: false,
-        builderOptions: {
-          displayCondition: ({ props }: INode) => props['type'] === 'image',
-          category: 'Background',
-          options: [
-            {
-              label: 'Oui',
-              value: true
-            },
-            {
-              label: 'Non',
-              value: false
-            }
-          ]
-        }
-      }
+      type: Boolean,
+      default: false,
+      builderOptions: {
+        displayCondition: ({ props }: INode) => props['type'] === 'image',
+        category: 'Background',
+        options: [
+          {
+            label: 'Oui',
+            value: true,
+          },
+          {
+            label: 'Non',
+            value: false,
+          },
+        ],
+      },
+    },
   },
   builderOptions: {
     slots: ['default', 'deco'],
     category: 'A1',
     type: 'select',
-    description: 'Default A1 section'
+    description: 'Default A1 section',
   },
   mounted() {
-    this.methods.setBackgroundImage()
+    this.methods.setBackgroundImage();
 
     // if (this.props.paralax) {
     //   window.addEventListener('scroll', this.methods.handleScroll)
@@ -140,25 +143,26 @@ export default defineComponent({
       //   containerRef.value.style.backgroundPositionY = -scrollPosition * 0.5 + 'px'
       // },
 
-      setBackgroundImage () {
+      setBackgroundImage() {
         // if (!props.imageSource || props.type !== 'image') { return }
 
-        const el = containerRef.value
+        const el = containerRef.value;
         // console.log({ el })
 
         // console.log({ imgsrc: props.imageSource })
-        el.style.backgroundImage = (!props.imageSource || props.type !== 'image')
-          ? null
-          : `url('${props.imageSource}')`
-      }
-    }
+        el.style.backgroundImage =
+          !props.imageSource || props.type !== 'image'
+            ? null
+            : `url('${props.imageSource}')`;
+      },
+    };
 
     watch(
       () => [props.type, props.imageSource],
       () => {
-        methods.setBackgroundImage()
+        methods.setBackgroundImage();
       }
-    )
+    );
 
     // watch(
     //   () => props.paralax,

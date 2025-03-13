@@ -27,3 +27,53 @@
  *   }
  * }
  */
+
+/**
+ * This file is used specifically for security reasons.
+ * Here you can access Nodejs stuff and inject functionality into
+ * the renderer thread (accessible there through the "window" object)
+ *
+ * WARNING!
+ * If you import anything from node_modules, then make sure that the package is specified
+ * in package.json > dependencies and NOT in devDependencies
+ *
+ * Example (injects window.myAPI.doAThing() into renderer thread):
+ *
+ *   import { contextBridge } from 'electron'
+ *
+ *   contextBridge.exposeInMainWorld('myAPI', {
+ *     doAThing: () => {}
+ *   })
+ */
+
+import { contextBridge, ipcRenderer } from 'electron';
+
+const validChannels = ['exit', 'maximize', 'minimize'];
+
+// Expose protected methods that allow the renderer process to use
+// the ipcRenderer without exposing the entire object
+contextBridge.exposeInMainWorld('api', {
+  send: (channel: string, data: any) => {
+    // whitelist channels
+    if (validChannels.includes(channel)) {
+      ipcRenderer.send(channel, data);
+    } else {
+      throw new Error(`Invalid send channel: ${channel}`);
+    }
+  },
+  invoke: (channel: string, data: unknown): Promise<unknown> => {
+    // whitelist channels
+    // console.log('validInvokeChannels', validInvokeChannels());
+    if (validChannels.includes(channel)) {
+      return ipcRenderer.invoke(channel, data);
+    } else {
+      throw new Error(`Invalid invoke channel: ${channel}`);
+    }
+  },
+  on: (channel: string, func: any) => {
+    if (validChannels.includes(channel)) {
+      // Deliberately strip event as it includes `sender`
+      ipcRenderer.on(channel, (event, ...args) => func(...args));
+    }
+  },
+});

@@ -4,10 +4,30 @@ enum EColors {
   accent = 'accent',
   success = 'success',
   warning = 'warning',
-  danger = 'danger'
+  danger = 'danger',
 }
-type TAccentuations = '' | '-50' | '-100' | '-300' | '-400' | '-500' | '-700' | '-800' | '-900' | '-950';
-type TOpacities = '' | '-10' | '-20' | '-30' | '-40' | '-50' | '-60' | '-70' | '-80' | '-90';
+type TAccentuations =
+  | ''
+  | '-50'
+  | '-100'
+  | '-300'
+  | '-400'
+  | '-500'
+  | '-700'
+  | '-800'
+  | '-900'
+  | '-950';
+type TOpacities =
+  | ''
+  | '-10'
+  | '-20'
+  | '-30'
+  | '-40'
+  | '-50'
+  | '-60'
+  | '-70'
+  | '-80'
+  | '-90';
 type TVariatedColor = `${keyof typeof EColors}${TAccentuations}${TOpacities}`;
 
 interface IColorStates {
@@ -23,11 +43,11 @@ interface IColorStates {
 
 interface ISelectorStates {
   /** Default stuff */
-  base?: string
+  base?: string;
 
   /** On hover */
-  hover?: string
-  focus?: string
+  hover?: string;
+  focus?: string;
 
   errored?: string;
   erroredHover?: string;
@@ -35,15 +55,15 @@ interface ISelectorStates {
 }
 
 export interface ISkssSelectors {
-  text?: string|ISelectorStates
+  text?: string | ISelectorStates;
 
-  bg?: string|ISelectorStates
-  border?: string|ISelectorStates
-  innerBorder?: string|ISelectorStates
-  shadow?: string|ISelectorStates
+  bg?: string | ISelectorStates;
+  border?: string | ISelectorStates;
+  innerBorder?: string | ISelectorStates;
+  shadow?: string | ISelectorStates;
 
-  rounded?: string|ISelectorStates
+  rounded?: string | ISelectorStates;
 
-  width?: string|ISelectorStates
-  height?: string|ISelectorStates
+  width?: string | ISelectorStates;
+  height?: string | ISelectorStates;
 }

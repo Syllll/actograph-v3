@@ -10,8 +10,8 @@
 import { useProps } from '@lib-improba/components/page-builder/lib/ui/use-props';
 import { defineComponent } from 'vue';
 
-const { methods: propsMethods } = useProps()
-const styleProps: any = propsMethods.getPropsByTheme('style')
+const { methods: propsMethods } = useProps();
+const styleProps: any = propsMethods.getPropsByTheme('style');
 
 export default defineComponent({
   props: {
@@ -30,10 +30,10 @@ export default defineComponent({
         options: [
           { label: 'Petit (18px)', value: '-small' },
           { label: 'Normal (28px)', value: '' },
-          { label: 'Grand (32px)', value: '-big' }
-        ]
-      }
-    }
+          { label: 'Grand (32px)', value: '-big' },
+        ],
+      },
+    },
   },
   builderOptions: {
     slots: ['default'],

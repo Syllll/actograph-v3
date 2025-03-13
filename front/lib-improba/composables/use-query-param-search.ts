@@ -15,14 +15,14 @@ export const useQueryParamSearch = (filterNames: string[]) => {
 
   const state = reactive({
     loading: false,
-    filterValues: {} as {[key: string]: string | null | undefined},
+    filterValues: {} as { [key: string]: string | null | undefined },
   });
 
   const methods = {
     init: () => {
       state.loading = true;
 
-      const filterValues: {[key: string]: string | null | undefined} = {};
+      const filterValues: { [key: string]: string | null | undefined } = {};
 
       for (const filterName of filterNames) {
         const queryParamValue =
@@ -55,7 +55,7 @@ export const useQueryParamSearch = (filterNames: string[]) => {
     () => state.filterValues,
     (newValues) => {
       const toBeCleared: string[] = [];
-      const toUpdate: {[key: string]: string} = {};
+      const toUpdate: { [key: string]: string } = {};
 
       for (const filterName of filterNames) {
         const newValue = newValues[filterName];
@@ -88,7 +88,7 @@ export const useQueryParamSearch = (filterNames: string[]) => {
   watch(
     () => router.currentRoute.value.query,
     (newValues) => {
-      const toBeUpdated: {[key: string]: string} = {};
+      const toBeUpdated: { [key: string]: string } = {};
       for (const filterName of filterNames) {
         const filterValue = state.filterValues[filterName];
         const queryParamValue =
@@ -108,5 +108,5 @@ export const useQueryParamSearch = (filterNames: string[]) => {
   return {
     state,
     methods,
-  }
-}
+  };
+};

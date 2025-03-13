@@ -16,7 +16,7 @@ export interface IProp {
   category?: string;
   class?: string;
   placeholder?: string;
-  displayCondition?: ((selected: INode) => boolean);
+  displayCondition?: (selected: INode) => boolean;
   options?:
     | {
         label: string;
@@ -26,10 +26,12 @@ export interface IProp {
         label: string;
         value: any;
       }[])
-    | (() => Promise<{
-        label: string;
-        value: any;
-      }[]>);
+    | (() => Promise<
+        {
+          label: string;
+          value: any;
+        }[]
+      >);
 }
 
 const listProps = (component: any): { name: string; props: IProp[] }[] => {
@@ -68,7 +70,7 @@ const listProps = (component: any): { name: string; props: IProp[] }[] => {
       class: bo?.class,
       placeholder: bo?.placeholder,
       responsive: bo?.responsive,
-      displayCondition: bo?.displayCondition
+      displayCondition: bo?.displayCondition,
     } as IProp;
 
     props.push(prop);

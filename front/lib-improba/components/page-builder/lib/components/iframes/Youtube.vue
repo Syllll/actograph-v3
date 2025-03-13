@@ -17,11 +17,14 @@
 import { defineComponent, onMounted, reactive, watch } from 'vue';
 import { useProps } from '../../ui/use-props';
 
-const { methods: propsMethods } = useProps()
+const { methods: propsMethods } = useProps();
 
-const styleProps: any = propsMethods.getPropsByTheme('style')
-const sizeProps: any = propsMethods.getPropsByTheme('size', 'Container')
-const frameProps: any = propsMethods.createMultipleStringProps(['frameClass', 'frameWidth', 'frameHeight'], 'Frame')
+const styleProps: any = propsMethods.getPropsByTheme('style');
+const sizeProps: any = propsMethods.getPropsByTheme('size', 'Container');
+const frameProps: any = propsMethods.createMultipleStringProps(
+  ['frameClass', 'frameWidth', 'frameHeight'],
+  'Frame'
+);
 
 export default defineComponent({
   props: {
@@ -35,9 +38,10 @@ export default defineComponent({
     allow: {
       type: String,
       builderOptions: {
-        default: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+        default:
+          'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
       },
-      required: false
+      required: false,
     },
   },
   emits: [],
@@ -47,19 +51,13 @@ export default defineComponent({
     description: 'Default YouTube iframe',
   },
   setup(props) {
+    const stateless = {};
 
-    const stateless = {
-    };
+    const state = reactive({});
 
-    const state = reactive({
-    });
+    const methods = {};
 
-    const methods = {
-    };
-
-    const computedState = {
-    };
-
+    const computedState = {};
 
     watch(
       () => state,
@@ -70,15 +68,14 @@ export default defineComponent({
       }
     );
 
-    onMounted(() => {
-    });
+    onMounted(() => {});
 
     return {
       props,
       stateless,
       state,
       methods,
-      computedState
+      computedState,
     };
   },
 });

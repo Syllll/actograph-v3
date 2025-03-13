@@ -1,6 +1,7 @@
 <template>
   <q-layout view="hHh lpR fff">
     <q-header>
+      <ElectronBar v-if="$q.platform.is.electron" />
       <Toolbar
         :roleTitle="props.roleTitle"
         :menuItems="computedState.menuItems.value"
@@ -30,10 +31,12 @@ import { menuItems } from './menu-items';
 import { userMenuItems } from './user-menu-items';
 import { useAuth } from 'src/../lib-improba/composables/use-auth';
 import { useI18n } from 'vue-i18n';
+import ElectronBar from './../electron-bar/Index.vue';
 
 export default defineComponent({
   components: {
     Toolbar,
+    ElectronBar,
   },
   props: {
     menuItems: {

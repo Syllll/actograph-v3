@@ -14,16 +14,14 @@ export const adminRoutes: RouteRecordRaw[] = [
         path: 'users',
         name: 'admin_users',
         meta,
-        component: () =>
-          import('@pages/adminspace/users/Index.vue'),
+        component: () => import('@pages/adminspace/users/Index.vue'),
         redirect: { name: 'admin_users_list' },
         children: [
           {
             path: 'list',
             name: 'admin_users_list',
             meta,
-            component: () =>
-              import('@pages/adminspace/users/list/Index.vue'),
+            component: () => import('@pages/adminspace/users/list/Index.vue'),
           },
         ],
       },

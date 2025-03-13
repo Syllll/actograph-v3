@@ -339,9 +339,15 @@ export default defineComponent({
         // rowsPerPage === 0 ? state.pagination.rowsNumber : rowsPerPage
 
         // calculate starting row of data
-        const offset = page !== undefined ? (page - 1) * rowsPerPage : undefined;
+        const offset =
+          page !== undefined ? (page - 1) * rowsPerPage : undefined;
 
-        const order = descending === undefined ? undefined : descending === true ? 'DESC' : 'ASC';
+        const order =
+          descending === undefined
+            ? undefined
+            : descending === true
+            ? 'DESC'
+            : 'ASC';
 
         const response = await props.fetchFunction(
           limit as number,
@@ -374,9 +380,7 @@ export default defineComponent({
         );
       },
       filteredChips: (chips: any[], value: any) => {
-        return chips.filter(
-          (chip) => chip.value === value
-        );
+        return chips.filter((chip) => chip.value === value);
       },
     };
 

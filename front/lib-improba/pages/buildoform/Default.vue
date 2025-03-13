@@ -1,30 +1,27 @@
 <template>
   <div>
-    <h1 class="hover:bg-primary hover:text-italic smooth width-fit">Build'O'Form</h1>
+    <h1 class="hover:bg-primary hover:text-italic smooth width-fit">
+      Build'O'Form
+    </h1>
 
     <build-o-form
       v-model="state.user"
-
       :fields="stateless.fields"
       :styles="{
         steps: stateless.stepStyle,
         row: stateless.rowStyle,
         field: stateless.fieldStyle,
       }"
-
       @event:field-touched="(e: IField) => methods.handleEvent('fieldTouched', e)"
       @event:model-updated="(e: any) => methods.handleEvent('modelUpdated', e)"
       @event:form-submitted="(e: boolean) => methods.handleEvent('formSubmitted', e)"
       @event:step-change="(e: IStep) => methods.handleEvent('stepChange', e)"
-
       @submit="methods.submit"
     >
       <template v-slot:firstbase-title="{ step }">
         Slot: {{ step.name }}
       </template>
-      <template v-slot:firstbase-desc>
-        eza
-      </template>
+      <template v-slot:firstbase-desc> eza </template>
     </build-o-form>
   </div>
 </template>
@@ -32,21 +29,27 @@
 <script lang="ts">
 import { defineComponent, onMounted, reactive, watch } from 'vue';
 
+import {
+  IField,
+  IStep,
+} from './../../components/buildoform/lib/interfaces/field.interface';
+import {
+  IStepStyle,
+  IFieldStyle,
+  IRowStyle,
+} from './../../components/buildoform/lib/interfaces/style.interface';
 
-import { IField, IStep } from './../../components/buildoform/lib/interfaces/field.interface';
-import { IStepStyle, IFieldStyle, IRowStyle } from './../../components/buildoform/lib/interfaces/style.interface';
-
-import BuildOForm from './../../components/buildoform/Index.vue'
+import BuildOForm from './../../components/buildoform/Index.vue';
 import { useQuasar } from 'quasar';
 
 export default defineComponent({
   props: {},
   emits: [],
   components: {
-    BuildOForm
+    BuildOForm,
   },
   setup(props, ctx) {
-    const $q = useQuasar()
+    const $q = useQuasar();
 
     const state = reactive({
       user: {
@@ -57,15 +60,15 @@ export default defineComponent({
         condition: 'scared',
         likes: '',
         footSize: 42,
-        lastFullyChargedPhone: '1969-04-20'
-      }
+        lastFullyChargedPhone: '1969-04-20',
+      },
     });
 
     const stateless = {
       stepStyle: {
         container: 'q-ml-md',
         title: 'q-mb-none',
-        desc: ''
+        desc: '',
       } as IStepStyle,
 
       rowStyle: {
@@ -90,7 +93,7 @@ export default defineComponent({
           hover: 'primary-50',
 
           errored: 'danger-50',
-          erroredHover: 'danger-70'
+          erroredHover: 'danger-70',
         },
         shadow: {
           // base: 'secondary-dense',
@@ -110,12 +113,12 @@ export default defineComponent({
             name: 'First base',
             value: 'firstbase',
             desc: 'bip boup',
-            display: true
+            display: true,
           },
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
           conditions: [
             // { model: 'firstName', value: 'aze' }
@@ -134,7 +137,7 @@ export default defineComponent({
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
           conditions: [
             // { model: 'firstName', value: 'aze' }
@@ -144,7 +147,7 @@ export default defineComponent({
           required: true,
 
           label: 'Nom',
-          placeholder: 'Prénom'
+          placeholder: 'Prénom',
         },
         {
           is: 'QSelect',
@@ -153,7 +156,7 @@ export default defineComponent({
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
 
           model: 'gender',
@@ -186,7 +189,7 @@ export default defineComponent({
               conditions: [
                 { model: 'firstName', value: 'Anna' },
                 { model: 'lastName', value: 'Conda' },
-              ]
+              ],
             },
           ],
         },
@@ -197,7 +200,7 @@ export default defineComponent({
             name: 'Lookin goood...',
             desc: 'keep going',
             value: 'lookingood',
-            display: true
+            display: true,
           },
           cols: 'grow',
 
@@ -206,7 +209,11 @@ export default defineComponent({
           model: 'condition',
           options: [
             { label: 'Vivant', value: 'alive' },
-            { label: 'Terrifié par les arachnides', value: 'scared', color: 'red' },
+            {
+              label: 'Terrifié par les arachnides',
+              value: 'scared',
+              color: 'red',
+            },
             { label: 'Allergique à la photosynthèse', value: 'allergic' },
             { label: 'Autre', value: 'other' },
           ],
@@ -217,7 +224,7 @@ export default defineComponent({
           step: 'lookingood',
           cols: '6',
 
-          title: 'J\'aime..',
+          title: "J'aime..",
           required: true,
 
           emitValue: true,
@@ -225,16 +232,29 @@ export default defineComponent({
           optionValue: 'value',
           optionLabel: 'label',
 
-          conditions: [
-            { model: 'condition', value: 'not:other' }
-          ],
+          conditions: [{ model: 'condition', value: 'not:other' }],
 
           model: 'likes',
           options: [
             { label: 'Les CDs de Pascal Obispo', value: 'obispo' },
-            { label: 'Les fermes d\'huitres', value: 'oster', conditions: [{ model: 'condition', value: 'allergic'}] },
-            { label: 'Les réconstitutions du débarquement', value: 'debark', conditions: [{ model: 'condition', value: 'not:alive'}] },
-            { label: 'La faune et flore de la Meurte et Moselle', value: 'fnf', conditions: [{ model: 'condition', value: 'not:allergic'}, { model: 'condition', value: 'not:scared'}] },
+            {
+              label: "Les fermes d'huitres",
+              value: 'oster',
+              conditions: [{ model: 'condition', value: 'allergic' }],
+            },
+            {
+              label: 'Les réconstitutions du débarquement',
+              value: 'debark',
+              conditions: [{ model: 'condition', value: 'not:alive' }],
+            },
+            {
+              label: 'La faune et flore de la Meurte et Moselle',
+              value: 'fnf',
+              conditions: [
+                { model: 'condition', value: 'not:allergic' },
+                { model: 'condition', value: 'not:scared' },
+              ],
+            },
           ],
         },
         {
@@ -244,7 +264,7 @@ export default defineComponent({
           cols: {
             xs: 12,
             sm: 6,
-            md: 12
+            md: 12,
           },
 
           title: 'Pointure',
@@ -261,7 +281,7 @@ export default defineComponent({
           cols: {
             xs: 12,
             sm: 6,
-            md: 12
+            md: 12,
           },
 
           title: 'Dernière charge complète (téléphone)',
@@ -269,30 +289,28 @@ export default defineComponent({
           infophraseIcon: 'mdi-cactus',
 
           model: 'lastFullyChargedPhone',
-        }
-      ] as IField[]
+        },
+      ] as IField[],
     };
 
     const methods = {
-      submit () {
-        console.log({ user: state.user })
-        alert('oy')
+      submit() {
+        console.log({ user: state.user });
+        alert('oy');
       },
-      handleEvent (type: string, event: any) {
+      handleEvent(type: string, event: any) {
         // console.log({ type, event })
       },
-      log (args: any) {
-        console.log({ args })
-      }
+      log(args: any) {
+        console.log({ args });
+      },
     };
 
-    const computedState = {
-    };
+    const computedState = {};
 
     onMounted(() => {
-      $q.dark.set(false)
-    })
-
+      $q.dark.set(false);
+    });
 
     watch(
       () => state,

@@ -8,15 +8,15 @@
 @mixin defineColorLight($name, $color) {
   body.body--light {
     .text-#{$name} {
-      color: var(#{"--"+$name});
+      color: var(#{'--' + $name});
     }
 
     .bg-#{$name} {
-      background: var(#{"--"+$name});
+      background: var(#{'--' + $name});
     }
 
     .border-#{$name} {
-      border-color: var(#{"--"+$name});
+      border-color: var(#{'--' + $name});
     }
   }
 
@@ -30,15 +30,15 @@
 @mixin defineColorDark($name, $color) {
   body.body--dark {
     .text-#{$name} {
-      color: var(#{"--"+$name});
+      color: var(#{'--' + $name});
     }
 
     .bg-#{$name} {
-      background: var(#{"--"+$name});
+      background: var(#{'--' + $name});
     }
 
     .border-#{$name} {
-      border-color: var(#{"--"+$name});
+      border-color: var(#{'--' + $name});
     }
   }
 

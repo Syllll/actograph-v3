@@ -80,7 +80,7 @@ export const useUrl = (options: {
 
       const page = pageQuery?.length ? parseInt(pageQuery) : undefined;
       const rowsPerPage = rppQuery?.length ? parseInt(rppQuery) : undefined;
-      const sortBy = sbQuery?.length ? sbQuery as string : undefined;
+      const sortBy = sbQuery?.length ? (sbQuery as string) : undefined;
       const descending = dQuery?.length ? dQuery === 'true' : undefined;
 
       return { page, rowsPerPage, sortBy, descending, tableUrlId };

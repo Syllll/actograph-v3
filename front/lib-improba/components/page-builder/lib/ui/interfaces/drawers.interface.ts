@@ -1,37 +1,37 @@
 export enum EDrawerTypes {
   left = 'left',
-  right = 'right'
+  right = 'right',
 }
-export type TDrawerTypes = keyof typeof EDrawerTypes
+export type TDrawerTypes = keyof typeof EDrawerTypes;
 
 export interface IDrawerState {
-  active: boolean,
-  show: boolean,
-  sticky: boolean,
+  active: boolean;
+  show: boolean;
+  sticky: boolean;
 }
 
 export interface IDrawer extends IDrawerState {
-  width: string
+  width: string;
 
-  currentTab?: string // Used in the left drawer tabs control
+  currentTab?: string; // Used in the left drawer tabs control
 }
 
 export interface ITab {
-  name: string
-  label: string
+  name: string;
+  label: string;
 
-  shortcut: string
+  shortcut: string;
 }
 
 export interface IDrawerSharedState {
-  [EDrawerTypes.left]: IDrawer
-  [EDrawerTypes.right]: IDrawer
+  [EDrawerTypes.left]: IDrawer;
+  [EDrawerTypes.right]: IDrawer;
 
   frame: {
-    minWidth: number,
-    minHeight: number,
+    minWidth: number;
+    minHeight: number;
 
-    width: string,
-    height: string,
-  }
+    width: string;
+    height: string;
+  };
 }

@@ -16,13 +16,19 @@
           :errorInForm="state.errorInForm"
         >
           <DFormInput label="Nom" v-model="state.form.name" />
-          <DFormInput type="select" label="Type" v-model="state.form.type" :rules="rules.exist" :options="
-            // Convert the BlocTypeEnum into an array with label and value
-            Object.values(BlocTypeEnum).map((type) => ({
-              label: type,
-              value: type,
-            }))
-          " />
+          <DFormInput
+            type="select"
+            label="Type"
+            v-model="state.form.type"
+            :rules="rules.exist"
+            :options="
+              // Convert the BlocTypeEnum into an array with label and value
+              Object.values(BlocTypeEnum).map((type) => ({
+                label: type,
+                value: type,
+              }))
+            "
+          />
         </DForm>
       </div>
     </div>

@@ -24,17 +24,18 @@
         style="width: 100vw !important"
       >
         <div class="position-relative not-selectable">
-
           <!-- ? RESIZE DIMENSIONS -->
           <div
             class="position-absolute fit shadow-transparent smooth no-pointer-events"
-            :class="{ 'shadow-neutral': state.resize.x || state.resize.y}"
+            :class="{ 'shadow-neutral': state.resize.x || state.resize.y }"
           >
             <div
               class="text-center smooth"
               :class="{
-                'bg-transparent text-transparent': !state.resize.x && !state.resize.y,
-                'bg-pb-editor-background-dark-80 text-white': state.resize.x || state.resize.y
+                'bg-transparent text-transparent':
+                  !state.resize.x && !state.resize.y,
+                'bg-pb-editor-background-dark-80 text-white':
+                  state.resize.x || state.resize.y,
               }"
             >
               {{ Math.floor(parseInt(drawers.sharedState.frame.width)) }}
@@ -49,7 +50,7 @@
             class="overflow-x-hidden border-none rounded-less bg-white"
             :class="{
               'no-pointer-events': state.resize.x || state.resize.y,
-              'smooth': !state.resize.x && !state.resize.y
+              smooth: !state.resize.x && !state.resize.y,
             }"
             :style="{
               width: drawers.sharedState.frame.width,
@@ -62,24 +63,15 @@
           <!-- TODO PUT HANDLES IN COMPONENT -->
           <div
             class="position-absolute row items-center full-height"
-            style="top: 0; right: -5px;"
+            style="top: 0; right: -5px"
           >
             <div
               @mousedown="methods.startResizing('x')"
               @mouseup="methods.stopResizing"
-              class="
-                clickable
-                rounded
-                smooth
-
-                row
-                items-center
-                justify-center
-
-                hover:bg-pb-editor-text
-              "
+              class="clickable rounded smooth row items-center justify-center hover:bg-pb-editor-text"
               :class="{
-                'bg-pb-editor-neutral': !state.resize.x || (state.resize.x && state.resize.invert),
+                'bg-pb-editor-neutral':
+                  !state.resize.x || (state.resize.x && state.resize.invert),
                 'bg-pb-editor-text': state.resize.x && !state.resize.invert,
               }"
               style="height: 50px"
@@ -92,26 +84,15 @@
           <!-- TODO PUT HANDLES IN COMPONENT -->
           <div
             class="position-absolute row items-center full-height"
-            style="top: 0; left: -5px;"
+            style="top: 0; left: -5px"
           >
             <div
               @mousedown="methods.startResizing('x', true)"
               @mouseup="methods.stopResizing"
-              class="
-                position-absolute
-
-                clickable
-                rounded
-                smooth
-
-                row
-                items-center
-                justify-center
-
-                hover:bg-pb-editor-text
-              "
+              class="position-absolute clickable rounded smooth row items-center justify-center hover:bg-pb-editor-text"
               :class="{
-                'bg-pb-editor-neutral': !state.resize.x || (state.resize.x && !state.resize.invert),
+                'bg-pb-editor-neutral':
+                  !state.resize.x || (state.resize.x && !state.resize.invert),
                 'bg-pb-editor-text': state.resize.x && state.resize.invert,
               }"
               style="height: 50px"
@@ -124,24 +105,12 @@
           <!-- TODO PUT HANDLES IN COMPONENT -->
           <div
             class="position-absolute row justify-center full-width"
-            style="bottom: 15px;"
+            style="bottom: 15px"
           >
             <div
               @mousedown="methods.startResizing('y')"
               @mouseup="methods.stopResizing"
-              class="
-                position-absolute
-
-                clickable
-                rounded
-                smooth
-
-                row
-                items-center
-                justify-center
-
-                hover:bg-pb-editor-text
-              "
+              class="position-absolute clickable rounded smooth row items-center justify-center hover:bg-pb-editor-text"
               :class="{
                 'bg-pb-editor-neutral': !state.resize.y,
                 'bg-pb-editor-text': state.resize.y,
@@ -155,24 +124,15 @@
           <!-- ? CUBE RESIZE HANDLE -->
           <!-- TODO PUT HANDLES IN COMPONENT -->
 
-          <div
-            class="position-absolute"
-            style="right: 0;"
-          >
+          <div class="position-absolute" style="right: 0">
             <div
-              @mousedown="methods.startResizing('y'); methods.startResizing('x');"
-              @mouseup="methods.stopResizing"
-              class="
-                position-absolute
-
-                clickable
-                rounded
-                smooth
-
-                not-hover:bg-pb-editor-neutral
-                hover:bg-pb-editor-text
+              @mousedown="
+                methods.startResizing('y');
+                methods.startResizing('x');
               "
-              style="bottom: 0; right: -5px; height: 15px; width: 15px;"
+              @mouseup="methods.stopResizing"
+              class="position-absolute clickable rounded smooth not-hover:bg-pb-editor-neutral hover:bg-pb-editor-text"
+              style="bottom: 0; right: -5px; height: 15px; width: 15px"
             />
           </div>
         </div>
@@ -195,7 +155,7 @@ import { Tree } from './../../tree';
 import LeftDrawer from './drawers/left/Index.vue';
 import RightDrawer from './drawers/right/Index.vue';
 
-import Toolbar from '@lib-improba/components/layouts/standard/toolbar/Index.vue'
+import Toolbar from '@lib-improba/components/layouts/standard/toolbar/Index.vue';
 
 import { INode } from '../../tree/types';
 import { adminBlocService } from '@lib-improba/services/cms/admin/blocs/index.service';
@@ -217,7 +177,7 @@ export default defineComponent({
   props: {
     isIframe: {
       type: Boolean,
-      default: false
+      default: false,
     },
     modelValue: {
       type: Object as PropType<INode>,
@@ -261,9 +221,9 @@ export default defineComponent({
     // methods is where the props.modelValue is taken into account and processed
     const { treeState, stateless } = useTreeState(props, context);
     const builderStyle = useBuilderStyle(stateless.treeId, props);
-    const iframe = useIFrame(stateless.treeId, { iframe: false })
-    const drawers = useDrawers(stateless.treeId)
-    const drag = useDragCard()
+    const iframe = useIFrame(stateless.treeId, { iframe: false });
+    const drawers = useDrawers(stateless.treeId);
+    const drag = useDragCard();
 
     if (props.blocId) {
       const editableBlocId = props.builderVars?._EDITABLE_BLOC_ID;
@@ -281,13 +241,13 @@ export default defineComponent({
       resize: {
         x: false,
         y: false,
-        invert: false
-      }
+        invert: false,
+      },
     });
 
     const methods = {
       getOrigin: () => {
-        return window.origin
+        return window.origin;
       },
       updateBlocContent: async (json: any) => {
         if (!props.blocId) {
@@ -301,21 +261,21 @@ export default defineComponent({
       },
       startResizing(type?: string, invert?: boolean) {
         /**
-          * _ Defines which axis to use
-          * _ If no type is given, use both axis
-          *
-          * _ Adds event listener of targeted axis
-        */
+         * _ Defines which axis to use
+         * _ If no type is given, use both axis
+         *
+         * _ Adds event listener of targeted axis
+         */
 
         if (!type) {
-          state.resize.x = true
-          state.resize.y = true
+          state.resize.x = true;
+          state.resize.y = true;
         } else {
-          state.resize[type as keyof typeof state.resize] = true
+          state.resize[type as keyof typeof state.resize] = true;
         }
 
         // If the drag starts from the left, it needs to be known for handleDragResize calculations
-        state.resize.invert = !!invert
+        state.resize.invert = !!invert;
 
         // Add both event listener to handle the drag and to know when to stop
         window.addEventListener('mousemove', methods.handleDragResize);
@@ -323,48 +283,40 @@ export default defineComponent({
       },
 
       handleDragResize(event: MouseEvent) {
-        if (!state.resize.x && !state.resize.y) { return }
-        const frame = document.getElementById('iframe_' + stateless.treeId) as HTMLElement;
-
+        if (!state.resize.x && !state.resize.y) {
+          return;
+        }
+        const frame = document.getElementById(
+          'iframe_' + stateless.treeId
+        ) as HTMLElement;
 
         // <!-- _ Get mouse position -->
-        const {
-          clientX: mouseX,
-          clientY: mouseY
-        } = event
+        const { clientX: mouseX, clientY: mouseY } = event;
 
         // <!-- _ Get window dimensions -->
-        const {
-          innerWidth,
-          innerHeight
-        } = window;
+        const { innerWidth, innerHeight } = window;
 
         // <!-- _ Get frame dimensions -->
-        const {
-          clientWidth: frameWidth,
-          clientHeight: frameHeight
-        } = frame;
+        const { clientWidth: frameWidth, clientHeight: frameHeight } = frame;
 
         // <!-- _ Get frame min dimensions -->
-        const {
-          minWidth,
-          minHeight
-        } = drawers.sharedState.frame
-
-
+        const { minWidth, minHeight } = drawers.sharedState.frame;
 
         // <!-- _ Handle width (x) resize -->
         if (state.resize.x) {
-          const { left, right } = drawers.sharedState
+          const { left, right } = drawers.sharedState;
 
           /**
            * If a drawer is sticky and opened, the frame is offseted
            * We need to makes calculations according to it
-          */
-          const leftDrawerOffset = left.show && left.sticky ? 400 : 0
-          const rightDrawerOffset = right.show && right.sticky ? 400 : 0
+           */
+          const leftDrawerOffset = left.show && left.sticky ? 400 : 0;
+          const rightDrawerOffset = right.show && right.sticky ? 400 : 0;
 
-          const offsetX = (innerWidth - frameWidth) / 2 + (leftDrawerOffset / 2) - (rightDrawerOffset / 2);
+          const offsetX =
+            (innerWidth - frameWidth) / 2 +
+            leftDrawerOffset / 2 -
+            rightDrawerOffset / 2;
 
           // If the drag starts from the left, we need to reverse the maths
           const calculatedWidth = state.resize.invert
@@ -372,9 +324,8 @@ export default defineComponent({
             : mouseX - offsetX;
 
           // Prevent minWidth overflow (drawers.sharedState.frame.minWidth)
-          const targetWidth = calculatedWidth <= minWidth
-            ? minWidth
-            : calculatedWidth
+          const targetWidth =
+            calculatedWidth <= minWidth ? minWidth : calculatedWidth;
 
           drawers.sharedState.frame.width = targetWidth + 'px';
         }
@@ -383,30 +334,28 @@ export default defineComponent({
         if (state.resize.y) {
           /**
            ** Takes navbar height into account as it matter on the mouse position
-          */
-          const navHeight = 48
+           */
+          const navHeight = 48;
 
           const offsetY = (innerHeight - frameHeight) / 2;
-          const calculatedHeight = mouseY - offsetY - (navHeight / 2);
+          const calculatedHeight = mouseY - offsetY - navHeight / 2;
 
           // Prevent minHeight overflow (drawers.sharedState.frame.minHeight)
-          const targetHeight = calculatedHeight <= minHeight
-            ? minHeight
-            : calculatedHeight
+          const targetHeight =
+            calculatedHeight <= minHeight ? minHeight : calculatedHeight;
 
           drawers.sharedState.frame.height = targetHeight + 'px';
         }
       },
 
       stopResizing() {
-        state.resize.x = false
-        state.resize.y = false
+        state.resize.x = false;
+        state.resize.y = false;
         window.removeEventListener('mousemove', methods.handleDragResize);
       },
-    }
+    };
 
-    const computedState = {
-    }
+    const computedState = {};
 
     // If we are NOT in readonly mode and if we have a blocId,
     // then we want to update the bloc we the json is udpated.
@@ -418,12 +367,12 @@ export default defineComponent({
         debounce(async (prev: any, cur: any) => {
           console.log({
             prev: JSON.parse(JSON.stringify(prev)),
-            cur: JSON.parse(JSON.stringify(cur))
-          })
+            cur: JSON.parse(JSON.stringify(cur)),
+          });
 
           if (props.blocId && treeState.pageBuilderJson) {
             await methods.updateBlocContent(treeState.pageBuilderJson);
-            iframe.uses.builderJson.methods.postUpdateMessage()
+            iframe.uses.builderJson.methods.postUpdateMessage();
           }
         }, 400),
         { deep: true }
@@ -438,7 +387,9 @@ export default defineComponent({
         const editableTreeId = sharedStates.methods.editableTreeId();
         state.editableTreeId = editableTreeId;
 
-        if (!editableTreeId) { return }
+        if (!editableTreeId) {
+          return;
+        }
       },
       {
         deep: true,

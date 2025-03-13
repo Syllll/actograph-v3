@@ -90,7 +90,11 @@
               v-for="col in dTablebodyProps.cols"
               :key="col.name"
               :class="`text-text ${col.align ? 'text-' + col.align : ''} ${
-                col.classes ? (typeof col.classes === 'function' ? col.classes(dTablebodyProps.row) : col.classes) : ''
+                col.classes
+                  ? typeof col.classes === 'function'
+                    ? col.classes(dTablebodyProps.row)
+                    : col.classes
+                  : ''
               }`"
               :style="col.style ? col.style : ''"
             >
@@ -103,7 +107,10 @@
                   <slot name="table-cell" :col="col" :row="dTablebodyProps.row">
                     <div v-if="col.chips">
                       <q-chip
-                        v-for="chip in methods.filteredChips(col.chips, dTablebodyProps.row[col.name])"
+                        v-for="chip in methods.filteredChips(
+                          col.chips,
+                          dTablebodyProps.row[col.name]
+                        )"
                         :key="chip.value"
                         :color="chip.color"
                         :text-color="chip.textColor || 'white'"
@@ -191,7 +198,9 @@ export default defineComponent({
         );
       },
       filteredChips: (chips: any[], value: any) => {
-        return chips.filter(chip => chip.value === value || value.includes(chip.value));
+        return chips.filter(
+          (chip) => chip.value === value || value.includes(chip.value)
+        );
       },
     };
 

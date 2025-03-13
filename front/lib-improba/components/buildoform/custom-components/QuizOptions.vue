@@ -1,15 +1,28 @@
 <template>
   <FormLayout :title="$props.label">
-    <template v-for="([slotKey], index) in Object.entries($slots)" :key="index" v-slot:[slotKey]="scope">
+    <template
+      v-for="([slotKey], index) in Object.entries($slots)"
+      :key="index"
+      v-slot:[slotKey]="scope"
+    >
       <slot v-if="$slots[slotKey]" :name="slotKey" v-bind="{ ...scope }"></slot>
     </template>
 
     <div class="row">
-      <div class="col q-pa-md" v-for="(option, index) in $props.options" :key="index">
-        <q-btn dense class="fit q-pa-lg rounded" :class="{
-          'border-accent border-thin': props.modelValue === option.value,
-          'border-neutral border-thiner': props.modelValue !== option.value,
-        }" @click="$emit('update:modelValue', option.value)">
+      <div
+        class="col q-pa-md"
+        v-for="(option, index) in $props.options"
+        :key="index"
+      >
+        <q-btn
+          dense
+          class="fit q-pa-lg rounded"
+          :class="{
+            'border-accent border-thin': props.modelValue === option.value,
+            'border-neutral border-thiner': props.modelValue !== option.value,
+          }"
+          @click="$emit('update:modelValue', option.value)"
+        >
           {{ option.label }}
         </q-btn>
       </div>
@@ -19,36 +32,30 @@
 
 <script lang="ts">
 import { defineComponent, onMounted, reactive, watch } from 'vue';
-import { FormLayout } from '@lib-improba/components/buildoform/lib/forms/layouts/index'
+import { FormLayout } from '@lib-improba/components/buildoform/lib/forms/layouts/index';
 
 export default defineComponent({
   props: {
     modelValue: {
-      type: Number
+      type: Number,
     },
     label: {
-      type: String
+      type: String,
     },
     options: {
       type: Object,
-    }
+    },
   },
   components: { FormLayout },
   emits: ['update:modelValue'],
   setup(props) {
+    const stateless = {};
 
-    const stateless = {
-    };
+    const state = reactive({});
 
-    const state = reactive({
-    });
+    const methods = {};
 
-    const methods = {
-    };
-
-    const computedState = {
-    };
-
+    const computedState = {};
 
     watch(
       () => state,
@@ -59,15 +66,14 @@ export default defineComponent({
       }
     );
 
-    onMounted(() => {
-    });
+    onMounted(() => {});
 
     return {
       props,
       stateless,
       state,
       methods,
-      computedState
+      computedState,
     };
   },
 });

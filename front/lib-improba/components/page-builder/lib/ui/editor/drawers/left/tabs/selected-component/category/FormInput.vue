@@ -1,6 +1,10 @@
 <template>
   <PBFormInput
-    v-if="selectedComponent.methods.findType(prop) === 'options' ? Array.isArray(state.options) : true"
+    v-if="
+      selectedComponent.methods.findType(prop) === 'options'
+        ? Array.isArray(state.options)
+        : true
+    "
     :type="selectedComponent.methods.findType(prop)"
     :label="`${selectedComponent.methods.capitalizeFirstLetter(
       $props.prop.label ?? $props.prop.name
@@ -22,7 +26,9 @@
           :bold="scope.props.labelBold"
         />
         <div class="col">
-          <ResponsiveSelect v-model="state.responsive" @undoOverride="methods.undoResponsiveOverride"
+          <ResponsiveSelect
+            v-model="state.responsive"
+            @undoOverride="methods.undoResponsiveOverride"
             :screen="treeState.selected?.props['__screen']"
             :propName="$props.prop.name"
           />
@@ -66,7 +72,7 @@ export default defineComponent({
     },
     options: {
       type: [Array, Function],
-    }
+    },
   },
   components: { PBFormInput, PBEditor, PBFormInputLabel, ResponsiveSelect },
   emits: [],
@@ -98,12 +104,13 @@ export default defineComponent({
             // Remove the current bloc from the options, if a current bloc is shown
             const currentUrl = router.currentRoute.value.fullPath;
             if (currentUrl.includes('editor/bloc/')) {
-              const currentUrlSplitted = currentUrl.split('editor/bloc/')
+              const currentUrlSplitted = currentUrl.split('editor/bloc/');
               const blocIdStr = currentUrlSplitted[1].split('?')[0];
 
-              opts = opts.filter((o: {
-                label: string, value: number
-              }) => o.value !== parseInt(blocIdStr));
+              opts = opts.filter(
+                (o: { label: string; value: number }) =>
+                  o.value !== parseInt(blocIdStr)
+              );
             }
 
             state.options = opts;
@@ -142,7 +149,8 @@ export default defineComponent({
           const r = screen[state.responsive];
 
           if (!r[props.prop.name]) {
-            r[props.prop.name] = treeState.selected.props[props.prop.name] ?? props.prop.default;
+            r[props.prop.name] =
+              treeState.selected.props[props.prop.name] ?? props.prop.default;
           }
 
           value = r[props.prop.name];
@@ -155,13 +163,17 @@ export default defineComponent({
           if (!state.responsive) {
             treeState.selected.props[props.prop.name] = $event;
           } else {
-            treeState.selected.props['__screen'][state.responsive][props.prop.name] = $event;
+            treeState.selected.props['__screen'][state.responsive][
+              props.prop.name
+            ] = $event;
           }
         }
       },
       undoResponsiveOverride: (event: any) => {
         if (treeState.selected) {
-          if (treeState.selected.props['__screen']?.[event]?.[props.prop.name]) {
+          if (
+            treeState.selected.props['__screen']?.[event]?.[props.prop.name]
+          ) {
             delete treeState.selected.props['__screen'][event][props.prop.name];
             state.responsive = '';
           }
@@ -171,14 +183,18 @@ export default defineComponent({
 
     onMounted(async () => {
       await methods.init();
-    })
-
-    watch(() => [state.responsive, treeState.selected?.props], () => {
-      state.modelValue = methods.getModelValue();
-    }, {
-      immediate: true,
-      deep: true,
     });
+
+    watch(
+      () => [state.responsive, treeState.selected?.props],
+      () => {
+        state.modelValue = methods.getModelValue();
+      },
+      {
+        immediate: true,
+        deep: true,
+      }
+    );
 
     return {
       props,

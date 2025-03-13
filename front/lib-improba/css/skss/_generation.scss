@@ -1,16 +1,66 @@
 @function generate-color-variants($color-name, $color) {
   $colors: ();
 
-  $colors: map-merge($colors, (unquote($color-name): $color));
-  $colors: map-merge($colors, (unquote("#{$color-name}-50"): lighten($color, 90)));
-  $colors: map-merge($colors, (unquote("#{$color-name}-100"): lighten($color, 30)));
-  $colors: map-merge($colors, (unquote("#{$color-name}-300"): lighten($color, 20)));
-  $colors: map-merge($colors, (unquote("#{$color-name}-400"): lighten($color, 10)));
-  $colors: map-merge($colors, (unquote("#{$color-name}-500"): $color));
-  $colors: map-merge($colors, (unquote("#{$color-name}-700"): darken($color, 20)));
-  $colors: map-merge($colors, (unquote("#{$color-name}-800"): darken($color, 30)));
-  $colors: map-merge($colors, (unquote("#{$color-name}-900"): darken($color, 40)));
-  $colors: map-merge($colors, (unquote("#{$color-name}-950"): darken($color, 50)));
+  $colors: map-merge(
+    $colors,
+    (
+      unquote($color-name): $color,
+    )
+  );
+  $colors: map-merge(
+    $colors,
+    (
+      unquote('#{$color-name}-50'): lighten($color, 90),
+    )
+  );
+  $colors: map-merge(
+    $colors,
+    (
+      unquote('#{$color-name}-100'): lighten($color, 30),
+    )
+  );
+  $colors: map-merge(
+    $colors,
+    (
+      unquote('#{$color-name}-300'): lighten($color, 20),
+    )
+  );
+  $colors: map-merge(
+    $colors,
+    (
+      unquote('#{$color-name}-400'): lighten($color, 10),
+    )
+  );
+  $colors: map-merge(
+    $colors,
+    (
+      unquote('#{$color-name}-500'): $color,
+    )
+  );
+  $colors: map-merge(
+    $colors,
+    (
+      unquote('#{$color-name}-700'): darken($color, 20),
+    )
+  );
+  $colors: map-merge(
+    $colors,
+    (
+      unquote('#{$color-name}-800'): darken($color, 30),
+    )
+  );
+  $colors: map-merge(
+    $colors,
+    (
+      unquote('#{$color-name}-900'): darken($color, 40),
+    )
+  );
+  $colors: map-merge(
+    $colors,
+    (
+      unquote('#{$color-name}-950'): darken($color, 50),
+    )
+  );
 
   @return $colors;
 }
@@ -18,12 +68,12 @@
 $colors: (
   'blue': #0f84cb,
   'blue-grey': #3b5161,
-  'purple':  #7356E6,
+  'purple': #7356e6,
   'green': #00c99e,
   'slate': #64748b,
   'amber': #e64d4b,
   'red': #e64d4b,
-  'cyan': #06B6D4
+  'cyan': #06b6d4,
 );
 $usage: (
   accent: 'blue',
@@ -32,7 +82,7 @@ $usage: (
   neutral: 'slate',
   success: 'green',
   danger: 'red',
-  warning: 'amber'
+  warning: 'amber',
 );
 
 // TODO Fix this
@@ -57,13 +107,41 @@ $all-variants: ();
     // @include defineColorLightAndDark('neutral-lowest', $light-100, $slate-900);
     @include defineColorLightAndDark('neutral-highest', $dark-100, $light-100);
   } @else {
-    @include defineColorLightAndDark('neutral-lowest', #{$color}-50, #{$color}-950);
-    @include defineColorLightAndDark('neutral-highest', #{$color}-950, #{$color}-50);
+    @include defineColorLightAndDark(
+      'neutral-lowest',
+      #{$color}-50,
+      #{$color}-950
+    );
+    @include defineColorLightAndDark(
+      'neutral-highest',
+      #{$color}-950,
+      #{$color}-50
+    );
   }
 
-  @include defineColorLightAndDark('#{$type}-lower', #{$color}-100, #{$color}-800);
-  @include defineColorLightAndDark('#{$type}-low', #{$color}-300, #{$color}-600);
-  @include defineColorLightAndDark('#{$type}-medium', #{$color}-500, #{$color}-400);
-  @include defineColorLightAndDark('#{$type}-high', #{$color}-700, #{$color}-300);
-  @include defineColorLightAndDark('#{$type}-higher', #{$color}-900, #{$color}-100);
+  @include defineColorLightAndDark(
+    '#{$type}-lower',
+    #{$color}-100,
+    #{$color}-800
+  );
+  @include defineColorLightAndDark(
+    '#{$type}-low',
+    #{$color}-300,
+    #{$color}-600
+  );
+  @include defineColorLightAndDark(
+    '#{$type}-medium',
+    #{$color}-500,
+    #{$color}-400
+  );
+  @include defineColorLightAndDark(
+    '#{$type}-high',
+    #{$color}-700,
+    #{$color}-300
+  );
+  @include defineColorLightAndDark(
+    '#{$type}-higher',
+    #{$color}-900,
+    #{$color}-100
+  );
 }

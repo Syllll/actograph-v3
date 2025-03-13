@@ -42,16 +42,18 @@
 </ul>
 
 ## Objectif
+
 L'objectif du BoF est de simplifier la création et intégration du formulaire au sein de différents projets, en se basant sur un object JSON.
 
-
 ## Prérequis
+
 Pour pouvoir utiliser le BoF correctement, il suffit d'avoir un object `reactive` dans le `state` qui sera passé au composant en tant que `v-model`.
 <br>
 Il faut également importer le composant (_`~/lib-improba/components/buildoform/Index.vue`_)
 <br>
 
 Pour utiliser toutes les fonctionnalités disponibles, certains types sont également recommmandés:
+
 <ul>
   <li><strong>IField</strong>: Définit les attributs requis ou non pour les différents <code>Fields</code>. Reproduit également les props des composants Quasar.</li>
   <li><strong>IFieldStyle</strong>: Définit les différents styles possibles pour chaque <code>Field</code> (cf. <a href="#fields">Design - Fields</a>).</li>
@@ -59,11 +61,11 @@ Pour utiliser toutes les fonctionnalités disponibles, certains types sont égal
 </ul>
 
 ```ts
-import BuildOForm from './../../components/buildoform/Index.vue'
+import BuildOForm from './../../components/buildoform/Index.vue';
 
 export default defineComponent({
   components: { BuildOForm },
-  setup (props, ctx) {
+  setup(props, ctx) {
     const state = reactive({
       user: {
         id: 1337,
@@ -71,10 +73,10 @@ export default defineComponent({
         lastName: null,
         gender: null,
         footSize: null,
-        lastFullyChargedPhone: '1969-04-20'
-      }
-    })
-  }
+        lastFullyChargedPhone: '1969-04-20',
+      },
+    });
+  },
 });
 ```
 
@@ -83,8 +85,11 @@ export default defineComponent({
 <!-- ### Composant principal -->
 
 ### Props
+
 Le composant `build-o-form` nécessite quelques informations requises à son bon fonctionnement:
+
 # TODO REVOIR
+
 <ul>
   <li><strong>v-model</strong>: Un v-model basique, contenant l'objet à mettre à jour.<br>
     <em>Note: pour mettre à jour plusieurs champs, le state global peut être envoyé. Les models de chaque champ devront s'y adapter.</em>
@@ -102,21 +107,22 @@ Le composant `build-o-form` nécessite quelques informations requises à son bon
 ```html
 <build-o-form
   v-model="state.user"
-
   :fields="stateless.fields"
   :styles="{
     steps: stateless.stepStyle,
     row: stateless.rowStyle,
     field: stateless.fieldStyle,
   }"
-
   @submit="methods.submit"
 />
 ```
 
 ---
+
 ### Events
-Certains évènements sont aussi trackés. Il est recommandé de les utiliser __seulement__ à des fins de tracking (gtm, matomo, etc..).
+
+Certains évènements sont aussi trackés. Il est recommandé de les utiliser **seulement** à des fins de tracking (gtm, matomo, etc..).
+
 <ul>
   <li><strong>@event:field-touched</strong>: Retourne l'objet complet du champ visé.</li>
   <li><strong>@event:model-updated</strong>: Retourne le modèle (string) mis à jour.</li>
@@ -127,25 +133,27 @@ Certains évènements sont aussi trackés. Il est recommandé de les utiliser __
 ```html
 <build-o-form
   v-model="state.user"
-
   [...]
-
   @event:field-touched="(e: IField) => methods.handleEvent('fieldTouched', e)"
   @event:model-updated="(e: any) => methods.handleEvent('modelUpdated', e)"
   @event:form-submitted="(e: boolean) => methods.handleEvent('formSubmitted', e)"
   @event:step-change="(e: IStep) => methods.handleEvent('stepChange', e)"
-
   @submit="methods.submit"
 />
 ```
 
 ---
+
 ### Submit
-Lorsque toutes les étapes sont validées, que tous les `Fields` sont remplis et que l'utilisateur valide le formulaire __PAR LE CTA__, l'évènement `submit` est envoyé.
+
+Lorsque toutes les étapes sont validées, que tous les `Fields` sont remplis et que l'utilisateur valide le formulaire **PAR LE CTA**, l'évènement `submit` est envoyé.
 
 ---
+
 ## Mapping des fields
+
 Chaque `Field` possèdes certains attributs requis:
+
 <ul>
   <li><strong>is</strong> (<em>string</em>): Correspond à la balise du champ (ex: QInput, ...)</li>
   <li><strong>ref</strong> (<em>string</em>): Permet d'identifier le champ, unique si possible</li>
@@ -153,7 +161,9 @@ Chaque `Field` possèdes certains attributs requis:
 </ul>
 
 ### Exemple de fields
+
 #### QInput
+
 ```ts
 {
   is: 'QInput',
@@ -161,13 +171,17 @@ Chaque `Field` possèdes certains attributs requis:
   model: 'firstName'
 }
 ```
+
 > Équivalent html
->```html
-><q-input ref="firstName" v-model="context.firstName" />
->```
+>
+> ```html
+> <q-input ref="firstName" v-model="context.firstName" />
+> ```
+
 ---
 
 #### QSelect
+
 ```ts
 {
   is: 'QSelect',
@@ -199,31 +213,34 @@ Chaque `Field` possèdes certains attributs requis:
   ],
 },
 ```
+
 > Équivalent html
->```html
-><q-input
->  ref="firstName"
->  v-model="context.gender"
->  label="Genre"
->  placeholder="Renseignez votre genre"
->  emit-value
->  map-options
->  optionValue="value"
->  optionLabel="label"
->  [...]
->/>
->```
+>
+> ```html
+> <q-input
+>   ref="firstName"
+>   v-model="context.gender"
+>   label="Genre"
+>   placeholder="Renseignez votre genre"
+>   emit-value
+>   map-options
+>   optionValue="value"
+>   optionLabel="label"
+>   [...]
+> />
+> ```
 
 ## Attributs Optionnels
 
-
 ### Required
+
 L'attribut `required` permet de rendre un `Field` requis, bloquant le passage à la suite suite du formulaire.
 
 La navigation entre les étapes est automatiquement calculée en fonction de l'état des `Fields` de cette même étape. <br>
 Si tous les `Fields` requis sont valides, le passage se fera lors du clic sur "Suivant", sinon le bouton sera `disabled` et les `Fields` requis passeront en état d'erreur lors du clic.
 
 #### Reprenons le QInput
+
 ```ts
 {
   is: 'QInput',
@@ -233,16 +250,20 @@ Si tous les `Fields` requis sont valides, le passage se fera lors du clic sur "S
   required: true,
 }
 ```
+
 ---
 
 ### Cols
+
 L'attribut `cols` permet de définir le comportement de la col. Plusieurs valeurs peuvent y être assignées:
+
 <ul>
   <li><em>string, number</em>: La taille brute</li>
   <li><em>{ base, xs, sm, md, lg, xl }</em>: Chaque breakpoint peut avoir son propre format. À remplir avec <em>string/number</em></li>
 </ul>
 
 #### Reprenons le QInput
+
 ```ts
 {
   is: 'QInput',
@@ -256,9 +277,11 @@ L'attribut `cols` permet de définir le comportement de la col. Plusieurs valeur
   },
 }
 ```
+
 ---
 
 ### Steps
+
 Les `Fields` peuvent être regroupés sous des `steps`.
 Les `steps` sont calculées et définies en fonction de l'ordre de l'apparition dans les steps.
 
@@ -267,6 +290,7 @@ Les classes d'affichage peuvent être personnalisées [Cf. Design - Steps](#step
 Lors de la dernière étape, le bouton `Suivant` devriendra `Terminer` et, si toutes les conditions sont remplies, enverra [l'évènement `submit`](#submit)
 
 #### Reprenons le QInput
+
 ```ts
 {
   is: 'Input',
@@ -276,22 +300,24 @@ Lors de la dernière étape, le bouton `Suivant` devriendra `Terminer` et, si to
   step: 'firstbase' // Correspond au champs 'value' de l'exemple ci-dessous
 }
 ```
+
 Des slots sont générés automatiquement pour chaque step sous ce format: `${step}-title`, `${step}-desc`
 
 Tous les champs possèdant la même `value` seront regroupés sous la même étape
 
 > Ici, les 2 slots générés seraient:
->```html
-><template v-slot:firstbase-title />
-><template v-slot:firstbase-desc />
->```
-> Le contexte des étapes est accessible dans le scope
->```html
-><template v-slot:firstbase-title="{ step }">
->   Étape {{ step.index }}: {{ step.name }}
-></template>
->```
 >
+> ```html
+> <template v-slot:firstbase-title /> <template v-slot:firstbase-desc />
+> ```
+>
+> Le contexte des étapes est accessible dans le scope
+>
+> ```html
+> <template v-slot:firstbase-title="{ step }">
+>   Étape {{ step.index }}: {{ step.name }}
+> </template>
+> ```
 
 Les valeurs des slots par défaut peuvent être précisées directement à travers un object.
 
@@ -314,10 +340,10 @@ Les valeurs des slots par défaut peuvent être précisées directement à trave
 
 Certains composants sont englobés dans un [FormLayout](#form-layout).
 Dans ces cas là, un `title` sera utilisé plutôt qu'un `label` afin de bypass celui d'origine sur les composants customs.
-Voir __*IField*__ pour les autres props.
-
+Voir **_IField_** pour les autres props.
 
 #### Slider custom
+
 ```ts
 {
   is: 'BSlider',
@@ -334,12 +360,14 @@ Voir __*IField*__ pour les autres props.
 ```
 
 ---
+
 ### Props, Directives
+
 Tous les attributs de l'object seront attribués à l'enfant à travers un `v-bind`. <br>
 Le `camelCase` se comporte comme le `kebab-case` pour les props et directives.
 
-
 #### Reprenons le QSelect
+
 ```ts
 {
   is: 'QSelect',
@@ -356,19 +384,29 @@ Le `camelCase` se comporte comme le `kebab-case` pour les props et directives.
   optionLabel: 'label',
 },
 ```
+
 Équivaut à
 
 ```html
-<q-select ref=gender emit-value map-options option-value="label" option-label="label" />
+<q-select
+  ref="gender"
+  emit-value
+  map-options
+  option-value="label"
+  option-label="label"
+/>
 ```
 
 ---
+
 ### Interdépendance
+
 Les interdépendances permettent de conditionner l'affichage de certains fields et/ou options. <br>
 Un array _`{ model: string, value: string }[]`_ permet de définir ces conditions. <br>
 _Note_: Le comportement est identique pour les fields et les options
 
 #### Reprenons le QSelect
+
 ```ts
 {
   is: 'QSelect',
@@ -408,8 +446,11 @@ _Note_: Le comportement est identique pour les fields et les options
 ```
 
 ## Design
+
 ### Row
+
 Options:
+
 <ul>
   <li><strong>orientation</strong> (<em>string enum</em>): row, column</li>
   <li><strong>items</strong> (<em>string enum</em>): start, center, end</li>
@@ -419,6 +460,7 @@ Options:
 </ul>
 
 #### Exemple de design
+
 <sup><sub> _`IRowStyle: ~/lib-improba/components/buildoform/lib/interfaces/style.interface.ts`_ </sub></sup>
 
 ```ts
@@ -433,9 +475,11 @@ rowStyle: {
 ```
 
 ### Fields
+
 <sup><sub> _`~/lib-improba/components/buildoform/lib/interfaces/style.interface.ts`_ </sub></sup>
 
 Options:
+
 <ul>
 <li> __static__ (_string_): Des classes attribuées par défaut à chaque col, statique (ne change sous aucune condition). </li>
 <li> __directives__ (_object_): Le style des fields </li>
@@ -449,6 +493,7 @@ Options:
 </ul>
 
 #### Exemple de design
+
 <sup><sub> _`IFieldStyle: ~/lib-improba/components/buildoform/lib/interfaces/style.interface.ts`_ </sub></sup>
 
 ```ts
@@ -479,6 +524,7 @@ fieldStyle: {
 ```
 
 ### Steps
+
 <sup><sub> _`IStepStyle: ~/lib-improba/components/buildoform/lib/interfaces/style.interface.ts`_ </sub></sup>
 
 ```ts
@@ -490,23 +536,27 @@ stepStyle: {
 ```
 
 ## Champs customs
+
 ### [WIP] DOC TODO
+
 À partir du dossier _`~/lib-improba/components/buildoform/`_ <br>
+
 - Ajouter le composant dans le dossier _`custom-components/`_ <br>
 - Importer le composant dans _`index.ts`_ <br>
 - tmp: Ajouter les props si besoin dans _`~/lib-improba/components/buildoform/lib/interfaces/field.interface.ts`_
-
 
 ## Form Layout
 
 ## Skss
 
 ### Colors
+
 <sup><sub> _`~/lib-improba/css/_colors.scss`_ </sub></sup>
 <br>
 <sup><sub> _`~/lib-improba/css/_presets.scss`_ </sub></sup>
 
 Couleurs:
+
 <ul>
   <li> <span style="color: #0f84cb">primary</span> </li>
   <li> <span style="color: #3b5161">secondary</span> </li>
@@ -518,8 +568,8 @@ Couleurs:
   <li> <span>none (_transparent_)</span> </li>
 </ul>
 
-
 Chaque couleur de base possède un set de variantes:
+
 <ul>
 <li> lowest </li>
 <li> lower </li>
@@ -530,23 +580,24 @@ Chaque couleur de base possède un set de variantes:
 <li> highest </li>
 </ul>
 
-Une __string de couleur__ correspond à une couleur suivie ou non de sa variante.<br>
+Une **string de couleur** correspond à une couleur suivie ou non de sa variante.<br>
 Exemples:
+
 <ul>
   <li> `primary` </li>
   <li> `secondary-low` </li>
   <li> `neutral-higher` </li>
 </ul>
 
-
-
 ### Sélecteurs
+
 <sup><sub> _`~/lib-improba/css/_mixins.scss`_ </sub></sup>
 <br>
 <sup><sub> _`~/lib-improba/css/_presets.scss`_ </sub></sup>
 
 String de couleur: [Skss - couleurs](#colors). <br>
 Chaque sélecteur peut être soit un string de couleur soit un objet définissant les différents states suivants:
+
 <ul>
   <li><strong>base</strong> (<em>string</em>)</li>
   <li><strong>hover</strong> (<em>string</em>)</li>
@@ -557,6 +608,7 @@ Chaque sélecteur peut être soit un string de couleur soit un objet définissan
 </ul>
 
 Sélecteurs:
+
 <ul>
   <li><strong>text</strong> (<em>string, state{}</em>)</li>
   <li><strong>bg</strong> (<em>string, state{}</em>)</li>
@@ -569,9 +621,10 @@ Sélecteurs:
 </ul>
 
 _Note_: Le background peut prendre une opacité, de 10 à 100 par interval de 10
-_Note_: L'ensemble des variantes peuvent être personnalisées dans le fichier _presets
+_Note_: L'ensemble des variantes peuvent être personnalisées dans le fichier \_presets
 
 #### Quelques exemples de sélecteurs
+
 ```ts
 bg: {
   focus: 'accent-70',
@@ -590,60 +643,64 @@ rounded: {
 }
 ```
 
-
 ## Exemple concret
 
 ### Template
+
 ```html
 <div>
-  <h1 class="bg-primary-hover text-italic-hover smooth width-fit">Build'O'Form</h1>
+  <h1 class="bg-primary-hover text-italic-hover smooth width-fit">
+    Build'O'Form
+  </h1>
 
   <build-o-form
     v-model="state.user"
-
     :fields="stateless.fields"
     :styles="{
       steps: stateless.stepStyle,
       row: stateless.rowStyle,
       field: stateless.fieldStyle,
     }"
-
     @event:field-touched="(e: IField) => methods.handleEvent('fieldTouched', e)"
     @event:model-updated="(e: any) => methods.handleEvent('modelUpdated', e)"
     @event:form-submitted="(e: boolean) => methods.handleEvent('formSubmitted', e)"
     @event:step-change="(e: IStep) => methods.handleEvent('stepChange', e)"
-
     @submit="methods.submit"
   >
     <template v-slot:firstbase-title="{ step }">
       Slot: {{ step.name }}
     </template>
-    <template v-slot:firstbase-desc>
-      Now that's a firstbase
-    </template>
+    <template v-slot:firstbase-desc> Now that's a firstbase </template>
   </build-o-form>
 </div>
 ```
 
 ### Script
+
 ```ts
 import { defineComponent, onMounted, reactive, watch } from 'vue';
 
+import {
+  IField,
+  IStep,
+} from './../../components/buildoform/lib/interfaces/field.interface';
+import {
+  IStepStyle,
+  IFieldStyle,
+  IRowStyle,
+} from './../../components/buildoform/lib/interfaces/style.interface';
 
-import { IField, IStep } from './../../components/buildoform/lib/interfaces/field.interface';
-import { IStepStyle, IFieldStyle, IRowStyle } from './../../components/buildoform/lib/interfaces/style.interface';
-
-import BuildOForm from './../../components/buildoform/Index.vue'
+import BuildOForm from './../../components/buildoform/Index.vue';
 import { useQuasar } from 'quasar';
 
 export default defineComponent({
   props: {},
   emits: [],
   components: {
-    BuildOForm
+    BuildOForm,
   },
   setup(props, ctx) {
-    const $q = useQuasar()
+    const $q = useQuasar();
 
     const state = reactive({
       user: {
@@ -654,15 +711,15 @@ export default defineComponent({
         condition: 'scared',
         likes: '',
         footSize: 42,
-        lastFullyChargedPhone: '1969-04-20'
-      }
+        lastFullyChargedPhone: '1969-04-20',
+      },
     });
 
     const stateless = {
       stepStyle: {
         container: 'q-ml-md',
         title: 'q-mb-none',
-        desc: ''
+        desc: '',
       } as IStepStyle,
 
       rowStyle: {
@@ -687,7 +744,7 @@ export default defineComponent({
           hover: 'primary-50',
 
           errored: 'danger-50',
-          erroredHover: 'danger-70'
+          erroredHover: 'danger-70',
         },
         shadow: {
           // base: 'secondary-dense',
@@ -707,16 +764,14 @@ export default defineComponent({
             name: 'First base',
             value: 'firstbase',
             desc: 'bip boup',
-            display: true
+            display: true,
           },
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
-          conditions: [
-            { model: 'firstName', value: 'aze' }
-          ],
+          conditions: [{ model: 'firstName', value: 'aze' }],
 
           model: 'firstName',
           required: true,
@@ -731,17 +786,15 @@ export default defineComponent({
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
-          conditions: [
-            { model: 'firstName', value: 'aze' }
-          ],
+          conditions: [{ model: 'firstName', value: 'aze' }],
 
           model: 'lastName',
           required: true,
 
           label: 'Nom',
-          placeholder: 'Prénom'
+          placeholder: 'Prénom',
         },
         {
           is: 'QSelect',
@@ -750,14 +803,14 @@ export default defineComponent({
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
 
           model: 'gender',
           conditions: [
             { model: 'firstName', value: 'not:Morice' },
             { model: 'lastName', value: 'not:Denice' },
-            { model: 'firstName', value: 'aze' }
+            { model: 'firstName', value: 'aze' },
           ],
 
           label: 'Genre',
@@ -783,7 +836,7 @@ export default defineComponent({
               conditions: [
                 { model: 'firstName', value: 'Anna' },
                 { model: 'lastName', value: 'Conda' },
-              ]
+              ],
             },
           ],
         },
@@ -794,7 +847,7 @@ export default defineComponent({
             name: 'Lookin goood...',
             desc: 'keep going',
             value: 'lookingood',
-            display: true
+            display: true,
           },
           cols: 'grow',
 
@@ -803,7 +856,11 @@ export default defineComponent({
           model: 'condition',
           options: [
             { label: 'Vivant', value: 'alive' },
-            { label: 'Terrifié par les arachnides', value: 'scared', color: 'red' },
+            {
+              label: 'Terrifié par les arachnides',
+              value: 'scared',
+              color: 'red',
+            },
             { label: 'Allergique à la photosynthèse', value: 'allergic' },
             { label: 'Autre', value: 'other' },
           ],
@@ -814,7 +871,7 @@ export default defineComponent({
           step: 'lookingood',
           cols: '6',
 
-          title: 'J\'aime..',
+          title: "J'aime..",
           required: true,
 
           emitValue: true,
@@ -822,16 +879,29 @@ export default defineComponent({
           optionValue: 'value',
           optionLabel: 'label',
 
-          conditions: [
-            { model: 'condition', value: 'not:other' }
-          ],
+          conditions: [{ model: 'condition', value: 'not:other' }],
 
           model: 'likes',
           options: [
             { label: 'Les CDs de Pascal Obispo', value: 'obispo' },
-            { label: 'Les fermes d\'huitres', value: 'oster', conditions: [{ model: 'condition', value: 'allergic'}] },
-            { label: 'Les réconstitutions du débarquement', value: 'debark', conditions: [{ model: 'condition', value: 'not:alive'}] },
-            { label: 'La faune et flore de la Meurte et Moselle', value: 'fnf', conditions: [{ model: 'condition', value: 'not:allergic'}, { model: 'condition', value: 'not:scared'}] },
+            {
+              label: "Les fermes d'huitres",
+              value: 'oster',
+              conditions: [{ model: 'condition', value: 'allergic' }],
+            },
+            {
+              label: 'Les réconstitutions du débarquement',
+              value: 'debark',
+              conditions: [{ model: 'condition', value: 'not:alive' }],
+            },
+            {
+              label: 'La faune et flore de la Meurte et Moselle',
+              value: 'fnf',
+              conditions: [
+                { model: 'condition', value: 'not:allergic' },
+                { model: 'condition', value: 'not:scared' },
+              ],
+            },
           ],
         },
         {
@@ -841,7 +911,7 @@ export default defineComponent({
           cols: {
             xs: 12,
             sm: 6,
-            md: 12
+            md: 12,
           },
 
           title: 'Pointure',
@@ -858,7 +928,7 @@ export default defineComponent({
           cols: {
             xs: 12,
             sm: 6,
-            md: 12
+            md: 12,
           },
 
           title: 'Dernière charge complète (téléphone)',
@@ -866,30 +936,28 @@ export default defineComponent({
           infophraseIcon: 'mdi-cactus',
 
           model: 'lastFullyChargedPhone',
-        }
-      ] as IField[]
+        },
+      ] as IField[],
     };
 
     const methods = {
-      submit () {
-        console.log({ user: state.user })
-        alert('oy')
+      submit() {
+        console.log({ user: state.user });
+        alert('oy');
       },
-      handleEvent (type: string, event: any) {
+      handleEvent(type: string, event: any) {
         // console.log({ type, event })
       },
-      log (args: any) {
-        console.log({ args })
-      }
+      log(args: any) {
+        console.log({ args });
+      },
     };
 
-    const computedState = {
-    };
+    const computedState = {};
 
     onMounted(() => {
-      $q.dark.set(false)
-    })
-
+      $q.dark.set(false);
+    });
 
     watch(
       () => state,

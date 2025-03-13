@@ -2,16 +2,16 @@ import { reactive } from 'vue';
 
 const sharedState = reactive({
   dragElement: null as any,
-  compoName: null as string|null,
+  compoName: null as string | null,
 
-  droppedComponent: null as any
+  droppedComponent: null as any,
 });
 
 export const useDragCard = () => {
   const methods = {
     onDragStart(e: any) {
       sharedState.dragElement = e.target;
-      sharedState.compoName = e.target.getAttribute('id')
+      sharedState.compoName = e.target.getAttribute('id');
 
       e.dataTransfer.setData('card', e.target.id);
       e.dataTransfer.dropEffect = 'copy';
@@ -46,12 +46,12 @@ export const useDragCard = () => {
       e.target.classList.remove('drag-enter');
       e.target.classList.remove('drag-over');
 
-      const name = sharedState.compoName
+      const name = sharedState.compoName;
 
       sharedState.dragElement = null;
       sharedState.compoName = null;
 
-      return name
+      return name;
     },
   };
 

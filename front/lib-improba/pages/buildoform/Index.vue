@@ -1,22 +1,21 @@
 <template>
   <div class="q-mx-xl q-my-lg">
-    <h1 class="bg-primary-hover text-italic-hover smooth width-fit">Build'O'Form</h1>
+    <h1 class="bg-primary-hover text-italic-hover smooth width-fit">
+      Build'O'Form
+    </h1>
 
     <build-o-form
       v-model="state.results"
-
       :fields="stateless.fields"
       :styles="{
         steps: stateless.stepStyle,
         row: stateless.rowStyle,
         field: stateless.fieldStyle,
       }"
-
       @event:field-touched="(e: any) => methods.handleEvent('fieldTouched', e)"
       @event:model-updated="(e: any) => methods.handleEvent('modelUpdated', e)"
       @event:form-submitted="(e: any) => methods.handleEvent('formSubmitted', e)"
       @event:step-change="(e: any) => methods.handleEvent('stepChange', e)"
-
       @submit="methods.submit"
     >
       <template v-slot:header="{ stepInfos, builder }">
@@ -36,7 +35,11 @@
             {{ scope.title }}
           </label>
 
-          <q-icon class="q-ml-xs" v-if="scope.infophrase" :name="scope.infophraseIcon">
+          <q-icon
+            class="q-ml-xs"
+            v-if="scope.infophrase"
+            :name="scope.infophraseIcon"
+          >
             <q-tooltip>
               <div v-html="scope.infophrase" />
             </q-tooltip>
@@ -45,7 +48,6 @@
 
         <slot />
       </template>
-
     </build-o-form>
   </div>
 </template>
@@ -53,26 +55,32 @@
 <script lang="ts">
 import { defineComponent, onMounted, reactive, watch } from 'vue';
 
-
 // import { IField } from './../../components/buildoform/lib/interfaces/field.interface';
 // import { IFieldStyle, IRowStyle } from './../../components/buildoform/lib/interfaces/style.interface';
-import { IField, IStep } from './../../components/buildoform/lib/interfaces/field.interface';
-import { IFieldStyle, IRowStyle, IStepStyle } from './../../components/buildoform/lib/interfaces/style.interface';
+import {
+  IField,
+  IStep,
+} from './../../components/buildoform/lib/interfaces/field.interface';
+import {
+  IFieldStyle,
+  IRowStyle,
+  IStepStyle,
+} from './../../components/buildoform/lib/interfaces/style.interface';
 
-import BuildOForm from '@lib-improba/components/buildoform/Index.vue'
+import BuildOForm from '@lib-improba/components/buildoform/Index.vue';
 import { useQuasar } from 'quasar';
 
 export default defineComponent({
   props: {},
   emits: [],
   components: {
-    BuildOForm
+    BuildOForm,
   },
   setup(props, ctx) {
-    const $q = useQuasar()
+    const $q = useQuasar();
 
     const state = reactive({
-      results: {}
+      results: {},
     });
 
     const stateless = {
@@ -106,7 +114,7 @@ export default defineComponent({
           // hover: 'primary-90',
 
           errored: 'danger-50',
-          erroredHover: 'danger-70'
+          erroredHover: 'danger-70',
         },
         shadow: {
           // base: 'secondary-dense',
@@ -127,19 +135,19 @@ export default defineComponent({
             name: 'First base',
             value: 'firstbase',
             desc: 'bip boup',
-            display: true
+            display: true,
           },
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
 
           model: 'energy',
           // required: true,
 
           label: 'La forme ?',
-          placeholder: 'c\'est la patate',
+          placeholder: "c'est la patate",
         },
 
         // READY
@@ -150,18 +158,18 @@ export default defineComponent({
             name: 'First base',
             value: 'firstbase',
             desc: 'bip boup',
-            display: true
+            display: true,
           },
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
 
           model: 'ready',
           required: true,
 
-          label: 'Est ce que c\'est bon pour vous ?',
+          label: "Est ce que c'est bon pour vous ?",
 
           options: [
             {
@@ -187,12 +195,10 @@ export default defineComponent({
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
 
-          conditions: [
-            { model: 'ready', value: 'not:0'}
-          ],
+          conditions: [{ model: 'ready', value: 'not:0' }],
 
           model: 'infos',
           required: true,
@@ -203,9 +209,7 @@ export default defineComponent({
             {
               label: 'Pas du tout',
               value: 0,
-              conditions: [
-                { model: 'ready', value: 'not:2' }
-              ],
+              conditions: [{ model: 'ready', value: 'not:2' }],
             },
             {
               label: 'Un peu',
@@ -226,12 +230,12 @@ export default defineComponent({
             name: 'More infos',
             value: 'infos',
             desc: 'moaaar',
-            display: true
+            display: true,
           },
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
 
           model: 'lemons',
@@ -263,17 +267,15 @@ export default defineComponent({
           cols: {
             base: 12,
             md: 4,
-            sm: 6
+            sm: 6,
           },
 
-          conditions: [
-            { model: 'ready', value: 'not:0'}
-          ],
+          conditions: [{ model: 'ready', value: 'not:0' }],
 
           model: 'water',
           required: true,
 
-          label: 'Vous avez buvez de l\'eau ?',
+          label: "Vous avez buvez de l'eau ?",
 
           options: [
             {
@@ -290,32 +292,30 @@ export default defineComponent({
             },
           ],
         },
-      ] as IField[]
+      ] as IField[],
     };
 
     const methods = {
-      submit (event: any) {
-        console.log({ results: state.results , event})
+      submit(event: any) {
+        console.log({ results: state.results, event });
         $q.notify({
-            type: 'positive',
-            message: 'Yippee',
-          });
+          type: 'positive',
+          message: 'Yippee',
+        });
       },
-      handleEvent (type: string, event: any) {
+      handleEvent(type: string, event: any) {
         // console.log({ type, event })
       },
-      log (args: any) {
-        console.log({ args })
-      }
+      log(args: any) {
+        console.log({ args });
+      },
     };
 
-    const computedState = {
-    };
+    const computedState = {};
 
     onMounted(() => {
-      $q.dark.set(false)
-    })
-
+      $q.dark.set(false);
+    });
 
     watch(
       () => state,

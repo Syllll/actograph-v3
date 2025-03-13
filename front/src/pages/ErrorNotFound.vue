@@ -12,7 +12,7 @@
         color="white"
         text-color="blue"
         unelevated
-        to="/"
+        to="/home"
         label="Go Home"
         no-caps
       />
@@ -22,8 +22,19 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-
+import { useRouter, useRoute } from 'vue-router';
 export default defineComponent({
   name: 'ErrorNotFound',
+  setup() {
+    const router = useRouter();
+    const route = useRoute();
+
+    console.log('current route url: ', router.currentRoute.value.fullPath);
+    return {
+      goHome() {
+        router.push('/home');
+      },
+    };
+  },
 });
 </script>

@@ -1,6 +1,13 @@
 import httpUtils from '@services/utils/http.utils';
 import { api } from 'src/../lib-improba/boot/axios';
-import { IPage, PageStatusEnum, PageTypeEnum, IBloc, BlocStatusEnum, BlocTypeEnum } from '../../interface';
+import {
+  IPage,
+  PageStatusEnum,
+  PageTypeEnum,
+  IBloc,
+  BlocStatusEnum,
+  BlocTypeEnum,
+} from '../../interface';
 import { PaginationResponse } from '@lib-improba/utils/pagination.utils';
 
 export const adminBlocService = {

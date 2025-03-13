@@ -4,6 +4,12 @@ import { boot as bootI18n } from 'src/../lib-improba/boot/i18n';
 import { boot as bootAxios } from 'src/../lib-improba/boot/axios';
 import { useImprobaInit } from 'src/../lib-improba/composables/use-improba-init';
 
+declare global {
+  interface Window {
+    api: any;
+  }
+}
+
 export default boot(async ({ app, router }) => {
   bootI18n({ app });
   bootAxios({ app });

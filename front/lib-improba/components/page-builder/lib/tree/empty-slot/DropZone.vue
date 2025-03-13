@@ -2,8 +2,10 @@
   <div
     class="fit smooth all-pointer-events text-text rounded bg-transparent hover:bg-pb-editor-primary"
     :class="{
-      'border-pb-editor-primary border-thin border-dashed': drag.sharedState.dragElement && !state.hover,
-      'border-pb-editor-primary border-thin border-dotted': drag.sharedState.dragElement && state.hover,
+      'border-pb-editor-primary border-thin border-dashed':
+        drag.sharedState.dragElement && !state.hover,
+      'border-pb-editor-primary border-thin border-dotted':
+        drag.sharedState.dragElement && state.hover,
       'drag-over': state.hover,
     }"
     dropable
@@ -17,8 +19,7 @@
       drag.methods.onDragOver;
     "
     @drop.prevent="methods.onDrop"
-  >
-  </div>
+  ></div>
 </template>
 
 <script lang="ts">

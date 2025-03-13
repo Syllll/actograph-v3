@@ -4,5 +4,5 @@
     "noImplicitAny": false,
     "skipLibCheck": true
   },
-  "exclude": ["./lib-improba/components/**"]
+  "exclude": ["./lib-improba/components/**", "./src-electron/extra-resources/**"]
 }

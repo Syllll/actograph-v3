@@ -19,7 +19,6 @@ import { useSelection } from './use-selection';
 import { useCommunication } from './use-communication';
 import { useDragndrop } from './use-dragndrop';
 
-
 /**
  * USE-IFRAME
  * _ This composable regroups everything that is needed to communicate between parent and iframe
@@ -58,7 +57,7 @@ const sharedState = reactive({
 
   forceSync: null as any,
 });
-export const getCurrentType = () => sharedState.currentType
+export const getCurrentType = () => sharedState.currentType;
 
 export const useIFrame = (myTreeId: string, params?: { iframe: boolean }) => {
   // Get the uses with the shared states we need to synchronize between contexts
@@ -77,7 +76,7 @@ export const useIFrame = (myTreeId: string, params?: { iframe: boolean }) => {
   });
 
   const drawers = useDrawers(myTreeId);
-  const dragCard = useDragCard()
+  const dragCard = useDragCard();
 
   // *************************************
   // #region STATE
@@ -117,35 +116,35 @@ export const useIFrame = (myTreeId: string, params?: { iframe: boolean }) => {
     switch (message.type) {
       // _ PING
       case ESyncMessageType.ping:
-        pingpong.methods.handlePingMessage()
-        break
+        pingpong.methods.handlePingMessage();
+        break;
 
       // _ PONG
       case ESyncMessageType.pong:
-        pingpong.methods.handlePongMessage()
-        break
+        pingpong.methods.handlePongMessage();
+        break;
 
       // _ PAGE BUILDER
       case ESyncMessageType.updatePageBuilderJson:
-        builderJson.methods.handleMessage(parsedContent)
-        break
+        builderJson.methods.handleMessage(parsedContent);
+        break;
 
       // _ SELECTION
       case ESyncMessageType.updateSelection:
-        selection.methods.handleSelectionChange(parsedContent.selectedId)
-        break
+        selection.methods.handleSelectionChange(parsedContent.selectedId);
+        break;
 
       // _ DRAG
       case ESyncMessageType.drag:
-        drag.methods.handleDragMessage(parsedContent)
-        break
+        drag.methods.handleDragMessage(parsedContent);
+        break;
 
       // _ DROP
       case ESyncMessageType.drop:
-        builderJson.methods.handleDrop(parsedContent.droppedComponent)
-        break
+        builderJson.methods.handleDrop(parsedContent.droppedComponent);
+        break;
     }
-  }
+  };
   // #endregion
 
   // *************************************
@@ -160,8 +159,8 @@ export const useIFrame = (myTreeId: string, params?: { iframe: boolean }) => {
     myTreeId,
     iframe: !!params?.iframe,
     sharedIFrameState: sharedState,
-    handleMessage: handleMessage
-  })
+    handleMessage: handleMessage,
+  });
 
   /**
    * Sync pageBuilderJson
@@ -171,7 +170,7 @@ export const useIFrame = (myTreeId: string, params?: { iframe: boolean }) => {
     postMessage: communication.methods.postMessage,
     sharedIFrameState: sharedState,
     sharedTreeState: tree.sharedState,
-    sharedDragState: dragCard.sharedState
+    sharedDragState: dragCard.sharedState,
   });
 
   /**
@@ -194,7 +193,7 @@ export const useIFrame = (myTreeId: string, params?: { iframe: boolean }) => {
     tree,
     sharedTreeState: tree.sharedState,
     sharedIFrameState: sharedState,
-    postMessage: communication.methods.postMessage
+    postMessage: communication.methods.postMessage,
   });
 
   /**
@@ -203,8 +202,8 @@ export const useIFrame = (myTreeId: string, params?: { iframe: boolean }) => {
   const drag = useDragndrop({
     postMessage: communication.methods.postMessage,
     sharedIFrameState: sharedState,
-    sharedDragState: dragCard.sharedState
-  })
+    sharedDragState: dragCard.sharedState,
+  });
 
   // List and return the uses
   const uses = {
@@ -221,7 +220,7 @@ export const useIFrame = (myTreeId: string, params?: { iframe: boolean }) => {
   // Methods
   // *************************************
   const methods = {
-    init () {
+    init() {
       // _ Globally defines on which instance 'we' are
       sharedState.iframe = !!params?.iframe;
       sharedState.currentType = sharedState.iframe
@@ -229,19 +228,19 @@ export const useIFrame = (myTreeId: string, params?: { iframe: boolean }) => {
         : ESources.parent;
 
       // _ Init communications
-      communication.methods.init()
+      communication.methods.init();
 
       // _ Start the ping pong between both instances (parent/iframe)
       pingpong.methods.init();
     },
 
-    reset () {
+    reset() {
       // _ Down communications
-      communication.methods.down()
+      communication.methods.down();
 
       // _ Reset readyness
-      pingpong.methods.down()
-    }
+      pingpong.methods.down();
+    },
   };
   // #endregion
 

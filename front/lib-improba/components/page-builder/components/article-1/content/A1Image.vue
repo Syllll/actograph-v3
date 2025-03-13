@@ -2,15 +2,12 @@
   <div
     :class="props.customClass"
     :style="props.customStyle"
-
     :width="props.customWidth"
     :height="props.customHeight"
   >
-
     <q-img
       :src="props.imageSource"
       :class="props.imageClass"
-
       :width="props.imageWidth"
       :height="props.imageHeight"
     />
@@ -22,9 +19,12 @@ import { useProps } from '@lib-improba/components/page-builder/lib/ui/use-props'
 import { defineComponent, onMounted, reactive, watch } from 'vue';
 
 const { methods: propsMethods } = useProps();
-const sizeProps: any = propsMethods.getPropsByTheme('size')
-const styleProps: any = propsMethods.getPropsByTheme('style')
-const imageProps: any = propsMethods.createMultipleStringProps(['imageWidth', 'imageHeight', 'imageClass'], 'Image')
+const sizeProps: any = propsMethods.getPropsByTheme('size');
+const styleProps: any = propsMethods.getPropsByTheme('style');
+const imageProps: any = propsMethods.createMultipleStringProps(
+  ['imageWidth', 'imageHeight', 'imageClass'],
+  'Image'
+);
 
 export default defineComponent({
   props: {
@@ -33,7 +33,7 @@ export default defineComponent({
     imageSource: {
       type: String,
       builderOptions: {
-        category: 'Image'
+        category: 'Image',
       },
     },
     ...imageProps,
@@ -46,19 +46,13 @@ export default defineComponent({
   },
   emits: [],
   setup(props) {
+    const stateless = {};
 
-    const stateless = {
-    };
+    const state = reactive({});
 
-    const state = reactive({
-    });
+    const methods = {};
 
-    const methods = {
-    };
-
-    const computedState = {
-    };
-
+    const computedState = {};
 
     watch(
       () => state,
@@ -69,15 +63,14 @@ export default defineComponent({
       }
     );
 
-    onMounted(() => {
-    });
+    onMounted(() => {});
 
     return {
       props,
       stateless,
       state,
       methods,
-      computedState
+      computedState,
     };
   },
 });

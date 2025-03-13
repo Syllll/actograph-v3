@@ -1,46 +1,46 @@
-import { ICols, EBreakpoints } from './breakpoints.interface'
-import { ISkssSelectors } from './skss.interface'
+import { ICols, EBreakpoints } from './breakpoints.interface';
+import { ISkssSelectors } from './skss.interface';
 
 /**
  * Field style
  * @note very cool
-*/
+ */
 export interface IFieldStyle extends ICols, ISkssSelectors {
   /** Default classes string */
-  static?: string
+  static?: string;
 
   directives?: {
     /** some colors */
-    color: string
+    color: string;
 
-    outlined: boolean
-    filled: boolean
-    flat: boolean
+    outlined: boolean;
+    filled: boolean;
+    flat: boolean;
     // [key: string]: string
-  }
+  };
 }
 
 enum EOrientation {
   row = 'row',
-  column = 'column'
+  column = 'column',
 }
 
 enum EPosition {
   start = 'start',
   center = 'center',
-  end = 'end'
+  end = 'end',
 }
 
 enum EHorizontalPositions {
   around = 'around',
   between = 'between',
-  evenly = 'evenly'
+  evenly = 'evenly',
 }
 
 enum EOrder {
   none = 'none',
   last = 'last',
-  first = 'first'
+  first = 'first',
 }
 
 export interface IStepStyle {
@@ -52,20 +52,20 @@ export interface IStepStyle {
 export interface IRowStyle extends ICols {
   // row?: boolean
   // column?: boolean
-  orientation?: EOrientation
+  orientation?: EOrientation;
 
-  reverse?: boolean
+  reverse?: boolean;
 
-  items?: EPosition
-  justify?: EPosition|EHorizontalPositions
+  items?: EPosition;
+  justify?: EPosition | EHorizontalPositions;
 
-  gutter?: keyof typeof EBreakpoints,
-  colGutter?: keyof typeof EBreakpoints,
+  gutter?: keyof typeof EBreakpoints;
+  colGutter?: keyof typeof EBreakpoints;
 }
 
 export interface IColStyle {
-  order: keyof typeof EOrder
-  self: keyof typeof EPosition
+  order: keyof typeof EOrder;
+  self: keyof typeof EPosition;
 
-  offset: ICols
+  offset: ICols;
 }

@@ -3,12 +3,14 @@
     <div class="col-auto column full-width q-pa-md">
       <div class="text-h6">
         {{
-          selectedComponent.computedState.selectedComponent?.value?.builderOptions?.name ?? treeState.selected?.name
+          selectedComponent.computedState.selectedComponent?.value
+            ?.builderOptions?.name ?? treeState.selected?.name
         }}
       </div>
       <div class="text-subtitle1">
         {{
-          selectedComponent.computedState.selectedComponent?.value?.builderOptions?.description
+          selectedComponent.computedState.selectedComponent?.value
+            ?.builderOptions?.description
         }}
       </div>
     </div>

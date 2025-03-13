@@ -88,7 +88,7 @@ export const cmsRoutes: RouteRecordRaw[] = [
         component: () =>
           import('src/../lib-improba/pages/cms/viewer/Index.vue'),
         children: [],
-      }
+      },
     ],
   },
   {
@@ -96,6 +96,6 @@ export const cmsRoutes: RouteRecordRaw[] = [
     name: 'iframe',
     props: true,
     component: () => import('src/../lib-improba/pages/cms/iframe/Index.vue'),
-    children: []
-  }
+    children: [],
+  },
 ];

@@ -1,17 +1,8 @@
 <template>
   <div
     v-if="!treeState.readonly"
-    class="
-      column
-      justify-center
-      items-center
-
-      q-ma-xs
-      all-pointer-events
-
-      rounded
-      smooth
-  ">
+    class="column justify-center items-center q-ma-xs all-pointer-events rounded smooth"
+  >
     <div class="row full-width justify-center">
       <template v-if="drag.sharedState.dragElement">
         <DropZone
@@ -20,69 +11,53 @@
         />
       </template>
       <template v-else>
-          <!-- ? ADD COMPONANT MODAL -->
-          <q-btn
-            class="
-              all-pointer-events
-              fit
-              col
+        <!-- ? ADD COMPONANT MODAL -->
+        <q-btn
+          class="all-pointer-events fit col smooth rounded-less not-hover:bg-pb-editor-primary-90 hover:bg-pb-editor-primary-low"
+          flat
+          dense
+          icon="add"
+          @click="
+            methods.openModal();
+            $event.stopPropagation();
+          "
+        >
+          <AddComponentModal
+            v-model:triggerOpen="state.triggerOpenAddModal"
+            :parentId="$props.parentId"
+            :slotName="$props.slotName"
+            :myTreeId="$props.myTreeId"
+          />
+          <q-tooltip v-if="$props.slotName">
+            Slot name: {{ $props.slotName }}
+          </q-tooltip>
+        </q-btn>
 
-              smooth
-
-              rounded-less
-
-              not-hover:bg-pb-editor-primary-90
-              hover:bg-pb-editor-primary-low
-            "
-            flat
-            dense
-            icon="add"
-            @click="methods.openModal(); $event.stopPropagation()"
-          >
-            <AddComponentModal
-              v-model:triggerOpen="state.triggerOpenAddModal"
-              :parentId="$props.parentId"
-              :slotName="$props.slotName"
-              :myTreeId="$props.myTreeId"
-            />
-            <q-tooltip v-if="$props.slotName">
-              Slot name: {{ $props.slotName }}
-            </q-tooltip>
-          </q-btn>
-
-          <!-- ? PASTE COPIED NODE -->
-          <q-btn
-            :disable="treeState.copiedNode?.id === $props.parentId"
-            class="
-              all-pointer-events
-              fit
-
-              smooth
-              overflow-hidden
-
-              rounded-less
-
-              not-hover:bg-pb-editor-neutral-70
-              hover:bg-pb-editor-accent-90
-            "
-            :class="{
-              'width-0 q-pa-none': !treeState.copiedNode,
-              'width-20': treeState.copiedNode
-            }"
-            flat
-            dense
-            icon="content_paste"
-            @click="methods.paste(); $event.stopPropagation()"
-          >
-            <q-tooltip v-if="$props.slotName">
-              <template v-if="treeState.copiedNode?.id === $props.parentId">
-                Cannot paste to itself
-              </template>
-              <template v-else>
-                Paste copied content to slot: {{ $props.slotName }}
-              </template>
-            </q-tooltip>
-          </q-btn>
+        <!-- ? PASTE COPIED NODE -->
+        <q-btn
+          :disable="treeState.copiedNode?.id === $props.parentId"
+          class="all-pointer-events fit smooth overflow-hidden rounded-less not-hover:bg-pb-editor-neutral-70 hover:bg-pb-editor-accent-90"
+          :class="{
+            'width-0 q-pa-none': !treeState.copiedNode,
+            'width-20': treeState.copiedNode,
+          }"
+          flat
+          dense
+          icon="content_paste"
+          @click="
+            methods.paste();
+            $event.stopPropagation();
+          "
+        >
+          <q-tooltip v-if="$props.slotName">
+            <template v-if="treeState.copiedNode?.id === $props.parentId">
+              Cannot paste to itself
+            </template>
+            <template v-else>
+              Paste copied content to slot: {{ $props.slotName }}
+            </template>
+          </q-tooltip>
+        </q-btn>
       </template>
     </div>
   </div>
@@ -147,10 +122,10 @@ export default defineComponent({
           component: compoName,
           slot: props.slotName,
           treeId: props.myTreeId,
-        }
+        };
 
         if (getCurrentType() === ESources.iframe) {
-          drag.sharedState.droppedComponent = toAdd
+          drag.sharedState.droppedComponent = toAdd;
         }
 
         actions.add(toAdd);

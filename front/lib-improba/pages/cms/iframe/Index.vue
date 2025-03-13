@@ -1,18 +1,15 @@
 <template>
   <Layout class="fit">
-      <Tree
-        v-if="iframe.sharedState.ready && iframe.treeState.pageBuilderJson"
-        :myTreeId="$props.myTreeId"
-        :builderVars="iframe.state.builderVars"
-        :builderStyle="iframe.state.builderStyle"
-        :readonly="iframe.treeState.readonly"
-      />
-      <div v-else class="fit flex flex-center">
-        <q-spinner
-          color="primary"
-          size="3em"
-        />
-      </div>
+    <Tree
+      v-if="iframe.sharedState.ready && iframe.treeState.pageBuilderJson"
+      :myTreeId="$props.myTreeId"
+      :builderVars="iframe.state.builderVars"
+      :builderStyle="iframe.state.builderStyle"
+      :readonly="iframe.treeState.readonly"
+    />
+    <div v-else class="fit flex flex-center">
+      <q-spinner color="primary" size="3em" />
+    </div>
   </Layout>
 </template>
 
@@ -38,15 +35,14 @@ export default defineComponent({
     },
   },
   setup(props, context) {
-    const iframe = useIFrame(props.myTreeId, { iframe: true })
+    const iframe = useIFrame(props.myTreeId, { iframe: true });
 
-    const methods = {
-    }
+    const methods = {};
 
     return {
       iframe,
       props,
-      methods
+      methods,
     };
   },
 });

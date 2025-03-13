@@ -2,13 +2,13 @@ import { ICols } from './breakpoints.interface';
 
 enum ESlotPosition {
   append = 'append',
-  prepend = 'prepend'
+  prepend = 'prepend',
 }
 
 enum ERadioType {
   checkbox = 'checkbox',
   radio = 'radio',
-  toggle = 'toggle'
+  toggle = 'toggle',
 }
 
 enum ETextFieldType {
@@ -23,7 +23,7 @@ enum ETextFieldType {
   url = 'url',
   time = 'time',
   date = 'date',
-  'datetime-local' = 'datetime-local'
+  'datetime-local' = 'datetime-local',
 }
 
 export interface IStep {
@@ -52,13 +52,25 @@ interface ICondition {
 }
 
 interface IOptions {
-  options?: string[]|{ label: string, value: string|number|boolean, conditions?: ICondition[] }[]
-  base?: string[]|{ label: string, value: string|number|boolean, conditions?: ICondition[] }[]
+  options?:
+    | string[]
+    | {
+        label: string;
+        value: string | number | boolean;
+        conditions?: ICondition[];
+      }[];
+  base?:
+    | string[]
+    | {
+        label: string;
+        value: string | number | boolean;
+        conditions?: ICondition[];
+      }[];
 }
 
 interface IBaseInput extends ICols {
   // ? Style
-  label?: string|boolean;
+  label?: string | boolean;
   placeholder?: string;
   color?: string;
 
@@ -70,14 +82,14 @@ interface IBaseInput extends ICols {
   conditions?: ICondition[];
 
   // ? State
-  touched?: null|boolean;
+  touched?: null | boolean;
   error?: boolean;
   disabled?: boolean;
 }
 
 interface IDateNumberInput {
-  min?: number|Date;
-  max?: number|Date;
+  min?: number | Date;
+  max?: number | Date;
 }
 
 interface IFormLayout {
@@ -87,13 +99,13 @@ interface IFormLayout {
 
 interface ISelect extends IOptions {
   emitValue?: boolean;
-  mapOptions?: boolean
+  mapOptions?: boolean;
   optionValue?: string;
   optionLabel?: string;
 }
 
 interface IRadio {
-  val?: string|number;
+  val?: string | number;
   leftLabel?: boolean;
 
   checkedIcon?: string;
@@ -124,20 +136,18 @@ interface IDatePicker extends IDateNumberInput {
 }
 
 export interface IField
-extends
-  IBaseInput,
-  IDateNumberInput,
-  IFormLayout,
-  ISelect,
-  IRadio,
-  // IOptionGroup,
-  ISlider,
-  IDatePicker
-{
+  extends IBaseInput,
+    IDateNumberInput,
+    IFormLayout,
+    ISelect,
+    IRadio,
+    // IOptionGroup,
+    ISlider,
+    IDatePicker {
   // ? Identification
   is: string;
   ref: string;
-  step?: string|IStep;
+  step?: string | IStep;
 
   // ? Validation
   model: string;

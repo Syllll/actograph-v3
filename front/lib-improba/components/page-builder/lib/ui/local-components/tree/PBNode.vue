@@ -1,16 +1,7 @@
 <template>
-  <div class="
-    q-px-sm
-    q-py-xs
-
-    row
-    items-center
-
-    rounded
-    full-width
-
-    bg-pb-editor-secondary-60
-  ">
+  <div
+    class="q-px-sm q-py-xs row items-center rounded full-width bg-pb-editor-secondary-60"
+  >
     <q-icon
       v-if="methods.findComponentIcon(node.name)"
       :name="methods.findComponentIcon(node.name)"
@@ -19,7 +10,7 @@
     <div
       class="col font-weight-bold"
       :class="{
-        'text-pb-editor-accent': props.selectedNodeKey === node.id
+        'text-pb-editor-accent': props.selectedNodeKey === node.id,
       }"
     >
       <!--{{ node.name === 'Bloc' ? node.props.name : node.name }}-->
@@ -33,14 +24,20 @@
           icon="arrow_upward"
           size="0.4rem"
           :disable="node.readonly"
-          @click="methods.moveUp(node); $event.stopPropagation()"
+          @click="
+            methods.moveUp(node);
+            $event.stopPropagation();
+          "
         />
         <PBActionBtn
           class="col-6 icon"
           icon="arrow_downward"
           size="0.4rem"
           :disable="node.readonly"
-          @click="methods.moveDown(node); $event.stopPropagation()"
+          @click="
+            methods.moveDown(node);
+            $event.stopPropagation();
+          "
         />
       </div>
 
@@ -49,21 +46,29 @@
         icon="mdi-content-copy"
         size="0.6rem"
         :disable="node.readonly"
-        @click="methods.copy(node); $event.stopPropagation()"
+        @click="
+          methods.copy(node);
+          $event.stopPropagation();
+        "
       />
       <PBActionBtn
         v-else
         icon="mdi-close-box-multiple-outline"
         size="O.6rem"
-        @click="methods.cancelCopy(node); $event.stopPropagation()"
+        @click="
+          methods.cancelCopy(node);
+          $event.stopPropagation();
+        "
       >
-
       </PBActionBtn>
       <PBActionRemoveBtn
         v-if="!node.copied"
         size="0.6rem"
         :disabled="node.readonly"
-        @click="methods.remove(node); $event.stopPropagation()"
+        @click="
+          methods.remove(node);
+          $event.stopPropagation();
+        "
       />
     </div>
   </div>
@@ -91,11 +96,11 @@ export default defineComponent({
     readonly: propsMethods.getPropByName('readonly'),
     node: {
       type: Object,
-      required: true
+      required: true,
     },
     selectedNodeKey: {
       type: Number,
-    }
+    },
   },
   emits: [],
   setup(props) {
@@ -104,15 +109,12 @@ export default defineComponent({
 
     const actions = tree.methods.actions;
 
+    const stateless = {};
 
-    const stateless = {
-    };
-
-    const state = reactive({
-    });
+    const state = reactive({});
 
     const methods = {
-      copy (node: any) {
+      copy(node: any) {
         treeState.copiedNode = node;
         notify({
           message: 'Copy done!',
@@ -120,10 +122,10 @@ export default defineComponent({
           position: 'top',
         });
       },
-      cancelCopy (node: any) {
+      cancelCopy(node: any) {
         treeState.copiedNode = null;
       },
-      moveUp (node: any) {
+      moveUp(node: any) {
         actions.reorder({
           targetId: node.id,
           slot: node.slot,
@@ -131,7 +133,7 @@ export default defineComponent({
           treeId: props.myTreeId,
         });
       },
-      moveDown (node: any) {
+      moveDown(node: any) {
         actions.reorder({
           targetId: node.id,
           slot: node.slot,
@@ -139,7 +141,7 @@ export default defineComponent({
           treeId: props.myTreeId,
         });
       },
-      remove (node: any) {
+      remove(node: any) {
         actions.remove({
           targetId: node.id,
           treeId: props.myTreeId,
@@ -163,9 +165,7 @@ export default defineComponent({
       },
     };
 
-    const computedState = {
-    };
-
+    const computedState = {};
 
     watch(
       () => state,
@@ -176,15 +176,14 @@ export default defineComponent({
       }
     );
 
-    onMounted(() => {
-    });
+    onMounted(() => {});
 
     return {
       props,
       stateless,
       state,
       methods,
-      computedState
+      computedState,
     };
   },
 });

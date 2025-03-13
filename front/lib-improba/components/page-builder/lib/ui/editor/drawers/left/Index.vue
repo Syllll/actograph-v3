@@ -1,8 +1,5 @@
 <template>
-  <PBDrawer
-    :myTreeId="props.myTreeId"
-    type="left"
-  >
+  <PBDrawer :myTreeId="props.myTreeId" type="left">
     <PBTabView
       class="col full-width"
       expand
@@ -80,14 +77,13 @@ export default defineComponent({
     // const treeState = tree.sharedState;
 
     const selectedComponent = useSelectedComponent(props.myTreeId);
-    const drawers = useDrawers(props.myTreeId, { tabs })
+    const drawers = useDrawers(props.myTreeId, { tabs });
 
     const stateless = {
       tabs,
     };
 
-    const state = reactive({
-    });
+    const state = reactive({});
 
     const methods = {};
 

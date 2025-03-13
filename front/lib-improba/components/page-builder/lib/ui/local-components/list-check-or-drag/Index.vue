@@ -4,12 +4,20 @@
       v-for="(cat, indexCat) of computedState.categories.value"
       :key="indexCat"
     >
-      <DExpansionItem :label="`${cat.label} (${cat.components.length})`" :modelValue="!!props.search">
+      <DExpansionItem
+        :label="`${cat.label} (${cat.components.length})`"
+        :modelValue="!!props.search"
+      >
         <div
           v-if="cat.components"
           class="full-width row q-gutter-md justify-center"
         >
-          <template v-for="(item, index) of cat.components?.filter(i => !!i[1].builderOptions)" :key="index">
+          <template
+            v-for="(item, index) of cat.components?.filter(
+              (i) => !!i[1].builderOptions
+            )"
+            :key="index"
+          >
             <div class="col-5">
               <CompoCard
                 class="fit"

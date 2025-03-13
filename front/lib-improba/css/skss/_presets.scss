@@ -96,7 +96,7 @@ $sizes-steps: (
   // 925p: 925px,
   // 950p: 950px,
   // 975p: 975px,
-  // 1000p: 1000px,
+  // 1000p: 1000px,,
 );
 // #endregion
 
@@ -118,7 +118,7 @@ $inner-border-widths: (
   // thick: 6px,
   // thicker: 8px,
   // thickest: 10px,
-  // node: 0.2rem,
+  // node: 0.2rem,,
 );
 
 $default-border-width: 4px;
@@ -176,7 +176,6 @@ $border-radiuses: (
 );
 // #endregion
 
-
 // ? #region Font weights
 $font-weights: (
   bold,
@@ -205,10 +204,5 @@ $positions: (
 // #endregion
 
 // ? #region Alignements
-$alignments: (
-  top,
-  bottom,
-  left,
-  right
-);
+$alignments: (top, bottom, left, right);
 // #endregion

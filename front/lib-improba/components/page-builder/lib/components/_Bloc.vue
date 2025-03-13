@@ -100,7 +100,7 @@ export default defineComponent({
       async () => {
         await methods.init();
       }
-    )
+    );
 
     watch(
       () => treeState.pageBuilderJson,

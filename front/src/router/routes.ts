@@ -11,7 +11,6 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'root',
     component: () => import('pages/Index.vue'),
-    redirect: { name: 'home' },
     children: [
       { path: 'home', name: 'home', component: () => import('pages/Home.vue') },
       ...adminRoutes,

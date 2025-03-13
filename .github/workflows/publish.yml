@@ -1,0 +1,88 @@
+name: Build and Publish Release
+
+on:
+  push:
+    tags:
+      - 'prod-v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create API .env file
+        run: |
+          cat > api/.env << 'EOL'
+          # Container exposed ports on the host
+          BACKEND_DOCKER_APP_PORT_EXPOSED=3044
+          BACKEND_DOCKER_PSQL_PORT_EXPOSED=5644
+
+          # BACK and FRONT URLS (ex. https://mydomain.com or http://localhost:3236)
+          API_URL=http://localhost:3044
+          FRONTEND_URL=http://localhost:8044
+
+          # Name of the app, used in e-mails and in the frontend
+          APP_NAME=actograph-v3-api
+
+          # LOCAL DB
+          DB_TYPE=sqlite #postgres
+          DB_HOST=localhost #actograph-v3-api-dev-db
+          DB_PORT=5432
+          DB_USERNAME=actograph
+          DB_PASSWORD=actograph
+          DB_NAME=actograph.sqlite # actograph db
+
+          # Generate a strong (40 chars) random password using tools like https://www.dashlane.com/personal-password-manager/password-generator
+          JWT_SECRET=s0me-10ng-and-rAnd0m-str1ng-here-t00
+
+          # This will create the first admin user upon first start
+          ADMINUSER_LOGIN=admin@improba.fr
+          ADMINUSER_PASSWORD=s0me-l0ong+Str0ng-p@ssw0rd
+          EOL
+
+      - name: Create Frontend .env file
+        run: |
+          cat > front/.env << 'EOL'
+          FRONT_DOCKER_PORT_EXPOSED=8044
+          API_URL=http://localhost:3044
+          APP_NAME=actograph-v3
+          # Modes = dark|light
+          DEFAULT_COLOR_MODE=light
+          EOL
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Yarn
+        run: npm install -g yarn
+
+      - name: Run deploy script
+        run: bash scripts/deploy-electron.sh
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
+          files: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.snap
+            dist/latest*.yml
+            dist/latest*.yaml
+            dist/*-mac.zip
+            dist/*.blockmap
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -11,7 +11,10 @@
       <slot>
         <div class="row full-width q-col-gutter-sm">
           <!-- Loop on each property within a category -->
-          <template v-for="(prop, index) of computedState.filteredProps.value" :key="index">
+          <template
+            v-for="(prop, index) of computedState.filteredProps.value"
+            :key="index"
+          >
             <div :class="`${prop.class ? prop.class : 'col-12'} row`">
               <FormInput
                 :myTreeId="$props.myTreeId"
@@ -54,8 +57,8 @@ export default defineComponent({
   setup(props, context) {
     const quasar = useQuasar();
     const screen = quasar.screen;
-    const tree = useTree(props.myTreeId)
-    const treeState = tree.sharedState
+    const tree = useTree(props.myTreeId);
+    const treeState = tree.sharedState;
 
     const state = reactive({
       options: null as null | any[],
@@ -65,27 +68,37 @@ export default defineComponent({
 
     const computedState = {
       filteredProps: computed(() => {
-        const propList = props.category.props
+        const propList = props.category.props;
 
-        const hasDisplayCondition = propList?.some(prop => !!prop.displayCondition)
-        if (!hasDisplayCondition) { return props.category.props }
+        const hasDisplayCondition = propList?.some(
+          (prop) => !!prop.displayCondition
+        );
+        if (!hasDisplayCondition) {
+          return props.category.props;
+        }
 
         // Reset non-displayed fields to avoid undesired ghost values
         props.category.props
-          ?.filter(prop => prop.displayCondition?.(treeState.selected as INode) === false)
-          ?.forEach(prop => {
-            const { selected } = treeState
-            if (!selected) { return }
+          ?.filter(
+            (prop) =>
+              prop.displayCondition?.(treeState.selected as INode) === false
+          )
+          ?.forEach((prop) => {
+            const { selected } = treeState;
+            if (!selected) {
+              return;
+            }
 
             selected.props[prop.name] = null;
             // <!-- TODO handle the responsive stuff -->
             // selected.props['__screen'][selected?.props['__screen']][prop.name] = null;
-          })
+          });
 
-
-        return props.category.props?.filter(prop => prop.displayCondition?.(treeState.selected as INode) ?? true)
-      })
-    }
+        return props.category.props?.filter(
+          (prop) => prop.displayCondition?.(treeState.selected as INode) ?? true
+        );
+      }),
+    };
 
     return { props, state, methods, computedState, screen };
   },

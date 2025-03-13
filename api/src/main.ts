@@ -5,6 +5,23 @@ import { urlencoded, json } from 'express';
 import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
+  let port = 3000;
+  
+  // If the server is started as a subprocess, the port is passed as an argument
+  // This is the used when the server is started by electon
+  // console.log('args', process.argv);
+  if (process.argv[2] === '--subprocess') {
+    console.log('subprocess start', process.argv[3]);
+    port = parseInt(process.argv[3]);
+    if (isNaN(port)) {
+      throw new Error('Invalid port');
+    }
+
+    console.log(`Server will start on port ${port}`);
+  }
+
+  
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     cors: {
       origin: process.env.FRONTEND_URL,
@@ -41,7 +58,7 @@ async function bootstrap() {
       // },
     }),
   );
-  const server = await app.listen(3000);
+  const server = await app.listen(port);
   server.setTimeout(1000 * 60 * 5); // 5 min // 600,000=> 10Min, 1200,000=>20Min, 1800,000=>30Min
 }
 bootstrap();

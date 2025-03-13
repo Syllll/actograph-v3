@@ -6,7 +6,9 @@
     dropdown-icon="mdi-monitor-screenshot"
   >
     <DBtn
-      v-for="[breakpoint, { icon, width, height }] in Object.entries(drawers.stateless.toolbar.sizes)"
+      v-for="[breakpoint, { icon, width, height }] in Object.entries(
+        drawers.stateless.toolbar.sizes
+      )"
       :key="'toolbar_frame_btn_' + breakpoint"
       flat
       dense
@@ -26,29 +28,30 @@ export default defineComponent({
   // props: {},
   emits: [],
   setup(props) {
-    const drawers = useDrawers('')
+    const drawers = useDrawers('');
 
-    const stateless = {
-    };
+    const stateless = {};
 
-    const state = reactive({
-    });
+    const state = reactive({});
 
     const methods = {
-      handleResize: (event: { width: number|(() => string), height: number|(() => string) }) => {
-        const { width, height } = event
+      handleResize: (event: {
+        width: number | (() => string);
+        height: number | (() => string);
+      }) => {
+        const { width, height } = event;
 
-        const targetWidth = typeof width === 'number' ? width + 'px' : width?.()
-        const targetHeight = typeof height === 'number' ? height + 'px' : height?.()
+        const targetWidth =
+          typeof width === 'number' ? width + 'px' : width?.();
+        const targetHeight =
+          typeof height === 'number' ? height + 'px' : height?.();
 
-        drawers.sharedState.frame.width = targetWidth
-        drawers.sharedState.frame.height = targetHeight
+        drawers.sharedState.frame.width = targetWidth;
+        drawers.sharedState.frame.height = targetHeight;
       },
     };
 
-    const computedState = {
-    };
-
+    const computedState = {};
 
     watch(
       () => state,
@@ -59,8 +62,7 @@ export default defineComponent({
       }
     );
 
-    onMounted(() => {
-    });
+    onMounted(() => {});
 
     return {
       drawers,
@@ -68,7 +70,7 @@ export default defineComponent({
       stateless,
       state,
       methods,
-      computedState
+      computedState,
     };
   },
 });

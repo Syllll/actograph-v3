@@ -1,62 +1,62 @@
 <template>
   <FormLayout>
-    <q-option-group v-model="state.modelValue" v-bind="computedState.vbind.value" />
+    <q-option-group
+      v-model="state.modelValue"
+      v-bind="computedState.vbind.value"
+    />
   </FormLayout>
 </template>
 
 <script lang="ts">
 import { defineComponent, onMounted, reactive, watch } from 'vue';
 
-import { FormLayout } from './layouts/index'
+import { FormLayout } from './layouts/index';
 import { computed } from 'vue';
 
 export default defineComponent({
   props: {
     modelValue: {
       type: String,
-      required: true
+      required: true,
     },
     bind: {
-      type: Object
+      type: Object,
     },
     options: {
       type: Object,
-    }
+    },
   },
   emits: ['update:modelValue'],
   components: {
-    FormLayout
+    FormLayout,
   },
   setup(props, { emit }) {
-
-    const stateless = {
-    };
+    const stateless = {};
 
     const state = reactive({
-      modelValue: props.modelValue
+      modelValue: props.modelValue,
     });
 
-    const methods = {
-    };
+    const methods = {};
 
     const computedState = {
       vbind: computed(() => {
         const bind = {
-          ...props.bind
-        }
+          ...props.bind,
+        };
         if (props.options) {
-          bind['options'] = props.options
+          bind['options'] = props.options;
         }
 
-        return bind
-      })
+        return bind;
+      }),
     };
 
     watch(
       () => props.modelValue,
       (v: any) => {
         if (v !== state.modelValue) {
-          state.modelValue = v
+          state.modelValue = v;
         }
       }
     );
@@ -65,7 +65,7 @@ export default defineComponent({
       () => state.modelValue,
       (v: any) => {
         if (v !== props.modelValue) {
-          emit('update:modelValue', v)
+          emit('update:modelValue', v);
         }
       }
     );
@@ -79,7 +79,7 @@ export default defineComponent({
       stateless,
       state,
       methods,
-      computedState
+      computedState,
     };
   },
 });

@@ -36,7 +36,8 @@ export default defineComponent({
       () => queryParamSearch.state.filterValues,
       (newValues) => {
         context.emit('update:modelValue', newValues[queryParamName]);
-      }, {
+      },
+      {
         deep: true,
       }
     );

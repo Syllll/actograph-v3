@@ -20,7 +20,7 @@ export default defineComponent({
         {
           label: 'cms',
           route: { name: 'cms' },
-        }
+        },
       ],
     };
     const state = reactive({});

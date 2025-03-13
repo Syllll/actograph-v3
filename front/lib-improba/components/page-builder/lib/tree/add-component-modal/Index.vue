@@ -85,7 +85,7 @@ export default defineComponent({
     const actions = tree.methods.actions;
 
     const drag = useDragCard();
-    const drawers = useDrawers(props.myTreeId)
+    const drawers = useDrawers(props.myTreeId);
 
     const formRef = ref(null);
 
@@ -111,12 +111,12 @@ export default defineComponent({
           component: state.selectedComponentName,
           slot: props.slotName,
           treeId: props.myTreeId,
-        }
+        };
 
         actions.add(toAdd);
 
         if (getCurrentType() === ESources.iframe) {
-          drag.sharedState.droppedComponent = toAdd
+          drag.sharedState.droppedComponent = toAdd;
         }
 
         notify({
@@ -133,10 +133,10 @@ export default defineComponent({
       () => props.triggerOpen,
       () => {
         if (props.triggerOpen) {
-          drawers.methods.toggleDrawerState('show', null, false)
+          drawers.methods.toggleDrawerState('show', null, false);
         }
       }
-    )
+    );
 
     return {
       stateless,
