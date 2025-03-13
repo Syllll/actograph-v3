@@ -11,8 +11,8 @@
 const { configure } = require('quasar/wrappers');
 const path = require('path');
 const { spawn } = require('child_process');
+const fs = require('fs-extra');
 
-const fs = require('fs');
 const packageJson = fs.readFileSync('./package.json');
 const version = JSON.parse(packageJson).version || 0;
 const appname = JSON.parse(packageJson).name;
@@ -132,43 +132,46 @@ module.exports = configure(function (/* ctx */) {
       },
       beforeBuild: (ctx) => {
         const promise = new Promise((resolve, reject) => {
-          const child = spawn(
-            `cd ../api && \
-            yarn install --production=false && \
-            npx rimraf dist && \
-            npx nest build && \
-            cd ../front && \
-            npx rimraf ./src-electron/extra-resources/api && \
-            mkdir ./src-electron/extra-resources/api && \
-            cp -r ./../api/dist ./src-electron/extra-resources/api/dist && \
-            cp -r ./../api/node_modules ./src-electron/extra-resources/api/dist/node_modules && \
-            cp -r ./../api/.env ./src-electron/extra-resources/api/.env`,
-            {
-              stdio: 'inherit',
-              shell: true,
-            }
-          );
+          const buildApi = async () => {
+            try {
+              // Change directory to api and install dependencies
+              process.chdir('../api');
+              await new Promise((resolve, reject) => {
+                spawn('yarn', ['install', '--production=false'], { stdio: 'inherit', shell: true })
+                  .on('close', code => code === 0 ? resolve() : reject(code));
+              });
 
-          /*child.stdout.on('data', (data) => {
-            console.log(`stdout: ${data}`);
-          });
+              // Clean and build
+              await new Promise((resolve, reject) => {
+                spawn('npx', ['rimraf', 'dist'], { stdio: 'inherit', shell: true })
+                  .on('close', code => code === 0 ? resolve() : reject(code));
+              });
+              
+              await new Promise((resolve, reject) => {
+                spawn('npx', ['nest', 'build'], { stdio: 'inherit', shell: true })
+                  .on('close', code => code === 0 ? resolve() : reject(code));
+              });
 
-          child.stderr.on('data', (data) => {
-            console.log(`stderr: ${data}`);
-          });*/
+              // Change back to front directory
+              process.chdir('../front');
 
-          child.on('close', function (code, signal) {
-            console.log(
-              'child process exited with ' + `code ${code} and signal ${signal}`
-            );
-            if (code === 0) {
+              // Clean destination directory
+              await fs.remove('./src-electron/extra-resources/api');
+              
+              // Create directory and copy files
+              await fs.ensureDir('./src-electron/extra-resources/api');
+              await fs.copy('../api/dist', './src-electron/extra-resources/api/dist');
+              await fs.copy('../api/node_modules', './src-electron/extra-resources/api/dist/node_modules');
+              await fs.copy('../api/.env', './src-electron/extra-resources/api/.env');
+
               resolve();
-            } else {
-              reject();
+            } catch (error) {
+              console.error('Build failed:', error);
+              reject(error);
             }
-          });
+          };
 
-          // child.stdin() << "cd ./src-nestjs" << "yarn install; yarn build; yarn start:prod";
+          buildApi();
         });
         return promise;
       },
