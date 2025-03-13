@@ -135,10 +135,10 @@ module.exports = configure(function (/* ctx */) {
           const child = spawn(
             `cd ../api && \
             yarn install --production=false && \
-            ./node_modules/.bin/rimraf dist && \
-            ./node_modules/.bin/nest build && \
+            npx rimraf dist && \
+            npx nest build && \
             cd ../front && \
-            ./node_modules/.bin/rimraf ./src-electron/extra-resources/api && \
+            npx rimraf ./src-electron/extra-resources/api && \
             mkdir ./src-electron/extra-resources/api && \
             cp -r ./../api/dist ./src-electron/extra-resources/api/dist && \
             cp -r ./../api/node_modules ./src-electron/extra-resources/api/dist/node_modules && \
