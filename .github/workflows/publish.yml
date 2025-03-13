@@ -151,7 +151,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
-          tag_name: prod-v${{ steps.get_version.outputs.VERSION }}
+          tag_name: ${{ github.ref }}
           draft: false
           prerelease: false
         env:
