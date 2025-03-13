@@ -99,7 +99,7 @@ jobs:
 
       # Instead of uploading to release here, let's save artifacts
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: electron-artifacts-${{ matrix.os }}
           path: |
@@ -123,7 +123,7 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
