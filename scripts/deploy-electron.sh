@@ -9,26 +9,28 @@ fi
 # Exit on error in subscript
 set -e
 
-# Current script folder path
-scriptFolderPath=$( dirname -- "$( readlink -f -- "$0"; )"; )
+# Get script directory in a cross-platform way
+scriptFolderPath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-cd $scriptFolderPath;
+cd "$scriptFolderPath"
 
-cd ../api;
-rm -rf ./node_modules;
-rm -rf ./dist;
+# Clean and prepare API
+cd ../api
+rm -rf ./node_modules
+rm -rf ./dist
 
-# build the electron app
-cd ../front;
-rm -rf ./node_modules;
-rm -rf ./quasar;
-yarn install;
+# Build the electron app
+cd ../front
+rm -rf ./node_modules
+rm -rf ./quasar
+yarn install
 
-./node_modules/.bin/quasar build -m electron --publish always;
+# Build with electron mode
+./node_modules/.bin/quasar build -m electron --publish always
 
 # List the content of the dist folder
-ls -la ../front/dist/electron;
-ls -la ../front/dist/electron/Packaged;
+ls -la dist/electron
+ls -la dist/electron/Packaged
 
 #cd ../api;
 #rm -rf ./node_modules;
