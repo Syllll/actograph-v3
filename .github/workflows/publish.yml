@@ -150,7 +150,9 @@ jobs:
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
+          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
+          tag_name: prod-v${{ steps.get_version.outputs.VERSION }}
           draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
