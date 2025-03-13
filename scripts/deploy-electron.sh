@@ -24,10 +24,11 @@ rm -rf ./node_modules;
 rm -rf ./quasar;
 yarn install;
 
-./node_modules/.bin/quasar build -m electron --publish always;
+./node_modules/.bin/quasar build -m electron --publish always --target all;
 
 # List the content of the dist folder
 ls -la ../front/dist/electron;
+ls -la ../front/dist/electron/Packaged;
 
 #cd ../api;
 #rm -rf ./node_modules;

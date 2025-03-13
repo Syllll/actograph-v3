@@ -89,14 +89,14 @@ jobs:
         with:
           name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
           files: |
-            front/dist/electron/*.exe
-            front/dist/electron/*.dmg
-            front/dist/electron/*.AppImage
-            front/dist/electron/*.snap
-            front/dist/electron/latest*.yml
-            front/dist/electron/latest*.yaml
-            front/dist/electron/*-mac.zip
-            front/dist/electron/*.blockmap
+            front/dist/electron/Packaged/*.exe
+            front/dist/electron/Packaged/*.dmg
+            front/dist/electron/Packaged/*.AppImage
+            front/dist/electron/Packaged/*.snap
+            front/dist/electron/Packaged/latest*.yml
+            front/dist/electron/Packaged/latest*.yaml
+            front/dist/electron/Packaged/*-mac.zip
+            front/dist/electron/Packaged/*.blockmap
           draft: false
           prerelease: false
         env:
