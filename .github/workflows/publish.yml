@@ -89,14 +89,14 @@ jobs:
         with:
           name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
           files: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*.snap
-            dist/latest*.yml
-            dist/latest*.yaml
-            dist/*-mac.zip
-            dist/*.blockmap
+            front/dist/*.exe
+            front/dist/*.dmg
+            front/dist/*.AppImage
+            front/dist/*.snap
+            front/dist/latest*.yml
+            front/dist/latest*.yaml
+            front/dist/*-mac.zip
+            front/dist/*.blockmap
           draft: false
           prerelease: false
         env:
