@@ -6,8 +6,33 @@ on:
       - 'prod-v*.*.*'
 
 jobs:
-  build-and-release:
+  create-draft-release:
     runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    permissions:
+      contents: write
+    steps:
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
+
+      - name: Create Draft Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
+          draft: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-and-upload:
+    needs: create-draft-release
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     environment: deploy
     permissions:
       contents: write 
@@ -16,11 +41,13 @@ jobs:
       - name: Extract version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
+        shell: bash
 
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Update package.json versions
+        shell: bash
         run: |
           # Update API package.json
           jq '.version = "${{ steps.get_version.outputs.VERSION }}"' api/package.json > api/package.json.tmp
@@ -80,14 +107,14 @@ jobs:
 
       - name: Run deploy script
         run: bash scripts/deploy-electron.sh
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Release
-        id: create_release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
-          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
+          tag_name: ${{ github.ref }}
           files: |
             front/dist/electron/Packaged/*.exe
             front/dist/electron/Packaged/*.dmg
@@ -97,6 +124,24 @@ jobs:
             front/dist/electron/Packaged/latest*.yaml
             front/dist/electron/Packaged/*-mac.zip
             front/dist/electron/Packaged/*.blockmap
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-release:
+    needs: build-and-upload
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
         env:
