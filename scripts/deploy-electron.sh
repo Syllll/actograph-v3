@@ -26,9 +26,14 @@ yarn install;
 
 ./node_modules/.bin/quasar build -m electron --publish always;
 
-cd ../api;
-rm -rf ./node_modules;
-rm -rf ./dist;
-cd ../front;
-rm -rf ./node_modules;
-rm -rf ./quasar;
+# List the content of the dist folder
+ls -la ../front/dist/electron;
+
+#cd ../api;
+#rm -rf ./node_modules;
+#rm -rf ./dist;
+#cd ../front;
+#rm -rf ./node_modules;
+#rm -rf ./quasar;
+
+
