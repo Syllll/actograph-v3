@@ -22,7 +22,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
-          tag_name: ${{ github.ref }}
+          tag_name: actograph-v3_v${{ steps.get_version.outputs.VERSION }}
           draft: true
           prerelease: false
         env:
@@ -123,7 +123,8 @@ jobs:
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
+          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
+          tag_name: actograph-v3_v${{ steps.get_version.outputs.VERSION }}
           files: |
             front/dist/electron/Packaged/*.exe
             front/dist/electron/Packaged/*.dmg
@@ -134,6 +135,7 @@ jobs:
             front/dist/electron/Packaged/*-mac.zip
             front/dist/electron/Packaged/*.blockmap
           draft: true
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -150,7 +152,8 @@ jobs:
       - name: Publish Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
+          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
+          tag_name: actograph-v3_v${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
         env:
