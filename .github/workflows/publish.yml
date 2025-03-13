@@ -8,6 +8,7 @@ on:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    environment: deploy
 
     steps:
       - name: Extract version from tag
@@ -35,16 +36,16 @@ jobs:
           DB_TYPE=sqlite #postgres
           DB_HOST=localhost #actograph-v3-api-dev-db
           DB_PORT=5432
-          DB_USERNAME=actograph
-          DB_PASSWORD=actograph
+          DB_USERNAME=${{ vars.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           DB_NAME=actograph.sqlite # actograph db
 
           # Generate a strong (40 chars) random password using tools like https://www.dashlane.com/personal-password-manager/password-generator
           JWT_SECRET=s0me-10ng-and-rAnd0m-str1ng-here-t00
 
           # This will create the first admin user upon first start
-          ADMINUSER_LOGIN=admin@improba.fr
-          ADMINUSER_PASSWORD=s0me-l0ong+Str0ng-p@ssw0rd
+          ADMINUSER_LOGIN=${{ vars.ADMINUSER_LOGIN }}
+          ADMINUSER_PASSWORD=${{ secrets.ADMINUSER_PASSWORD }}
           EOL
 
       - name: Create Frontend .env file
