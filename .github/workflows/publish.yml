@@ -9,6 +9,8 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     environment: deploy
+    permissions:
+      contents: write 
 
     steps:
       - name: Extract version from tag
