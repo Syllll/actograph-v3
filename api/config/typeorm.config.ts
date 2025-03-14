@@ -9,7 +9,7 @@ export const envPath = _envPath;
 
 // When nestjs is called with --subprocess, the db path is passed as the 5th argument
 // This is the case when the software is run as a desktop app
-let _dbPath = getMode() === 'electron' ? process.argv[5] : ''
+let _dbPath = getMode() === 'electron' && process.env.PROD ? process.argv[5] : ''
 if (_dbPath && !_dbPath.endsWith('/')) {
   _dbPath += '/'
 }
@@ -18,7 +18,6 @@ export const dbPath = _dbPath;
 config({
   path: envPath
 });
-// TypeOrmModuleOptions = interface des options de typeorm
 
 export const typeOrmConfig: TypeOrmModuleOptions = {
   type: process.env.DB_TYPE as any,

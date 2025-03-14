@@ -67,8 +67,7 @@ export class UsersModule implements OnModuleInit {
     if (getMode() === 'electron') {
 
       // Get the user name at the os level
-      const user = os.userInfo();
-      const localUsername = `_pc-${user.username}`;
+      const localUsername = this.securityService.getLocalUsername();
 
       // Create the local user if it doesn't exist
       // The password is the username of the user at the os level
@@ -79,7 +78,7 @@ export class UsersModule implements OnModuleInit {
           roles: [UserRoleEnum.User],
           userJwt: {
             username: localUsername,
-            password: user.username,
+            password: localUsername.split('-')[1],
             activated: true,
           },
         });

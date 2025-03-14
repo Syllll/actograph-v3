@@ -2,8 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.typeOrmConfig = exports.dbPath = exports.envPath = void 0;
 const dotenv_1 = require("dotenv");
-exports.envPath = process.argv[2] === '--subprocess' ? process.argv[4] : undefined;
-let _dbPath = process.argv[2] === '--subprocess' ? process.argv[5] : '';
+const mode_1 = require("./mode");
+const _envPath = (0, mode_1.getMode)() === 'electron' && process.env.PROD ? process.argv[4] : undefined;
+exports.envPath = _envPath;
+let _dbPath = (0, mode_1.getMode)() === 'electron' && process.env.PROD ? process.argv[5] : '';
 if (_dbPath && !_dbPath.endsWith('/')) {
     _dbPath += '/';
 }
@@ -17,7 +19,7 @@ exports.typeOrmConfig = {
     port: parseInt(process.env.DB_PORT),
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
-    database: `${_dbPath}${process.env.DB_NAME}`,
+    database: `${_dbPath !== null && _dbPath !== void 0 ? _dbPath : ''}${process.env.DB_NAME}`,
     entities: [__dirname + '/../src/**/*.entity.{js,ts}'],
     synchronize: false,
     migrations: [__dirname + '/../migrations/**/*.{js,ts}'],

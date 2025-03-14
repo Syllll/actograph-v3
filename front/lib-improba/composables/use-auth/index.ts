@@ -21,7 +21,7 @@ const sharedState = reactive({
 });
 
 function getTokenFromCookiesAndSaveIntoAxios() {
-  const tokenFromCookie = Cookies.get(`${process.env.APP_NAME}`);
+  const tokenFromCookie = localStorage.getItem('token');
   if (tokenFromCookie)
     api().defaults.headers.common.Authorization = 'Bearer ' + tokenFromCookie;
 
@@ -29,7 +29,7 @@ function getTokenFromCookiesAndSaveIntoAxios() {
 }
 
 function setCookiesWithToken(token: string) {
-  Cookies.set(`${process.env.APP_NAME}`, token, cookieOptions);
+  localStorage.setItem('token', token);
 
   getTokenFromCookiesAndSaveIntoAxios();
 }

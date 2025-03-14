@@ -6,25 +6,22 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CoreModule = void 0;
+exports.SecurityModule = void 0;
 const common_1 = require("@nestjs/common");
-const users_module_1 = require("./users/users.module");
-const cron_tasks_module_1 = require("./cron-tasks/cron-tasks.module");
-const typeorm_ex_module_1 = require("../database/typeorm-ex.module");
-const index_module_1 = require("./security/index.module");
-let CoreModule = class CoreModule {
+const users_module_1 = require("../users/users.module");
+const security_controller_1 = require("./controllers/security.controller");
+const security_service_1 = require("./services/security.service");
+let SecurityModule = class SecurityModule {
 };
-CoreModule = __decorate([
+SecurityModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_ex_module_1.TypeOrmExModule.forCustomRepository([]),
-            users_module_1.UsersModule,
-            index_module_1.SecurityModule,
-            cron_tasks_module_1.CronTasksModule,
+            (0, common_1.forwardRef)(() => users_module_1.UsersModule),
         ],
-        controllers: [],
-        providers: [],
+        controllers: [security_controller_1.SecurityController],
+        providers: [security_service_1.SecurityService],
+        exports: [security_service_1.SecurityService],
     })
-], CoreModule);
-exports.CoreModule = CoreModule;
-//# sourceMappingURL=core.module.js.map
+], SecurityModule);
+exports.SecurityModule = SecurityModule;
+//# sourceMappingURL=index.module.js.map

@@ -4,9 +4,10 @@ const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
 const app_module_1 = require("./app.module");
 const express_1 = require("express");
+const mode_1 = require("../config/mode");
 async function bootstrap() {
-    let port = 3000;
-    if (process.argv[2] === '--subprocess') {
+    let port = process.env.BACKEND_DOCKER_APP_PORT_EXPOSED || 3000;
+    if ((0, mode_1.getMode)() === 'electron' && process.env.PROD) {
         console.log('subprocess start', process.argv[3]);
         port = parseInt(process.argv[3]);
         if (isNaN(port)) {

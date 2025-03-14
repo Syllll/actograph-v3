@@ -66,9 +66,11 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     // we're on production; no access to devtools pls
-    mainWindow.webContents.on('devtools-opened', () => {
+    /*mainWindow.webContents.on('devtools-opened', () => {
       mainWindow?.webContents.closeDevTools();
-    });
+    });*/
+
+    mainWindow.webContents.openDevTools();
   }
 
   mainWindow.on('closed', () => {
@@ -103,7 +105,6 @@ function createWindow() {
   });
 }
 
-
 /**
  * Creates a background process that runs the server.
  * In electron, the server is run as a subprocess. The server is a nestjs instance using sqlite as database.
@@ -126,7 +127,10 @@ function createBackgroundProcess(port: number) {
 
   // stdio ensure we can capture all output streams
   serverProcess = fork(serverPath, ['--subprocess', port.toString(), envPath, dbPath], {
-    stdio: ['pipe', 'pipe', 'pipe', 'ipc']
+    stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+    env: {
+      PROD: 'true'
+    }
   });
 
   // Listeners for both stdout and stderr streams
