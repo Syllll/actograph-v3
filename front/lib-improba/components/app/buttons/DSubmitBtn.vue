@@ -4,8 +4,7 @@
     :icon="props.icon"
     :type="props.type"
     :label="
-      props.label ??
-      (!props.icon ? i18n.t('components.buttons.DSubmitBtn.label') : undefined)
+      props.label ?? undefined
     "
     no-caps
   >

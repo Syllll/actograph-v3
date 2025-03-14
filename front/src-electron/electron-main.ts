@@ -58,7 +58,7 @@ function createWindow() {
   });
 
   // Load the URL with query parameters
-  mainWindow.loadURL(<string>process.env.APP_URL + '?serverPort=' + serverPort + '&targetRoute=/home');
+  mainWindow.loadURL(<string>process.env.APP_URL + '?serverPort=' + serverPort + '&targetRoute=/gateway');
 
 
   if (process.env.DEBUGGING) {

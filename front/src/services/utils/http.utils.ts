@@ -1,8 +1,8 @@
 export default {
   apiUrl(): string {
-    // If electron is running, the api url is localhost:serverPort
+    // If electron is running in production mode, the api url is localhost:serverPort
     // The server port is retrieved from the main process
-    if (process.env.MODE === 'electron') {
+    if (process.env.MODE === 'electron' && process.env.PROD) {
       // Get the server port from the url usin the window object
       const url = new URL(window.location.href);
 

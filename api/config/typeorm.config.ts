@@ -2,8 +2,6 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { config } from 'dotenv';
 import { getMode } from './mode';
 
-console.log('getMode(): ', getMode());
-
 // When nestjs is running as electron and PROD, the env path is passed as the 4th argument
 // This is the case when the software is run as a desktop app
 const _envPath = getMode() === 'electron' && process.env.PROD ? process.argv[4] : undefined

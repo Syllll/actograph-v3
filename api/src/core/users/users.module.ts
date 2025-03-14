@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Inject, Module, OnModuleInit, forwardRef } from '@nestjs/common';
 import { AuthJwtModule } from 'src/general/auth-jwt/authJwt.module';
 import * as os from 'os';
 import { getMode } from 'config/mode';
@@ -11,10 +11,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TypeOrmExModule } from 'src/database/typeorm-ex.module';
 import { UserRoleEnum } from './utils/user-role.enum';
 import { JwtStrategy } from './jwt.strategy';
-
+import { SecurityModule } from '../security/index.module';
+import { SecurityService } from '@core/security/services/security.service';
 @Module({
   imports: [
     AuthJwtModule,
+    forwardRef(() => SecurityModule),
     TypeOrmExModule.forCustomRepository([UserRepository]),
   ],
   controllers: [UserController, AdminUserController],
@@ -22,7 +24,11 @@ import { JwtStrategy } from './jwt.strategy';
   exports: [UserService],
 })
 export class UsersModule implements OnModuleInit {
-  constructor(private usersService: UserService) {}
+  constructor(
+    @Inject(forwardRef(() => SecurityService))
+    private securityService: SecurityService,
+    private usersService: UserService
+  ) {}
 
   async onModuleInit() {
     console.info(`Users module initialization...`);
@@ -62,9 +68,10 @@ export class UsersModule implements OnModuleInit {
 
       // Get the user name at the os level
       const user = os.userInfo();
-      const localUsername = user.username;
+      const localUsername = `_pc-${user.username}`;
 
       // Create the local user if it doesn't exist
+      // The password is the username of the user at the os level
       const users = await this.usersService.findWithUsername(<string>localUsername);
       if (users && users.length === 0) {
         console.info('Creating the local user...');
@@ -72,7 +79,7 @@ export class UsersModule implements OnModuleInit {
           roles: [UserRoleEnum.User],
           userJwt: {
             username: localUsername,
-            password: localUsername,
+            password: user.username,
             activated: true,
           },
         });

@@ -12,9 +12,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
-
 import { BaseController } from '@utils/controllers/base.controller';
-
 import { UserJwtRepository } from '../repositories/user.repository';
 import { UserJwt, UserJwtCreateDto } from '../entities/userJwt.entity';
 import {

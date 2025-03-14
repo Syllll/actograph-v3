@@ -10,6 +10,14 @@ const routes: RouteRecordRaw[] = [
     component: () => import('pages/Index.vue'),
     children: [
       { path: 'home', name: 'home', component: () => import('pages/Home.vue') },
+      { path: 'gateway', name: 'gateway', component: () => import('pages/gateway/Index.vue'), 
+        redirect: { name: 'gateway_loading' },
+        children: [
+          { path: 'loading', name: 'gateway_loading', component: () => import('pages/gateway/Loading.vue') },
+          { path: 'choose-version', name: 'gateway_choose-version', component: () => import('pages/gateway/ChooseVersion.vue') },
+          { path: 'activate-pro', name: 'gateway_activate-pro', component: () => import('pages/gateway/ActivatePro.vue') },
+        ]
+      },
       ...adminRoutes,
       ...userRoutes,
       ...authRoutes,

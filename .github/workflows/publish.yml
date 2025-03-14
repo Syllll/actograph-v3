@@ -24,6 +24,42 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Replace security functions
+        shell: bash
+        env:
+          PKV_GET_KEY_BYTE: ${{ secrets.PKVGETKEYBYTE }}
+          PKV_CHECK_KEY: ${{ secrets.PKVCHECKKEY }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const filePath = "api/src/core/security/services/key-testor.ts";
+            
+            let content = fs.readFileSync(filePath, "utf8");
+            
+            // Replace each function
+            const replacements = [
+              {
+                pattern: /private pkvGetKeyByte\(seed: ulint, a: ulint, b: ulint, c: ulint\): ulint {[\s\S]*?^  }/m,
+                replacement: `private pkvGetKeyByte(seed: ulint, a: ulint, b: ulint, c: ulint): ulint {${process.env.PKV_GET_KEY_BYTE}}`
+              },
+              {
+                pattern: /private pkvCheckKey\(s: string, blackListedKeys: string\[\] = \[\]\): KeyStatus {[\s\S]*?^  }/m,
+                replacement: `private pkvCheckKey(s: string, blackListedKeys: string[] = []): KeyStatus {${process.env.PKV_CHECK_KEY}}`
+              }
+            ];
+            
+            for (const {pattern, replacement} of replacements) {
+              content = content.replace(pattern, replacement);
+            }
+            
+            fs.writeFileSync(filePath, content);
+          '
+
       - name: Update package.json versions
         shell: bash
         run: |
@@ -62,7 +98,11 @@ jobs:
 
           # This will create the first admin user upon first start
           ADMINUSER_LOGIN=${{ vars.ADMINUSER_LOGIN }}
-          ADMINUSER_PASSWORD=${{ secrets.ADMINUSER_PASSWORD }}" > api/.env
+          ADMINUSER_PASSWORD=${{ secrets.ADMINUSER_PASSWORD }}
+
+          # API
+          ACTOGRAPH_API=${{ vars.ACTOGRAPH_API }}
+          ACTOGRAPH_API_PASSWORD=${{ secrets.ACTOGRAPH_API_PASSWORD }}" > api/.env
 
       - name: Create Frontend .env file
         shell: bash
@@ -82,11 +122,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install setuptools wheel
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       - name: Setup Yarn
         run: npm install -g yarn
