@@ -3,14 +3,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { urlencoded, json } from 'express';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { getMode } from 'config/mode';
 
 async function bootstrap() {
   let port = 3000;
   
-  // If the server is started as a subprocess, the port is passed as an argument
+  // If the server is started in electron and prod mode, the port is passed as an argument
   // This is the used when the server is started by electon
-  // console.log('args', process.argv);
-  if (process.argv[2] === '--subprocess') {
+  if (getMode() === 'electron' && process.env.PROD) {
     console.log('subprocess start', process.argv[3]);
     port = parseInt(process.argv[3]);
     if (isNaN(port)) {
@@ -19,7 +19,6 @@ async function bootstrap() {
 
     console.log(`Server will start on port ${port}`);
   }
-
   
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {

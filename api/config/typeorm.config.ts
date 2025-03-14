@@ -1,14 +1,17 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { config } from 'dotenv';
-import * as path from 'path';
+import { getMode } from './mode';
 
-// When nestjs is called with --subprocess, the env path is passed as the 4th argument
+console.log('getMode(): ', getMode());
+
+// When nestjs is running as electron and PROD, the env path is passed as the 4th argument
 // This is the case when the software is run as a desktop app
-export const envPath = process.argv[2] === '--subprocess' ? process.argv[4] : undefined
+const _envPath = getMode() === 'electron' && process.env.PROD ? process.argv[4] : undefined
+export const envPath = _envPath;
 
 // When nestjs is called with --subprocess, the db path is passed as the 5th argument
 // This is the case when the software is run as a desktop app
-let _dbPath = process.argv[2] === '--subprocess' ? process.argv[5] : ''
+let _dbPath = getMode() === 'electron' ? process.argv[5] : ''
 if (_dbPath && !_dbPath.endsWith('/')) {
   _dbPath += '/'
 }

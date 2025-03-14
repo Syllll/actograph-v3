@@ -42,16 +42,30 @@ yarn migration:run
 # Go back to the script folder
 cd "$scriptFolderPath"
 
+# Variable to store terminal PID and command
+terminal_pid=""
+api_command="cd $scriptFolderPath/../api && yarn migration:run && yarn start:dev-electron"
+
 # Deal with API
 
 # Open new terminal tab for API server (macOS)
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    osascript -e 'tell application "Terminal" to activate' \
-              -e 'tell application "System Events" to tell process "Terminal" to keystroke "t" using command down' \
-              -e "tell application \"Terminal\" to do script \"cd $scriptFolderPath/../api && yarn migration:run && yarn start:dev\" in selected tab of the front window"
+    osascript <<EOF
+        tell application "Terminal"
+            activate
+            do script "$api_command; exec bash"
+            set custom title of selected tab of window 1 to "api"
+        end tell
+EOF
+    sleep 1  # Give the process time to start
+    terminal_pid=$(pgrep -f "$api_command")
 # Open new terminal tab for API server (Linux)
 elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    gnome-terminal --tab --working-directory="$scriptFolderPath/../api" -- bash -c "yarn migration:run && yarn start:dev"
+    # Start in a new session to make process group handling easier
+    setsid gnome-terminal --tab --title="api" -- bash -c "$api_command; exec bash" &
+    terminal_pid=$!
+    echo "API terminal process ID: $terminal_pid"
+    sleep 1  # Give the process time to start
 else
     echo "Unsupported operating system"
     exit 1
@@ -66,7 +80,9 @@ cd "$scriptFolderPath/../front"
 yarn install
 
 # Start electron in dev mode
-./node_modules/.bin/quasar dev -m electron 
+./node_modules/.bin/quasar dev -m electron
+
+
 
 
 
