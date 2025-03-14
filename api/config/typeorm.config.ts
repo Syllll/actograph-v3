@@ -28,7 +28,7 @@ export const typeOrmConfig: TypeOrmModuleOptions = {
   port: parseInt(<string>process.env.DB_PORT),
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
-  database: `${_dbPath}${process.env.DB_NAME}`,
+  database: `${_dbPath ?? ''}${process.env.DB_NAME}`,
   // Tous les fichiers dans le dossier source qui finissent par entity.ts ou js seront pris en compte
   entities: [__dirname + '/../src/**/*.entity.{js,ts}'],
   synchronize: false,
