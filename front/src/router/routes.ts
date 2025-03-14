@@ -2,9 +2,6 @@ import { RouteRecordRaw } from 'vue-router';
 import { userRoutes } from '@router/user';
 import { adminRoutes } from '@router/admin';
 import { authRoutes } from '@router/auth';
-import { docsRoutes } from '@lib-improba/router/routes/docs';
-import { cmsRoutes } from '@lib-improba/router/routes/cms';
-import { bofRoutes } from '@lib-improba/router/routes/buildoform';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -16,9 +13,6 @@ const routes: RouteRecordRaw[] = [
       ...adminRoutes,
       ...userRoutes,
       ...authRoutes,
-      ...docsRoutes,
-      ...cmsRoutes,
-      ...bofRoutes,
     ],
   },
   // Always leave this as last one,

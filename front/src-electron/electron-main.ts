@@ -45,6 +45,8 @@ function createWindow() {
     icon: path.resolve(__dirname, 'icons/icon.png'), // tray icon
     width,
     height,
+    minWidth: 700,
+    minHeight: 400,
     autoHideMenuBar: true,
     useContentSize: true,
     frame: false,

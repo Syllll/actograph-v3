@@ -131,6 +131,11 @@ module.exports = configure(function (/* ctx */) {
         DEFAULT_COLOR_MODE: process.env.DEFAULT_COLOR_MODE || 'light',
       },
       beforeBuild: (ctx) => {
+        if (ctx.dev) {
+          return;
+        }
+
+        console.log('Building API...');
         const promise = new Promise((resolve, reject) => {
           const buildApi = async () => {
             try {

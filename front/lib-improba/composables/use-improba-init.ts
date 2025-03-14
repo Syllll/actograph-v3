@@ -9,6 +9,16 @@ export const useImprobaInit = async (quasar: QVueGlobals, router: Router) => {
   // Init query params store
   const qp = useQueryParams(router);
   await qp.methods.initRouteQuery();
+  
+  // If electron
+  if (process.env.MODE === 'electron') {
+    // Get the url param named targetRoute
+    const url = new URL(window.location.href);
+    const targetRoute = url.searchParams.get('targetRoute');
+    if (targetRoute) {
+      router.replace(targetRoute);
+    }
+  }
 
   // Init theme
   const theme = useTheme(quasar);

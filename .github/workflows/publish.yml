@@ -92,7 +92,7 @@ jobs:
         run: npm install -g yarn
 
       - name: Run deploy script
-        run: bash scripts/deploy-electron.sh
+        run: bash scripts/build-electron.sh
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
