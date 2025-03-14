@@ -1,6 +1,6 @@
 # ActoGraph v3
 
-This repository contains the source code for the ActoGraph v3 software. The software is a web application built with [Quasar Framework](https://quasar.dev/), a Vue.js-based framework for building responsive web applications.
+This repository contains the source code for the ActoGraph v3 software. The software is a web and desktop application built with [Quasar Framework](https://quasar.dev/), a Vue.js-based framework for building responsive web applications.
 
 The software is composed of two parts:
 - A frontend application built with Quasar Framework
@@ -9,40 +9,29 @@ The software is composed of two parts:
 The software is designed to be run on: 
 - The desktop (Linux, MacOS, Windows)
 - The web (any device with a modern browser)
-- [not yet] Mobile devices (Android, iOS), only for some features
 
 ## How to setup
 
-For development: 
+### Development
+
+For development in electron mode: 
 ```bash
-# To initialize a new project
-sh compose.sh init
-
-# To run an existing project
-sh compose.sh up -d
-
-# To stop all containers
-sh compose.sh down
+bash scripts/dev-electron.sh
 ```
 
-For production you can use the same commands but you need to set the `COMPOSE_MODE` environment variable to `production`.
+For development in web mode: 
 ```bash
-# Indicate we are in production mode
-export COMPOSE_MODE=production
+bash scripts/dev-web.sh
 ```
-
+The latter command will start the docker containers for API and Front.
 
 ## How to deploy
 
-This template is intended to be ran with kubernetes. The deployment is done using the "deployment" feature of Rancher. The steps required to deploy are: 
+o push a tag starting with prod-vX.X.X will trigger the deployment of the production versions of the app.
 
-1. Ensure the deployment is configured by asking your project leader. 
-2. If the answer is yes then you can just push a tag such as v0.0.1 to reploy the 0.0.1 version of the app.
+If one wants to deploy manually a web version of the app, one can use the following command:
 ```bash
-# Commit the work and push it
-git commit ... && git push
-# Create a new tag and push it to trigger the deployment CI
-git tag v0.0.1 && git push origin v0.0.1
+# Indicate we are in production mode through the COMPOSE_MODE environment variable
+COMPOSE_MODE=production sh compose.sh up -d
 ```
 
-If the deployment is not configured then you can do it yourself by following the steps detailed in the [deployment documentation](./docs/deployment-rancher.md).

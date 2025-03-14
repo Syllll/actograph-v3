@@ -27,6 +27,6 @@ if [ -d "$scriptFolderPath/api/node_modules" ]; then
 fi
 
 # Start the api and front docker containers
-cd ..
+cd "${scriptFolderPath}/.."
 sh compose.sh up -d
 
