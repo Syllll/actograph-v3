@@ -3,9 +3,7 @@
     color="accent-medium"
     :icon="props.icon"
     :type="props.type"
-    :label="
-      props.label ?? undefined
-    "
+    :label="props.label ?? undefined"
     no-caps
   >
     <slot></slot>

@@ -14,9 +14,10 @@ import { BaseEntity } from '@utils/entities/base.entity';
 import { UserJwt } from '@auth-jwt/entities/userJwt.entity';
 import { GROUP_USER, GROUP_ADMIN } from '../serializationGroups/groups';
 import { UserRoleEnum } from '../utils/user-role.enum';
-  // glutamat: imports
+import { License } from '@core/security/entities/license.entity';
+// glutamat: imports
 
-@Entity("users") 
+@Entity('users')
 export class User extends BaseEntity {
   @Expose({ groups: [GROUP_USER, GROUP_ADMIN] })
   @Column('varchar', { length: 200, nullable: true })
@@ -58,13 +59,16 @@ export class User extends BaseEntity {
   // ! Relations
   // ****
   // glutamat: relations
-  
+
   @OneToOne(() => UserJwt, {
     cascade: ['update', 'remove', 'soft-remove'],
     eager: false,
   })
   @JoinColumn()
   userJwt!: UserJwt;
+
+  @OneToMany(() => License, (license) => license.user)
+  licenses?: License[];
 
   constructor(partial: Partial<User>) {
     super();

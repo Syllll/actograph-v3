@@ -3,7 +3,13 @@
     style="border-bottom: 1px solid hsla(0, 0%, 100%, 0.12); padding: 20"
   >
     <DTabs class="full-width" :right-icon="'none'">
+      <q-btn flat round dense icon="menu" @click="drawer.sharedState.showDrawer = !drawer.sharedState.showDrawer" />
+
       <Logo v-if="!props.hideLogo" />
+
+      <DSpace />
+
+      <License />
 
       <DRouteTab
         v-for="item in props.menuItems"
@@ -71,11 +77,15 @@ import Logo from '../../Logo.vue';
 import { useRouter } from 'vue-router';
 import ThemeToggler from '../../theme-toggler/ThemeToggler.vue';
 import { useAuth } from 'src/../lib-improba/composables/use-auth';
+import { useLicense } from 'src/composables/use-license';
+import License from './license/Index.vue';
+import { useDrawer } from 'src/pages/userspace/_components/drawer/use-drawer';
 
 export default defineComponent({
   components: {
     Logo,
     ThemeToggler,
+    License,
   },
   props: {
     menuItems: {
@@ -105,6 +115,9 @@ export default defineComponent({
   setup(props) {
     const router = useRouter();
     const auth = useAuth(router);
+    const license = useLicense();
+    const drawer = useDrawer();
+
     const state = reactive({});
     const stateless = {};
 
@@ -114,8 +127,14 @@ export default defineComponent({
       }),
       userName: computed(() => {
         const user = auth.sharedState?.user;
-        const userName =
+        let userName =
           user?.firstname ?? user?.userJwt?.username ?? props.roleTitle;
+
+        // Remove the username prefix if it exists
+        if (userName.startsWith('_pc-')) {
+          userName = userName.slice(4);
+        }
+
         return userName;
       }),
     };
@@ -139,9 +158,11 @@ export default defineComponent({
     return {
       props,
       state,
+      drawer,
       stateless,
       computedState,
       methods,
+      license,
     };
   },
 });

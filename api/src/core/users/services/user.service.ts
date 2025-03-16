@@ -283,7 +283,6 @@ export class UserService extends BaseService<User, UserRepository> {
 
     if (searchOptions) {
       if (searchOptions?.roles?.length) {
-        
         const cond = {
           type: conditions.length > 0 ? TypeEnum.AND : undefined,
           conditions: searchOptions?.roles.map((role) => ({

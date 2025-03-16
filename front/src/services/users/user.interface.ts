@@ -1,3 +1,4 @@
+import { ILicense } from '@services/security/interface';
 import { IEntity } from '../utils/entity.interface';
 
 export enum UserRoleEnum {
@@ -21,4 +22,5 @@ export interface IUser extends IEntity {
   preferDarkTheme: boolean;
   isAdmin: boolean;
   userJwt?: IUserJWT;
+  license?: ILicense;
 }

@@ -11,7 +11,11 @@
         <slot name="toolbar" />
       </Toolbar>
     </q-header>
-    <q-page-container>
+
+
+    <q-page-container :class="{
+      'q-ml-sm': drawer.sharedState.showDrawer,
+    }">
       <slot><router-view /></slot>
     </q-page-container>
   </q-layout>
@@ -32,6 +36,7 @@ import { userMenuItems } from './user-menu-items';
 import { useAuth } from 'src/../lib-improba/composables/use-auth';
 import { useI18n } from 'vue-i18n';
 import ElectronBar from './../electron-bar/Index.vue';
+import { useDrawer } from 'src/pages/userspace/_components/drawer/use-drawer';
 
 export default defineComponent({
   components: {
@@ -62,12 +67,11 @@ export default defineComponent({
     const router = useRouter();
     const i18n = useI18n();
     const auth = useAuth(router);
+    const drawer = useDrawer();
 
     const stateless = {
       menuItems,
     };
-
-    const state = reactive({});
 
     const computedState = {
       appVersion: computed(() => {
@@ -105,7 +109,7 @@ export default defineComponent({
 
     return {
       props,
-      state,
+      drawer,
       stateless,
       computedState,
       methods,

@@ -9,7 +9,7 @@ export const useImprobaInit = async (quasar: QVueGlobals, router: Router) => {
   // Init query params store
   const qp = useQueryParams(router);
   await qp.methods.initRouteQuery();
-  
+
   // If electron
   if (process.env.MODE === 'electron') {
     // Get the url param named targetRoute

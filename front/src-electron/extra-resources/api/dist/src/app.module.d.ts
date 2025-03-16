@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
 export declare class AppModule {
-    private dataSource;
-    constructor(dataSource: DataSource);
+  private dataSource;
+  constructor(dataSource: DataSource);
 }

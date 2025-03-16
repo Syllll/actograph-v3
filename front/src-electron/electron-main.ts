@@ -1,4 +1,11 @@
-import { app, BrowserWindow, nativeTheme, screen, ipcMain, dialog } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  nativeTheme,
+  screen,
+  ipcMain,
+  dialog,
+} from 'electron';
 import path from 'path';
 import os from 'os';
 import { fork } from 'child_process';
@@ -13,7 +20,7 @@ const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 
 autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = "info";
+autoUpdater.logger.transports.file.level = 'info';
 
 // needed in case process is undefined under Linux
 const platform = process.platform || os.platform();
@@ -24,7 +31,7 @@ try {
       path.join(app.getPath('userData'), 'DevTools Extensions')
     );
   }
-} catch (_) { }
+} catch (_) {}
 
 let mainWindow: BrowserWindow | undefined;
 let serverProcess: any = null;
@@ -35,7 +42,7 @@ const publicFolder = path.resolve(
   <string>process.env.QUASAR_PUBLIC_FOLDER
 );
 
-function createWindow() {
+async function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   /**
@@ -53,55 +60,81 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       // More info: https://v2.quasar.dev/quasar-cli-vite/developing-electron-apps/electron-preload-script
-      preload: path.resolve(__dirname, process.env.QUASAR_ELECTRON_PRELOAD || ''),
+      preload: path.resolve(
+        __dirname,
+        process.env.QUASAR_ELECTRON_PRELOAD || ''
+      ),
     },
   });
 
   // Load the URL with query parameters
-  mainWindow.loadURL(<string>process.env.APP_URL + '?serverPort=' + serverPort + '&targetRoute=/gateway');
-
+  const loadPromise = mainWindow.loadURL(
+    <string>process.env.APP_URL +
+      '?serverPort=' +
+      serverPort +
+      '&targetRoute=/gateway'
+  );
 
   if (process.env.DEBUGGING) {
     // if on DEV or Production with debug enabled
     mainWindow.webContents.openDevTools();
   } else {
     // we're on production; no access to devtools pls
-    /*mainWindow.webContents.on('devtools-opened', () => {
+    mainWindow.webContents.on('devtools-opened', () => {
       mainWindow?.webContents.closeDevTools();
-    });*/
+    });
 
-    mainWindow.webContents.openDevTools();
+    //mainWindow.webContents.openDevTools();
   }
 
   mainWindow.on('closed', () => {
     mainWindow = undefined;
   });
 
+  // Wait for the window to be loaded before checking for updates
+  await loadPromise;
 
   autoUpdater.checkForUpdatesAndNotify();
 
   // Auto-Update Event Listeners
   autoUpdater.on('update-available', () => {
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Update Available',
-      message: 'A new update is available. Downloading now...',
-    });
+    log.info('Update available');
+
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available');
+    }
+  });
+
+  // Add download progress event
+  autoUpdater.on('download-progress', (progressObj) => {
+    log.info(`Download progress: ${progressObj.percent.toFixed(2)}%`);
+
+    if (mainWindow) {
+      // Send progress to renderer process
+      mainWindow.webContents.send('download-progress', {
+        percent: progressObj.percent,
+        transferred: progressObj.transferred,
+        total: progressObj.total,
+        bytesPerSecond: progressObj.bytesPerSecond
+      });
+    }
+    
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    dialog.showMessageBox({
-      type: 'info',
-      title: 'Update Ready',
-      message: 'Update downloaded. It will be installed on restart.',
-      buttons: ['Restart', 'Later']
-    }).then(result => {
-      if (result.response === 0) autoUpdater.quitAndInstall();
-    });
+    log.info('Update downloaded');
+
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded');
+    }
   });
 
   autoUpdater.on('error', (err) => {
     log.error('Update error:', err);
+
+    if (mainWindow) {
+      mainWindow.webContents.send('update-error', err);
+    }
   });
 }
 
@@ -122,19 +155,23 @@ function createBackgroundProcess(port: number) {
 
   // Get the path to the database file, the path depends on the platform with must be located in the application data folder
   const dbPath = path.join(
-    app.getPath('userData'), // This gets the per-user application data directory
+    app.getPath('userData') // This gets the per-user application data directory
   );
 
   // stdio ensure we can capture all output streams
-  serverProcess = fork(serverPath, ['--subprocess', port.toString(), envPath, dbPath], {
-    stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-    env: {
-      PROD: 'true'
+  serverProcess = fork(
+    serverPath,
+    ['--subprocess', port.toString(), envPath, dbPath],
+    {
+      stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+      env: {
+        PROD: 'true',
+      },
     }
-  });
+  );
 
   // Listeners for both stdout and stderr streams
-  // Prefixes to the console output ([Server Process] and [Server Process Error]) 
+  // Prefixes to the console output ([Server Process] and [Server Process Error])
   // to distinguish the child process output from the main process output
   serverProcess.stdout?.on('data', (data: Buffer) => {
     console.log(`[Server Process] ${data.toString().trim()}`);
@@ -190,6 +227,10 @@ ipcMain.handle('maximize', (event, arg) => {
 
 ipcMain.handle('minimize', (event, arg) => {
   mainWindow?.minimize();
+});
+
+ipcMain.handle('restart', (event, arg) => {
+  autoUpdater.quitAndInstall();
 });
 
 // ************

@@ -12,7 +12,7 @@ import { TypeOrmExModule } from 'src/database/typeorm-ex.module';
 import { UserRoleEnum } from './utils/user-role.enum';
 import { JwtStrategy } from './jwt.strategy';
 import { SecurityModule } from '../security/index.module';
-import { SecurityService } from '@core/security/services/security.service';
+import { SecurityService } from '@core/security/services/security/index.service';
 @Module({
   imports: [
     AuthJwtModule,
@@ -27,7 +27,7 @@ export class UsersModule implements OnModuleInit {
   constructor(
     @Inject(forwardRef(() => SecurityService))
     private securityService: SecurityService,
-    private usersService: UserService
+    private usersService: UserService,
   ) {}
 
   async onModuleInit() {
@@ -41,7 +41,9 @@ export class UsersModule implements OnModuleInit {
     const password = process.env.ADMINUSER_PASSWORD;
     if (adminUsername && password) {
       const role = UserRoleEnum.Admin;
-      const users = await this.usersService.findWithUsername(<string>adminUsername);
+      const users = await this.usersService.findWithUsername(
+        <string>adminUsername,
+      );
       if (users && users.length === 0) {
         console.info('Creating the admin user...');
         await this.usersService.create({
@@ -60,18 +62,19 @@ export class UsersModule implements OnModuleInit {
     // ****************
     // Local user
     // ****************
-    // Only if the app is running in electron mode, as a desktop app. 
+    // Only if the app is running in electron mode, as a desktop app.
     // The local user is used to identify the user on the machine.
     // It is not used for authentication, for which we use the JWT token.
 
     if (getMode() === 'electron') {
-
       // Get the user name at the os level
-      const localUsername = this.securityService.getLocalUsername();
+      const localUsername = this.securityService.electron.getLocalUsername();
 
       // Create the local user if it doesn't exist
       // The password is the username of the user at the os level
-      const users = await this.usersService.findWithUsername(<string>localUsername);
+      const users = await this.usersService.findWithUsername(
+        <string>localUsername,
+      );
       if (users && users.length === 0) {
         console.info('Creating the local user...');
         await this.usersService.create({

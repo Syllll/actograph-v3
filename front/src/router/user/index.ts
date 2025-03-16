@@ -8,13 +8,28 @@ export const userRoutes: RouteRecordRaw[] = [
     name: 'user',
     meta,
     component: () => import('src/pages/userspace/Index.vue'),
-    /*redirect: {name: 'user_projects'},
+    redirect: {name: 'user_home'},
     children: [
-      {
-        path: 'projects',
-        name: 'user_projects',
-        component: () => import('pages/user/projects/Index.vue'),
+      {   
+        path: 'home',
+        name: 'user_home',
+        component: () => import('pages/userspace/home/Index.vue'),
       },
-    ],*/
+      {
+        path: 'protocol',
+        name: 'user_protocol',
+        component: () => import('pages/userspace/protocol/Index.vue'),
+      },
+      {
+        path: 'observation',
+        name: 'user_observation',
+        component: () => import('pages/userspace/observation/Index.vue'),
+      },
+      {
+        path: 'analyse',
+        name: 'user_analyse',
+        component: () => import('pages/userspace/analyse/Index.vue'),
+      },
+    ],
   },
 ];

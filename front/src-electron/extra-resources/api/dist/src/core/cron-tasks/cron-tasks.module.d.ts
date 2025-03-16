@@ -1,2 +1,1 @@
-export declare class CronTasksModule {
-}
+export declare class CronTasksModule {}

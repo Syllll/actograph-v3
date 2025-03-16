@@ -7,7 +7,7 @@ import { getMode } from 'config/mode';
 
 async function bootstrap() {
   let port = process.env.BACKEND_DOCKER_APP_PORT_EXPOSED || 3000;
-  
+
   // If the server is started in electron and prod mode, the port is passed as an argument
   // This is the used when the server is started by electon
   if (getMode() === 'electron' && process.env.PROD) {

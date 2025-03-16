@@ -83,7 +83,7 @@ module.exports = configure(function (/* ctx */) {
           '@services': path.resolve(__dirname, './src/services'),
           '@components': path.resolve(__dirname, './src/components'),
           '@utils': path.resolve(__dirname, './src/utils'),
-          '@lib-improba': path.resolve(__dirname, './lib-improba')
+          '@lib-improba': path.resolve(__dirname, './lib-improba'),
         });
       },
 
@@ -116,7 +116,8 @@ module.exports = configure(function (/* ctx */) {
                     tsconfigPath: 'tsconfig.vue-tsc.json',
                   },
             eslint: {
-              lintCommand: 'eslint "./**/*.{js,ts,mjs,cjs,vue}" --ignore-pattern "src-electron/extra-resources/*"',
+              lintCommand:
+                'eslint "./**/*.{js,ts,mjs,cjs,vue}" --ignore-pattern "src-electron/extra-resources/*"',
             },
           },
           { server: false },
@@ -142,19 +143,31 @@ module.exports = configure(function (/* ctx */) {
               // Change directory to api and install dependencies
               process.chdir('../api');
               await new Promise((resolve, reject) => {
-                spawn('yarn', ['install', '--production=false'], { stdio: 'inherit', shell: true })
-                  .on('close', code => code === 0 ? resolve() : reject(code));
+                spawn('yarn', ['install', '--production=false'], {
+                  stdio: 'inherit',
+                  shell: true,
+                }).on('close', (code) =>
+                  code === 0 ? resolve() : reject(code)
+                );
               });
 
               // Clean and build
               await new Promise((resolve, reject) => {
-                spawn('npx', ['rimraf', 'dist'], { stdio: 'inherit', shell: true })
-                  .on('close', code => code === 0 ? resolve() : reject(code));
+                spawn('npx', ['rimraf', 'dist'], {
+                  stdio: 'inherit',
+                  shell: true,
+                }).on('close', (code) =>
+                  code === 0 ? resolve() : reject(code)
+                );
               });
-              
+
               await new Promise((resolve, reject) => {
-                spawn('npx', ['nest', 'build'], { stdio: 'inherit', shell: true })
-                  .on('close', code => code === 0 ? resolve() : reject(code));
+                spawn('npx', ['nest', 'build'], {
+                  stdio: 'inherit',
+                  shell: true,
+                }).on('close', (code) =>
+                  code === 0 ? resolve() : reject(code)
+                );
               });
 
               // Change back to front directory
@@ -162,12 +175,21 @@ module.exports = configure(function (/* ctx */) {
 
               // Clean destination directory
               await fs.remove('./src-electron/extra-resources/api');
-              
+
               // Create directory and copy files
               await fs.ensureDir('./src-electron/extra-resources/api');
-              await fs.copy('../api/dist', './src-electron/extra-resources/api/dist');
-              await fs.copy('../api/node_modules', './src-electron/extra-resources/api/dist/node_modules');
-              await fs.copy('../api/.env', './src-electron/extra-resources/api/.env');
+              await fs.copy(
+                '../api/dist',
+                './src-electron/extra-resources/api/dist'
+              );
+              await fs.copy(
+                '../api/node_modules',
+                './src-electron/extra-resources/api/dist/node_modules'
+              );
+              await fs.copy(
+                '../api/.env',
+                './src-electron/extra-resources/api/.env'
+              );
 
               resolve();
             } catch (error) {
@@ -309,26 +331,28 @@ module.exports = configure(function (/* ctx */) {
 
         appId: 'actograph-v3',
         extraResources: ['./src-electron/extra-resources/**'],
-
+        // We do not use the version in the artifact name, because we want to be able to
+        // use the same artifact name for different versions.
+        artifactName: 'ActoGraph-v3.${ext}', // 'ActoGraph-v3-${version}.${ext}',
         productName: 'ActoGraph-v3',
         copyright: '©2025 SymAlgo Technologies',
         mac: {
-          'category': 'public.app-category.utilities'
+          category: 'public.app-category.utilities',
         },
         win: {
-          'target': 'nsis'
+          target: 'nsis',
         },
         linux: {
-          'target': ['AppImage'],
-          'category': 'Utility'
+          target: ['AppImage'],
+          category: 'Utility',
         },
         publish: [
           {
             provider: 'github',
             owner: 'Syllll',
-            repo: 'actograph-v3'
-          }
-        ]
+            repo: 'actograph-v3',
+          },
+        ],
       },
     },
 

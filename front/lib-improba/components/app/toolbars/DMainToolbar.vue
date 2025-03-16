@@ -1,5 +1,5 @@
 <template>
-  <DToolbar class="bg-primary-low">
+  <DToolbar class="bg-primary">
     <slot></slot>
   </DToolbar>
 </template>

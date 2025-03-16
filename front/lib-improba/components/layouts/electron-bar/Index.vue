@@ -2,7 +2,9 @@
   <q-bar class="q-electron-drag bg-grey-10">
     <q-space />
 
-    <div class="text-white text-bold">ActoGraph</div>
+    <div class="text-white text-bold">
+      ActoGraph v{{ stateless.appVersion }}
+    </div>
 
     <q-space />
 
@@ -42,7 +44,9 @@ export default defineComponent({
 
     const computedState = {};
 
-    const stateless = {};
+    const stateless = {
+      appVersion: process.env.APP_VERSION,
+    };
 
     const methods = {
       maximize() {

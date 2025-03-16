@@ -1,2 +1,1 @@
-export declare class CoreModule {
-}
+export declare class CoreModule {}

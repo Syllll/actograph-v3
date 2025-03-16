@@ -10,12 +10,12 @@
                 <VersionCard class="col-6" title="Version étudiante" subtitle="Gratuite"
                     description="Cette version est gratuite et réservée aux étudiants opérant dans un contexte académique."
                     buttonLabel="Je suis étudiant" 
-                    @click="() => $router.push({ name: 'user' })"
+                    @activate="() => $router.push({ name: 'user' })"
                     />
                 <VersionCard class="col-6" title="Version professionnelle" subtitle="Sous licence : pro ou ultimate"
                     description="Cette version est complète et sécurisée. Elle est destinée à un usage professionnel."
                     buttonLabel="Je suis un pro" 
-                    @click="() => $router.push({ name: 'gateway_activate-pro' })"
+                    @activate="() => $router.push({ name: 'gateway_activate-pro' })"
                     />
             </div>
         </DCard>
@@ -28,15 +28,28 @@ import EmptyLayout from '@lib-improba/components/layouts/empty/Index.vue';
 import VersionCard from './_components/VersionCard.vue';
 import { useRouter } from 'vue-router';
 import { useAuth } from '@lib-improba/composables/use-auth';
-
+import securityService from '@services/security/index.service';
 export default defineComponent({
     components: { EmptyLayout, VersionCard },
     setup() {
         const router = useRouter();
         const auth = useAuth(router);
 
+        const methods = {
+          activateStudent: async () => {
+            await securityService.activateStudent();
+            router.push({
+              name: 'gateway_loading',
+            });
+          },
+          activatePro: () => {
+            router.push({ name: 'gateway_activate-pro' });
+          },
+        }
+
         return {
             auth,
+            methods,
         };
     },
 });

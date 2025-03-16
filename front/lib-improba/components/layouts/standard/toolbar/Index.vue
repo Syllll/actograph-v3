@@ -1,5 +1,4 @@
 <template>
-  <template v-if="screen.gt.sm">
     <ToolbarContent
       :roleTitle="props.roleTitle"
       :menuItems="props.menuItems"
@@ -8,14 +7,6 @@
       :themeLabel="props.themeLabel"
     >
     </ToolbarContent>
-  </template>
-  <template v-else>
-    <ToolbarContent hideLogo style="padding: 5 !important; text-align: center">
-      <div class="full-width row justify-evenly">
-        <slot> </slot>
-      </div>
-    </ToolbarContent>
-  </template>
 </template>
 
 <script lang="ts">

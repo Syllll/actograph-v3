@@ -67,22 +67,34 @@ export class BaseService<Entity extends ObjectLiteral, Repository> {
     return entity;
   }
 
-  async uploadFile(file: Express.Multer.File, subfolder: string): Promise<UploadedFile> {
+  async uploadFile(
+    file: Express.Multer.File,
+    subfolder: string,
+  ): Promise<UploadedFile> {
     const folder = path.join(String(process.env.UPLOAD_FOLDER), subfolder);
-    await createFolderIfNeeded(folder)
-    let filename = file.originalname
-    let filepath = path.join(folder, filename)
+    await createFolderIfNeeded(folder);
+    let filename = file.originalname;
+    let filepath = path.join(folder, filename);
     // append number to file name
     if (fs.existsSync(filepath)) {
       const extension = path.extname(filename);
-      filename = filename.replace(extension, `${new Date().toISOString().slice(2,19).replace(/[-TZ:]/g, '')}.${extension}`);
-      filepath = path.join(folder, filename)
-      console.log({ extension, filepath })
+      filename = filename.replace(
+        extension,
+        `${new Date()
+          .toISOString()
+          .slice(2, 19)
+          .replace(/[-TZ:]/g, '')}.${extension}`,
+      );
+      filepath = path.join(folder, filename);
+      console.log({ extension, filepath });
     }
     fs.appendFileSync(filepath, file.buffer, {
       flag: 'wx',
     });
-    const publicPath = filepath.replace(`${process.env.PUBLIC_UPLOADS_FOLDER}`, '')
+    const publicPath = filepath.replace(
+      `${process.env.PUBLIC_UPLOADS_FOLDER}`,
+      '',
+    );
     return {
       filename,
       filepath,
@@ -90,7 +102,7 @@ export class BaseService<Entity extends ObjectLiteral, Repository> {
       mimetype: file.mimetype,
       originalname: file.originalname,
       publicpath: publicPath,
-      url: `${process.env.API_URL}${publicPath}`
+      url: `${process.env.API_URL}${publicPath}`,
     };
   }
 }

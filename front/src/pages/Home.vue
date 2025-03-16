@@ -12,11 +12,13 @@ import { useRouter } from 'vue-router';
 export default defineComponent({
   components: { EmptyLayout },
   setup() {
-
     const router = useRouter();
 
     onMounted(() => {
-      console.log('current route url for home: ', router.currentRoute.value.fullPath);
+      console.log(
+        'current route url for home: ',
+        router.currentRoute.value.fullPath
+      );
       const urlLoc = window.location.href;
       console.log('urlLoc: ', urlLoc);
     });

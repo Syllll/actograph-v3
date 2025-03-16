@@ -1,22 +1,23 @@
 <template>
-  <q-route-tab no-caps :disable="!computedState.enable" style="flex: none">
-    <!--<q-img
-      contain
-      width="30px"
-      src="images/logo.png"
-      class="q-mr-md"
-      :style="{ filter: stateless.quasar.dark.isActive ? '' : 'invert(1)' }"
-      to="/"
-    />-->
-    <div
-      :class="`full-height text-bold row items-center justify-center ${
-        screen?.lt.sm ? 'text-h6' : 'text-h4'
-      }`"
-      @click="methods.goToDashboard"
-    >
-      Template Improba
+  <div class="q-mx-md" style="flex: none">
+    <div class="row">
+      <q-img
+        contain
+        width="6rem"
+        src="actograph_logo_med.jpeg"
+        class="q-ma-none q-pa-none q-mr-sm"
+        @click="methods.goToDashboard"
+      />
+      <!--<div
+        :class="`text-bold row items-center justify-center ${
+          screen?.lt.sm ? 'text-h6' : 'text-h4'
+        }`"
+        @click="methods.goToDashboard"
+      >
+        ActoGraph
+      </div> -->
     </div>
-  </q-route-tab>
+  </div>
 </template>
 
 <script lang="ts">

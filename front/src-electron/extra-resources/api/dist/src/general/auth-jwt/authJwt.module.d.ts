@@ -1,2 +1,1 @@
-export declare class AuthJwtModule {
-}
+export declare class AuthJwtModule {}

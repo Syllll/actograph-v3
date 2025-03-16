@@ -1,2 +1,1 @@
-export declare class SecurityModule {
-}
+export declare class SecurityModule {}

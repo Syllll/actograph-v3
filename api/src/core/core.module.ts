@@ -11,7 +11,7 @@ import { SecurityModule } from './security/index.module';
     SecurityModule,
     CronTasksModule,
   ],
-  controllers: [ ],
+  controllers: [],
   providers: [],
 })
 export class CoreModule {}

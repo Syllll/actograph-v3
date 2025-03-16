@@ -1,6 +1,6 @@
 <template>
   <DDrawer
-    :modelValue="state.showDrawer"
+    :modelValue="drawer.sharedState.showDrawer"
     persistent
     :class="'bg-secondary-high text-text-invert'"
   >
@@ -25,17 +25,16 @@
 <script lang="ts">
 import { defineComponent, ref, reactive } from 'vue';
 import { menuItems } from './menu-items';
+import { useDrawer } from 'src/pages/userspace/_components/drawer/use-drawer';
 
 export default defineComponent({
   components: {},
   setup() {
+    const drawer = useDrawer();
     const stateless = {
       menuItems: menuItems(),
     };
-    const state = reactive({
-      showDrawer: true,
-    });
-    return { stateless, state };
+    return { stateless, drawer};
   },
 });
 </script>

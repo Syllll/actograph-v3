@@ -45,10 +45,7 @@ import { UserService } from '../../services/user.service';
 import { UserJwtService } from '@auth-jwt/services/userJwt.service';
 import { AdminUserUpdateDto } from '../../dtos/admin/admin-user-patch.dto';
 import { PaginationDto } from '@utils/dtos';
-import {
-  ISearchQueryParams,
-  SearchQueryParams,
-} from '@utils/decorators';
+import { ISearchQueryParams, SearchQueryParams } from '@utils/decorators';
 import { ParseStringOrUndefinedPipe } from '@utils/pipes';
 
 @Controller('users-admin')
@@ -83,10 +80,13 @@ export class AdminUserController extends BaseController {
     relations: string[] = [],
     @Query('searchString', new DefaultValuePipe('*'), ParseFilterPipe)
     searchString: string,
-    @Query('filterRoles', new ParseEnumArrayPipe({
-      type: ['admin', 'user'],
-      separator: ',',
-    }))
+    @Query(
+      'filterRoles',
+      new ParseEnumArrayPipe({
+        type: ['admin', 'user'],
+        separator: ',',
+      }),
+    )
     filterRoles: string[] = [],
   ): Promise<IPaginationOutput<User>> {
     const results = await this.service.findAndPaginateWithOptions(
@@ -149,9 +149,7 @@ export class AdminUserController extends BaseController {
   @Patch('current')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.Admin)
-  async update(
-    @Body() body: AdminUserUpdateDto,
-  ): Promise<User> {
+  async update(@Body() body: AdminUserUpdateDto): Promise<User> {
     const userUpdated = await this.service.updateAdmin(body);
     return <User>userUpdated;
   }

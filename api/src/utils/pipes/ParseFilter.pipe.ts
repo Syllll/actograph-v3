@@ -1,6 +1,10 @@
 // import * as validator from 'class-validator';
 
-import { PipeTransform, BadRequestException, ArgumentMetadata } from '@nestjs/common';
+import {
+  PipeTransform,
+  BadRequestException,
+  ArgumentMetadata,
+} from '@nestjs/common';
 
 export class ParseFilterPipe implements PipeTransform {
   // constructor(options: any) {}
@@ -8,7 +12,9 @@ export class ParseFilterPipe implements PipeTransform {
 
   parseAndValidate(value: any, metadata: ArgumentMetadata) {
     if (typeof value !== 'string')
-      throw new BadRequestException(`${metadata.data ?? '-'}: Given item must be a string.`);
+      throw new BadRequestException(
+        `${metadata.data ?? '-'}: Given item must be a string.`,
+      );
 
     return value;
   }

@@ -8,7 +8,7 @@ export enum KeyStatus {
   INVALID = 'INVALID',
   BLACKLISTED = 'BLACKLISTED',
   PHONY = 'PHONY',
-  GOOD = 'GOOD'
+  GOOD = 'GOOD',
 }
 
 /**
@@ -16,7 +16,7 @@ export enum KeyStatus {
  * This class handles key validation and checksum verification
  */
 export class KeyTestor {
-  constructor() { }
+  constructor() {}
 
   /**
    * Check if a key is valid
@@ -71,7 +71,7 @@ export class KeyTestor {
    */
   private cleanKey(s: string): string {
     // Remove the "-"
-    return this.replace(s, "-", "");
+    return this.replace(s, '-', '');
   }
 
   /**
@@ -82,7 +82,7 @@ export class KeyTestor {
   private pkvCheckKeyChecksum(key: string): boolean {
     // Remove cosmetic hyphens and normalize case
     const s = this.cleanKey(key);
-    
+
     // Since our keys are always 28 characters long,
     // we exit if the key is not the right length
     if (s.length === 28) {
@@ -96,7 +96,7 @@ export class KeyTestor {
       // the key string.
       return c === this.pkvGetChecksum(keyPart);
     }
-    
+
     return false;
   }
 
@@ -107,22 +107,22 @@ export class KeyTestor {
    */
   private pkvGetChecksum(s: string): string {
     let left: word = 0x0082;
-    let right: word = 0x004F;
+    let right: word = 0x004f;
 
     if (s.length > 0) {
       // Loop on all the characters of the string
       for (let i = 0; i < s.length; i++) {
         // Fix: Match C++ byte casting behavior
-        right = right + (s.charCodeAt(i) & 0xFF);
+        right = right + (s.charCodeAt(i) & 0xff);
 
-        if (right > 0x00FF) {
-          right -= 0x00FF;
+        if (right > 0x00ff) {
+          right -= 0x00ff;
         }
 
         left += right;
 
-        if (left > 0x00FF) {
-          left -= 0x00FF;
+        if (left > 0x00ff) {
+          left -= 0x00ff;
         }
       }
 
@@ -154,4 +154,4 @@ export class KeyTestor {
   private pkvCheckKey(s: string, blackListedKeys: string[] = []): KeyStatus {
     return KeyStatus.GOOD;
   }
-} 
+}

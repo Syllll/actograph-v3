@@ -1,15 +1,32 @@
-import { BadRequestException, createParamDecorator, DefaultValuePipe, ExecutionContext, ParseIntPipe } from "@nestjs/common";
-import { IPaginationOptions } from "@utils/repositories/base.repositories";
-import { Transform } from "class-transformer";
-import { IsNumber, IsOptional, IsString, IsEnum, IsArray, ValidateIf } from "class-validator";
-import { ParseFilterPipe, ParseIntOrUndefinedPipe, ParseStringOrUndefinedPipe } from "@utils/pipes";
+import {
+  BadRequestException,
+  createParamDecorator,
+  DefaultValuePipe,
+  ExecutionContext,
+  ParseIntPipe,
+} from '@nestjs/common';
+import { IPaginationOptions } from '@utils/repositories/base.repositories';
+import { Transform } from 'class-transformer';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsArray,
+  ValidateIf,
+} from 'class-validator';
+import {
+  ParseFilterPipe,
+  ParseIntOrUndefinedPipe,
+  ParseStringOrUndefinedPipe,
+} from '@utils/pipes';
 
 export const PaginationQueries = createParamDecorator(
   async (data: any, ctx: ExecutionContext) => {
     const parseIntOrUndefinedPipe = new ParseIntOrUndefinedPipe();
     const parseStringOrUndefinedPipe = new ParseStringOrUndefinedPipe();
     const parseFilterPipe = new ParseFilterPipe();
-    
+
     const limit = parseIntOrUndefinedPipe.transform('limit', {
       type: 'query',
       metatype: Number,
@@ -47,11 +64,9 @@ export const PaginationQueries = createParamDecorator(
       orderBy: orderBy || 'id',
       order: order || 'DESC',
       q,
-    }
-    
+    };
   },
 );
-
 
 export class PaginationDto {
   @IsNumber()
@@ -81,12 +96,15 @@ export class PaginationDto {
     }
   })
   @IsOptional()
-  @Transform(({ value }) => { 
-    if (!value || value.length === 0) {
-      return [];
-    }
-    return value.split(',');
-  }, { toClassOnly: true })
+  @Transform(
+    ({ value }) => {
+      if (!value || value.length === 0) {
+        return [];
+      }
+      return value.split(',');
+    },
+    { toClassOnly: true },
+  )
   includes: string[] = [];
 }
 
