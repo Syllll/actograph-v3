@@ -94,8 +94,6 @@ async function createWindow() {
   // Wait for the window to be loaded before checking for updates
   await loadPromise;
 
-  autoUpdater.checkForUpdatesAndNotify();
-
   // Auto-Update Event Listeners
   autoUpdater.on('update-available', () => {
     log.info('Update available');
@@ -231,6 +229,10 @@ ipcMain.handle('minimize', (event, arg) => {
 
 ipcMain.handle('restart', (event, arg) => {
   autoUpdater.quitAndInstall();
+});
+
+ipcMain.handle('ready-to-check-updates', (event, arg) => {
+  autoUpdater.checkForUpdatesAndNotify();
 });
 
 // ************

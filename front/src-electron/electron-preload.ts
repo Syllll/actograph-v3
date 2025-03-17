@@ -4,6 +4,7 @@ const validChannels = [
   'exit', 
   'maximize',
   'minimize',
+  'ready-to-check-updates',
   'update-available',
   'update-download-progress',
   'update-downloaded',

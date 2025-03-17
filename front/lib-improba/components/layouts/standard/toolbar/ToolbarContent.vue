@@ -3,36 +3,17 @@
     style="border-bottom: 1px solid hsla(0, 0%, 100%, 0.12); padding: 20"
   >
     <DTabs class="full-width" :right-icon="'none'">
-      <q-btn flat round dense icon="menu" @click="drawer.sharedState.showDrawer = !drawer.sharedState.showDrawer" />
+      <div class="full-width row items-center">
+        <div class="col-4 row justify-start">
+          <q-btn flat round dense icon="menu" @click="drawer.sharedState.showDrawer = !drawer.sharedState.showDrawer" />
 
-      <Logo v-if="!props.hideLogo" />
-
-      <DSpace />
-
-      <License />
-
-      <DRouteTab
-        v-for="item in props.menuItems"
-        :key="item.label"
-        :to="item.route"
-        :label="item.label"
-        :disable="item.disable"
-      >
-      </DRouteTab>
-
-      <slot>
-        <DSpace />
-        {{ computedState.userName.value }}
-        <!--<q-btn dense round icon="person" xclick="methods.goTo()">
-            <q-menu>
-              <q-list style="min-width: 100px">
-                <q-item clickable v-close-popup v-for="item in props.userMenuItems" :key="item.label" :to="item.route">
-                  <q-item-section >{{ item.label }}</q-item-section>
-                </q-item>
-
-              </q-list>
-            </q-menu>
-          </q-btn>-->
+          <Logo v-if="!props.hideLogo" />
+        </div>
+        <div class="col-4 row justify-center items-center">
+          <License />
+        </div>
+        <div class="col-4 row justify-end items-center">
+          {{ computedState.userName.value }}
         <DBtnDropdown
           class="q-ml-sm"
           rounded
@@ -60,7 +41,8 @@
             </d-item>
           </d-list>
         </DBtnDropdown>
-      </slot>
+        </div>
+      </div>
     </DTabs>
   </DMainToolbar>
 </template>

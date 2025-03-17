@@ -4,6 +4,7 @@ export default {
   exit: () => electronApi.invoke('exit'),
   maximize: () => electronApi.invoke('maximize'),
   minimize: () => electronApi.invoke('minimize'),
+  readyToCheckUpdates: () => electronApi.invoke('ready-to-check-updates'),
 
   onUpdateAvailable: (callback: () => void) => {
     electronApi.on('update-available', callback);
@@ -21,5 +22,4 @@ export default {
   },
 
   restart: () => electronApi.invoke('restart'),
-  
 };

@@ -1,28 +1,29 @@
 <template>
   <q-bar class="q-electron-drag bg-grey-10">
-    <q-space />
+    <div class="row full-width">
+      <div class="col-4 row justify-start"></div>
+      <div class="col-4 row justify-center text-white text-bold">
+        ActoGraph v{{ stateless.appVersion }}
+      </div>
 
-    <div class="text-white text-bold">
-      ActoGraph v{{ stateless.appVersion }}
+      <div class="col-4 row justify-end">
+        <q-btn
+          class="text-white"
+          dense
+          flat
+          icon="minimize"
+          @click="methods.minimize()"
+        />
+        <q-btn
+          class="text-white"
+          dense
+          flat
+          icon="crop_square"
+          @click="methods.maximize()"
+        />
+        <q-btn class="text-white" dense flat icon="close" @click="methods.quit()" />
+      </div>
     </div>
-
-    <q-space />
-
-    <q-btn
-      class="text-white"
-      dense
-      flat
-      icon="minimize"
-      @click="methods.minimize()"
-    />
-    <q-btn
-      class="text-white"
-      dense
-      flat
-      icon="crop_square"
-      @click="methods.maximize()"
-    />
-    <q-btn class="text-white" dense flat icon="close" @click="methods.quit()" />
   </q-bar>
 </template>
 

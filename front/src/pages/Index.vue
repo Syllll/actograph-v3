@@ -20,6 +20,7 @@ export default defineComponent({
       systemService.onUpdateAvailable(() => {
         state.showUpdateModal = true;
       });
+      systemService.readyToCheckUpdates();
     });
     return {
       state,
