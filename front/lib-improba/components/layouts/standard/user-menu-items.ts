@@ -2,12 +2,12 @@ export const userMenuItems = (i18n: any, auth: any) => {
   return [
     {
       name: 'theme',
-      label: i18n.t('theme'),
+      label: 'Thème',
       action: undefined,
     },
     {
       name: 'lang',
-      label: i18n.t('lang'),
+      label: 'Langue',
       class: 'q-pa-none',
       action: undefined,
     },
@@ -27,7 +27,7 @@ export const userMenuItems = (i18n: any, auth: any) => {
   },*/
     {
       name: 'quit',
-      label: () => i18n.t('layout.dropDownMenu.quit'),
+      label: 'Quitter',
       clickable: false,
       action: () => {
         auth.methods.logout();

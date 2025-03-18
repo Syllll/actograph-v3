@@ -8,7 +8,7 @@
     keep-color
     checkedIcon="light_mode"
     uncheckedIcon="brightness_2"
-    :label="i18n.t('theme')"
+    :label="$props.label"
     left-label
   />
 </template>
@@ -20,6 +20,12 @@ import { useQuasar } from 'quasar';
 import { useTheme } from 'src/../lib-improba/composables/use-theme';
 
 export default defineComponent({
+  props: {
+    label: {
+      type: String,
+      default: 'Thème',
+    },
+  },
   setup() {
     const quasar = useQuasar();
     const theme = useTheme(quasar);

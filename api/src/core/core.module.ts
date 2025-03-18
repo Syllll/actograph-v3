@@ -3,6 +3,7 @@ import { UsersModule } from './users/users.module';
 import { CronTasksModule } from './cron-tasks/cron-tasks.module';
 import { TypeOrmExModule } from 'src/database/typeorm-ex.module';
 import { SecurityModule } from './security/index.module';
+import { ObservationsModule } from './observations/index.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { SecurityModule } from './security/index.module';
     UsersModule,
     SecurityModule,
     CronTasksModule,
+    ObservationsModule,
   ],
   controllers: [],
   providers: [],

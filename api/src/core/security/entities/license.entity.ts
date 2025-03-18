@@ -1,7 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { User } from '@users/entities/user.entity';
 import { BaseEntity } from '@utils/entities/base.entity';
-import { Column, Entity, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
 export enum LicenseTypeEnum {
   Student = 'Student',
@@ -66,6 +66,7 @@ export class License extends BaseEntity {
    * The user who has the license in this instance of the application
    */
   @ManyToOne(() => User, { nullable: true })
+  @JoinColumn()
   user?: User | null;
 
   /**

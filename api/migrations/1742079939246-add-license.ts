@@ -34,5 +34,4 @@ export class addLicense1742079939246 implements MigrationInterface {
         await queryRunner.query(`INSERT INTO "users"("id", "createdAt", "updatedAt", "deletedAt", "firstname", "lastname", "resetPasswordOngoing", "roles", "preferDarkTheme", "userJwtId") SELECT "id", "createdAt", "updatedAt", "deletedAt", "firstname", "lastname", "resetPasswordOngoing", "roles", "preferDarkTheme", "userJwtId" FROM "temporary_users"`);
         await queryRunner.query(`DROP TABLE "temporary_users"`);
     }
-
 }

@@ -31,13 +31,16 @@ export default defineComponent({
 
     onMounted(async () => {
       const start = new Date();
-      const timeout = 10000;
+      const timeout = 20000;
       let isServerRunning = false;
 
       while (
         !isServerRunning &&
         new Date().getTime() - start.getTime() < timeout
       ) {
+        // Wait 1 second before checking if the server is running
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
         let result = null as string | null;
         try {
           result = await securityService.sayHi();

@@ -3,7 +3,6 @@
       :roleTitle="props.roleTitle"
       :menuItems="props.menuItems"
       :userMenuItems="props.menuItems"
-      :profileMenuItems="props.profileMenuItems"
       :themeLabel="props.themeLabel"
     >
     </ToolbarContent>

@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   ObjectLiteral,
+  Index,
 } from 'typeorm';
 // import { Exclude } from 'class-transformer'
 

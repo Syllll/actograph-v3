@@ -4,7 +4,6 @@
       <ElectronBar v-if="$q.platform.is.electron" />
       <Toolbar
         :roleTitle="props.roleTitle"
-        :menuItems="computedState.menuItems.value"
         :userMenuItems="computedState.userMenuItems.value"
         :themeLabel="props.themeLabel"
       >
@@ -31,7 +30,6 @@ import {
 } from 'vue';
 import { useRouter } from 'vue-router';
 import Toolbar from './toolbar/Index.vue';
-import { menuItems } from './menu-items';
 import { userMenuItems } from './user-menu-items';
 import { useAuth } from 'src/../lib-improba/composables/use-auth';
 import { useI18n } from 'vue-i18n';
@@ -70,24 +68,11 @@ export default defineComponent({
     const drawer = useDrawer();
 
     const stateless = {
-      menuItems,
     };
 
     const computedState = {
       appVersion: computed(() => {
         return process.env.APP_VERSION;
-      }),
-      menuItems: computed(() => {
-        const menuItems = props.menuItems ?? [...stateless.menuItems];
-
-        if (auth.sharedState.user?.roles?.includes('admin')) {
-          menuItems.push({
-            label: 'Admin',
-            route: { name: 'admin' },
-          });
-        }
-
-        return menuItems;
       }),
       userMenuItems: computed(() => {
         if (props.profileMenuItems) {

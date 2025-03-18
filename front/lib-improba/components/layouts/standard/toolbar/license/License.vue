@@ -1,5 +1,5 @@
 <template>
-    <DChip class="full-height student" style="min-width: 15rem;">
+    <DChip class="full-height" style="min-width: 15rem;">
       <div class="full-width text-center">
         <strong>
           Accès Professionel
@@ -43,17 +43,23 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
-.student {
-  &:deep() {
-    .q-chip {
-      // Add oblique and red lines in the background of the q-chip to simulate a broken license
-      // The lines should be oblique and red
-      background-image: linear-gradient(to bottom right, red, transparent);
-      background-size: 100% 100%;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-blend-mode: color-burn;
-    } 
+$lineColor: var(--danger-low);
+$backgroundColor: white;
+
+.q-chip {
+    background-color: $lineColor; /* Yellow base color for warning */
+    background-image: repeating-linear-gradient(
+      45deg,
+      $lineColor,
+      $lineColor 10px,
+      $backgroundColor 10px,
+      $backgroundColor 20px
+    );
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: repeat;
+    opacity: 0.8;
+    color: black;
+    font-weight: bold;
   }
-}
 </style>

@@ -15,6 +15,8 @@ import { UserJwt } from '@auth-jwt/entities/userJwt.entity';
 import { GROUP_USER, GROUP_ADMIN } from '../serializationGroups/groups';
 import { UserRoleEnum } from '../utils/user-role.enum';
 import { License } from '@core/security/entities/license.entity';
+import { Observation } from '@core/observations/entities/observation.entity';
+import { Protocol } from '@core/observations/entities/protocol.entity';
 // glutamat: imports
 
 @Entity('users')
@@ -69,6 +71,12 @@ export class User extends BaseEntity {
 
   @OneToMany(() => License, (license) => license.user)
   licenses?: License[];
+
+  @OneToMany(() => Observation, (observation) => observation.user)
+  observations?: Observation[];
+
+  @OneToMany(() => Protocol, (protocol) => protocol.user)
+  protocols?: Protocol[];
 
   constructor(partial: Partial<User>) {
     super();

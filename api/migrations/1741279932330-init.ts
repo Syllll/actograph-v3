@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class init1741279932330 implements MigrationInterface {
-    name = 'init1741279932330'
+export class Init1741279932330 implements MigrationInterface {
+    name = 'Init1741279932330'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         await queryRunner.query(`CREATE TABLE "user-jwt" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "createdAt" datetime NOT NULL DEFAULT (datetime('now')), "updatedAt" datetime NOT NULL DEFAULT (datetime('now')), "deletedAt" datetime, "username" varchar(255) NOT NULL, "password" varchar(255) NOT NULL, "activated" boolean NOT NULL DEFAULT (0), "activationToken" varchar(255), "forgetPasswordToken" varchar(255))`);
@@ -22,5 +22,4 @@ export class init1741279932330 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX "IDX_da3d4c8b2930a74df43eec09be"`);
         await queryRunner.query(`DROP TABLE "user-jwt"`);
     }
-
 }

@@ -30,10 +30,10 @@
               class="row justify-center"
             >
               <template v-if="item.name === 'quit'">
-                <DSubmitBtn label="Logout" @click="methods.logout" />
+                <DSubmitBtn :label="item.label" @click="methods.logout" />
               </template>
               <template v-else-if="item.name === 'theme'">
-                <theme-toggler />
+                <theme-toggler :label="item.label" />
               </template>
               <template v-else>
                 <d-item-section>{{ item.label }}</d-item-section>
