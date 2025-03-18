@@ -11,10 +11,11 @@
       </Toolbar>
     </q-header>
 
-
-    <q-page-container :class="{
-      'q-ml-sm': drawer.sharedState.showDrawer,
-    }">
+    <q-page-container
+      :class="{
+        'q-ml-sm': drawer.sharedState.showDrawer,
+      }"
+    >
       <slot><router-view /></slot>
     </q-page-container>
   </q-layout>
@@ -67,8 +68,7 @@ export default defineComponent({
     const auth = useAuth(router);
     const drawer = useDrawer();
 
-    const stateless = {
-    };
+    const stateless = {};
 
     const computedState = {
       appVersion: computed(() => {

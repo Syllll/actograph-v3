@@ -21,7 +21,13 @@
           icon="crop_square"
           @click="methods.maximize()"
         />
-        <q-btn class="text-white" dense flat icon="close" @click="methods.quit()" />
+        <q-btn
+          class="text-white"
+          dense
+          flat
+          icon="close"
+          @click="methods.quit()"
+        />
       </div>
     </div>
   </q-bar>

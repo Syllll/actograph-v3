@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Use examples: 
+# ./scripts/publish.sh prod
+# ./scripts/publish.sh prod major 
+# ./scripts/publish.sh prod minor
+# ./scripts/publish.sh prod patch
+
 # Ensure script is run with bash
 if [ -z "$BASH_VERSION" ]; then
     echo "This script must be run with bash, not sh"
@@ -18,11 +24,8 @@ if [ -z "$1" ]; then
 fi
 deployType="$1"
 
-# Check if the first argument is prod, we only support prod for now
-if [ "$deployType" != "prod" ]; then
-    echo "Invalid argument, must be prod"
-    exit 1
-fi
+# Print the deploy type
+echo "Deploy type: $deployType"
 
 # The second argument may be: 
 # - major
@@ -30,18 +33,17 @@ fi
 # - patch
 # If no argument is provided, it is patch
 if [ -z "$2" ]; then
-    deployType="patch"
+    versionType="patch"
 else
-    deployType="$2"
+    versionType="$2"
 
-    if [ "$deploynType" != "major" ] && [ "$deployType" != "minor" ] && [ "$deployType" != "patch" ]; then
+    if [ "$versionType" != "major" ] && [ "$versionType" != "minor" ] && [ "$versionType" != "patch" ]; then
         echo "Invalid version type, must be major, minor or patch"
         exit 1
     fi
 fi
 
-# Print the deploy type
-echo "Deploy type: $deployType"
+echo "Version type: $versionType"
 
 # Get script directory in a cross-platform way
 scriptFolderPath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -62,6 +64,42 @@ fi
 
 # If the version are the same, continue
 echo "Front and API versions are the same, continuing..."
+
+# Check the latest beginning with deployType
+latestTag=$(git tag -l | grep "^${deployType}-v" | sort -V | tail -n 1)
+
+# If the latest tag is "after" the current version (1.2.1 > 1.2.0), exit with a warning
+if [ ! -z "$latestTag" ]; then
+    latestVersion=$(echo $latestTag | sed "s/${deployType}-v//")
+    
+    # Compare versions in a cross-platform way
+    frontMajor=$(echo $frontVersion | cut -d. -f1)
+    frontMinor=$(echo $frontVersion | cut -d. -f2)
+    frontPatch=$(echo $frontVersion | cut -d. -f3)
+    
+    latestMajor=$(echo $latestVersion | cut -d. -f1)
+    latestMinor=$(echo $latestVersion | cut -d. -f2)
+    latestPatch=$(echo $latestVersion | cut -d. -f3)
+    
+    isNewer=false
+    if [ "$latestMajor" -gt "$frontMajor" ]; then
+        isNewer=true
+    elif [ "$latestMajor" -eq "$frontMajor" ] && [ "$latestMinor" -gt "$frontMinor" ]; then
+        isNewer=true
+    elif [ "$latestMajor" -eq "$frontMajor" ] && [ "$latestMinor" -eq "$frontMinor" ] && [ "$latestPatch" -gt "$frontPatch" ]; then
+        isNewer=true
+    fi
+    
+    if [ "$isNewer" = true ]; then
+        echo "Warning: Latest tag version ($latestVersion) is newer than current version ($frontVersion)"
+        echo "This might indicate that you're trying to publish an older version"
+        read -p "Do you want to continue? (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+fi
 
 # Increment version
 if [ "$versionType" == "major" ]; then

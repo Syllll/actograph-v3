@@ -5,7 +5,15 @@
     <DTabs class="full-width" :right-icon="'none'">
       <div class="full-width row items-center">
         <div class="col-4 row justify-start">
-          <q-btn flat round dense icon="menu" @click="drawer.sharedState.showDrawer = !drawer.sharedState.showDrawer" />
+          <q-btn
+            flat
+            round
+            dense
+            icon="menu"
+            @click="
+              drawer.sharedState.showDrawer = !drawer.sharedState.showDrawer
+            "
+          />
 
           <Logo v-if="!props.hideLogo" />
         </div>
@@ -14,33 +22,33 @@
         </div>
         <div class="col-4 row justify-end items-center">
           {{ computedState.userName.value }}
-        <DBtnDropdown
-          class="q-ml-sm"
-          rounded
-          icon="person"
-          xclick="methods.goTo()"
-        >
-          <d-list style="min-width: 100px">
-            <d-item
-              clickable
-              v-close-popup
-              v-for="item in props.userMenuItems"
-              :key="item.label"
-              :to="item.route"
-              class="row justify-center"
-            >
-              <template v-if="item.name === 'quit'">
-                <DSubmitBtn :label="item.label" @click="methods.logout" />
-              </template>
-              <template v-else-if="item.name === 'theme'">
-                <theme-toggler :label="item.label" />
-              </template>
-              <template v-else>
-                <d-item-section>{{ item.label }}</d-item-section>
-              </template>
-            </d-item>
-          </d-list>
-        </DBtnDropdown>
+          <DBtnDropdown
+            class="q-ml-sm"
+            rounded
+            icon="person"
+            xclick="methods.goTo()"
+          >
+            <d-list style="min-width: 100px">
+              <d-item
+                clickable
+                v-close-popup
+                v-for="item in props.userMenuItems"
+                :key="item.label"
+                :to="item.route"
+                class="row justify-center"
+              >
+                <template v-if="item.name === 'quit'">
+                  <DSubmitBtn :label="item.label" @click="methods.logout" />
+                </template>
+                <template v-else-if="item.name === 'theme'">
+                  <theme-toggler :label="item.label" />
+                </template>
+                <template v-else>
+                  <d-item-section>{{ item.label }}</d-item-section>
+                </template>
+              </d-item>
+            </d-list>
+          </DBtnDropdown>
         </div>
       </div>
     </DTabs>

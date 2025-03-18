@@ -113,10 +113,9 @@ async function createWindow() {
         percent: progressObj.percent,
         transferred: progressObj.transferred,
         total: progressObj.total,
-        bytesPerSecond: progressObj.bytesPerSecond
+        bytesPerSecond: progressObj.bytesPerSecond,
       });
     }
-    
   });
 
   autoUpdater.on('update-downloaded', (info) => {

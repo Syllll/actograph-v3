@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 const validChannels = [
-  'exit', 
+  'exit',
   'maximize',
   'minimize',
   'ready-to-check-updates',

@@ -34,7 +34,7 @@ export default defineComponent({
     const stateless = {
       menuItems: menuItems(),
     };
-    return { stateless, drawer};
+    return { stateless, drawer };
   },
 });
 </script>

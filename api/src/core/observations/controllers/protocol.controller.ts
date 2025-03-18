@@ -27,6 +27,11 @@ import { ObservationService } from '../services/observation.service';
 import { ProtocolService } from '../services/protocol.service';
 import { ReadingService } from '../services/reading.service';
 import { ActivityGraphService } from '../services/activity-graph.service';
+import { UserRolesGuard } from '@users/guards/user-roles.guard';
+import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
+import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
+import { IPaginationOutput } from '@utils/repositories/base.repositories';
+import { Protocol } from '../entities/protocol.entity';
 
 @Controller('observations/protocols')
 export class ProtocolController extends BaseController {
@@ -39,5 +44,40 @@ export class ProtocolController extends BaseController {
     private readonly activityGraphService: ActivityGraphService,
   ) {
     super();
+  }
+
+  @Get('paginate')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.Admin)
+  async getWithPagination(
+    @Req() req: any,
+    @SearchQueryParams() searchQueryParams: ISearchQueryParams,
+    @Query(
+      'includes',
+      new ParseEnumArrayPipe({
+        type: ['observation'],
+        separator: ',',
+      }),
+    )
+    relations: string[] = [],
+    @Query('searchString', new DefaultValuePipe('*'), ParseFilterPipe)
+    searchString: string,
+  ): Promise<IPaginationOutput<Protocol>> {
+    const user = req.user;
+    const results = await this.observationService.findAndPaginateWithOptions(
+      {
+        limit: searchQueryParams.limit,
+        offset: searchQueryParams.offset,
+        orderBy: searchQueryParams.orderBy,
+        order: searchQueryParams.order,
+        relations,
+      },
+      {
+        searchString: searchString,
+        userId: user.id,
+      },
+    );
+    
+    return results;
   }
 }

@@ -8,9 +8,9 @@ export const userRoutes: RouteRecordRaw[] = [
     name: 'user',
     meta,
     component: () => import('src/pages/userspace/Index.vue'),
-    redirect: {name: 'user_home'},
+    redirect: { name: 'user_home' },
     children: [
-      {   
+      {
         path: 'home',
         name: 'user_home',
         component: () => import('pages/userspace/home/Index.vue'),

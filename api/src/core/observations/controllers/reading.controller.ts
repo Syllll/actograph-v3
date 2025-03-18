@@ -16,6 +16,8 @@ import {
   UnauthorizedException,
   forwardRef,
   Inject,
+  BadRequestException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@users/guards/jwt-auth.guard';
 import { allMainUsers, UserRoleEnum } from '@users/utils/user-role.enum';
@@ -27,6 +29,11 @@ import { ObservationService } from '../services/observation.service';
 import { ProtocolService } from '../services/protocol.service';
 import { ReadingService } from '../services/reading.service';
 import { ActivityGraphService } from '../services/activity-graph.service';
+import { IPaginationOutput } from '@utils/repositories/base.repositories';
+import { UserRolesGuard } from '@users/guards/user-roles.guard';
+import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
+import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
+import { Observation } from '../entities/observation.entity';
 
 @Controller('observations/readings')
 export class ReadingController extends BaseController {
@@ -39,5 +46,48 @@ export class ReadingController extends BaseController {
     private readonly activityGraphService: ActivityGraphService,
   ) {
     super();
+  }
+
+  @Get('paginate')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.Admin)
+  async getWithPagination(
+    @Req() req: any,
+    @SearchQueryParams() searchQueryParams: ISearchQueryParams,
+    @Query(
+      'includes',
+      new ParseEnumArrayPipe({
+        type: ['observation'],
+        separator: ',',
+      }),
+    )
+    relations: string[] = [],
+    @Query('searchString', new DefaultValuePipe('*'), ParseFilterPipe)
+    searchString: string,
+    @Query('observationId', ParseIntPipe)
+    observationId: number,
+  ): Promise<IPaginationOutput<Observation>> {
+    const user = req.user;
+
+    await this.observationService.checkObservationBelongsToUser({
+      observationId,
+      userId: user.id,
+    });
+
+    const results = await this.observationService.findAndPaginateWithOptions(
+      {
+        limit: searchQueryParams.limit,
+        offset: searchQueryParams.offset,
+        orderBy: searchQueryParams.orderBy,
+        order: searchQueryParams.order,
+        relations,
+      },
+      {
+        searchString: searchString,
+        userId: user.id,
+      },
+    );
+    
+    return results;
   }
 }

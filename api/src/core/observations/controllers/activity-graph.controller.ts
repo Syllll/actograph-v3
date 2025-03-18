@@ -16,6 +16,7 @@ import {
   UnauthorizedException,
   forwardRef,
   Inject,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@users/guards/jwt-auth.guard';
 import { allMainUsers, UserRoleEnum } from '@users/utils/user-role.enum';
@@ -27,6 +28,11 @@ import { ObservationService } from '../services/observation.service';
 import { ProtocolService } from '../services/protocol.service';
 import { ReadingService } from '../services/reading.service';
 import { ActivityGraphService } from '../services/activity-graph.service';
+import { ActivityGraph } from '../entities/activity-graph.entity';
+import { UserRolesGuard } from '@users/guards/user-roles.guard';
+import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
+import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
+import { IPaginationOutput } from '@utils/repositories/base.repositories';
 
 @Controller('observations/activity-graph')
 export class ActivityGraphController extends BaseController {

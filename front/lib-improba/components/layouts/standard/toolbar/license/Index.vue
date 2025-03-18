@@ -38,8 +38,7 @@ export default defineComponent({
       }),
     });
 
-    const methods = {
-    };
+    const methods = {};
 
     return {
       stateless,

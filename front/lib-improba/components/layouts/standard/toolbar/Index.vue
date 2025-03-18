@@ -1,11 +1,11 @@
 <template>
-    <ToolbarContent
-      :roleTitle="props.roleTitle"
-      :menuItems="props.menuItems"
-      :userMenuItems="props.menuItems"
-      :themeLabel="props.themeLabel"
-    >
-    </ToolbarContent>
+  <ToolbarContent
+    :roleTitle="props.roleTitle"
+    :menuItems="props.menuItems"
+    :userMenuItems="props.menuItems"
+    :themeLabel="props.themeLabel"
+  >
+  </ToolbarContent>
 </template>
 
 <script lang="ts">

@@ -1,11 +1,9 @@
 <template>
-    <DChip class="full-height" style="min-width: 15rem;">
-      <div class="full-width text-center">
-        <strong>
-          Accès Professionel
-        </strong>
+  <DChip class="full-height" style="min-width: 15rem">
+    <div class="full-width text-center">
+      <strong> Accès Professionel </strong>
     </div>
-    </DChip>
+  </DChip>
 </template>
 
 <script lang="ts">
@@ -29,8 +27,7 @@ export default defineComponent({
       }),
     });
 
-    const methods = {
-    };
+    const methods = {};
 
     return {
       stateless,
@@ -47,19 +44,19 @@ $lineColor: var(--danger-low);
 $backgroundColor: white;
 
 .q-chip {
-    background-color: $lineColor; /* Yellow base color for warning */
-    background-image: repeating-linear-gradient(
-      45deg,
-      $lineColor,
-      $lineColor 10px,
-      $backgroundColor 10px,
-      $backgroundColor 20px
-    );
-    background-size: 100% 100%;
-    background-position: center;
-    background-repeat: repeat;
-    opacity: 0.8;
-    color: black;
-    font-weight: bold;
-  }
+  background-color: $lineColor; /* Yellow base color for warning */
+  background-image: repeating-linear-gradient(
+    45deg,
+    $lineColor,
+    $lineColor 10px,
+    $backgroundColor 10px,
+    $backgroundColor 20px
+  );
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: repeat;
+  opacity: 0.8;
+  color: black;
+  font-weight: bold;
+}
 </style>

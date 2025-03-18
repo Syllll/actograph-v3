@@ -1,5 +1,6 @@
 <template>
-  <DModal title="Mise à jour disponible"
+  <DModal
+    title="Mise à jour disponible"
     :minWidth="'50vw'"
     :maxHeight="'30rem'"
     persistent
@@ -7,18 +8,24 @@
     @update:triggerOpen="$emit('update:triggerOpen', $event)"
     v-model:triggerClose="state.triggerClose"
   >
-  <DScrollArea class="fit q-pa-sm">
-    <div v-if="!state.updateDownloaded"
-      class="column items-center"
-    >
-      <p>Une mise à jour est disponible. Téléchargement en cours...</p>
-      <DProgressBar color="accent" :value="state.progress" :label="state.progressPercentage" style="width: 10rem;"/>
-    </div>
-    <div v-else-if="state.error">
-      <p>Une erreur est survenue lors du téléchargement de la mise à jour. Veuillez réessayer.</p>
-      <p>{{ state.error.message }}</p>
-    </div>
-    <div v-else>
+    <DScrollArea class="fit q-pa-sm">
+      <div v-if="!state.updateDownloaded" class="column items-center">
+        <p>Une mise à jour est disponible. Téléchargement en cours...</p>
+        <DProgressBar
+          color="accent"
+          :value="state.progress"
+          :label="state.progressPercentage"
+          style="width: 10rem"
+        />
+      </div>
+      <div v-else-if="state.error">
+        <p>
+          Une erreur est survenue lors du téléchargement de la mise à jour.
+          Veuillez réessayer.
+        </p>
+        <p>{{ state.error.message }}</p>
+      </div>
+      <div v-else>
         <p>Mise à jour téléchargée. Veuillez redémarrer l'application.</p>
       </div>
     </DScrollArea>
@@ -71,7 +78,7 @@ export default defineComponent({
 
     onMounted(() => {
       systemService.onUpdateDownloadProgress((data) => {
-        state.progress = data.percent/100;
+        state.progress = data.percent / 100;
         state.progressPercentage = data.percent.toFixed(2);
       });
       systemService.onUpdateDownloaded(() => {
@@ -90,7 +97,4 @@ export default defineComponent({
 });
 </script>
 
-<style scoped lang="scss">
-
-</style>
-
+<style scoped lang="scss"></style>

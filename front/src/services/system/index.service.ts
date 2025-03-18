@@ -9,7 +9,14 @@ export default {
   onUpdateAvailable: (callback: () => void) => {
     electronApi.on('update-available', callback);
   },
-  onUpdateDownloadProgress: (callback: (data: { percent: number, transferred: number, total: number, bytesPerSecond: number }) => void) => {
+  onUpdateDownloadProgress: (
+    callback: (data: {
+      percent: number;
+      transferred: number;
+      total: number;
+      bytesPerSecond: number;
+    }) => void
+  ) => {
     electronApi.on('update-download-progress', callback);
   },
 
