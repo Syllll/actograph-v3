@@ -65,15 +65,15 @@ echo "Front and API versions are the same, continuing..."
 
 # Increment version
 if [ "$versionType" == "major" ]; then
-    frontVersion=$(echo $frontVersion | awk -F. '{print $1 + 1 "." $2 "." $3}')
+    newVersion=$(echo $frontVersion | awk -F. '{print $1 + 1 "." $2 "." $3}')
 elif [ "$versionType" == "minor" ]; then
-    frontVersion=$(echo $frontVersion | awk -F. '{print $1 "." $2 + 1 "." $3}')
+    newVersion=$(echo $frontVersion | awk -F. '{print $1 "." $2 + 1 "." $3}')
 else
-    frontVersion=$(echo $frontVersion | awk -F. '{print $1 "." $2 "." $3 + 1}')
+    newVersion=$(echo $frontVersion | awk -F. '{print $1 "." $2 "." $3 + 1}')
 fi
 
 # Print the new version
-echo "New version: $frontVersion"
+echo "New version: $newVersion"
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
     SED_CMD="sed -i ''"
@@ -81,20 +81,20 @@ else
     SED_CMD="sed -i"
 fi
 
-$SED_CMD "s/\"version\": \"$frontVersion\"/\"version\": \"$frontVersion\"/g" "$scriptFolderPath/../front/package.json"
-$SED_CMD "s/\"version\": \"$frontVersion\"/\"version\": \"$frontVersion\"/g" "$scriptFolderPath/../api/package.json"
+$SED_CMD "s/\"version\": \"$frontVersion\"/\"version\": \"$newVersion\"/g" "$scriptFolderPath/../front/package.json"
+$SED_CMD "s/\"version\": \"$frontVersion\"/\"version\": \"$newVersion\"/g" "$scriptFolderPath/../api/package.json"
 
 # Make a version commit and push it to the remote repository
 git add $scriptFolderPath/../front/package.json
 git add $scriptFolderPath/../api/package.json
-git commit -m "Bump version to $frontVersion"
+git commit -m "Bump version to $newVersion"
 git push
 
 # Create a new tag with format prod-vX.Y.Z
-git tag ${deployType}-v$frontVersion
+git tag ${deployType}-v$newVersion
 
 # Push the tag to the remote repository
-git push origin ${deployType}-v$frontVersion
+git push origin ${deployType}-v$newVersion
 
 # All done
 echo "All done, the CI will now run on GitHub"
