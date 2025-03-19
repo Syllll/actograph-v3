@@ -23,8 +23,8 @@ import { Roles } from '@users/utils/roles.decorator';
 import { BaseController } from '@utils/controllers/base.controller';
 import { UserService } from 'src/core/users/services/user.service';
 import { getMode } from 'config/mode';
-import { ObservationService } from '../services/observation.service';
-import { ProtocolService } from '../services/protocol.service';
+import { ObservationService } from '../services/observation/index.service';
+import { ProtocolService } from '../services/protocol/index.service';
 import { ReadingService } from '../services/reading.service';
 import { ActivityGraphService } from '../services/activity-graph.service';
 import { UserRolesGuard } from '@users/guards/user-roles.guard';
@@ -64,7 +64,7 @@ export class ProtocolController extends BaseController {
     searchString: string,
   ): Promise<IPaginationOutput<Protocol>> {
     const user = req.user;
-    const results = await this.observationService.findAndPaginateWithOptions(
+    const results = await this.protocolService.find.findAndPaginateWithOptions(
       {
         limit: searchQueryParams.limit,
         offset: searchQueryParams.offset,

@@ -23,8 +23,8 @@ import { Roles } from '@users/utils/roles.decorator';
 import { BaseController } from '@utils/controllers/base.controller';
 import { UserService } from 'src/core/users/services/user.service';
 import { getMode } from 'config/mode';
-import { ObservationService } from '../services/observation.service';
-import { ProtocolService } from '../services/protocol.service';
+import { ObservationService } from '../services/observation/index.service';
+import { ProtocolService } from '../services/protocol/index.service';
 import { ReadingService } from '../services/reading.service';
 import { ActivityGraphService } from '../services/activity-graph.service';
 import { Observation } from '../entities/observation.entity';
@@ -66,7 +66,7 @@ export class ObservationController extends BaseController {
     searchString: string,
   ): Promise<IPaginationOutput<Observation>> {
     const user = req.user;
-    const results = await this.observationService.findAndPaginateWithOptions(
+    const results = await this.observationService.find.findAndPaginateWithOptions(
       {
         limit: searchQueryParams.limit,
         offset: searchQueryParams.offset,
@@ -88,7 +88,17 @@ export class ObservationController extends BaseController {
   @Roles(UserRoleEnum.User)
   async findAllForCurrentUser(@Req() req: any): Promise<Observation[]> {
     const user = req.user;
-    return this.observationService.findAllForuser(user.id);
+    return this.observationService.find.findAllForuser(user.id);
+  }
+
+  @Get('example')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRoleEnum.User)
+  async findOrCreateExample(
+    @Req() req: any,
+
+  ) {
+    const user = req.user;
   }
 
   @Get(':id')

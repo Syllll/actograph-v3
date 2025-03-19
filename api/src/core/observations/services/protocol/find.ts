@@ -1,29 +1,13 @@
-import {
-  DateModeEnum,
-  License,
-  LicenseTypeEnum,
-} from '@core/security/entities/license.entity';
-import { LicenseRepository } from '@core/security/repositories/license.repository';
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { BaseService } from '@utils/services/base.service';
-import { Observation } from '../entities/observation.entity';
-import { ObservationRepository } from '../repositories/obsavation.repository';
-import { Protocol } from '../entities/protocol.entity';
-import { ProtocolRepository } from '../repositories/protocol.repository';
-import { IPaginationOptions, IPaginationOutput, IConditions, OperatorEnum, TypeEnum } from '@utils/repositories/base.repositories';
+import { ProtocolRepository } from '@core/observations/repositories/protocol.repository';
+import { ProtocolService } from './index.service';
+import { Protocol } from '@core/observations/entities/protocol.entity';
+import { IPaginationOptions, IPaginationOutput, IConditions, TypeEnum, OperatorEnum } from '@utils/repositories/base.repositories';
 
-@Injectable()
-  export class ProtocolService extends BaseService<
-  Protocol,
-  ProtocolRepository
-> {
+export class Find {
   constructor(
-    @InjectRepository(ProtocolRepository)
+    private readonly protocolService: ProtocolService,
     private readonly protocolRepository: ProtocolRepository,
-  ) {
-    super(protocolRepository);
-  }
+  ) {}
 
   async findAndPaginateWithOptions(paginationOptions: IPaginationOptions,
     searchOptions?: {
@@ -72,7 +56,7 @@ import { IPaginationOptions, IPaginationOutput, IConditions, OperatorEnum, TypeE
       }
     }
 
-    return this.findAndPaginate({
+    return this.protocolService.findAndPaginate({
       ...paginationOptions,
       relations,
       conditions,

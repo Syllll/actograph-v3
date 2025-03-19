@@ -4,6 +4,11 @@ import { BaseEntity } from '@utils/entities/base.entity';
 import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Observation } from './observation.entity';
 
+export enum ReadingTypeEnum {
+  Marker = 'marker',
+  Data = 'data',
+}
+
 @Entity('readings')
 export class Reading extends BaseEntity {
   @ManyToOne(() => Observation, (observation) => observation.readings)
@@ -16,4 +21,11 @@ export class Reading extends BaseEntity {
 
   @Column({ type: 'text', nullable: true })
   description?: string | null;
+
+  @Column({
+    enum: ReadingTypeEnum,
+    default: ReadingTypeEnum.Data,
+    nullable: false,
+  })
+  type!: ReadingTypeEnum;
 }
