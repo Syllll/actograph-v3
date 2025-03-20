@@ -26,6 +26,4 @@ import { Items } from './items';
     this.check = new Check(this, protocolRepository);
     this.items = new Items(this, protocolRepository);
   }
-
-  
 }
