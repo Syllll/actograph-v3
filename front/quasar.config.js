@@ -341,11 +341,11 @@ module.exports = configure(function (/* ctx */) {
         },
         win: {
           target: 'nsis',
+          // Valid compression values are: "maximum", "normal", "store"
           // store: fastest but biggest size
-          // zip: faster but bigger size
-          // bzip2: fast and medium size
-          // lzma: slow and smallest size
-          compression: 'zip',
+          // normal: default
+          // maximum: slow and smallest size
+          compression: 'store',
           certificateFile: './certificate.pfx',
           certificatePassword: process.env.WIN_CERT_PWD,
           signAndEditExecutable: true,
