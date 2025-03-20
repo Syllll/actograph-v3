@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+
 // Get the path to the config directory
 export const getConfigPath = async (): Promise<string> => {
   // Force TypeScript to use dynamic import syntax in the output
@@ -10,7 +12,15 @@ export const getConfigPath = async (): Promise<string> => {
   // Get the default export or the module itself
   const envPaths = importedModule.default || importedModule;
   const paths = envPaths('actograph', { suffix: '' });
-  return paths.config;
+  const configPath = paths.config;
+
+  // Check the directory exists
+  // env-paths does not create the directory if it does not exist
+  if (!fs.existsSync(configPath)) {
+    fs.mkdirSync(configPath, { recursive: true });
+  }
+
+  return configPath;
 };
 
 

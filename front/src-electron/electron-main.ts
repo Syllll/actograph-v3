@@ -171,14 +171,19 @@ function createBackgroundProcess(port: number) {
   // Prefixes to the console output ([Server Process] and [Server Process Error])
   // to distinguish the child process output from the main process output
   serverProcess.stdout?.on('data', (data: Buffer) => {
-    console.log(`[Server Process] ${data.toString().trim()}`);
+    const message = `[Server Process] ${data.toString().trim()}`;
+    console.log(message);
+    log.info(message); // Also write to electron-log
   });
   serverProcess.stderr?.on('data', (data: Buffer) => {
-    console.error(`[Server Process Error] ${data.toString().trim()}`);
+    const message = `[Server Process Error] ${data.toString().trim()}`;
+    console.error(message);
+    log.error(message); // Also write to electron-log
   });
 
   serverProcess.on('message', (msg: string) => {
     console.log('message:', msg);
+    log.info(`[Server IPC] ${msg}`); // Log IPC messages too
   });
 }
 

@@ -341,6 +341,14 @@ module.exports = configure(function (/* ctx */) {
         },
         win: {
           target: 'nsis',
+          // store: fastest but biggest size
+          // zip: faster but bigger size
+          // bzip2: fast and medium size
+          // lzma: slow and smallest size
+          compression: 'zip',
+          certificateFile: './certificate.pfx',
+          certificatePassword: process.env.WIN_CERT_PWD,
+          signAndEditExecutable: true,
         },
         linux: {
           target: ['AppImage'],
