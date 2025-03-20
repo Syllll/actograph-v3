@@ -34,6 +34,7 @@ import { UserRolesGuard } from '@users/guards/user-roles.guard';
 import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
 import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
 import { Observation } from '../entities/observation.entity';
+import { Reading } from '../entities/reading.entity';
 
 @Controller('observations/readings')
 export class ReadingController extends BaseController {
@@ -66,7 +67,7 @@ export class ReadingController extends BaseController {
     searchString: string,
     @Query('observationId', ParseIntPipe)
     observationId: number,
-  ): Promise<IPaginationOutput<Observation>> {
+  ): Promise<IPaginationOutput<Reading>> {
     const user = req.user;
 
     await this.observationService.check.canUserAccessObservation({
