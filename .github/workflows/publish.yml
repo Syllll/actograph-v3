@@ -34,7 +34,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           echo ${{ secrets.WIN_CERT_BASE64 }} > certificate.b64
-          certutil -decode certificate.b64 certificate.pfx
+          certutil -decode certificate.b64 front/certificate.pfx
         shell: bash
 
       - name: Replace security functions
@@ -134,17 +134,12 @@ jobs:
       - name: Setup Yarn
         run: npm install -g yarn
 
-      # Set certificate environment variable for Windows only
-      - name: Set certificate environment variable
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: echo "WIN_CERT_PWD=${{ secrets.WIN_CERT_PWD }}" >> $GITHUB_ENV
-
       - name: Run deploy script
         run: bash scripts/build-electron.sh
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WIN_CERT_PWD: ${{ secrets.WIN_CERT_PWD }}
 
       # Clean up certificate for Windows only
       - name: Clean up certificate
