@@ -44,7 +44,7 @@ $lineColor: var(--danger-low);
 $backgroundColor: white;
 
 .q-chip {
-  background-color: $lineColor; /* Yellow base color for warning */
+  /*background-color: $lineColor; 
   background-image: repeating-linear-gradient(
     45deg,
     $lineColor,
@@ -55,8 +55,10 @@ $backgroundColor: white;
   background-size: 100% 100%;
   background-position: center;
   background-repeat: repeat;
-  opacity: 0.8;
+  opacity: 0.8;*/
   color: black;
   font-weight: bold;
+
+  background-color: var(--accent);
 }
 </style>

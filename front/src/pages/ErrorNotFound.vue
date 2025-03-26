@@ -1,5 +1,6 @@
 <template>
-  <div
+  <div></div>
+  <!--<div
     class="fullscreen bg-blue text-white text-center q-pa-md flex flex-center"
   >
     <div>
@@ -17,7 +18,7 @@
         no-caps
       />
     </div>
-  </div>
+  </div>-->
 </template>
 
 <script lang="ts">

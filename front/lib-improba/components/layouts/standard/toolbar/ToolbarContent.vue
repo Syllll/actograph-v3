@@ -6,6 +6,7 @@
       <div class="full-width row items-center">
         <div class="col-4 row justify-start">
           <q-btn
+            class="text-white"
             flat
             round
             dense
@@ -20,7 +21,7 @@
         <div class="col-4 row justify-center items-center">
           <License />
         </div>
-        <div class="col-4 row justify-end items-center">
+        <div class="col-4 row justify-end items-center text-white">
           {{ computedState.userName.value }}
           <DBtnDropdown
             class="q-ml-sm"

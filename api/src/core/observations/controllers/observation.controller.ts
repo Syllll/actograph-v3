@@ -6,6 +6,7 @@ import {
   Post,
   Param,
   Patch,
+  Delete,
   Query,
   Req,
   UseGuards,
@@ -46,11 +47,33 @@ export class ObservationController extends BaseController {
     super();
   }
 
-  
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async delete(
+    @Req() req: any,
+    @Param('id') id: number,
+  ) {
+    const user = req.user;
+
+    // check if the user is the owner of the observation
+    const observation = await this.observationService.findOne(id, {
+      where: {
+        user: {
+          id: user.id,
+        }
+      }
+    });
+    if (!observation) {
+      throw new NotFoundException('Cannot delete observation, you are not the owner');
+    }
+
+    await this.observationService.delete(id);
+  }
 
   @Get('paginate')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
-  @Roles(UserRoleEnum.Admin)
+  @Roles(UserRoleEnum.User)
   async getWithPagination(
     @Req() req: any,
     @SearchQueryParams() searchQueryParams: ISearchQueryParams,
@@ -91,14 +114,16 @@ export class ObservationController extends BaseController {
     return this.observationService.find.findAllForuser(user.id);
   }
 
-  @Get('example')
+  @Post('clone-example')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRoleEnum.User)
-  async findOrCreateExample(
+  async cloneExample(
     @Req() req: any,
-
-  ) {
+  ): Promise<Observation> {
     const user = req.user;
+
+    const observation = await this.observationService.example.cloneExampleObservation(user.id);
+    return observation;
   }
 
   @Get(':id')

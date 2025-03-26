@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { forwardRef, Module, OnModuleInit } from '@nestjs/common';
 import { UsersModule } from '@users/users.module';
 import { TypeOrmExModule } from 'src/database/typeorm-ex.module';
 import { ActivityGraphRepository } from './repositories/activity-graph.repository';
@@ -43,4 +43,14 @@ import { ActivityGraphController } from './controllers/activity-graph.controller
     ReadingService,
   ],
 })
-export class ObservationsModule {}
+export class ObservationsModule implements OnModuleInit {
+  constructor(
+    private readonly observationService: ObservationService,
+  ) {}
+
+  async onModuleInit() {
+    console.info(`Observations module initialization...`);
+    await this.observationService.example.checkExampleAndRecreateItIfNeeded();
+    console.info(`Observations module initialized.`);
+  }
+}

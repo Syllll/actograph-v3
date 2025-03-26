@@ -95,11 +95,15 @@ async function createWindow() {
   await loadPromise;
 
   // Auto-Update Event Listeners
-  autoUpdater.on('update-available', () => {
-    log.info('Update available');
+  autoUpdater.on('update-available', (info) => {
+    log.info('Update available:', info.version);
 
     if (mainWindow) {
-      mainWindow.webContents.send('update-available');
+      // Send update info to renderer process
+      mainWindow.webContents.send('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes
+      });
     }
   });
 
@@ -109,8 +113,8 @@ async function createWindow() {
 
     if (mainWindow) {
       // Send progress to renderer process
-      mainWindow.webContents.send('download-progress', {
-        percent: progressObj.percent,
+      mainWindow.webContents.send('update-download-progress', {
+        percent: progressObj.percent.toFixed(2),
         transferred: progressObj.transferred,
         total: progressObj.total,
         bytesPerSecond: progressObj.bytesPerSecond,
@@ -231,12 +235,23 @@ ipcMain.handle('minimize', (event, arg) => {
   mainWindow?.minimize();
 });
 
-ipcMain.handle('restart', (event, arg) => {
-  autoUpdater.quitAndInstall();
+ipcMain.handle('ready-to-check-updates', (event, arg) => {
+  // This just checks for updates but doesn't download automatically
+  autoUpdater.checkForUpdates();
 });
 
-ipcMain.handle('ready-to-check-updates', (event, arg) => {
-  autoUpdater.checkForUpdatesAndNotify();
+// Add these new IPC handlers
+ipcMain.handle('download-update', (event, arg) => {
+  // Manually trigger the download when user approves
+  autoUpdater.downloadUpdate();
 });
+
+ipcMain.handle('install-update', (event, arg) => {
+  // Manually trigger the installation
+  autoUpdater.quitAndInstall(false, true);
+});
+
+// Optional: Disable auto-download
+autoUpdater.autoDownload = false;
 
 // ************

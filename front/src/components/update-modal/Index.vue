@@ -26,19 +26,19 @@
         <p>{{ state.error.message }}</p>
       </div>
       <div v-else>
-        <p>Mise à jour téléchargée. Veuillez redémarrer l'application.</p>
+        <p>Mise à jour téléchargée. Veuillez redémarrer l'application pour l'installer.</p>
       </div>
     </DScrollArea>
 
     <template v-slot:layout-buttons>
       <div>
-        <DCancelBtn
+        <!--<DCancelBtn
           label="Annuler"
           class="q-mx-sm"
           @click="state.triggerClose = true"
-        />
+        />-->
         <DSubmitBtn
-          label="Redémarrer"
+          label="Redémarrer et installer"
           :disabled="!state.updateDownloaded"
           class="q-mx-sm"
           @click="methods.submit"
@@ -49,7 +49,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, onMounted } from 'vue';
+import { defineComponent, reactive, onMounted, watch } from 'vue';
 import systemService from '@services/system/index.service';
 
 export default defineComponent({
@@ -60,7 +60,7 @@ export default defineComponent({
     },
   },
   emits: ['update:triggerOpen'],
-  setup() {
+  setup(props) {
     const state = reactive({
       showModal: false,
       progress: 0.0,
@@ -68,25 +68,42 @@ export default defineComponent({
       updateDownloaded: false,
       error: null as any,
       triggerClose: false,
+      initialized: false,
     });
 
     const methods = {
+      init: async () => {
+        if (state.initialized) {
+          return;
+        }
+
+        systemService.onUpdateDownloadProgress((data) => {
+          state.progress = data.percent / 100;
+          state.progressPercentage = data.percent.toFixed(2);
+        });
+        systemService.onUpdateDownloaded(() => {
+          state.updateDownloaded = true;
+        });
+        systemService.onUpdateError((error) => {
+          state.error = error;
+        });
+
+        state.initialized = true;
+
+        systemService.downloadUpdate();
+      },
       submit: async () => {
-        await systemService.restart();
+        await systemService.quitAndInstallUpdate();
       },
     };
 
     onMounted(() => {
-      systemService.onUpdateDownloadProgress((data) => {
-        state.progress = data.percent / 100;
-        state.progressPercentage = data.percent.toFixed(2);
-      });
-      systemService.onUpdateDownloaded(() => {
-        state.updateDownloaded = true;
-      });
-      systemService.onUpdateError((error) => {
-        state.error = error;
-      });
+    });
+
+    watch(() =>props.triggerOpen, (newVal) => {
+      if (newVal) {
+        methods.init();
+      }
     });
 
     return {

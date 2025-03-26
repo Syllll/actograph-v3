@@ -6,9 +6,10 @@
 // CSS coming from the improba library
 @import './../../lib-improba/css/mixins';
 @import './../../lib-improba/css/layout';
-@import './../../lib-improba/css/colors';
 @import './../../lib-improba/css/forms';
 @import './../../lib-improba/css/interactions';
+
+@import './colors';
 
 // app global css in
 // @import 'colors';

@@ -27,15 +27,26 @@ export const observationService = {
   },
   findOne: async (
     id: number,
-    options: {
+    options?: {
       includes?: string[];
     }
   ): Promise<IObservation> => {
-    const response = await api().get(`${apiUrl}/observations/${id}`);
+    const response = await api().get(`${apiUrl}/observations/${id}`, {
+      params: {
+        ...options,
+      },
+    });
     return response.data;
   },
   findAllForCurrentUser: async (): Promise<IObservation[]> => {
     const response = await api().get(`${apiUrl}/observations`);
+    return response.data;
+  },
+  delete: async (id: number): Promise<void> => {
+    await api().delete(`${apiUrl}/observations/${id}`);
+  },
+  cloneExampleObservation: async (): Promise<IObservation> => {
+    const response = await api().post(`${apiUrl}/observations/clone-example`);
     return response.data;
   },
 };

@@ -16,12 +16,15 @@ export abstract class BaseEntity implements ObjectLiteral {
   id!: number;
 
   @CreateDateColumn()
+  @Index()
   createdAt!: Date;
 
   @UpdateDateColumn()
+  @Index()
   updatedAt!: Date;
 
   @Expose({ groups: [GROUP_ADMIN] })
   @DeleteDateColumn({ nullable: true, default: null })
+  @Index()
   deletedAt?: Date;
 }

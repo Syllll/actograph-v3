@@ -2,12 +2,32 @@ import { ProtocolRepository } from '@core/observations/repositories/protocol.rep
 import { ProtocolService } from './index.service';
 import { Protocol } from '@core/observations/entities/protocol.entity';
 import { IPaginationOptions, IPaginationOutput, IConditions, TypeEnum, OperatorEnum } from '@utils/repositories/base.repositories';
+import { NotFoundException } from '@nestjs/common';
 
 export class Find {
   constructor(
     private readonly protocolService: ProtocolService,
     private readonly protocolRepository: ProtocolRepository,
   ) {}
+
+  async findOneFromObservation(observationId: number, options?: {
+    relations?: string[];
+  }): Promise<Protocol> {
+    const protocol = await this.protocolRepository.findOne({
+      where: {
+        observation: {
+          id: observationId,
+        },
+      },
+      relations: [...(options?.relations || [])],
+    });
+
+    if (!protocol) {
+      throw new NotFoundException('Protocol not found');
+    }
+
+    return protocol;
+  }
 
   async findAndPaginateWithOptions(paginationOptions: IPaginationOptions,
     searchOptions?: {

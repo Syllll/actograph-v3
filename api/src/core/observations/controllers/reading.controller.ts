@@ -51,7 +51,7 @@ export class ReadingController extends BaseController {
 
   @Get('paginate')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
-  @Roles(UserRoleEnum.Admin)
+  @Roles(UserRoleEnum.User)
   async getWithPagination(
     @Req() req: any,
     @SearchQueryParams() searchQueryParams: ISearchQueryParams,

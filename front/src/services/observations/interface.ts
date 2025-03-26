@@ -12,6 +12,8 @@ export interface IProtocol extends IEntity {
   description?: string;
   observation?: IObservation;
   user?: IUser;
+  items?: string; // JSON string containing protocol categories and observables
+  _items?: any;
 }
 
 export interface IReading extends IEntity {

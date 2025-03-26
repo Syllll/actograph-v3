@@ -161,12 +161,12 @@ export class Electron {
         options.userId,
       );
       if (!license) {
-        throw new InternalServerErrorException('No license found.');
+        throw new InternalServerErrorException('No internet connection and no license found on your computer.');
       }
 
       const r = license.isValid();
       if (!r.valid) {
-        throw new InternalServerErrorException(`Invalid license: ${r.message}`);
+        throw new InternalServerErrorException(`No internet connection and the license on your computed is invalid: ${r.message}`);
       }
 
       return license;

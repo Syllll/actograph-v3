@@ -14,6 +14,7 @@ export const readingService = {
     options: PaginationOptions,
     search?: {
       searchString?: string;
+      observationId?: number;
     }
   ): Promise<PaginationResponse<IReading>> {
     const response = await api().get(

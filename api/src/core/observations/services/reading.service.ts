@@ -10,7 +10,7 @@ import { BaseService } from '@utils/services/base.service';
 import { Observation } from '../entities/observation.entity';
 import { ObservationRepository } from '../repositories/obsavation.repository';
 import { ReadingRepository } from '../repositories/reading.repository';
-import { Reading } from '../entities/reading.entity';
+import { Reading, ReadingTypeEnum } from '../entities/reading.entity';
 import { IPaginationOptions, IConditions, OperatorEnum, IPaginationOutput, TypeEnum } from '@utils/repositories/base.repositories';
 
 @Injectable()
@@ -63,6 +63,85 @@ export class ReadingService extends BaseService<
       ...paginationOptions,
       relations,
       conditions,
+    });
+  }
+
+  public async create(options: {
+    name: string,
+    description?: string,
+    observationId: number,
+    type: ReadingTypeEnum,
+    dateTime: Date,
+  }) {
+    const reading = this.readingRepository.create({
+      name: options.name,
+      description: options.description,
+      observation: {
+        id: options.observationId,
+      },
+      type: options.type,
+      dateTime: options.dateTime,
+    });
+    return this.readingRepository.save(reading);
+  }
+
+  // Create several readings at once
+  public async createMany(options: {
+    readings: {
+      name: string,
+      description?: string,
+      observationId: number,
+      type: ReadingTypeEnum,
+      dateTime: Date,
+    }[],
+  }) {
+    const readings = this.readingRepository.create(options.readings.map((r) => {
+      return {
+        name: r.name,
+        description: r.description,
+        observation: {
+          id: r.observationId,
+        },
+        type: r.type,
+        dateTime: r.dateTime,
+      };
+    }));
+    return this.readingRepository.save(readings);
+  }
+
+  public async removeAllForObservation(observationId: number) {
+    const readings = await this.readingRepository.find({
+      where: { observation: { id: observationId } },
+    });
+    if (readings.length > 0) {
+      await this.readingRepository.softRemove(readings);
+    }
+  }
+
+  public async cloneAndAttributeToObservation(options: {
+    observationIdToCopyFrom: number,
+    observationIdToCopyTo: number,
+  }) {
+    // Find the readings to clone
+    const readings = await this.readingRepository.find({
+      where: { observation: { id: options.observationIdToCopyFrom } },
+    });
+    console.log('readings', readings);
+    if (readings.length === 0) {
+      return;
+    }
+
+    // Clone the readings
+    const clonedReadings = await this.createMany({
+      readings: readings.map((r) => {
+        return {
+          name: r.name ?? '',
+          description: r.description ?? '',
+          observationId: options.observationIdToCopyTo,
+          type: r.type,
+          dateTime: r.dateTime, 
+        };
+      }),
     });
   }
 }

@@ -5,10 +5,11 @@ export default {
   maximize: () => electronApi.invoke('maximize'),
   minimize: () => electronApi.invoke('minimize'),
   readyToCheckUpdates: () => electronApi.invoke('ready-to-check-updates'),
-
   onUpdateAvailable: (callback: () => void) => {
     electronApi.on('update-available', callback);
   },
+  downloadUpdate: () => electronApi.invoke('download-update'),
+  installUpdate: () => electronApi.invoke('install-update'),
   onUpdateDownloadProgress: (
     callback: (data: {
       percent: number;
@@ -28,5 +29,5 @@ export default {
     electronApi.on('update-error', callback);
   },
 
-  restart: () => electronApi.invoke('restart'),
+  quitAndInstallUpdate: () => electronApi.invoke('update-install'),
 };

@@ -6,11 +6,19 @@ import { ActivityGraph } from './activity-graph.entity';
 import { Protocol } from './protocol.entity';
 import { Reading } from './reading.entity';
 
+export enum ObservationType {
+  Example = 'example',
+  Normal = 'normal',
+}
+
 @Entity('observations')
 export class Observation extends BaseEntity {
   @Column({ nullable: false })
   @Index('IDX_observations_name')
   name!: string;
+
+  @Column({ enum: ObservationType, default: ObservationType.Normal })
+  type!: ObservationType;
 
   @Column({ type: 'text', nullable: true })
   description?: string | null;

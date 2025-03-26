@@ -5,8 +5,11 @@ import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } 
 import { Observation } from './observation.entity';
 
 export enum ReadingTypeEnum {
-  Marker = 'marker',
-  Data = 'data',
+  START = 'start',
+  STOP = 'stop',
+  PAUSE_START = 'pause_start',
+  PAUSE_END = 'pause_end',
+  DATA = 'data',
 }
 
 @Entity('readings')
@@ -24,8 +27,13 @@ export class Reading extends BaseEntity {
 
   @Column({
     enum: ReadingTypeEnum,
-    default: ReadingTypeEnum.Data,
+    default: ReadingTypeEnum.DATA,
     nullable: false,
   })
   type!: ReadingTypeEnum;
+
+  // The date and time of the reading
+  @Column({ nullable: false })
+  @Index()
+  dateTime!: Date;
 }

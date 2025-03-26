@@ -9,6 +9,28 @@ export class Find {
     private observationRepository: ObservationRepository,
   ) {}
 
+  // Return the number of observations with the same name, for a given user and excluding the last ({number})
+  async findObservationsCountWithSameName(options: {
+    userId: number;
+    name: string;
+  }): Promise<number> {
+    // Extract the base name (removing any trailing numbering pattern)
+    const baseName = options.name.replace(/\s*\(\d+\)$/, '');
+    
+    // Find observations with the same base name
+    const observations = await this.observationRepository.find({
+      where: {
+        user: { id: options.userId },
+      },
+    });
+    
+    // Count observations that match the base name or follow the pattern "baseName (n)"
+    const namePattern = new RegExp(`^${baseName}(\\s*\\(\\d+\\))?$`);
+    const matchingObservations = observations.filter(obs => namePattern.test(obs.name));
+    
+    return matchingObservations.length;
+  }
+
   async findAllForuser(userId: number): Promise<Observation[]> {
     return this.observationRepository.find({
       where: {
@@ -43,13 +65,9 @@ export class Find {
       }
 
       if (searchOptions.observationId) {
-        if (!relations.includes('observation')) {
-          relations.push('observation');
-        }
-        
         conditions.push({
           type: TypeEnum.AND,
-          key: 'observation.id',
+          key: 'id',
           operator: OperatorEnum.EQUAL,
           value: searchOptions.observationId,
         });
@@ -58,7 +76,7 @@ export class Find {
       if (searchOptions.searchString?.length && searchOptions.searchString !== '*') {
         conditions.push({
           type: TypeEnum.AND,
-          key: 'observation.name',
+          key: 'name',
           operator: OperatorEnum.LIKE,
           value: searchOptions.searchString,
         });

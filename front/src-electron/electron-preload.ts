@@ -6,10 +6,11 @@ const validChannels = [
   'minimize',
   'ready-to-check-updates',
   'update-available',
+  'download-update',
+  'install-update',
   'update-download-progress',
   'update-downloaded',
   'update-error',
-  'restart',
 ];
 
 // Expose protected methods that allow the renderer process to use

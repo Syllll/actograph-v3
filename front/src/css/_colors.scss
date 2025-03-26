@@ -1,18 +1,37 @@
 @import './../../lib-improba/css/mixins';
 @import 'quasar.variables';
 
-// See lib/improba/css/_colors.scss
-
-// *****************
-// Raw colors
-// *****************
-
-//$white: #fff;
-//$black: #000;
-
 // *****************
 // Colors used in the application
 // *****************
+$white: #fff;
+$black: #000;
 
-//@include defineColorLightAndDark('text', $black, $white);
-//@include defineColorLightAndDark('text-invert', $white, $black);
+// Primary orange (accent)
+$orange: #f97316;
+
+// Complementary blue
+$blue: #3b82f6;
+
+// Supporting colors
+$slate: #64748b;
+$green: #10b981;
+$purple: #8b5cf6;
+$red: #ef4444;
+$amber: #f59e0b;
+$modernDarkGrey: #1F2937;
+
+// Define color variations
+@include defineColorLightAndDark('none', transparent, transparent);
+@include defineColorLightAndDark('text', $black, $white);
+@include defineColorLightAndDark('text-invert', $white, $black);
+@include defineColorLightAndDark('text-link', darken($blue, 30), $blue);
+
+// Apply color variations using our mixin
+@include defineColorVariations('accent', $orange);
+@include defineColorVariations('primary', $modernDarkGrey);
+@include defineColorVariationsLightAndDark('secondary', #fdfdfd, $modernDarkGrey);
+@include defineColorVariations('neutral', $slate);
+@include defineColorVariations('success', $green);
+@include defineColorVariations('danger', $red);
+@include defineColorVariations('warning', $amber);
