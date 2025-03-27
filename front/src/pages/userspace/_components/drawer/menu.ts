@@ -14,6 +14,7 @@ export const menu = (router: Router) => [
     separator: false,
     action: () => router.push({ name: 'user_protocol' }),
     isActive: () => router.currentRoute.value.name === 'user_protocol',
+    disabled: (observation: any) => !observation.sharedState.currentObservation,
   },
   {
     label: 'Observation',
@@ -21,6 +22,7 @@ export const menu = (router: Router) => [
     separator: false,
     action: () => router.push({ name: 'user_observation' }),
     isActive: () => router.currentRoute.value.name === 'user_observation',
+    disabled: (observation: any) => !observation.sharedState.currentObservation,
   },
   {
     label: 'Analyse',
@@ -28,5 +30,6 @@ export const menu = (router: Router) => [
     separator: false,
     action: () => router.push({ name: 'user_analyse' }),
     isActive: () => router.currentRoute.value.name === 'user_analyse',
+    disabled: (observation: any) => !observation.sharedState.currentObservation,
   },
 ];

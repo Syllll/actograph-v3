@@ -50,10 +50,7 @@ export class ObservationController extends BaseController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)
-  async delete(
-    @Req() req: any,
-    @Param('id') id: number,
-  ) {
+  async delete(@Req() req: any, @Param('id') id: number) {
     const user = req.user;
 
     // check if the user is the owner of the observation
@@ -61,11 +58,13 @@ export class ObservationController extends BaseController {
       where: {
         user: {
           id: user.id,
-        }
-      }
+        },
+      },
     });
     if (!observation) {
-      throw new NotFoundException('Cannot delete observation, you are not the owner');
+      throw new NotFoundException(
+        'Cannot delete observation, you are not the owner',
+      );
     }
 
     await this.observationService.delete(id);
@@ -89,19 +88,20 @@ export class ObservationController extends BaseController {
     searchString: string,
   ): Promise<IPaginationOutput<Observation>> {
     const user = req.user;
-    const results = await this.observationService.find.findAndPaginateWithOptions(
-      {
-        limit: searchQueryParams.limit,
-        offset: searchQueryParams.offset,
-        orderBy: searchQueryParams.orderBy,
-        order: searchQueryParams.order,
-        relations,
-      },
-      {
-        searchString: searchString,
-        userId: user.id,
-      },
-    );
+    const results =
+      await this.observationService.find.findAndPaginateWithOptions(
+        {
+          limit: searchQueryParams.limit,
+          offset: searchQueryParams.offset,
+          orderBy: searchQueryParams.orderBy,
+          order: searchQueryParams.order,
+          relations,
+        },
+        {
+          searchString: searchString,
+          userId: user.id,
+        },
+      );
 
     return results;
   }
@@ -117,24 +117,28 @@ export class ObservationController extends BaseController {
   @Post('clone-example')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRoleEnum.User)
-  async cloneExample(
-    @Req() req: any,
-  ): Promise<Observation> {
+  async cloneExample(@Req() req: any): Promise<Observation> {
     const user = req.user;
 
-    const observation = await this.observationService.example.cloneExampleObservation(user.id);
+    const observation =
+      await this.observationService.example.cloneExampleObservation(user.id);
     return observation;
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRoleEnum.User)
-  async findOne(@Param('id') id: number, @Req() req: any, 
-  @Query('includes', new ParseEnumArrayPipe({
-    type: ['user', 'protocol', 'readings', 'activityGraph'],
-    separator: ',',
-  }))
-  relations: string[] = [],
+  async findOne(
+    @Param('id') id: number,
+    @Req() req: any,
+    @Query(
+      'includes',
+      new ParseEnumArrayPipe({
+        type: ['user', 'protocol', 'readings', 'activityGraph'],
+        separator: ',',
+      }),
+    )
+    relations: string[] = [],
   ): Promise<Observation> {
     const user = req.user;
 
@@ -142,7 +146,7 @@ export class ObservationController extends BaseController {
       where: {
         user: {
           id: user.id,
-        }
+        },
       },
       relations,
     });
@@ -153,5 +157,4 @@ export class ObservationController extends BaseController {
 
     return <Observation>observation;
   }
-  
 }

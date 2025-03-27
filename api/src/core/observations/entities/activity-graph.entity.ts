@@ -1,7 +1,14 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { User } from '@users/entities/user.entity';
 import { BaseEntity } from '@utils/entities/base.entity';
-import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Observation } from './observation.entity';
 
 @Entity('activity-graphs')

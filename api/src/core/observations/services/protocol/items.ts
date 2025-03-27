@@ -1,7 +1,15 @@
 import { ProtocolRepository } from '@core/observations/repositories/protocol.repository';
 import { ProtocolService } from './index.service';
-import { InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@core/observations/entities/protocol.entity';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  ProtocolItem,
+  ProtocolItemActionEnum,
+  ProtocolItemTypeEnum,
+} from '@core/observations/entities/protocol.entity';
 import { randomUUID } from 'node:crypto';
 
 export class Items {
@@ -12,18 +20,20 @@ export class Items {
 
   public getItemsAsJson(itemsStr: string | undefined): ProtocolItem[] {
     if (!itemsStr) {
-      throw new InternalServerErrorException('itemsStr is undefined, it should not.')
+      throw new InternalServerErrorException(
+        'itemsStr is undefined, it should not.',
+      );
     }
 
     return JSON.parse(itemsStr);
   }
 
   public async addCategory(options: {
-    protocolId: number,
-    order: number,
-    name: string,
-    description?: string,
-    action?: ProtocolItemActionEnum,
+    protocolId: number;
+    order: number;
+    name: string;
+    description?: string;
+    action?: ProtocolItemActionEnum;
   }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
@@ -67,10 +77,7 @@ export class Items {
     return categories[order];
   }
 
-  public async removeItem(options: {
-    protocolId: number,
-    itemId: string,
-  }) {
+  public async removeItem(options: { protocolId: number; itemId: string }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
       relations: [],
@@ -85,7 +92,7 @@ export class Items {
     const findAndRemoveItemFromJson = (items: ProtocolItem[], id: string) => {
       // Loop through the items and find the item to remove
       for (const item of items) {
-        if (item.id === options.itemId) {
+        if (item.id === id) {
           // Remove the item
           items.splice(items.indexOf(item), 1);
           return;
@@ -93,7 +100,7 @@ export class Items {
 
         if (item.children) {
           for (const child of item.children) {
-            if (child.id === options.itemId) {
+            if (child.id === id) {
               item.children.splice(item.children.indexOf(child), 1);
               return;
             }
@@ -102,7 +109,7 @@ export class Items {
       }
 
       throw new NotFoundException('Item was not found');
-    }
+    };
 
     findAndRemoveItemFromJson(items, options.itemId);
 
@@ -114,8 +121,8 @@ export class Items {
   }
 
   public async removeCategory(options: {
-    protocolId: number,
-    categoryId: string,
+    protocolId: number;
+    categoryId: string;
   }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
@@ -129,7 +136,9 @@ export class Items {
     const categories = this.getItemsAsJson(protocol.items);
 
     // Find the category to remove
-    const categoryIndex = categories.findIndex(c => c.id === options.categoryId);
+    const categoryIndex = categories.findIndex(
+      (c) => c.id === options.categoryId,
+    );
 
     if (categoryIndex === -1) {
       throw new NotFoundException('Category was not found');
@@ -149,12 +158,12 @@ export class Items {
   }
 
   public async editCategory(options: {
-    protocolId: number,
-    categoryId: string,
-    name?: string,
-    description?: string,
-    action?: ProtocolItemActionEnum,
-    order?: number,
+    protocolId: number;
+    categoryId: string;
+    name?: string;
+    description?: string;
+    action?: ProtocolItemActionEnum;
+    order?: number;
   }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
@@ -168,7 +177,9 @@ export class Items {
     const categories = this.getItemsAsJson(protocol.items);
 
     // Find the category to edit
-    const categoryIndex = categories.findIndex(c => c.id === options.categoryId);
+    const categoryIndex = categories.findIndex(
+      (c) => c.id === options.categoryId,
+    );
 
     if (categoryIndex === -1) {
       throw new NotFoundException('Category was not found');
@@ -179,28 +190,28 @@ export class Items {
       ...categories[categoryIndex],
       ...options,
     };
-    
+
     // Handle order change if specified
     if (options.order !== undefined && options.order !== categoryIndex) {
       let newOrder = options.order;
-      
+
       // Validate and adjust the order if needed
       if (newOrder < 0) {
         newOrder = 0;
       } else if (newOrder >= categories.length) {
         newOrder = categories.length - 1;
       }
-      
+
       // Remove the category from its current position
       categories.splice(categoryIndex, 1);
-      
+
       // Insert it at the new position
       categories.splice(newOrder, 0, updatedCategory);
     } else {
       // Just update the category in place
       categories[categoryIndex] = updatedCategory;
     }
-    
+
     // Update the protocol with the new items
     protocol.items = JSON.stringify(categories);
 
@@ -208,18 +219,20 @@ export class Items {
     await this.protocolRepository.save(protocol);
 
     // Find the new index of the category (in case order changed)
-    const newCategoryIndex = categories.findIndex(c => c.id === options.categoryId);
-    
+    const newCategoryIndex = categories.findIndex(
+      (c) => c.id === options.categoryId,
+    );
+
     // Return the updated category
     return categories[newCategoryIndex];
   }
 
   public async addObservable(options: {
-    protocolId: number,
-    categoryId: string,
-    name: string,
-    description?: string,
-    order?: number,
+    protocolId: number;
+    categoryId: string;
+    name: string;
+    description?: string;
+    order?: number;
   }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
@@ -233,7 +246,9 @@ export class Items {
     const categories = this.getItemsAsJson(protocol.items);
 
     // Find the category
-    const categoryIndex = categories.findIndex(c => c.id === options.categoryId); 
+    const categoryIndex = categories.findIndex(
+      (c) => c.id === options.categoryId,
+    );
 
     if (categoryIndex === -1) {
       throw new NotFoundException('Category was not found');
@@ -261,7 +276,7 @@ export class Items {
       description: options.description,
       type: ProtocolItemTypeEnum.Observable,
     });
-    
+
     // Update the protocol with the new items
     protocol.items = JSON.stringify(categories);
 
@@ -273,8 +288,8 @@ export class Items {
   }
 
   public async removeObservable(options: {
-    protocolId: number,
-    observableId: string,
+    protocolId: number;
+    observableId: string;
   }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
@@ -288,7 +303,9 @@ export class Items {
     const categories = this.getItemsAsJson(protocol.items);
 
     // Find the categorie of the observable to remove
-    const categoryIndex = categories.findIndex(c => c.children?.find(o => o.id === options.observableId));
+    const categoryIndex = categories.findIndex((c) =>
+      c.children?.find((o) => o.id === options.observableId),
+    );
 
     if (categoryIndex === -1) {
       throw new NotFoundException('Observable was not found');
@@ -300,9 +317,11 @@ export class Items {
     if (!category.children) {
       throw new NotFoundException('Category has no observables');
     }
-    
+
     // Find the observable to remove
-    const observableIndex = category.children.findIndex(o => o.id === options.observableId);
+    const observableIndex = category.children.findIndex(
+      (o) => o.id === options.observableId,
+    );
 
     if (observableIndex === -1) {
       throw new NotFoundException('Observable was not found');
@@ -322,11 +341,11 @@ export class Items {
   }
 
   public async editObservable(options: {
-    protocolId: number,
-    observableId: string,
-    name?: string,
-    description?: string,
-    order?: number,
+    protocolId: number;
+    observableId: string;
+    name?: string;
+    description?: string;
+    order?: number;
   }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
@@ -340,7 +359,9 @@ export class Items {
     const categories = this.getItemsAsJson(protocol.items);
 
     // Find the category
-    const categoryIndex = categories.findIndex(c => c.children?.find(o => o.id === options.observableId));
+    const categoryIndex = categories.findIndex((c) =>
+      c.children?.find((o) => o.id === options.observableId),
+    );
 
     if (categoryIndex === -1) {
       throw new NotFoundException('Category was not found');
@@ -354,7 +375,9 @@ export class Items {
     }
 
     // Find the observable
-    const observableIndex = category.children.findIndex(o => o.id === options.observableId);
+    const observableIndex = category.children.findIndex(
+      (o) => o.id === options.observableId,
+    );
 
     if (observableIndex === -1) {
       throw new NotFoundException('Observable was not found');
@@ -365,28 +388,28 @@ export class Items {
       ...category.children[observableIndex],
       ...options,
     };
-    
+
     // Handle order change if specified
     if (options.order !== undefined && options.order !== observableIndex) {
       let newOrder = options.order;
-      
+
       // Validate and adjust the order if needed
       if (newOrder < 0) {
         newOrder = 0;
       } else if (newOrder >= category.children.length) {
         newOrder = category.children.length - 1;
       }
-      
+
       // Remove the observable from its current position
       category.children.splice(observableIndex, 1);
-      
+
       // Insert it at the new position
       category.children.splice(newOrder, 0, updatedObservable);
     } else {
       // Just update the observable in place
       category.children[observableIndex] = updatedObservable;
     }
-    
+
     // Update the protocol with the new items
     protocol.items = JSON.stringify(categories);
 
@@ -394,8 +417,10 @@ export class Items {
     await this.protocolRepository.save(protocol);
 
     // Find the new index of the observable (in case order changed)
-    const newObservableIndex = category.children.findIndex(o => o.id === options.observableId);
-    
+    const newObservableIndex = category.children.findIndex(
+      (o) => o.id === options.observableId,
+    );
+
     // Return the updated observable
     return category.children[newObservableIndex];
   }

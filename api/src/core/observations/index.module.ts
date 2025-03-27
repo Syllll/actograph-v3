@@ -44,9 +44,7 @@ import { ActivityGraphController } from './controllers/activity-graph.controller
   ],
 })
 export class ObservationsModule implements OnModuleInit {
-  constructor(
-    private readonly observationService: ObservationService,
-  ) {}
+  constructor(private readonly observationService: ObservationService) {}
 
   async onModuleInit() {
     console.info(`Observations module initialization...`);

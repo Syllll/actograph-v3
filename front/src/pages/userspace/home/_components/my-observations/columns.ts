@@ -18,4 +18,4 @@ export const columns = [
     field: (row: IObservation) => row.updatedAt,
     format: (val: string) => relativeDay(val),
   },
-]; 
+];

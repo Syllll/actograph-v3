@@ -1,11 +1,11 @@
 import {
-    Injectable,
-    BadRequestException,
-    NotFoundException,
-    InternalServerErrorException,
-  } from '@nestjs/common';
-  import { KeyTestor } from '../key-testor';
-  import * as os from 'os';
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { KeyTestor } from '../key-testor';
+import * as os from 'os';
 import { getMode } from 'config/mode';
 import axios from 'axios';
 import { getConfigPath } from 'config/path';
@@ -41,22 +41,22 @@ export class SecurityService {
   private readonly _keyTestor = new KeyTestor();
   public readonly electron: Electron;
 
-  constructor(
-    private readonly licenseService: LicenseService,
-  ) {
+  constructor(private readonly licenseService: LicenseService) {
     this.electron = new Electron({
       securityService: this,
       licenseService: this.licenseService,
     });
   }
 
-  public async checkKeyOnActoGraphWebsiteServer(key: string): Promise<LicenseResponse> {
+  public async checkKeyOnActoGraphWebsiteServer(
+    key: string,
+  ): Promise<LicenseResponse> {
     let response: any;
     try {
       response = await axios.post(`${process.env.ACTOGRAPH_API}/license`, {
         key: key,
-      password: process.env.ACTOGRAPH_API_PASSWORD
-    });
+        password: process.env.ACTOGRAPH_API_PASSWORD,
+      });
     } catch (error: any) {
       // If the server do not respond, return server not available
       if (error.response.status === 502) {
@@ -71,7 +71,9 @@ export class SecurityService {
     }
     const responseData = response.data;
     if (responseData.message) {
-      throw new BadRequestException(responseData.message ?? 'Unknown error when checking licence');
+      throw new BadRequestException(
+        responseData.message ?? 'Unknown error when checking licence',
+      );
     }
 
     return responseData;

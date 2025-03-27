@@ -12,4 +12,4 @@ import { ActivityGraph } from '../entities/activity-graph.entity';
 @CustomRepository(ActivityGraph)
 export class ActivityGraphRepository extends BaseRepository<ActivityGraph> {
   // private logger = new Logger('UserRepository')
-} 
+}

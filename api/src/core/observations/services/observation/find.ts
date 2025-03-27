@@ -1,5 +1,11 @@
 import { Observation } from '@core/observations/entities/observation.entity';
-import { IPaginationOptions, IPaginationOutput, IConditions, TypeEnum, OperatorEnum } from '@utils/repositories/base.repositories';
+import {
+  IPaginationOptions,
+  IPaginationOutput,
+  IConditions,
+  TypeEnum,
+  OperatorEnum,
+} from '@utils/repositories/base.repositories';
 import { ObservationService } from './index.service';
 import { ObservationRepository } from '@core/observations/repositories/obsavation.repository';
 
@@ -16,18 +22,20 @@ export class Find {
   }): Promise<number> {
     // Extract the base name (removing any trailing numbering pattern)
     const baseName = options.name.replace(/\s*\(\d+\)$/, '');
-    
+
     // Find observations with the same base name
     const observations = await this.observationRepository.find({
       where: {
         user: { id: options.userId },
       },
     });
-    
+
     // Count observations that match the base name or follow the pattern "baseName (n)"
     const namePattern = new RegExp(`^${baseName}(\\s*\\(\\d+\\))?$`);
-    const matchingObservations = observations.filter(obs => namePattern.test(obs.name));
-    
+    const matchingObservations = observations.filter((obs) =>
+      namePattern.test(obs.name),
+    );
+
     return matchingObservations.length;
   }
 
@@ -39,15 +47,20 @@ export class Find {
     });
   }
 
-  async findAndPaginateWithOptions(paginationOptions: IPaginationOptions,
+  async findAndPaginateWithOptions(
+    paginationOptions: IPaginationOptions,
     searchOptions?: {
       includes?: string[];
       userId?: number;
       searchString?: string;
       observationId?: number;
-    }): Promise<IPaginationOutput<Observation>> {
-    const relations = [...(paginationOptions.relations || []), ...(searchOptions?.includes || [])];
-    
+    },
+  ): Promise<IPaginationOutput<Observation>> {
+    const relations = [
+      ...(paginationOptions.relations || []),
+      ...(searchOptions?.includes || []),
+    ];
+
     const conditions: IConditions[] = [];
 
     if (searchOptions) {
@@ -73,7 +86,10 @@ export class Find {
         });
       }
 
-      if (searchOptions.searchString?.length && searchOptions.searchString !== '*') {
+      if (
+        searchOptions.searchString?.length &&
+        searchOptions.searchString !== '*'
+      ) {
         conditions.push({
           type: TypeEnum.AND,
           key: 'name',

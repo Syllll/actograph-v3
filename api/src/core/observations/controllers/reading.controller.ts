@@ -88,7 +88,7 @@ export class ReadingController extends BaseController {
         observationId,
       },
     );
-    
+
     return results;
   }
 }

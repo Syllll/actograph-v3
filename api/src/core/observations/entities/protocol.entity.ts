@@ -28,7 +28,7 @@ export interface ProtocolItem {
  * A protocol is made of categories and observables.
  * A category can contain other observables.
  * An observable is a leaf node in the tree.
- * 
+ *
  */
 @Entity('protocols')
 export class Protocol extends BaseEntity {

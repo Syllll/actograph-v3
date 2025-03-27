@@ -1,7 +1,13 @@
 import { ProtocolRepository } from '@core/observations/repositories/protocol.repository';
 import { ProtocolService } from './index.service';
 import { Protocol } from '@core/observations/entities/protocol.entity';
-import { IPaginationOptions, IPaginationOutput, IConditions, TypeEnum, OperatorEnum } from '@utils/repositories/base.repositories';
+import {
+  IPaginationOptions,
+  IPaginationOutput,
+  IConditions,
+  TypeEnum,
+  OperatorEnum,
+} from '@utils/repositories/base.repositories';
 import { NotFoundException } from '@nestjs/common';
 
 export class Find {
@@ -10,9 +16,12 @@ export class Find {
     private readonly protocolRepository: ProtocolRepository,
   ) {}
 
-  async findOneFromObservation(observationId: number, options?: {
-    relations?: string[];
-  }): Promise<Protocol> {
+  async findOneFromObservation(
+    observationId: number,
+    options?: {
+      relations?: string[];
+    },
+  ): Promise<Protocol> {
     const protocol = await this.protocolRepository.findOne({
       where: {
         observation: {
@@ -29,15 +38,20 @@ export class Find {
     return protocol;
   }
 
-  async findAndPaginateWithOptions(paginationOptions: IPaginationOptions,
+  async findAndPaginateWithOptions(
+    paginationOptions: IPaginationOptions,
     searchOptions?: {
       includes?: string[];
       searchString?: string;
       userId?: number;
       observationId?: number;
-    }): Promise<IPaginationOutput<Protocol>> {
-    const relations = [...(paginationOptions.relations || []), ...(searchOptions?.includes || [])];
-    
+    },
+  ): Promise<IPaginationOutput<Protocol>> {
+    const relations = [
+      ...(paginationOptions.relations || []),
+      ...(searchOptions?.includes || []),
+    ];
+
     const conditions: IConditions[] = [];
 
     if (searchOptions) {
@@ -58,7 +72,7 @@ export class Find {
         if (!relations.includes('observation')) {
           relations.push('observation');
         }
-        
+
         conditions.push({
           type: TypeEnum.AND,
           key: 'observation.id',
@@ -66,7 +80,10 @@ export class Find {
           value: searchOptions.observationId,
         });
       }
-      if (searchOptions.searchString?.length && searchOptions.searchString !== '*') {
+      if (
+        searchOptions.searchString?.length &&
+        searchOptions.searchString !== '*'
+      ) {
         conditions.push({
           type: TypeEnum.AND,
           key: 'observation.name',

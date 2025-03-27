@@ -86,15 +86,20 @@ export const protocolService = {
   /**
    * Get protocol from observation ID
    */
-  findOneFromObservationId: async (observationId: number, options?: {
-    includes?: string[];
-  }): Promise<IProtocol> => {
-    const params = options?.includes ? { includes: options.includes.join(',') } : {};
+  findOneFromObservationId: async (
+    observationId: number,
+    options?: {
+      includes?: string[];
+    }
+  ): Promise<IProtocol> => {
+    const params = options?.includes
+      ? { includes: options.includes.join(',') }
+      : {};
     const response = await api().get(
       `${apiUrl}/observations/protocols/from-observation/${observationId}`,
       { params }
     );
-    
+
     // Parse the items JSON string into an object
     const protocol = response.data;
     if (protocol && protocol.items) {
@@ -105,42 +110,42 @@ export const protocolService = {
         protocol._items = [];
       }
     }
-    
+
     return protocol;
   },
 
   /**
    * Add a category to the protocol
    */
-  addCategory: async (data: Omit<AddCategoryDto, 'type'>): Promise<ProtocolItem> => {
-    const response = await api().post(
-      `${apiUrl}/observations/protocols/item`,
-      {
-        ...data,
-        type: ProtocolItemTypeEnum.Category
-      }
-    );
+  addCategory: async (
+    data: Omit<AddCategoryDto, 'type'>
+  ): Promise<ProtocolItem> => {
+    const response = await api().post(`${apiUrl}/observations/protocols/item`, {
+      ...data,
+      type: ProtocolItemTypeEnum.Category,
+    });
     return response.data;
   },
 
   /**
    * Add an observable to a category
    */
-  addObservable: async (data: Omit<AddObservableDto, 'type'>): Promise<ProtocolItem> => {
-    const response = await api().post(
-      `${apiUrl}/observations/protocols/item`,
-      {
-        ...data,
-        type: ProtocolItemTypeEnum.Observable
-      }
-    );
+  addObservable: async (
+    data: Omit<AddObservableDto, 'type'>
+  ): Promise<ProtocolItem> => {
+    const response = await api().post(`${apiUrl}/observations/protocols/item`, {
+      ...data,
+      type: ProtocolItemTypeEnum.Observable,
+    });
     return response.data;
   },
 
   /**
    * Edit a protocol item (category or observable)
    */
-  editItem: async (data: Omit<EditItemDto, 'type'> & { type: ProtocolItemTypeEnum }): Promise<ProtocolItem> => {
+  editItem: async (
+    data: Omit<EditItemDto, 'type'> & { type: ProtocolItemTypeEnum }
+  ): Promise<ProtocolItem> => {
     const response = await api().patch(
       `${apiUrl}/observations/protocols/item/${data.id}`,
       data
@@ -152,9 +157,10 @@ export const protocolService = {
    * Delete a protocol item (category or observable)
    */
   deleteItem: async (itemId: string, protocolId: number): Promise<void> => {
-    await api().delete(`${apiUrl}/observations/protocols/item/${itemId}`, {
-      data: { protocolId }
-    });
+    const response = await api().delete(
+      `${apiUrl}/observations/protocols/item/${protocolId}/${itemId}`
+    );
+    return response.data;
   },
 
   /**
@@ -171,5 +177,5 @@ export const protocolService = {
       console.error('Failed to parse protocol items:', e);
       return [];
     }
-  }
+  },
 };

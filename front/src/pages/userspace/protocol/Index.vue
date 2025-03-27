@@ -2,24 +2,78 @@
   <DPage>
     <div class="row q-pa-md">
       <div class="col-12">
-        <div v-if="state.protocol">
+        <div v-if="state.currentProtocol">
           <q-card-section>
-            <div class="text-h6 q-mb-md">{{ state.protocol.name }}</div>
-            <p v-if="state.protocol.description">{{ state.protocol.description }}</p>
-            
+            <div class="text-h6 q-mb-md">{{ state.currentProtocol.name }}</div>
+            <p v-if="state.currentProtocol.description">
+              {{ state.currentProtocol.description }}
+            </p>
+
+            <div class="row justify-end q-mb-md">
+              <q-btn
+                color="primary"
+                icon="add"
+                label="Ajouter une catégorie"
+                @click="state.addCategoryModal = true"
+                :disable="!state.currentProtocol?.id"
+              />
+            </div>
+
             <div v-if="state.treeData.length > 0">
               <q-tree
                 :nodes="state.treeData"
                 node-key="id"
                 label-key="name"
-                default-expand-all
+                v-model:expanded="state.expandedNodes"
               >
                 <template v-slot:default-header="prop">
                   <div class="row items-center">
                     <div class="text-weight-medium">{{ prop.node.name }}</div>
-                    <q-badge v-if="prop.node.type === 'observable'" color="primary" class="q-ml-sm">
-                      {{ prop.node.action || 'No action' }}
+                    <q-badge
+                      v-if="prop.node.type === 'category' && prop.node.action"
+                      color="primary"
+                      class="q-ml-sm"
+                    >
+                      {{ prop.node.action }}
                     </q-badge>
+
+                    <q-space />
+
+                    <div
+                      v-if="prop.node.type === 'category'"
+                      class="row q-gutter-sm"
+                    >
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        color="positive"
+                        icon="add"
+                        @click.stop="methods.openAddObservableModal(prop.node)"
+                      >
+                        <q-tooltip>Ajouter un observable</q-tooltip>
+                      </q-btn>
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        color="primary"
+                        icon="edit"
+                        @click.stop="methods.openEditCategoryModal(prop.node)"
+                      >
+                        <q-tooltip>Modifier</q-tooltip>
+                      </q-btn>
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        color="negative"
+                        icon="delete"
+                        @click.stop="methods.openRemoveCategoryModal(prop.node)"
+                      >
+                        <q-tooltip>Supprimer</q-tooltip>
+                      </q-btn>
+                    </div>
                   </div>
                 </template>
               </q-tree>
@@ -31,59 +85,252 @@
         </div>
       </div>
     </div>
+
+    <!-- Composants modales -->
+    <AddCategoryModal
+      v-model="state.addCategoryModal"
+      :default-order="state.treeData.length"
+      @category-added="methods.loadProtocol"
+    />
+
+    <EditCategoryModal
+      v-model="state.editCategoryModal"
+      :category="state.selectedCategory"
+      :category-index="state.selectedCategoryIndex"
+      @category-updated="methods.loadProtocol"
+    />
+
+    <RemoveCategoryModal
+      v-model="state.removeCategoryModal"
+      :category="state.selectedCategory"
+      @category-removed="methods.loadProtocol"
+    />
+
+    <AddObservableModal
+      v-model="state.addObservableModal"
+      :category="state.selectedCategory"
+      :default-order="state.selectedCategoryChildren.length"
+      @observable-added="
+        (categoryId) => {
+          ensureCategoryExpanded(categoryId);
+          methods.loadProtocol();
+        }
+      "
+    />
   </DPage>
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, onMounted } from 'vue';
-import { protocolService } from '@services/observations/protocol.service';
+import {
+  defineComponent,
+  reactive,
+  onMounted,
+  ref,
+  nextTick,
+  watch,
+} from 'vue';
+import {
+  ProtocolItem,
+  ProtocolItemTypeEnum,
+} from '@services/observations/protocol.service';
 import { useRoute } from 'vue-router';
 import { useObservation } from 'src/composables/use-observation';
+import { useQuasar } from 'quasar';
+import AddCategoryModal from './_components/AddCategoryModal.vue';
+import EditCategoryModal from './_components/EditCategoryModal.vue';
+import RemoveCategoryModal from './_components/RemoveCategoryModal.vue';
+import AddObservableModal from './_components/AddObservableModal.vue';
 
 export default defineComponent({
+  components: {
+    AddCategoryModal,
+    EditCategoryModal,
+    RemoveCategoryModal,
+    AddObservableModal,
+  },
+
   setup() {
     const route = useRoute();
     const observation = useObservation();
     const protocol = observation.protocol;
-    
+    const $q = useQuasar();
+
+    // Validate protocol service
+    if (!protocol || !protocol.methods) {
+      throw new Error('Protocol service is not properly initialized');
+    }
+
     const state = reactive({
       loading: true,
-      protocol: null as any,
+      currentProtocol: null as any,
       treeData: [] as any[],
+      expandedNodes: [] as string[],
+
+      // Pour les modales
+      addCategoryModal: false,
+      editCategoryModal: false,
+      removeCategoryModal: false,
+      addObservableModal: false,
+
+      // Pour la catégorie sélectionnée
+      selectedCategory: null as ProtocolItem | null,
+      selectedCategoryIndex: 0,
+      selectedCategoryChildren: [] as any[],
     });
-    
-    const loadProtocol = async () => {
-      try {
-        state.loading = true;
 
-        const protocol = observation.sharedState.currentProtocol;
-        state.protocol = protocol;
+    // Initial expansion of all category nodes (only called once at load time)
+    const initialExpandAllNodes = () => {
+      // Collect all category node IDs into an array
+      const expandedNodeIds: string[] = [];
 
-        // Parse the items JSON string to get the protocol data
-        if (protocol && protocol._items) {
-          try {
-            const items = protocol._items;
-            state.treeData = items;
-          } catch (e) {
-            console.error('Failed to parse protocol items:', e);
-            state.treeData = [];
-          }
-        } else {
-          state.treeData = [];
+      state.treeData.forEach((node) => {
+        if (node.type === ProtocolItemTypeEnum.Category) {
+          expandedNodeIds.push(node.id);
         }
-      } catch (error) {
-        console.error('Failed to load protocol:', error);
-      } finally {
-        state.loading = false;
+      });
+
+      state.expandedNodes = expandedNodeIds;
+    };
+
+    // Ensure specific category is expanded
+    const ensureCategoryExpanded = (categoryId: string) => {
+      if (categoryId && !state.expandedNodes.includes(categoryId)) {
+        state.expandedNodes = [...state.expandedNodes, categoryId];
       }
     };
-    
+
+    const methods = {
+      loadProtocol: async () => {
+        try {
+          state.loading = true;
+
+          const currentProtocol = observation.sharedState.currentProtocol;
+          state.currentProtocol = currentProtocol;
+
+          // Parse the items JSON string to get the protocol data
+          if (currentProtocol && currentProtocol._items) {
+            try {
+              const items = currentProtocol._items;
+
+              // Check if this is the first load or a reload
+              const isFirstLoad = state.treeData.length === 0;
+              state.treeData = items;
+
+              // Only expand all nodes on first load
+              if (isFirstLoad) {
+                await nextTick();
+                initialExpandAllNodes();
+              }
+            } catch (e) {
+              console.error('Failed to parse protocol items:', e);
+              state.treeData = [];
+            }
+          } else {
+            state.treeData = [];
+          }
+        } catch (error) {
+          console.error('Failed to load protocol:', error);
+        } finally {
+          state.loading = false;
+        }
+      },
+
+      openEditCategoryModal: (category: ProtocolItem) => {
+        if (!state.currentProtocol?.id) {
+          $q.notify({
+            type: 'negative',
+            message:
+              'Impossible de modifier la catégorie : protocole non chargé',
+          });
+          return;
+        }
+
+        if (!protocol || !protocol.methods) {
+          $q.notify({
+            type: 'negative',
+            message: 'Service de protocole non disponible',
+          });
+          console.error(
+            'Protocol service is not properly initialized:',
+            protocol
+          );
+          return;
+        }
+
+        // Trouver l'index de la catégorie dans le tableau
+        const categoryIndex = state.treeData.findIndex(
+          (c) => c.id === category.id
+        );
+
+        state.selectedCategory = category;
+        state.selectedCategoryIndex = categoryIndex;
+        state.editCategoryModal = true;
+      },
+
+      openRemoveCategoryModal: (category: ProtocolItem) => {
+        if (!state.currentProtocol?.id) {
+          $q.notify({
+            type: 'negative',
+            message:
+              'Impossible de supprimer la catégorie : protocole non chargé',
+          });
+          return;
+        }
+
+        if (!protocol || !protocol.methods) {
+          $q.notify({
+            type: 'negative',
+            message: 'Service de protocole non disponible',
+          });
+          console.error(
+            'Protocol service is not properly initialized:',
+            protocol
+          );
+          return;
+        }
+
+        state.selectedCategory = category;
+        state.removeCategoryModal = true;
+      },
+
+      openAddObservableModal: (category: ProtocolItem) => {
+        if (!state.currentProtocol?.id) {
+          $q.notify({
+            type: 'negative',
+            message:
+              "Impossible d'ajouter un observable : protocole non chargé",
+          });
+          return;
+        }
+
+        if (!protocol || !protocol.methods) {
+          $q.notify({
+            type: 'negative',
+            message: 'Service de protocole non disponible',
+          });
+          console.error(
+            'Protocol service is not properly initialized:',
+            protocol
+          );
+          return;
+        }
+
+        state.selectedCategory = category;
+        state.selectedCategoryChildren = category.children || [];
+        state.addObservableModal = true;
+      },
+    };
+
     onMounted(() => {
-      loadProtocol();
+      methods.loadProtocol();
     });
-    
+
     return {
       state,
+      methods,
+      protocol,
+      observation,
+      ensureCategoryExpanded,
     };
   },
 });

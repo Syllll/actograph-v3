@@ -1,7 +1,14 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { User } from '@users/entities/user.entity';
 import { BaseEntity } from '@utils/entities/base.entity';
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Observation } from './observation.entity';
 
 export enum ReadingTypeEnum {

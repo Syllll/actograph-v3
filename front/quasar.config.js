@@ -347,12 +347,15 @@ module.exports = configure(function (/* ctx */) {
           // maximum: slow and smallest size
           compression: 'store',
           // Only include certificate configuration when the password is available
-          ...(process.env.WIN_CERT_PWD ? {
-            certificateFile: process.env.CERTIFICATE_PATH || './certificate.pfx',
-            certificatePassword: process.env.WIN_CERT_PWD,
-            signAndEditExecutable: true,
-            publisherName: 'SymAlgo Technologies' // Fallback publisher name
-          } : {})
+          ...(process.env.WIN_CERT_PWD
+            ? {
+                certificateFile:
+                  process.env.CERTIFICATE_PATH || './certificate.pfx',
+                certificatePassword: process.env.WIN_CERT_PWD,
+                signAndEditExecutable: true,
+                publisherName: 'SymAlgo Technologies', // Fallback publisher name
+              }
+            : {}),
         },
         linux: {
           target: ['AppImage'],

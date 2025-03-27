@@ -12,11 +12,7 @@ export class Check {
     protocolId: number;
     throwError?: boolean;
   }) {
-    const {
-      userId,
-      protocolId,
-      throwError = true,
-    } = options;
+    const { userId, protocolId, throwError = true } = options;
 
     const protocol = await this.protocolRepository.findOne({
       where: {
@@ -34,7 +30,9 @@ export class Check {
 
     if (protocol.observation?.user?.id !== userId) {
       if (throwError) {
-        throw new UnauthorizedException('You are not allowed to access this protocol');
+        throw new UnauthorizedException(
+          'You are not allowed to access this protocol',
+        );
       }
       return false;
     }

@@ -102,7 +102,7 @@ async function createWindow() {
       // Send update info to renderer process
       mainWindow.webContents.send('update-available', {
         version: info.version,
-        releaseNotes: info.releaseNotes
+        releaseNotes: info.releaseNotes,
       });
     }
   });

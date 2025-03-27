@@ -26,7 +26,10 @@
         <p>{{ state.error.message }}</p>
       </div>
       <div v-else>
-        <p>Mise à jour téléchargée. Veuillez redémarrer l'application pour l'installer.</p>
+        <p>
+          Mise à jour téléchargée. Veuillez redémarrer l'application pour
+          l'installer.
+        </p>
       </div>
     </DScrollArea>
 
@@ -97,14 +100,16 @@ export default defineComponent({
       },
     };
 
-    onMounted(() => {
-    });
+    onMounted(() => {});
 
-    watch(() =>props.triggerOpen, (newVal) => {
-      if (newVal) {
-        methods.init();
+    watch(
+      () => props.triggerOpen,
+      (newVal) => {
+        if (newVal) {
+          methods.init();
+        }
       }
-    });
+    );
 
     return {
       state,

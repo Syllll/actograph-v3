@@ -12,4 +12,4 @@ import { Protocol } from '../entities/protocol.entity';
 @CustomRepository(Protocol)
 export class ProtocolRepository extends BaseRepository<Protocol> {
   // private logger = new Logger('UserRepository')
-} 
+}

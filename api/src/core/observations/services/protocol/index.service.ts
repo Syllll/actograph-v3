@@ -9,10 +9,7 @@ import { Items } from './items';
 import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
-  export class ProtocolService extends BaseService<
-  Protocol,
-  ProtocolRepository
-> {
+export class ProtocolService extends BaseService<Protocol, ProtocolRepository> {
   public find: Find;
   public check: Check;
   public items: Items;
@@ -29,9 +26,9 @@ import { NotFoundException } from '@nestjs/common';
   }
 
   public async create(options: {
-    name: string,
-    description?: string,
-    observationId: number,
+    name: string;
+    description?: string;
+    observationId: number;
   }) {
     const protocol = await this.protocolRepository.create({
       name: options.name,
@@ -44,9 +41,9 @@ import { NotFoundException } from '@nestjs/common';
   }
 
   public async clone(options: {
-    protocolId: number,
-    observationIdToCopyTo: number,
-    newUserId: number,
+    protocolId: number;
+    observationIdToCopyTo: number;
+    newUserId: number;
   }) {
     const protocol = await this.findOne(options.protocolId);
     if (!protocol) {

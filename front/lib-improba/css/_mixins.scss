@@ -128,11 +128,7 @@
     lighten($lightColor, 20),
     darken($darkColor, 10)
   );
-  @include defineColorLightAndDark(
-    '#{$name}-medium',
-    $lightColor,
-    $darkColor
-  );
+  @include defineColorLightAndDark('#{$name}-medium', $lightColor, $darkColor);
   @include defineColorLightAndDark(
     '#{$name}-high',
     darken($lightColor, 20),

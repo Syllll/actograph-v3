@@ -19,7 +19,7 @@ $green: #10b981;
 $purple: #8b5cf6;
 $red: #ef4444;
 $amber: #f59e0b;
-$modernDarkGrey: #1F2937;
+$modernDarkGrey: #1f2937;
 
 // Define color variations
 @include defineColorLightAndDark('none', transparent, transparent);
@@ -30,7 +30,11 @@ $modernDarkGrey: #1F2937;
 // Apply color variations using our mixin
 @include defineColorVariations('accent', $orange);
 @include defineColorVariations('primary', $modernDarkGrey);
-@include defineColorVariationsLightAndDark('secondary', #fdfdfd, $modernDarkGrey);
+@include defineColorVariationsLightAndDark(
+  'secondary',
+  #fdfdfd,
+  $modernDarkGrey
+);
 @include defineColorVariations('neutral', $slate);
 @include defineColorVariations('success', $green);
 @include defineColorVariations('danger', $red);

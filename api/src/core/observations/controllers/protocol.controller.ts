@@ -34,7 +34,12 @@ import { UserRolesGuard } from '@users/guards/user-roles.guard';
 import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
 import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
 import { IPaginationOutput } from '@utils/repositories/base.repositories';
-import { Protocol, ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '../entities/protocol.entity';
+import {
+  Protocol,
+  ProtocolItem,
+  ProtocolItemActionEnum,
+  ProtocolItemTypeEnum,
+} from '../entities/protocol.entity';
 import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 class AddProtocolItemDto {
   @IsNotEmpty()
@@ -60,7 +65,7 @@ class AddProtocolItemDto {
   @IsNotEmpty()
   @IsNumber()
   protocolId!: number;
-  
+
   @IsOptional()
   @IsString()
   parentId?: string;
@@ -86,7 +91,7 @@ class EditProtocolItemDto {
   @IsOptional()
   @IsString()
   name?: string;
-  
+
   @IsOptional()
   @IsString()
   description?: string;
@@ -117,12 +122,16 @@ export class ProtocolController extends BaseController {
     super();
   }
 
-  @Delete('item/:id')
+  @Delete('item/:protocolId/:itemId')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)
-  async deleteProtocolItem(@Param('id') id: string, @Req() req: any) {
+  async deleteProtocolItem(
+    @Param('protocolId', ParseIntPipe) protocolId: number,
+    @Param('itemId') itemId: string,
+    @Req() req: any,
+  ) {
     const user = req.user;
-    const protocol = await this.protocolService.findOne(body.protocolId, {
+    const protocol = await this.protocolService.findOne(protocolId, {
       relations: ['observation'],
     });
     if (!protocol?.observation || !protocol.id) {
@@ -136,14 +145,18 @@ export class ProtocolController extends BaseController {
 
     await this.protocolService.items.removeItem({
       protocolId: protocol.id,
-      itemId: id,
+      itemId: itemId,
     });
   }
 
   @Patch('item/:id')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)
-  async editProtocolItem(@Param('id') id: string, @Body() body: EditProtocolItemDto, @Req() req: any) {
+  async editProtocolItem(
+    @Param('id') id: string,
+    @Body() body: EditProtocolItemDto,
+    @Req() req: any,
+  ) {
     const user = req.user;
     const protocol = await this.protocolService.findOne(body.protocolId, {
       relations: ['observation'],
@@ -210,11 +223,11 @@ export class ProtocolController extends BaseController {
         action: body.action,
         order: body.order ?? 0,
       });
-    } else if (
-      body.type === ProtocolItemTypeEnum.Observable
-    ) {
+    } else if (body.type === ProtocolItemTypeEnum.Observable) {
       if (!body.parentId) {
-        throw new BadRequestException('Parent ID is required for observable items');
+        throw new BadRequestException(
+          'Parent ID is required for observable items',
+        );
       }
 
       output = await this.protocolService.items.addObservable({
@@ -262,7 +275,7 @@ export class ProtocolController extends BaseController {
         userId: user.id,
       },
     );
-    
+
     return results;
   }
 
@@ -271,10 +284,13 @@ export class ProtocolController extends BaseController {
   @Roles(UserRoleEnum.User)
   async findOneFromObservationId(
     @Param('observationId', ParseIntPipe) observationId: number,
-    @Query('includes', new ParseEnumArrayPipe({
-      type: ['observation'],
-      separator: ',',
-    }))
+    @Query(
+      'includes',
+      new ParseEnumArrayPipe({
+        type: ['observation'],
+        separator: ',',
+      }),
+    )
     relations: string[] = [],
     @Req() req: any,
   ) {
@@ -285,9 +301,12 @@ export class ProtocolController extends BaseController {
       userId: user.id,
     });
 
-    const p = await this.protocolService.find.findOneFromObservation(observationId, {
-      relations,
-    });
+    const p = await this.protocolService.find.findOneFromObservation(
+      observationId,
+      {
+        relations,
+      },
+    );
     return p;
   }
 }

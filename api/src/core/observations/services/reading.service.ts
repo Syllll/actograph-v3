@@ -11,13 +11,16 @@ import { Observation } from '../entities/observation.entity';
 import { ObservationRepository } from '../repositories/obsavation.repository';
 import { ReadingRepository } from '../repositories/reading.repository';
 import { Reading, ReadingTypeEnum } from '../entities/reading.entity';
-import { IPaginationOptions, IConditions, OperatorEnum, IPaginationOutput, TypeEnum } from '@utils/repositories/base.repositories';
+import {
+  IPaginationOptions,
+  IConditions,
+  OperatorEnum,
+  IPaginationOutput,
+  TypeEnum,
+} from '@utils/repositories/base.repositories';
 
 @Injectable()
-export class ReadingService extends BaseService<
-  Reading,
-  ReadingRepository
-> {
+export class ReadingService extends BaseService<Reading, ReadingRepository> {
   constructor(
     @InjectRepository(ReadingRepository)
     private readonly readingRepository: ReadingRepository,
@@ -25,14 +28,19 @@ export class ReadingService extends BaseService<
     super(readingRepository);
   }
 
-  async findAndPaginateWithOptions(paginationOptions: IPaginationOptions,
+  async findAndPaginateWithOptions(
+    paginationOptions: IPaginationOptions,
     searchOptions?: {
       includes?: string[];
       searchString?: string;
       observationId?: number;
-    }): Promise<IPaginationOutput<Reading>> {
-    const relations = [...(paginationOptions.relations || []), ...(searchOptions?.includes || [])];
-    
+    },
+  ): Promise<IPaginationOutput<Reading>> {
+    const relations = [
+      ...(paginationOptions.relations || []),
+      ...(searchOptions?.includes || []),
+    ];
+
     const conditions: IConditions[] = [];
 
     if (searchOptions) {
@@ -40,7 +48,7 @@ export class ReadingService extends BaseService<
         if (!relations.includes('observation')) {
           relations.push('observation');
         }
-        
+
         conditions.push({
           type: TypeEnum.AND,
           key: 'observation.id',
@@ -49,7 +57,10 @@ export class ReadingService extends BaseService<
         });
       }
 
-      if (searchOptions.searchString?.length && searchOptions.searchString !== '*') {
+      if (
+        searchOptions.searchString?.length &&
+        searchOptions.searchString !== '*'
+      ) {
         conditions.push({
           type: TypeEnum.AND,
           key: 'observation.name',
@@ -67,11 +78,11 @@ export class ReadingService extends BaseService<
   }
 
   public async create(options: {
-    name: string,
-    description?: string,
-    observationId: number,
-    type: ReadingTypeEnum,
-    dateTime: Date,
+    name: string;
+    description?: string;
+    observationId: number;
+    type: ReadingTypeEnum;
+    dateTime: Date;
   }) {
     const reading = this.readingRepository.create({
       name: options.name,
@@ -88,24 +99,26 @@ export class ReadingService extends BaseService<
   // Create several readings at once
   public async createMany(options: {
     readings: {
-      name: string,
-      description?: string,
-      observationId: number,
-      type: ReadingTypeEnum,
-      dateTime: Date,
-    }[],
+      name: string;
+      description?: string;
+      observationId: number;
+      type: ReadingTypeEnum;
+      dateTime: Date;
+    }[];
   }) {
-    const readings = this.readingRepository.create(options.readings.map((r) => {
-      return {
-        name: r.name,
-        description: r.description,
-        observation: {
-          id: r.observationId,
-        },
-        type: r.type,
-        dateTime: r.dateTime,
-      };
-    }));
+    const readings = this.readingRepository.create(
+      options.readings.map((r) => {
+        return {
+          name: r.name,
+          description: r.description,
+          observation: {
+            id: r.observationId,
+          },
+          type: r.type,
+          dateTime: r.dateTime,
+        };
+      }),
+    );
     return this.readingRepository.save(readings);
   }
 
@@ -119,8 +132,8 @@ export class ReadingService extends BaseService<
   }
 
   public async cloneAndAttributeToObservation(options: {
-    observationIdToCopyFrom: number,
-    observationIdToCopyTo: number,
+    observationIdToCopyFrom: number;
+    observationIdToCopyTo: number;
   }) {
     // Find the readings to clone
     const readings = await this.readingRepository.find({
@@ -139,7 +152,7 @@ export class ReadingService extends BaseService<
           description: r.description ?? '',
           observationId: options.observationIdToCopyTo,
           type: r.type,
-          dateTime: r.dateTime, 
+          dateTime: r.dateTime,
         };
       }),
     });

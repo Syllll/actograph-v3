@@ -2,9 +2,7 @@ import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ObservationService } from './index.service';
 
 export class Check {
-  constructor(
-    private readonly observationService: ObservationService,
-  ) {}
+  constructor(private readonly observationService: ObservationService) {}
 
   public async canUserAccessObservation(options: {
     observationId: number;
@@ -16,7 +14,7 @@ export class Check {
     const observation = await this.observationService.findOne(observationId, {
       relations: ['user'],
     });
-    
+
     if (!observation) {
       if (throwError) {
         throw new NotFoundException('Observation not found');
@@ -27,7 +25,9 @@ export class Check {
 
     if (observation.user?.id !== userId) {
       if (throwError) {
-        throw new UnauthorizedException('You are not allowed to access this observation');
+        throw new UnauthorizedException(
+          'You are not allowed to access this observation',
+        );
       }
 
       return false;

@@ -27,7 +27,8 @@ export default defineComponent({
       systemService.onUpdateAvailable(async () => {
         const dialogResponse = await createDialog({
           title: 'Mise à jour disponible',
-          message: 'Une mise à jour est disponible. Souhaitez-vous l\'installer ?',
+          message:
+            "Une mise à jour est disponible. Souhaitez-vous l'installer ?",
           cancel: 'Non',
           ok: 'Oui',
           persistent: true,
@@ -38,7 +39,7 @@ export default defineComponent({
         }
         state.showUpdateModal = true;
       });
-      
+
       systemService.readyToCheckUpdates();
     });
     return {

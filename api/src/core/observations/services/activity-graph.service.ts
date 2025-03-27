@@ -11,7 +11,13 @@ import { Observation } from '../entities/observation.entity';
 import { ObservationRepository } from '../repositories/obsavation.repository';
 import { ActivityGraphRepository } from '../repositories/activity-graph.repository';
 import { ActivityGraph } from '../entities/activity-graph.entity';
-import { IPaginationOptions, IPaginationOutput, IConditions, OperatorEnum, TypeEnum } from '@utils/repositories/base.repositories';
+import {
+  IPaginationOptions,
+  IPaginationOutput,
+  IConditions,
+  OperatorEnum,
+  TypeEnum,
+} from '@utils/repositories/base.repositories';
 
 @Injectable()
 export class ActivityGraphService extends BaseService<
@@ -25,14 +31,19 @@ export class ActivityGraphService extends BaseService<
     super(activityGraphRepository);
   }
 
-  async findAndPaginateWithOptions(paginationOptions: IPaginationOptions,
+  async findAndPaginateWithOptions(
+    paginationOptions: IPaginationOptions,
     searchOptions?: {
       includes?: string[];
       searchString?: string;
       observationId?: number;
-    }): Promise<IPaginationOutput<ActivityGraph>> {
-    const relations = [...(paginationOptions.relations || []), ...(searchOptions?.includes || [])];
-    
+    },
+  ): Promise<IPaginationOutput<ActivityGraph>> {
+    const relations = [
+      ...(paginationOptions.relations || []),
+      ...(searchOptions?.includes || []),
+    ];
+
     const conditions: IConditions[] = [];
 
     if (searchOptions) {
@@ -40,7 +51,7 @@ export class ActivityGraphService extends BaseService<
         if (!relations.includes('observation')) {
           relations.push('observation');
         }
-        
+
         conditions.push({
           type: TypeEnum.AND,
           key: 'observation.id',
@@ -48,7 +59,10 @@ export class ActivityGraphService extends BaseService<
           value: searchOptions.observationId,
         });
       }
-      if (searchOptions.searchString?.length && searchOptions.searchString !== '*') {
+      if (
+        searchOptions.searchString?.length &&
+        searchOptions.searchString !== '*'
+      ) {
         conditions.push({
           type: TypeEnum.AND,
           key: 'observation.name',
@@ -65,9 +79,7 @@ export class ActivityGraphService extends BaseService<
     });
   }
 
-  public async create(options: {
-    observationId: number,
-  }) {
+  public async create(options: { observationId: number }) {
     const activityGraph = this.activityGraphRepository.create({
       observation: {
         id: options.observationId,
@@ -77,8 +89,8 @@ export class ActivityGraphService extends BaseService<
   }
 
   public async clone(options: {
-    activityGraphId: number,
-    observationIdToCopyTo: number,
+    activityGraphId: number;
+    observationIdToCopyTo: number;
   }) {
     const activityGraph = await this.findOne(options.activityGraphId);
     if (!activityGraph) {

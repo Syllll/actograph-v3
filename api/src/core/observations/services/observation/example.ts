@@ -1,4 +1,7 @@
-import { Observation, ObservationType } from '@core/observations/entities/observation.entity';
+import {
+  Observation,
+  ObservationType,
+} from '@core/observations/entities/observation.entity';
 import { ObservationRepository } from '@core/observations/repositories/obsavation.repository';
 import { ActivityGraphService } from '../activity-graph.service';
 import { ProtocolService } from '../protocol/index.service';
@@ -24,7 +27,7 @@ export class Example {
   public async checkExampleAndRecreateItIfNeeded() {
     // If the example observation does not exist, create it
     const observation = await this.observationRepository.findOne({
-      where: { type: ObservationType.Example, },
+      where: { type: ObservationType.Example },
     });
     if (!observation) {
       console.info(`Example observation not found, creating it...`);
@@ -61,7 +64,10 @@ export class Example {
     }
 
     // Clone the example observation
-    const clonedObservation = await this.observationService.clone(exampleObservation.id, userId);
+    const clonedObservation = await this.observationService.clone(
+      exampleObservation.id,
+      userId,
+    );
     return clonedObservation;
   }
 
@@ -141,7 +147,7 @@ export class Example {
     });
 
     // ********** Create the readings **********
-    
+
     // Add a few readings:
     // - Start
     // - Chercher
@@ -157,86 +163,88 @@ export class Example {
     // - Autre Position
     // - End
 
-    await this.readingService.createMany({readings: [
-      {
-        name: 'Start',
-        type: ReadingTypeEnum.START,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:00'),
-      },
-      {
-        name: 'Chercher',
-        type: ReadingTypeEnum.DATA,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:01'),
-      },
-      {
-        name: 'Debout',
-        type: ReadingTypeEnum.DATA,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:02'),
-      },
-      {
-        name: 'Assis',
-        type: ReadingTypeEnum.DATA,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:03'),
-      },
-      {
-        name: 'Autre Position',
-        type: ReadingTypeEnum.DATA,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:04'),
-      },
-      {
-        name: 'Se lever',
-        type: ReadingTypeEnum.DATA,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:05'),
-      },
-      {
-        name: 'Trouver',
-        type: ReadingTypeEnum.DATA,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:06'),
-      },
-      {
-        name: 'Pause start',
-        type: ReadingTypeEnum.PAUSE_START,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:07'),
-      },
-      {
-        name: 'Pause end',
-        type: ReadingTypeEnum.PAUSE_END,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:08'),
-      },
-      {
-        name: 'Debout',
-        type: ReadingTypeEnum.DATA,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:09'),
-      },
-      {
-        name: 'Assis',
-        type: ReadingTypeEnum.DATA,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:10'),
-      },
-      {
-        name: 'Autre Position',
-        type: ReadingTypeEnum.DATA,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:11'),
-      },
-      {
-        name: 'End',
-        type: ReadingTypeEnum.STOP,
-        observationId: observation.id,
-        dateTime: new Date('2025/01/01 12:00:12'),
-      }
-    ]});
+    await this.readingService.createMany({
+      readings: [
+        {
+          name: 'Start',
+          type: ReadingTypeEnum.START,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:00'),
+        },
+        {
+          name: 'Chercher',
+          type: ReadingTypeEnum.DATA,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:01'),
+        },
+        {
+          name: 'Debout',
+          type: ReadingTypeEnum.DATA,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:02'),
+        },
+        {
+          name: 'Assis',
+          type: ReadingTypeEnum.DATA,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:03'),
+        },
+        {
+          name: 'Autre Position',
+          type: ReadingTypeEnum.DATA,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:04'),
+        },
+        {
+          name: 'Se lever',
+          type: ReadingTypeEnum.DATA,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:05'),
+        },
+        {
+          name: 'Trouver',
+          type: ReadingTypeEnum.DATA,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:06'),
+        },
+        {
+          name: 'Pause start',
+          type: ReadingTypeEnum.PAUSE_START,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:07'),
+        },
+        {
+          name: 'Pause end',
+          type: ReadingTypeEnum.PAUSE_END,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:08'),
+        },
+        {
+          name: 'Debout',
+          type: ReadingTypeEnum.DATA,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:09'),
+        },
+        {
+          name: 'Assis',
+          type: ReadingTypeEnum.DATA,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:10'),
+        },
+        {
+          name: 'Autre Position',
+          type: ReadingTypeEnum.DATA,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:11'),
+        },
+        {
+          name: 'End',
+          type: ReadingTypeEnum.STOP,
+          observationId: observation.id,
+          dateTime: new Date('2025/01/01 12:00:12'),
+        },
+      ],
+    });
 
     // Create the activity graph
     await this.activityGraphService.create({
@@ -244,4 +252,3 @@ export class Example {
     });
   }
 }
-

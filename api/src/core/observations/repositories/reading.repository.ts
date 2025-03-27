@@ -12,4 +12,4 @@ import { Reading } from '../entities/reading.entity';
 @CustomRepository(Reading)
 export class ReadingRepository extends BaseRepository<Reading> {
   // private logger = new Logger('UserRepository')
-} 
+}

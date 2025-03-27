@@ -1,5 +1,7 @@
 <template>
-  <h2 class="text-h5 q-mb-md text-weight-medium text-center">{{ $props.title }}</h2>
+  <h2 class="text-h5 q-mb-md text-weight-medium text-center">
+    {{ $props.title }}
+  </h2>
 </template>
 
 <script lang="ts">
