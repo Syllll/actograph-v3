@@ -3,8 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 
-import { AuthJwtController } from './controllers/authJwt.controller';
-import { UserJwtService } from './services/userJwt.service';
+import { AuthJwtController } from './controllers/auth-jwt.controller';
+import { UserJwtService } from './services/user-jwt.service';
 import { UserJwtRepository } from './repositories/user.repository';
 import { TypeOrmExModule } from 'src/database/typeorm-ex.module';
 
@@ -21,4 +21,4 @@ import { TypeOrmExModule } from 'src/database/typeorm-ex.module';
   providers: [UserJwtService],
   exports: [UserJwtService],
 })
-export class AuthJwtModule {}
+export class AuthJwtModule {} 

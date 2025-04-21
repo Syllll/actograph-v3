@@ -11,7 +11,7 @@ import {
 import { Expose } from 'class-transformer';
 
 import { BaseEntity } from '@utils/entities/base.entity';
-import { UserJwt } from '@auth-jwt/entities/userJwt.entity';
+import { UserJwt } from '@auth-jwt/entities/user-jwt.entity';
 import { GROUP_USER, GROUP_ADMIN } from '../serializationGroups/groups';
 import { UserRoleEnum } from '../utils/user-role.enum';
 import { License } from '@core/security/entities/license.entity';

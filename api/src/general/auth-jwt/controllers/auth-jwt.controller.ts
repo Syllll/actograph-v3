@@ -14,12 +14,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseController } from '@utils/controllers/base.controller';
 import { UserJwtRepository } from '../repositories/user.repository';
-import { UserJwt, UserJwtCreateDto } from '../entities/userJwt.entity';
+import { UserJwt, UserJwtCreateDto } from '../entities/user-jwt.entity';
 import {
   UserJwtService,
   SuccessResponse,
   TokenResponse,
-} from '../services/userJwt.service';
+} from '../services/user-jwt.service';
 
 @Controller('auth-jwt')
 export class AuthJwtController extends BaseController {
@@ -149,4 +149,4 @@ export class AuthJwtController extends BaseController {
     response.token = this.usersService.login(result.user);
     return response;
   }
-}
+} 

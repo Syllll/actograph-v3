@@ -1,8 +1,8 @@
 <template>
   <div class="my-observations column">
     <div class="col-auto row q-mb-md items-center">
-      <div class="col-12 col-md-6">
-        <DSearchInput
+      <div class="col-12">
+        <DSearchInput class="full-width"
           v-model:searchText="state.searchText"
           placeholder="Rechercher une observation"
           @update:searchText="methods.handleSearch"
@@ -12,7 +12,7 @@
 
     <div class="col">
       <DPaginationTable
-        class="table"
+        class="table fit"
         flat
         :columns="stateless.columns"
         :fetchFunction="methods.fetchObservations"

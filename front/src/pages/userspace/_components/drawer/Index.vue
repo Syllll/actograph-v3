@@ -9,8 +9,8 @@
     behavior="desktop"
     :class="$q.dark.isActive ? 'bg-secondary' : 'bg-secondary'"
   >
-    <q-scroll-area class="fit">
-      <div class="column q-col-gutter-md">
+    <div class="fit">
+      <div class="fit column q-col-gutter-md">
         <div class="q-mt-md"><q-separator /></div>
 
         <!-- tools in a row -->
@@ -37,28 +37,6 @@
 
         <div class="q-mt-sm"><q-separator /></div>
 
-        <!-- tools in a row -->
-        <div class="column q-mx-md">
-          <div class="text-h4 text-weight-bold text-center q-mb-md">
-            Votre observation
-          </div>
-          <div class="text-center">
-            {{
-              observation.sharedState.currentObservation?.name ??
-              "Aucune observation n'est chargée"
-            }}
-          </div>
-
-          <div
-            v-if="observation.sharedState.currentReadings"
-            class="row q-mt-sm"
-          >
-            Relevés : {{ observation.sharedState.currentReadings.length }}
-          </div>
-        </div>
-
-        <div><q-separator /></div>
-
         <!-- Menu -->
         <q-list>
           <template
@@ -84,9 +62,35 @@
             </q-item>
             <q-separator :key="'sep' + index" v-if="menuItem.separator" />
           </template>
+
+          
         </q-list>
+
+        <q-space />
+        
+          <div><q-separator /></div>
+
+          <!-- tools in a row -->
+        <div class="column q-mx-md">
+          <div class="text-h4 text-weight-bold text-center q-mb-md">
+            Votre observation
+          </div>
+          <div class="text-center">
+            {{
+              observation.sharedState.currentObservation?.name ??
+              "Aucune observation n'est chargée"
+            }}
+          </div>
+
+          <div
+            v-if="observation.readings.sharedState.currentReadings"
+            class="row q-mt-sm"
+          >
+            Relevés : {{ observation.readings.sharedState.currentReadings.length }}
+          </div>
+        </div>
       </div>
-    </q-scroll-area>
+    </div>
   </q-drawer>
 </template>
 

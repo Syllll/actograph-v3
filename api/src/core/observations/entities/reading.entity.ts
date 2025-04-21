@@ -43,4 +43,9 @@ export class Reading extends BaseEntity {
   @Column({ nullable: false })
   @Index()
   dateTime!: Date;
+
+  // The temporary id of the reading
+  @Column({ type: 'text', nullable: true })
+  @Index()
+  tempId?: string | null;
 }

@@ -7,7 +7,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-import { UserJwtCreateDto } from '@auth-jwt/entities/userJwt.entity';
+import { UserJwtCreateDto } from '@auth-jwt/entities/user-jwt.entity';
 
 import { UserRoleEnum } from '../utils/user-role.enum';
 

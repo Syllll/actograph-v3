@@ -1,6 +1,6 @@
 import { BaseRepository } from '@utils/repositories/base.repositories';
 
-import { UserJwt } from '../entities/userJwt.entity';
+import { UserJwt } from '../entities/user-jwt.entity';
 
 import { CustomRepository } from 'src/database/typeorm-ex.decorator';
 

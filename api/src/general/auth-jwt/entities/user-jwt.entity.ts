@@ -47,4 +47,4 @@ export class UserJwt extends BaseEntity {
     select: false,
   })
   forgetPasswordToken!: string | null;
-}
+} 

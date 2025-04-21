@@ -143,7 +143,7 @@ export default defineComponent({
         return;
       }
 
-      if (!observation.sharedState.currentProtocol?.id) {
+      if (!observation.protocol.sharedState.currentProtocol?.id) {
         state.error =
           'Impossible de modifier la catégorie : identifiant de protocole manquant';
         return;
@@ -171,7 +171,7 @@ export default defineComponent({
 
         await protocol.methods.editProtocolItem({
           id: state.form.id,
-          protocolId: observation.sharedState.currentProtocol.id,
+          protocolId: observation.protocol.sharedState.currentProtocol.id,
           name: state.form.name,
           description: state.form.description || undefined,
           order: state.form.order,

@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 
 import { UserRoleEnum } from '../utils/user-role.enum';
 import { User } from '../entities/user.entity';
-import { UserJwt } from '@auth-jwt/entities/userJwt.entity';
+import { UserJwt } from '@auth-jwt/entities/user-jwt.entity';
 import { UserService } from '@users/services/user.service';
 
 @Injectable()

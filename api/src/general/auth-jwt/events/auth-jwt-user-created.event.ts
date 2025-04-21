@@ -1,10 +1,10 @@
-import { UserJwt } from '../entities/userJwt.entity';
+import { UserJwt } from '../entities/user-jwt.entity';
 
-export class authJwtUserActivatedEvent {
+export class AuthJwtUserCreatedEvent {
   user: UserJwt;
 
   constructor(user: UserJwt) {
     this.user = user;
     // console.log('mailPasswordForgot');
   }
-}
+} 

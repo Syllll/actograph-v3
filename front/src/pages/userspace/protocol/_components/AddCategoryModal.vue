@@ -126,7 +126,7 @@ export default defineComponent({
         return;
       }
 
-      if (!observation.sharedState.currentProtocol?.id) {
+      if (!observation.protocol.sharedState.currentProtocol?.id) {
         state.error =
           "Impossible d'ajouter une catégorie : identifiant de protocole manquant";
         return;
@@ -147,7 +147,7 @@ export default defineComponent({
         state.error = '';
 
         await protocol.methods.addCategory({
-          protocolId: observation.sharedState.currentProtocol.id,
+          protocolId: observation.protocol.sharedState.currentProtocol.id,
           name: state.form.name,
           description: state.form.description || undefined,
           order: state.form.order,

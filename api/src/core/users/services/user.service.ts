@@ -6,9 +6,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 
-import { UserJwtService } from '@auth-jwt/services/userJwt.service';
+import { UserJwtService } from '@auth-jwt/services/user-jwt.service';
 import { BaseService } from '@utils/services/base.service';
-import { authJwtUserCreatedEvent } from '@auth-jwt/events/authJwtUserCreated.event';
+import { AuthJwtUserCreatedEvent } from '@auth-jwt/events/auth-jwt-user-created.event';
 import { UserCreateForAdminDto } from '../dtos/user-create-for-admin.dto';
 import { User } from '../entities/user.entity';
 import { UserRepository } from '../repositories/user.repository';
@@ -205,7 +205,7 @@ export class UserService extends BaseService<User, UserRepository> {
     return newUserSaved;
   }
 
-  async createFromAuthJwt(event: authJwtUserCreatedEvent): Promise<User> {
+  async createFromAuthJwt(event: AuthJwtUserCreatedEvent): Promise<User> {
     const newUser = this.repository.create({});
     newUser.userJwt = event.user;
 

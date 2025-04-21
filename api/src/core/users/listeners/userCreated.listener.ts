@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { authJwtUserCreatedEvent } from '@auth-jwt/events/authJwtUserCreated.event';
+import { AuthJwtUserCreatedEvent } from '@auth-jwt/events/auth-jwt-user-created.event';
 import { UserService } from '../services/user.service';
 
 @Injectable()
@@ -12,7 +12,7 @@ export class UserCreatedListener {
     async: true,
     promisify: true,
   })
-  async handleUserCreatedEvent(event: authJwtUserCreatedEvent) {
+  async handleUserCreatedEvent(event: AuthJwtUserCreatedEvent) {
     // handle and process "UserGoogleCreatedEvent" event
     try {
       // Attach a user and an employee to each created gogle-user

@@ -5,7 +5,7 @@ import {
   PaginationResponse,
 } from '@lib-improba/utils/pagination.utils';
 import { IUser } from '@services/users/user.interface';
-import { IReading } from './interface';
+import { IReading, ReadingTypeEnum } from './interface';
 
 const apiUrl = httpUtils.apiUrl();
 
@@ -26,6 +26,55 @@ export const readingService = {
         },
       }
     );
+
+    return response.data;
+  },
+  async createMany(
+    options: {
+      observationId: number,
+      readings: {
+        name: string;
+        description?: string;
+        type: ReadingTypeEnum;
+        dateTime: Date;
+      }[],
+    }
+  ) {
+    const response = await api().post(`${apiUrl}/observations/readings`, {
+      ...options,
+    });
+
+    return response.data;
+  },
+
+  async updateMany(
+    options: {
+      observationId: number,
+      readings: {
+        id: number;
+        name: string;
+        description?: string;
+        type: ReadingTypeEnum;
+        dateTime: Date;
+      }[],
+    }
+  ) {
+    const response = await api().patch(`${apiUrl}/observations/readings`, {
+      ...options,
+    });
+
+    return response.data;
+  },
+
+  async deleteMany(
+    options: {
+      observationId: number,
+      ids: number[],
+    }
+  ) {
+    const response = await api().post(`${apiUrl}/observations/readings/delete`, {
+      ...options,
+    });
 
     return response.data;
   },

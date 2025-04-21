@@ -4,6 +4,14 @@ import { ObservationService } from './index.service';
 export class Check {
   constructor(private readonly observationService: ObservationService) {}
 
+  /**
+   * Check if a user can access an observation
+   * @param options
+   * @param options.observationId - The id of the observation
+   * @param options.userId - The id of the user
+   * @param options.throwError - If true, throw an error if the user cannot access the observation (default: true)
+   * @returns True if the user can access the observation, false otherwise
+   */
   public async canUserAccessObservation(options: {
     observationId: number;
     userId: number;

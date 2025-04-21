@@ -1,5 +1,5 @@
 import { Inject, Module, OnModuleInit, forwardRef } from '@nestjs/common';
-import { AuthJwtModule } from 'src/general/auth-jwt/authJwt.module';
+import { AuthJwtModule } from 'src/general/auth-jwt/auth-jwt.module';
 import * as os from 'os';
 import { getMode } from 'config/mode';
 import { UserController } from './controllers/user.controller';

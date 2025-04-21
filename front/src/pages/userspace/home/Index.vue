@@ -3,9 +3,9 @@
     <div class="fit row">
       <div class="col-6 column">
         <div class="col-6 box-wrapper">
-          <div class="box">
-            <cTitle title="Mes observations" />
-            <MyObservations />
+          <div class="box column">
+            <cTitle class="col-auto" title="Mes observations" />
+            <MyObservations class="col" />
           </div>
         </div>
         <div class="col-6 box-wrapper">

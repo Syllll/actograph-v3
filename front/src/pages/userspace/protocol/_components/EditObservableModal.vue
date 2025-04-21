@@ -2,11 +2,11 @@
   <DModal
     :trigger-open="modelValue"
     @update:trigger-open="$emit('update:modelValue', $event)"
-    :title="'Ajouter un observable'"
+    :title="'Modifier l\'observable'"
     button1Label="components.DModal.cancel"
-    button2Label="components.DModal.add"
+    button2Label="components.DModal.save"
     @cancelled="$emit('update:modelValue', false)"
-    @submitted="addObservable"
+    @submitted="editObservable"
     persistent
   >
     <div class="q-pa-md">
@@ -14,7 +14,7 @@
         {{ state.error }}
       </div>
 
-      <q-form @submit.prevent="addObservable" class="q-gutter-md">
+      <q-form @submit.prevent="editObservable" class="q-gutter-md">
         <q-input
           v-model="state.form.name"
           label="Nom de l'observable"
@@ -49,7 +49,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, watch, PropType, ref } from 'vue';
+import { defineComponent, reactive, watch, PropType } from 'vue';
 import { useQuasar } from 'quasar';
 import {
   ProtocolItem,
@@ -58,24 +58,24 @@ import {
 import { useObservation } from 'src/composables/use-observation';
 
 export default defineComponent({
-  name: 'AddObservableModal',
+  name: 'EditObservableModal',
 
   props: {
     modelValue: {
       type: Boolean,
       required: true,
     },
-    category: {
+    observable: {
       type: Object as PropType<ProtocolItem | null>,
       default: null,
     },
-    defaultOrder: {
-      type: Number,
-      default: 0,
-    },
+    categoryId: {
+      type: String,
+      default: '',
+    }
   },
 
-  emits: ['update:modelValue', 'observable-added'],
+  emits: ['update:modelValue', 'observable-updated'],
 
   setup(props, { emit }) {
     const $q = useQuasar();
@@ -86,28 +86,41 @@ export default defineComponent({
       loading: false,
       error: '',
       form: {
+        id: '',
         name: '',
         description: '',
-        order: props.defaultOrder,
+        order: 0,
       },
     });
 
-    // Reset form when modal is opened
+    // Update form when observable prop changes
+    watch(
+      () => props.observable,
+      (observable) => {
+        if (observable) {
+          // The observable now has the order property explicitly added in the parent component
+          state.form = {
+            id: observable.id,
+            name: observable.name,
+            description: observable.description || '',
+            order: (observable as any).order || 0, // Cast to any to access the dynamically added property
+          };
+        }
+      },
+      { immediate: true }
+    );
+
+    // Reset error when modal opens
     watch(
       () => props.modelValue,
       (isOpen) => {
         if (isOpen) {
           state.error = '';
-          state.form = {
-            name: '',
-            description: '',
-            order: props.defaultOrder,
-          };
         }
       }
     );
 
-    const addObservable = async () => {
+    const editObservable = async () => {
       if (!state.form.name) {
         state.error = "Le nom de l'observable est obligatoire";
         return;
@@ -115,20 +128,26 @@ export default defineComponent({
 
       if (!observation.protocol.sharedState.currentProtocol?.id) {
         state.error =
-          "Impossible d'ajouter un observable : identifiant de protocole manquant";
+          "Impossible de modifier l'observable : identifiant de protocole manquant";
         return;
       }
 
-      if (!props.category?.id) {
+      if (!state.form.id) {
         state.error =
-          "Impossible d'ajouter un observable : catégorie parente manquante";
+          "Impossible de modifier l'observable : identifiant d'observable manquant";
+        return;
+      }
+
+      if (!props.categoryId) {
+        state.error =
+          "Impossible de modifier l'observable : identifiant de catégorie manquant";
         return;
       }
 
       if (
         !protocol ||
         !protocol.methods ||
-        typeof protocol.methods.addObservable !== 'function'
+        typeof protocol.methods.editProtocolItem !== 'function'
       ) {
         state.error = 'Service de protocole non disponible';
         console.error('Protocol service is not properly initialized');
@@ -139,9 +158,9 @@ export default defineComponent({
         state.loading = true;
         state.error = '';
 
-        await protocol.methods.addObservable({
+        await protocol.methods.editProtocolItem({
+          id: state.form.id,
           protocolId: observation.protocol.sharedState.currentProtocol.id,
-          parentId: props.category.id,
           name: state.form.name,
           description: state.form.description || undefined,
           order: state.form.order,
@@ -150,15 +169,14 @@ export default defineComponent({
 
         $q.notify({
           type: 'positive',
-          message: 'Observable ajouté avec succès',
+          message: 'Observable modifié avec succès',
         });
 
-        // Emit with the category ID so the parent component knows which category to expand
-        emit('observable-added', props.category.id);
+        emit('observable-updated', props.categoryId);
         emit('update:modelValue', false);
       } catch (error) {
-        console.error('Failed to add observable:', error);
-        state.error = "Échec de l'ajout de l'observable";
+        console.error('Failed to edit observable:', error);
+        state.error = "Échec de la modification de l'observable";
       } finally {
         state.loading = false;
       }
@@ -166,8 +184,8 @@ export default defineComponent({
 
     return {
       state,
-      addObservable,
+      editObservable,
     };
   },
 });
-</script>
+</script> 

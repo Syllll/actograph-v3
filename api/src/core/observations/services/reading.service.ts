@@ -4,7 +4,7 @@ import {
   LicenseTypeEnum,
 } from '@core/security/entities/license.entity';
 import { LicenseRepository } from '@core/security/repositories/license.repository';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseService } from '@utils/services/base.service';
 import { Observation } from '../entities/observation.entity';
@@ -18,12 +18,15 @@ import {
   IPaginationOutput,
   TypeEnum,
 } from '@utils/repositories/base.repositories';
+import { ObservationService } from './observation/index.service';
 
 @Injectable()
 export class ReadingService extends BaseService<Reading, ReadingRepository> {
   constructor(
     @InjectRepository(ReadingRepository)
     private readonly readingRepository: ReadingRepository,
+    @Inject(forwardRef(() => ObservationService))
+    private readonly observationService: ObservationService,
   ) {
     super(readingRepository);
   }
@@ -97,17 +100,18 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
   }
 
   // Create several readings at once
-  public async createMany(options: {
+  public async createMany(
     readings: {
+      tempId?: string | null;
       name: string;
-      description?: string;
+      description?: string | null;
       observationId: number;
       type: ReadingTypeEnum;
       dateTime: Date;
-    }[];
-  }) {
-    const readings = this.readingRepository.create(
-      options.readings.map((r) => {
+    }[]
+  ) {
+    const _readings = this.readingRepository.create(
+      readings.map((r) => {
         return {
           name: r.name,
           description: r.description,
@@ -116,10 +120,14 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
           },
           type: r.type,
           dateTime: r.dateTime,
+          tempId: r.tempId,
         };
       }),
     );
-    return this.readingRepository.save(readings);
+    _readings.forEach((r) => {
+      r.id = r.id;
+    });
+    return this.readingRepository.save(_readings);
   }
 
   public async removeAllForObservation(observationId: number) {
@@ -145,8 +153,8 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
     }
 
     // Clone the readings
-    const clonedReadings = await this.createMany({
-      readings: readings.map((r) => {
+    const clonedReadings = await this.createMany(
+      readings.map((r) => {
         return {
           name: r.name ?? '',
           description: r.description ?? '',
@@ -155,6 +163,42 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
           dateTime: r.dateTime,
         };
       }),
-    });
+    );
+  }
+
+  public async removeMany(readings: ({
+    id: number;
+  })[]) {
+    await this.readingRepository.softRemove(readings);
+  }
+
+  public async updateMany(readings: {
+    id?: number;
+    tempId?: string | null;
+    name?: string;
+    description?: string | null;
+    type?: ReadingTypeEnum;
+    dateTime?: Date;
+  }[], observationId: number) {
+    const readingsToSave = [];
+    for (const reading of readings) {
+      if (reading.id) {
+        readingsToSave.push(reading);
+      } else {
+        if (!reading.tempId) {
+          throw new BadRequestException('Temp ID is required');
+        }
+        const existingReading = await this.readingRepository.findOne({
+          where: { tempId: reading.tempId, observation: { id: observationId } },
+        });
+        if (!existingReading) {
+          throw new NotFoundException('Reading not found with temp ID ' + reading.tempId);
+        }
+
+        readingsToSave.push(existingReading);
+      }
+    }
+    
+    await this.readingRepository.save(readingsToSave);
   }
 }

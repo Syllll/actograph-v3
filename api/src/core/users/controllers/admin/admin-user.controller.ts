@@ -42,7 +42,7 @@ import {
 
 import { User, allRelations } from '../../entities/user.entity';
 import { UserService } from '../../services/user.service';
-import { UserJwtService } from '@auth-jwt/services/userJwt.service';
+import { UserJwtService } from '@auth-jwt/services/user-jwt.service';
 import { AdminUserUpdateDto } from '../../dtos/admin/admin-user-patch.dto';
 import { PaginationDto } from '@utils/dtos';
 import { ISearchQueryParams, SearchQueryParams } from '@utils/decorators';

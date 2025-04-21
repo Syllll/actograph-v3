@@ -1,4 +1,4 @@
-import { UserJwtService } from '@auth-jwt/services/userJwt.service';
+import { UserJwtService } from '@auth-jwt/services/user-jwt.service';
 import {
   InternalServerErrorException,
   NotFoundException,

@@ -6,10 +6,12 @@ import {
   FindOneOptions,
   FindOptionsWhere,
   ObjectLiteral,
+  DeepPartial,
+  SaveOptions,
 } from 'typeorm';
 
 import { BaseEntity } from './../entities/base.entity';
-import { InternalServerErrorException } from '@nestjs/common';
+import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
 
 export enum OperatorEnum {
   LIKE = 'LIKE',
@@ -376,5 +378,89 @@ export class BaseRepository<
     output += token + parts[parts.length - 1];
 
     return output;
+  }
+
+  override async save<T extends DeepPartial<Entity>>(entities: T[], options: SaveOptions & { reload: false; }): Promise<T[]>;
+  override async save<T extends DeepPartial<Entity>>(entities: T[], options?: SaveOptions): Promise<(T & Entity)[]>;
+  override async save<T extends DeepPartial<Entity>>(entity: T, options: SaveOptions & { reload: false; }): Promise<T>;
+  override async save<T extends DeepPartial<Entity>>(entity: T, options?: SaveOptions): Promise<T & Entity>;
+  override async save<T extends DeepPartial<Entity>>(entityOrEntities: T | T[], options?: SaveOptions): Promise<T | T & Entity | T[] | (T & Entity)[]> {
+    // Get the many to many relations
+    const manyToManyRelationsPropertyNames = this.metadata.relations.filter(relation => relation.isManyToMany).map(relation => relation.propertyName);
+    
+    const dealWithManyToManyRelations = async (entity: Entity) => {
+      // does entity define one or more many to many relations?
+      const hasManyToManyRelations = manyToManyRelationsPropertyNames.some(relation => entity[relation]);
+      if (!hasManyToManyRelations) {
+        return entity;
+      }
+
+      // List all the many to many relations that are not null
+      const manyToManyRelations = manyToManyRelationsPropertyNames.filter(relation => entity[relation]);
+
+      await this.saveAndSyncManyToManyRelations({
+        entity: entity,
+        relations: manyToManyRelations,
+      });
+
+      for (const relation of manyToManyRelations) {
+        delete entity[relation];
+      }
+
+      return entity;
+    }
+
+    if (Array.isArray(entityOrEntities)) {
+      const entities = await Promise.all(
+        (entityOrEntities as any[]).map(dealWithManyToManyRelations)
+      );
+      return super.save(entities as any, options);
+    } else {
+      const entity = await dealWithManyToManyRelations(entityOrEntities as any);
+      return super.save(entity as any, options);
+    }
+  }
+
+  private async saveAndSyncManyToManyRelations(options: {
+    entity: Entity;
+    relations: string[];
+  }) {
+    const entity = options.entity;
+    const relations = options.relations;
+
+    // Get the entity with the relations
+    const entityWithRelations = await this.findOneFromId(entity.id, {
+      relations: relations,
+    });
+    if (!entityWithRelations) {
+      throw new NotFoundException('Entity not found');
+    }
+
+    for (const relation of relations) {
+      // For this relation, find what we need to add and/or remove
+      const relationEntity = entityWithRelations[relation];
+      const relationEntityIds = relationEntity.map((relation: any) => relation.id);
+
+      // Find the ids that are in the entity.relations but not in the relationEntityIds
+      const idsToAdd = entity[relation].filter((id: any) => !relationEntityIds.includes(id));
+      
+      // Find the ids that are in the relationEntityIds but not in the entity.relations
+      const idsToRemove = relationEntityIds.filter((id: any) => !entity[relation].includes(id));
+
+      // Using the query builder, add the ids to the relation
+      const qb = this.createQueryBuilder(this.metadata.tableName);
+      qb.relation(relation).of(entity.id).add(idsToAdd);
+
+      // Using the query builder, remove the ids from the relation
+      qb.relation(relation).of(entity.id).remove(idsToRemove);
+ 
+      // Save the entity
+      await qb.execute();
+    }
+
+    // Save the entity
+    //const savedEntity = await this.save(entityWithRelations);
+
+    //return savedEntity;
   }
 }

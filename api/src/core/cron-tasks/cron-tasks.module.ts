@@ -1,5 +1,5 @@
 import { forwardRef, Module, OnModuleInit } from '@nestjs/common';
-import { AuthJwtModule } from '@auth-jwt/authJwt.module';
+import { AuthJwtModule } from '@auth-jwt/auth-jwt.module';
 import { CronTasks } from './cron-tasks';
 import { UsersModule } from '@users/users.module';
 import { UserService } from '@users/services/user.service';

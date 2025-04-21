@@ -33,7 +33,7 @@ import {
   IPaginationOutput,
 } from '@utils/repositories/base.repositories';
 import { ParseEnumArrayPipe, ParseIncludePipe } from '@utils/pipes';
-import { UserJwtService } from '@auth-jwt/services/userJwt.service';
+import { UserJwtService } from '@auth-jwt/services/user-jwt.service';
 
 @Controller('users')
 export class UserController extends BaseController {

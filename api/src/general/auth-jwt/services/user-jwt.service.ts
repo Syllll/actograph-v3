@@ -12,12 +12,12 @@ import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import * as sgMail from '@sendgrid/mail';
 
-import { UserJwt, UserJwtCreateDto } from '../entities/userJwt.entity';
+import { UserJwt, UserJwtCreateDto } from '../entities/user-jwt.entity';
 import { UserJwtRepository } from '../repositories/user.repository';
 
-import { authJwtPasswordForgotEvent } from '../events/authJwtPasswordForgot.event';
-import { authJwtUserCreatedEvent } from '../events/authJwtUserCreated.event';
-import { authJwtUserActivatedEvent } from '../events/authJwtUserActivated.event';
+import { AuthJwtPasswordForgotEvent } from '../events/auth-jwt-password-forgot.event';
+import { AuthJwtUserCreatedEvent } from '../events/auth-jwt-user-created.event';
+import { AuthJwtUserActivatedEvent } from '../events/auth-jwt-user-activated.event';
 
 export class TokenResponse {
   token!: string;
@@ -61,7 +61,7 @@ export class UserJwtService {
     if (emitUserCreateSignal) {
       await this.eventEmitter.emitAsync(
         'authJwt.userCreated',
-        new authJwtUserCreatedEvent(savedUser),
+        new AuthJwtUserCreatedEvent(savedUser),
       );
     }
 
@@ -125,7 +125,7 @@ export class UserJwtService {
 
       await this.eventEmitter.emitAsync(
         'authJwt.userActivated',
-        new authJwtUserActivatedEvent(user),
+        new AuthJwtUserActivatedEvent(user),
       );
 
       return result;
@@ -195,7 +195,7 @@ export class UserJwtService {
 
     await this.eventEmitter.emitAsync(
       'authJwt.passwordForgot',
-      new authJwtPasswordForgotEvent(user),
+      new AuthJwtPasswordForgotEvent(user),
     );
 
     //console.log("BEFORE API CALL")
@@ -278,4 +278,4 @@ export class UserJwtService {
   async softRemove(userJwt: UserJwt) {
     return await this.userJwtRepository.softRemove(userJwt);
   }
-}
+} 

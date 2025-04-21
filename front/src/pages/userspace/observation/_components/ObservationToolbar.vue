@@ -5,10 +5,10 @@
         <div class="row items-center q-px-md">
           <div
             class="recording-status-indicator"
-            :class="{ 'recording-active': isPlaying }"
+            :class="{ 'recording-active': observation.sharedState.isPlaying }"
           ></div>
           <span class="q-ml-sm">{{
-            isPlaying ? 'Enregistrement en cours' : 'Prêt'
+            observation.sharedState.isPlaying ? 'Enregistrement en cours' : 'Prêt'
           }}</span>
         </div>
       </div>
@@ -16,10 +16,10 @@
         <q-btn
           round
           size="lg"
-          :color="isPlaying ? 'negative' : 'primary'"
-          :icon="isPlaying ? 'pause' : 'play_arrow'"
+          :color="observation.sharedState.isPlaying ? 'negative' : 'primary'"
+          :icon="observation.sharedState.isPlaying ? 'pause' : 'play_arrow'"
           class="q-mr-md observation-main-control"
-          @click="togglePlayPause"
+          @click="handleTogglePlayPause"
         />
 
         <!-- Stop button -->
@@ -28,13 +28,13 @@
           color="grey-8"
           icon="stop"
           size="md"
-          @click="stopObservation"
-          :disable="!isActive"
+          @click="handleStop"
+          :disable="!observation.isActive"
         />
       </div>
       <div class="col-2">
         <q-chip color="accent" text-color="white" icon="access_time">
-          {{ formatDuration(elapsedTime) }}
+          {{ observation.timerMethods.formatDuration(observation.sharedState.elapsedTime) }}
         </q-chip>
       </div>
     </div>
@@ -42,92 +42,32 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed } from 'vue';
+import { defineComponent } from 'vue';
+import { useObservation } from 'src/composables/use-observation';
 
 export default defineComponent({
   name: 'ObservationToolbar',
+  emits: ['start', 'pause', 'stop'],
 
-  setup() {
-    const isPlaying = ref(false);
-    const elapsedTime = ref(0);
-    const intervalId = ref<number | null>(null);
-    const startTime = ref<number | null>(null);
+  setup(props, { emit }) {
+    const observation = useObservation();
 
-    const isActive = computed(() => isPlaying.value || elapsedTime.value > 0);
-
-    const startTimer = () => {
-      if (intervalId.value) return;
-
-      startTime.value = Date.now() - elapsedTime.value * 1000;
-
-      intervalId.value = window.setInterval(() => {
-        if (startTime.value) {
-          elapsedTime.value = (Date.now() - startTime.value) / 1000;
-        }
-      }, 10); // Update more frequently for smooth milliseconds
-    };
-
-    const stopTimer = () => {
-      if (intervalId.value) {
-        clearInterval(intervalId.value);
-        intervalId.value = null;
-      }
-    };
-
-    const togglePlayPause = () => {
-      isPlaying.value = !isPlaying.value;
-
-      if (isPlaying.value) {
-        startTimer();
-      } else {
-        stopTimer();
-      }
-
+    const handleTogglePlayPause = () => {
+      const isPlaying = observation.timerMethods.togglePlayPause();
       // Emit event for parent components
-      emit(isPlaying.value ? 'start' : 'pause');
+      emit(isPlaying ? 'start' : 'pause');
     };
 
-    const stopObservation = () => {
-      isPlaying.value = false;
-      stopTimer();
-      elapsedTime.value = 0;
-      startTime.value = null;
-
+    const handleStop = () => {
+      observation.timerMethods.stopTimer();
       // Emit event for parent components
       emit('stop');
     };
 
-    const formatDuration = (seconds: number): string => {
-      const hours = Math.floor(seconds / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const remainingSeconds = Math.floor(seconds % 60);
-      const milliseconds = Math.floor((seconds % 1) * 1000);
-
-      return (
-        [
-          hours.toString().padStart(2, '0'),
-          minutes.toString().padStart(2, '0'),
-          remainingSeconds.toString().padStart(2, '0'),
-        ].join(':') +
-        '.' +
-        milliseconds.toString().padStart(3, '0')
-      );
-    };
-
-    const emit = (event: string) => {
-      // This is a placeholder for emitting events to parent
-      // You can replace this with actual event handling logic
-      console.log(`Emitted: ${event}`);
-    };
-
     return {
-      isPlaying,
-      elapsedTime,
-      startTime,
-      isActive,
-      togglePlayPause,
-      stopObservation,
-      formatDuration,
+      observation,
+      handleTogglePlayPause,
+      handleStop,
     };
   },
 });
