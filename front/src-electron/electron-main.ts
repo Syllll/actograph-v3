@@ -31,7 +31,7 @@ try {
       path.join(app.getPath('userData'), 'DevTools Extensions')
     );
   }
-} catch (_) {}
+} catch (_) { }
 
 let mainWindow: BrowserWindow | undefined;
 let serverProcess: any = null;
@@ -70,9 +70,9 @@ async function createWindow() {
   // Load the URL with query parameters
   const loadPromise = mainWindow.loadURL(
     <string>process.env.APP_URL +
-      '?serverPort=' +
-      serverPort +
-      '&targetRoute=/gateway'
+    '?serverPort=' +
+    serverPort +
+    '&targetRoute=/gateway'
   );
 
   if (process.env.DEBUGGING) {
@@ -145,50 +145,79 @@ async function createWindow() {
  * @param port The port to run the server on
  */
 function createBackgroundProcess(port: number) {
-  const envPath = path.join(
-    process.resourcesPath,
-    'src-electron/extra-resources/api/.env'
-  );
-  const serverPath = path.join(
-    process.resourcesPath,
-    'src-electron/extra-resources/api/dist/src/main.js'
-  );
+  try {
+    const envPath = path.join(
+      process.resourcesPath,
+      'src-electron/extra-resources/api/.env'
+    );
+    const serverPath = path.join(
+      process.resourcesPath,
+      'src-electron/extra-resources/api/dist/src/main.js'
+    );
 
-  // Get the path to the database file, the path depends on the platform with must be located in the application data folder
-  const dbPath = path.join(
-    app.getPath('userData') // This gets the per-user application data directory
-  );
+    // Get the path to the database file, the path depends on the platform with must be located in the application data folder
+    const dbPath = path.join(
+      app.getPath('userData') // This gets the per-user application data directory
+    );
 
-  // stdio ensure we can capture all output streams
-  serverProcess = fork(
-    serverPath,
-    ['--subprocess', port.toString(), envPath, dbPath],
-    {
-      stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
-      env: {
-        PROD: 'true',
-      },
+    // Add this near the top of the file
+    if (platform === 'win32') {
+      // Ensure proper path resolution on Windows
+      process.env.PATH = process.env.PATH + ';' + process.env.SystemRoot + '\\System32';
+
+      // Handle Windows-specific process spawning
+      process.env.ELECTRON_RUN_AS_NODE = '1';
     }
-  );
 
-  // Listeners for both stdout and stderr streams
-  // Prefixes to the console output ([Server Process] and [Server Process Error])
-  // to distinguish the child process output from the main process output
-  serverProcess.stdout?.on('data', (data: Buffer) => {
-    const message = `[Server Process] ${data.toString().trim()}`;
-    console.log(message);
-    log.info(message); // Also write to electron-log
-  });
-  serverProcess.stderr?.on('data', (data: Buffer) => {
-    const message = `[Server Process Error] ${data.toString().trim()}`;
-    console.error(message);
-    log.error(message); // Also write to electron-log
-  });
+    // stdio ensure we can capture all output streams
+    serverProcess = fork(
+      serverPath,
+      ['--subprocess', port.toString(), envPath, dbPath],
+      {
+        stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+        env: {
+          PROD: 'true',
+        },
+      }
+    );
 
-  serverProcess.on('message', (msg: string) => {
-    console.log('message:', msg);
-    log.info(`[Server IPC] ${msg}`); // Log IPC messages too
-  });
+    // Listeners for both stdout and stderr streams
+    // Prefixes to the console output ([Server Process] and [Server Process Error])
+    // to distinguish the child process output from the main process output
+    serverProcess.stdout?.on('data', (data: Buffer) => {
+      const message = `[Server Process] ${data.toString().trim()}`;
+      console.log(message);
+      log.info(message); // Also write to electron-log
+    });
+    serverProcess.stderr?.on('data', (data: Buffer) => {
+      const message = `[Server Process Error] ${data.toString().trim()}`;
+      console.error(message);
+      log.error(message); // Also write to electron-log
+    });
+
+    serverProcess.on('message', (msg: string) => {
+      console.log('message:', msg);
+      log.info(`[Server IPC] ${msg}`); // Log IPC messages too
+    });
+
+    // Add error handler for the fork process
+    serverProcess.on('error', (err) => {
+      console.error('Failed to start server process:', err);
+      log.error('Failed to start server process:', err);
+    });
+
+    // Add exit handler to detect if process exits unexpectedly
+    serverProcess.on('exit', (code, signal) => {
+      if (code !== 0) {
+        console.error(`Server process exited with code ${code} and signal ${signal}`);
+        log.error(`Server process exited with code ${code} and signal ${signal}`);
+      }
+    });
+  } catch (error) {
+    console.error('Error while creating background process', error);
+    log.error('Error while creating background process', error);
+    throw error;
+  }
 }
 
 app.whenReady().then(async () => {
@@ -217,6 +246,24 @@ app.on('before-quit', () => {
     serverProcess.kill();
     serverProcess = null;
   }
+});
+
+// Add this to ensure proper cleanup
+process.on('exit', () => {
+  if (serverProcess) {
+    serverProcess.kill();
+    serverProcess = null;
+  }
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  log.error('Uncaught Exception:', error);
+  if (serverProcess) {
+    serverProcess.kill();
+    serverProcess = null;
+  }
+  app.quit();
 });
 
 // ************
