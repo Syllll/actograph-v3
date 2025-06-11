@@ -160,15 +160,6 @@ function createBackgroundProcess(port: number) {
       app.getPath('userData') // This gets the per-user application data directory
     );
 
-    // Add this near the top of the file
-    if (platform === 'win32') {
-      // Ensure proper path resolution on Windows
-      process.env.PATH = process.env.PATH + ';' + process.env.SystemRoot + '\\System32';
-
-      // Handle Windows-specific process spawning
-      process.env.ELECTRON_RUN_AS_NODE = '1';
-    }
-
     // stdio ensure we can capture all output streams
     serverProcess = fork(
       serverPath,
@@ -177,6 +168,7 @@ function createBackgroundProcess(port: number) {
         stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
         env: {
           PROD: 'true',
+          ELECTRON_RUN_AS_NODE: '1',
         },
       }
     );
