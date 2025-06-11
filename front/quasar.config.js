@@ -340,7 +340,7 @@ module.exports = configure(function (/* ctx */) {
           category: 'public.app-category.utilities',
         },
         win: {
-          target: 'nsis',
+          target: 'msi', // nsis
           // Valid compression values are: "maximum", "normal", "store"
           // store: fastest but biggest size
           // normal: default
