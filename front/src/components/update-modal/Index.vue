@@ -18,18 +18,19 @@
           style="width: 10rem"
         />
       </div>
-      <div v-else-if="state.error">
-        <p>
-          Une erreur est survenue lors du téléchargement de la mise à jour.
-          Veuillez réessayer.
-        </p>
-        <p>{{ state.error.message }}</p>
-      </div>
       <div v-else>
         <p>
           Mise à jour téléchargée. Veuillez redémarrer l'application pour
           l'installer.
         </p>
+      </div>
+
+      <div v-if="state.error">
+        <p>
+          Une erreur est survenue lors du téléchargement de la mise à jour.
+          Veuillez réessayer.
+        </p>
+        <p>{{ state.error.message }}</p>
       </div>
     </DScrollArea>
 
@@ -81,14 +82,18 @@ export default defineComponent({
         }
 
         systemService.onUpdateDownloadProgress((data) => {
-          state.progress = data.percent / 100;
-          state.progressPercentage = data.percent.toFixed(2);
+          const percent = data.percent.toFixed(2);
+          state.progress = percent / 100;
+          state.progressPercentage = `${percent}%`;
+          console.info(state.progress, state.progressPercentage);
         });
         systemService.onUpdateDownloaded(() => {
           state.updateDownloaded = true;
+          console.info('Update downloaded');
         });
         systemService.onUpdateError((error) => {
           state.error = error;
+          console.error('Error while downloading update', error);
         });
 
         state.initialized = true;
