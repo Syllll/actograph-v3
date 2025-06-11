@@ -103,9 +103,9 @@ fi
 
 # Increment version
 if [ "$versionType" == "major" ]; then
-    newVersion=$(echo $frontVersion | awk -F. '{print $1 + 1 "." $2 "." $3}')
+    newVersion=$(echo $frontVersion | awk -F. '{print $1 + 1 "." 0 "." 0}')
 elif [ "$versionType" == "minor" ]; then
-    newVersion=$(echo $frontVersion | awk -F. '{print $1 "." $2 + 1 "." $3}')
+    newVersion=$(echo $frontVersion | awk -F. '{print $1 "." $2 + 1 "." 0}')
 else
     newVersion=$(echo $frontVersion | awk -F. '{print $1 "." $2 "." $3 + 1}')
 fi

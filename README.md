@@ -27,7 +27,12 @@ The latter command will start the docker containers for API and Front.
 
 ## How to deploy
 
-o push a tag starting with prod-vX.X.X will trigger the deployment of the production versions of the app.
+One should push a tag starting with prod-vX.X.X will trigger the deployment of the production versions of the app.
+
+```bash
+# bash scripts/publish {prod/preprod} {major/minor/patch}
+bash scripts/publish prod
+```
 
 If one wants to deploy manually a web version of the app, one can use the following command:
 ```bash

@@ -31,7 +31,7 @@ export default defineComponent({
 
     onMounted(async () => {
       const start = new Date();
-      const timeout = 20000;
+      const timeout = 25000;
       let isServerRunning = false;
 
       while (
@@ -39,19 +39,21 @@ export default defineComponent({
         new Date().getTime() - start.getTime() < timeout
       ) {
         // Wait 1 second before checking if the server is running
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         let result = null as string | null;
         try {
           result = await securityService.sayHi();
-        } catch (error) {}
+        } catch (error) {
+          console.error('Error while checking if the server is running', error);
+        }
         if (result === 'hi') {
           isServerRunning = true;
         }
       }
       if (!isServerRunning) {
         state.error =
-          "Erreur lors de l'initialisation de l'application, code=1";
+          "Erreur lors de l'initialisation du backend de l'application, code=1";
         state.loading = false;
         return;
       }
@@ -62,7 +64,7 @@ export default defineComponent({
         await auth.methods.login(localUserName, localUserName.split('-')[1]);
       } catch (error) {
         state.error =
-          "Erreur lors de l'initialisation de l'application, code=2";
+          "Erreur lors de l'initialisation de l'authentification de l'utilisateur, code=2";
         state.loading = false;
         return;
       }
