@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Electron } from './electron';
 import { LicenseService } from '../license/license.service';
+import { LicenseTypeEnum } from '@core/security/entities/license.entity';
 
 interface LicenseOwner {
   id: number;
@@ -77,13 +78,12 @@ export class SecurityService {
     }
 
     // Make sure the type is in the enum format
-    if (responseData.type) {
-      if (responseData.type.toLowerCase() === 'student') {
-        responseData.type = 'Student';
-      } else if (responseData.type.toLowerCase() === 'ultimate') {
-        responseData.type = 'Ultimate';
-      } else if (responseData.type.toLowerCase() === 'support') {
-        responseData.type = 'Support';
+    // Loop on the enum and check if the type is in the enum
+    const enumValues = Object.values(LicenseTypeEnum);
+    for (const value of enumValues) {
+      if (responseData.type.toLowerCase() === value.toLowerCase()) {
+        responseData.type = value;
+        break;
       }
     }
 
