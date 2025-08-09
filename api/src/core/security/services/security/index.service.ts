@@ -81,7 +81,11 @@ export class SecurityService {
     // Loop on the enum and check if the type is in the enum
     const enumValues = Object.values(LicenseTypeEnum);
     for (const value of enumValues) {
+      // Here we check if the type is in the enum
+      // With put everything in lowercase to avoid case sensitivity
       if (responseData.type.toLowerCase() === value.toLowerCase()) {
+        // If the type is in the enum, set the type to the enum value
+        // With correct case
         responseData.type = value;
         break;
       }
