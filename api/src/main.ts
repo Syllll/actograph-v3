@@ -17,6 +17,7 @@ async function bootstrap() {
       throw new Error('Invalid port');
     }
 
+    console.log('*** App server starting... ***');
     console.log(`Server will start on port ${port}`);
   }
 
@@ -57,6 +58,7 @@ async function bootstrap() {
     }),
   );
   const server = await app.listen(port);
-  server.setTimeout(1000 * 60 * 5); // 5 min // 600,000=> 10Min, 1200,000=>20Min, 1800,000=>30Min
+  console.info(`Server listening on port ${port}`);
+  server.setTimeout(1000 * 60 * 3); // 3 min // 600,000=> 10Min, 1200,000=>20Min, 1800,000=>30Min
 }
 bootstrap();

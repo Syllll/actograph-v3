@@ -48,6 +48,8 @@ async function createWindow() {
   /**
    * Initial window options
    */
+  const isMac = process.platform === 'darwin';
+
   mainWindow = new BrowserWindow({
     icon: path.resolve(__dirname, 'icons/icon.png'), // tray icon
     width,
@@ -55,11 +57,14 @@ async function createWindow() {
     minWidth: 700,
     minHeight: 400,
     autoHideMenuBar: true,
-    useContentSize: true,
-    frame: false,
+    // On macOS, content size sizing is fine with hidden title bar
+    // On Windows/Linux, include frame size to avoid exceeding work area
+    useContentSize: isMac,
+    // Avoid frameless on Windows/Linux to not block autohide taskbar
+    titleBarStyle: 'hidden',
+    ...(isMac ? {} : { titleBarOverlay: true }),
     webPreferences: {
       contextIsolation: true,
-      // More info: https://v2.quasar.dev/quasar-cli-vite/developing-electron-apps/electron-preload-script
       preload: path.resolve(
         __dirname,
         process.env.QUASAR_ELECTRON_PRELOAD || ''
@@ -180,6 +185,11 @@ function createBackgroundProcess(port: number) {
       const message = `[Server Process] ${data.toString().trim()}`;
       console.log(message);
       log.info(message); // Also write to electron-log
+
+      if (message.includes('*** App server starting... ***')) {
+        console.log('App server is starting...');
+        log.info('App server is starting...');
+      }
     });
     serverProcess.stderr?.on('data', (data: Buffer) => {
       const message = `[Server Process Error] ${data.toString().trim()}`;

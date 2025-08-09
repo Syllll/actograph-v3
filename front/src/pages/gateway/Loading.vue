@@ -31,7 +31,8 @@ export default defineComponent({
 
     onMounted(async () => {
       const start = new Date();
-      const timeout = 25000;
+      // During this time, the app will check for update and initialize the backend
+      const timeout = 60000 * 4;
       let isServerRunning = false;
 
       while (

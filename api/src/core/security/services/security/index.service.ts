@@ -76,6 +76,17 @@ export class SecurityService {
       );
     }
 
+    // Make sure the type is in the enum format
+    if (responseData.type) {
+      if (responseData.type.toLowerCase() === 'student') {
+        responseData.type = 'Student';
+      } else if (responseData.type.toLowerCase() === 'ultimate') {
+        responseData.type = 'Ultimate';
+      } else if (responseData.type.toLowerCase() === 'support') {
+        responseData.type = 'Support';
+      }
+    }
+
     return responseData;
   }
 

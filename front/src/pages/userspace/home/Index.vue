@@ -4,13 +4,13 @@
       <div class="col-6 column">
         <div class="col-6 box-wrapper">
           <div class="box column">
-            <cTitle class="col-auto" title="Mes observations" />
+            <cTitle class="col-auto" title="Vos chroniques" />
             <MyObservations class="col" />
           </div>
         </div>
         <div class="col-6 box-wrapper">
           <div class="box">
-            <cTitle title="Premiers pas" />
+            <cTitle title="Centre d'aide" />
             <FirstSteps />
           </div>
         </div>
@@ -18,12 +18,12 @@
       <div class="col-6 column">
         <div class="col-6 box-wrapper">
           <div class="box">
-            <cTitle title="Encart publicitaire" />
+            <cTitle title="Chronique active" />
           </div>
         </div>
         <div class="col-6 box-wrapper">
           <div class="box">
-            <cTitle title="A propos" />
+            <cTitle title="Encart publicitaire" />
           </div>
         </div>
       </div>
