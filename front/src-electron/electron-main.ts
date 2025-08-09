@@ -45,24 +45,17 @@ const publicFolder = path.resolve(
 async function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-  /**
-   * Initial window options
-   */
-  const isMac = process.platform === 'darwin';
-
   mainWindow = new BrowserWindow({
     icon: path.resolve(__dirname, 'icons/icon.png'), // tray icon
     width,
-    height,
+    height: height - 1,
     minWidth: 700,
     minHeight: 400,
     autoHideMenuBar: true,
-    // On macOS, content size sizing is fine with hidden title bar
-    // On Windows/Linux, include frame size to avoid exceeding work area
-    useContentSize: isMac,
-    // Avoid frameless on Windows/Linux to not block autohide taskbar
+    useContentSize: false,
     titleBarStyle: 'hidden',
-    ...(isMac ? {} : { titleBarOverlay: true }),
+    x: 0,
+    y: 0,
     webPreferences: {
       contextIsolation: true,
       preload: path.resolve(
