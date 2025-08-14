@@ -265,7 +265,7 @@ export const useReadings = (options: {
       }
 
       // add the reading to the current readings
-      sharedState.currentReadings.push(newReading as IReading);
+      //sharedState.currentReadings.push(newReading as IReading);
 
       return newReading as IReading;
     },
@@ -357,6 +357,36 @@ export const useReadings = (options: {
     selectReading: (reading: IReading | null) => {
       sharedState.selectedReading = reading;
     },
+
+    addStartReading: async () => {
+      methods.addReading({
+        name: 'Début de la chronique',
+        type: ReadingTypeEnum.START,
+        dateTime: new Date(),
+      });
+    },
+    addStopReading: async () => {
+      methods.addReading({
+        name: 'Fin de la chronique',
+        type: ReadingTypeEnum.STOP,
+        dateTime: new Date(),
+      });
+    },
+    addPauseStartReading: async () => {
+      methods.addReading({
+        name: 'Début de pause',
+        type: ReadingTypeEnum.PAUSE_START,
+        dateTime: new Date(),
+      });
+    },
+    addPauseEndReading: async () => {
+      methods.addReading({
+        name: 'Fin de pause',
+        type: ReadingTypeEnum.PAUSE_END,
+        dateTime: new Date(),
+      });
+    },
+
   };
 
   const interval = 1000;
@@ -379,7 +409,7 @@ export const useReadings = (options: {
 
   runSynchro(0);
   
-
+  
 
   // Return both the shared state and the methods
   return {

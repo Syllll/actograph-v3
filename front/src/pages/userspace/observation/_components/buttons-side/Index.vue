@@ -229,7 +229,7 @@ export default defineComponent({
       if (!observable) return;
       
       // Create the reading using the composable's createReading method
-      const newReading = readings.methods.createReading({
+      const newReading = readings.methods.addReading({
         categoryName: category.name,
         observableName: observable.name,
         observableDescription: observable.description || '',

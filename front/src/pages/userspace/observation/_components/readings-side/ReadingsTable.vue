@@ -128,7 +128,7 @@ export default defineComponent({
     // Toggle row selection with improved safety
     const toggleRowSelection = (row: IReading) => {
       if (!row || !row.id) return;
-      
+      console.log('toggleRowSelection', row);
       if (isRowSelected(row)) {
         selectedInternal.value = [];
       } else {
@@ -165,9 +165,9 @@ export default defineComponent({
       const labels = {
         [ReadingTypeEnum.START]: 'Début',
         [ReadingTypeEnum.STOP]: 'Fin',
-        [ReadingTypeEnum.PAUSE_START]: 'Début de pause',
-        [ReadingTypeEnum.PAUSE_END]: 'Fin de pause',
-        [ReadingTypeEnum.DATA]: 'Données',
+        [ReadingTypeEnum.PAUSE_START]: 'Déb pause',
+        [ReadingTypeEnum.PAUSE_END]: 'Fin pause',
+        [ReadingTypeEnum.DATA]: 'Data',
       };
       
       return labels[type] || type;

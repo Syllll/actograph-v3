@@ -1,7 +1,7 @@
 <template>
   <q-card
     class="category-container"
-    :class="{ 'is-dragging': isDragging }"
+    :class="{ 'is-dragging': state.isDragging }"
   >
     <q-card-section class="category-header">
       <div class="category-title">
@@ -11,8 +11,8 @@
           round
           icon="drag_indicator"
           class="drag-handle"
-          @mousedown="handleDragStart"
-          @touchstart.prevent="handleDragStart"
+          @mousedown="methods.handleDragStart"
+          @touchstart.prevent="methods.handleDragStart"
         />
         <div class="text-subtitle1 q-ml-sm">{{ category.name }}</div>
       </div>
@@ -22,14 +22,14 @@
     </q-card-section>
 
     <q-card-section class="category-content">
-      <div v-if="isContinuous" class="buttons-container row q-gutter-y-sm">
+      <div v-if="computedState.isContinuous.value" class="buttons-container row q-gutter-y-sm">
         <SwitchButton
           v-for="observable in category.children"
           :key="observable.id"
           :observable="observable"
-          :active="activeObservableId === observable.id"
+          :active="computedState.activeObservableId.value === observable.id"
           :disabled="!isObservationActive"
-          @click="handleSwitchClick(observable)"
+          @click="methods.handleSwitchClick(observable)"
         />
       </div>
       
@@ -39,7 +39,7 @@
           :key="observable.id"
           :observable="observable"
           :disabled="!isObservationActive"
-          @click="handlePressClick(observable)"
+          @click="methods.handlePressClick(observable)"
         />
       </div>
     </q-card-section>
@@ -47,7 +47,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, PropType } from 'vue';
+import { defineComponent, computed, PropType, reactive } from 'vue';
 import { ProtocolItem, ProtocolItemActionEnum } from '@services/observations/protocol.service';
 import SwitchButton from './SwitchButton.vue';
 import PressButton from './PressButton.vue';
@@ -82,18 +82,21 @@ export default defineComponent({
   emits: ['switchClick', 'pressClick', 'move', 'dragStart', 'dragEnd'],
 
   setup(props, { emit }) {
-    const isDragging = ref(false);
-    const dragStartPos = ref({ x: 0, y: 0 });
-    const dragOffset = ref({ x: 0, y: 0 });
-    const initialPosition = ref({ x: 0, y: 0 });
-
-    const isContinuous = computed(() => {
-      return props.category.action === ProtocolItemActionEnum.Continuous;
+    const state = reactive({
+      isDragging: false,
+      dragStartPos: { x: 0, y: 0 },
+      dragOffset: { x: 0, y: 0 },
+      initialPosition: { x: 0, y: 0 }
     });
 
-    const activeObservableId = computed(() => {
-      return props.activeObservableIdByCategoryId[props.category.id] || null;
-    });
+    const computedState = {
+      isContinuous: computed(() => {
+        return props.category.action === ProtocolItemActionEnum.Continuous;
+      }),
+      activeObservableId: computed(() => {
+        return props.activeObservableIdByCategoryId[props.category.id] || null;
+      })
+    };
 
     const handleSwitchClick = (observable: ProtocolItem) => {
       emit('switchClick', {
@@ -109,115 +112,99 @@ export default defineComponent({
       });
     };
 
-    const handleDragStart = (event: MouseEvent | TouchEvent) => {
-      isDragging.value = true;
-      
-      // Notify parent component about drag start
-      emit('dragStart', props.category.id);
-      
-      // Store initial position at drag start
-      initialPosition.value = { ...props.position };
-      
-      // Get the starting position for drag
-      if ('touches' in event) {
-        // Touch event
-        dragStartPos.value = {
-          x: event.touches[0].clientX,
-          y: event.touches[0].clientY
-        };
-      } else {
-        // Mouse event
-        dragStartPos.value = {
-          x: event.clientX,
-          y: event.clientY
-        };
-      }
-
-      dragOffset.value = { x: 0, y: 0 };
-
-      // Add event listeners for drag movement and end
-      document.addEventListener('mousemove', handleDragMove);
-      document.addEventListener('touchmove', handleDragMove, { passive: false });
-      document.addEventListener('mouseup', handleDragEnd);
-      document.addEventListener('touchend', handleDragEnd);
-    };
-
     const handleDragMove = (event: MouseEvent | TouchEvent) => {
-      if (!isDragging.value) return;
-      
-      // Prevent default to avoid scrolling
+      if (!state.isDragging) return;
+
       if (event.cancelable) {
         event.preventDefault();
       }
 
-      let currentX, currentY;
-      
+      let currentX: number, currentY: number;
+
       if ('touches' in event) {
-        // Touch event
         currentX = event.touches[0].clientX;
         currentY = event.touches[0].clientY;
       } else {
-        // Mouse event
         currentX = event.clientX;
         currentY = event.clientY;
       }
 
-      // Calculate offset from starting position
-      dragOffset.value = {
-        x: currentX - dragStartPos.value.x,
-        y: currentY - dragStartPos.value.y
+      state.dragOffset = {
+        x: currentX - state.dragStartPos.x,
+        y: currentY - state.dragStartPos.y
       };
 
-      // Get parent container dimensions - add a simple constraint check
       const container = document.querySelector('.categories-wrapper');
       const containerRect = container?.getBoundingClientRect();
-      let newX = initialPosition.value.x + dragOffset.value.x;
-      let newY = initialPosition.value.y + dragOffset.value.y;
-      
-      // Basic boundary constraints
+      let newX = state.initialPosition.x + state.dragOffset.x;
+      let newY = state.initialPosition.y + state.dragOffset.y;
+
       if (containerRect) {
-        // Make sure we don't move out of bounds too far
-        // Leave a margin of 20px on each side
         const margin = 20;
         const cardWidth = 300; // From getCategoryStyle width
-        
-        // Ensure at least part of the category remains visible
+
         if (newX < -cardWidth + margin) newX = -cardWidth + margin;
         if (newX > containerRect.width - margin) newX = containerRect.width - margin;
         if (newY < 0) newY = 0;
         if (newY > containerRect.height - 100) newY = containerRect.height - 100;
       }
 
-      // Emit move event with new position - using the constrained values
       emit('move', {
         categoryId: props.category.id,
-        position: {
-          x: newX,
-          y: newY
-        }
+        position: { x: newX, y: newY }
       });
     };
 
     const handleDragEnd = () => {
-      isDragging.value = false;
-      
-      // Notify parent component about drag end
+      state.isDragging = false;
+
       emit('dragEnd', props.category.id);
-      
-      // Remove event listeners
+
       document.removeEventListener('mousemove', handleDragMove);
-      document.removeEventListener('touchmove', handleDragMove);
+      document.removeEventListener('touchmove', handleDragMove as EventListener);
       document.removeEventListener('mouseup', handleDragEnd);
-      document.removeEventListener('touchend', handleDragEnd);
+      document.removeEventListener('touchend', handleDragEnd as EventListener);
+    };
+
+    const handleDragStart = (event: MouseEvent | TouchEvent) => {
+      state.isDragging = true;
+
+      emit('dragStart', props.category.id);
+
+      state.initialPosition = { ...props.position };
+
+      if ('touches' in event) {
+        state.dragStartPos = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY
+        };
+      } else {
+        state.dragStartPos = {
+          x: event.clientX,
+          y: event.clientY
+        };
+      }
+
+      state.dragOffset = { x: 0, y: 0 };
+
+      document.addEventListener('mousemove', handleDragMove);
+      document.addEventListener('touchmove', handleDragMove as EventListener, { passive: false });
+      document.addEventListener('mouseup', handleDragEnd);
+      document.addEventListener('touchend', handleDragEnd as EventListener);
+    };
+
+    const methods = {
+      handleSwitchClick,
+      handlePressClick,
+      handleDragStart,
+      handleDragMove,
+      handleDragEnd
     };
 
     return {
-      isContinuous,
-      activeObservableId,
-      isDragging,
-      handleSwitchClick,
-      handlePressClick,
-      handleDragStart
+      state,
+      computedState,
+      methods
     };
   }
 });

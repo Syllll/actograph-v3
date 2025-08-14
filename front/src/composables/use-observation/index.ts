@@ -47,17 +47,29 @@ export const useObservation = (options?: { init?: boolean }) => {
     startTimer: () => {
       if (intervalId) return;
 
+      // If there are no readings (0 readings), we add a start reading
+      if (readings.sharedState.currentReadings.length === 0) {
+        readings.methods.addStartReading();
+      } 
+      // If there is a reading, we add a pause start reading
+      else {
+        readings.methods.addPauseEndReading();
+      }
+
+      const now = Date.now();
+
       // If we're starting fresh (not resuming), set the current date
       if (!sharedState.startTime) {
         sharedState.currentDate = new Date();
       }
       
-      sharedState.startTime = Date.now() - sharedState.elapsedTime * 1000;
+      sharedState.startTime = now - sharedState.elapsedTime * 1000;
       sharedState.isPlaying = true;
+      
 
       intervalId = window.setInterval(() => {
         if (sharedState.startTime) {
-          sharedState.elapsedTime = (Date.now() - sharedState.startTime) / 1000;
+          sharedState.elapsedTime = (now - sharedState.startTime) / 1000;
         }
       }, 10); // Update frequently for smooth milliseconds display
     },
@@ -68,6 +80,9 @@ export const useObservation = (options?: { init?: boolean }) => {
         intervalId = null;
       }
       sharedState.isPlaying = false;
+
+      // Add the start of the pause
+      readings.methods.addPauseStartReading();
     },
 
     stopTimer: () => {
@@ -75,6 +90,10 @@ export const useObservation = (options?: { init?: boolean }) => {
         clearInterval(intervalId);
         intervalId = null;
       }
+
+      // Add the end of the chronique
+      readings.methods.addStopReading();
+
       sharedState.isPlaying = false;
       sharedState.elapsedTime = 0;
       sharedState.startTime = null;

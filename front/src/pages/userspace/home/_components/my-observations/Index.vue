@@ -4,7 +4,7 @@
       <div class="col-12">
         <DSearchInput class="full-width"
           v-model:searchText="state.searchText"
-          placeholder="Rechercher une observation"
+          placeholder="Rechercher une chronique"
           @update:searchText="methods.handleSearch"
         />
       </div>

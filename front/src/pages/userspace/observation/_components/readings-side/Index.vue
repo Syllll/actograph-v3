@@ -22,12 +22,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, watch } from 'vue';
+import { defineComponent, ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useReadings } from 'src/composables/use-observation/use-readings';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { v4 as uuidv4 } from 'uuid';
 import ReadingsToolbar from './ReadingsToolbar.vue';
 import ReadingsTable from './ReadingsTable.vue';
+import { useObservation } from 'src/composables/use-observation';
 
 export default defineComponent({
   name: 'ReadingsSideIndex',
@@ -38,9 +39,10 @@ export default defineComponent({
   },
 
   setup() {
+    const observation = useObservation();
     // Use the readings composable
-    const { sharedState, methods } = useReadings();
-    
+    const { sharedState, methods } = observation.readings;
+
     // Local state
     const search = ref('');
     const selectedReading = ref<IReading[]>([]);
@@ -104,6 +106,11 @@ export default defineComponent({
       // Clear the selection
       selectedReading.value = [];
     };
+
+    onUnmounted(async () => {
+      // When unmounted, trigger the sync
+      await methods.synchronizeReadings();
+    })
 
     return {
       search,
