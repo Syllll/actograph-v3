@@ -98,107 +98,97 @@ export default defineComponent({
       })
     };
 
-    const handleSwitchClick = (observable: ProtocolItem) => {
-      emit('switchClick', {
-        categoryId: props.category.id,
-        observableId: observable.id
-      });
-    };
-
-    const handlePressClick = (observable: ProtocolItem) => {
-      emit('pressClick', {
-        categoryId: props.category.id,
-        observableId: observable.id
-      });
-    };
-
-    const handleDragMove = (event: MouseEvent | TouchEvent) => {
-      if (!state.isDragging) return;
-
-      if (event.cancelable) {
-        event.preventDefault();
-      }
-
-      let currentX: number, currentY: number;
-
-      if ('touches' in event) {
-        currentX = event.touches[0].clientX;
-        currentY = event.touches[0].clientY;
-      } else {
-        currentX = event.clientX;
-        currentY = event.clientY;
-      }
-
-      state.dragOffset = {
-        x: currentX - state.dragStartPos.x,
-        y: currentY - state.dragStartPos.y
-      };
-
-      const container = document.querySelector('.categories-wrapper');
-      const containerRect = container?.getBoundingClientRect();
-      let newX = state.initialPosition.x + state.dragOffset.x;
-      let newY = state.initialPosition.y + state.dragOffset.y;
-
-      if (containerRect) {
-        const margin = 20;
-        const cardWidth = 300; // From getCategoryStyle width
-
-        if (newX < -cardWidth + margin) newX = -cardWidth + margin;
-        if (newX > containerRect.width - margin) newX = containerRect.width - margin;
-        if (newY < 0) newY = 0;
-        if (newY > containerRect.height - 100) newY = containerRect.height - 100;
-      }
-
-      emit('move', {
-        categoryId: props.category.id,
-        position: { x: newX, y: newY }
-      });
-    };
-
-    const handleDragEnd = () => {
-      state.isDragging = false;
-
-      emit('dragEnd', props.category.id);
-
-      document.removeEventListener('mousemove', handleDragMove);
-      document.removeEventListener('touchmove', handleDragMove as EventListener);
-      document.removeEventListener('mouseup', handleDragEnd);
-      document.removeEventListener('touchend', handleDragEnd as EventListener);
-    };
-
-    const handleDragStart = (event: MouseEvent | TouchEvent) => {
-      state.isDragging = true;
-
-      emit('dragStart', props.category.id);
-
-      state.initialPosition = { ...props.position };
-
-      if ('touches' in event) {
-        state.dragStartPos = {
-          x: event.touches[0].clientX,
-          y: event.touches[0].clientY
-        };
-      } else {
-        state.dragStartPos = {
-          x: event.clientX,
-          y: event.clientY
-        };
-      }
-
-      state.dragOffset = { x: 0, y: 0 };
-
-      document.addEventListener('mousemove', handleDragMove);
-      document.addEventListener('touchmove', handleDragMove as EventListener, { passive: false });
-      document.addEventListener('mouseup', handleDragEnd);
-      document.addEventListener('touchend', handleDragEnd as EventListener);
-    };
-
     const methods = {
-      handleSwitchClick,
-      handlePressClick,
-      handleDragStart,
-      handleDragMove,
-      handleDragEnd
+      handleSwitchClick: (observable: ProtocolItem) => {
+        emit('switchClick', {
+          categoryId: props.category.id,
+          observableId: observable.id
+        });
+      },
+      handlePressClick: (observable: ProtocolItem) => {
+        emit('pressClick', {
+          categoryId: props.category.id,
+          observableId: observable.id
+        });
+      },
+      handleDragMove: (event: MouseEvent | TouchEvent) => {
+        if (!state.isDragging) return;
+
+        if ((event as Event).cancelable) {
+          (event as Event).preventDefault();
+        }
+
+        let currentX: number, currentY: number;
+
+        if ('touches' in event) {
+          currentX = event.touches[0].clientX;
+          currentY = event.touches[0].clientY;
+        } else {
+          currentX = (event as MouseEvent).clientX;
+          currentY = (event as MouseEvent).clientY;
+        }
+
+        state.dragOffset = {
+          x: currentX - state.dragStartPos.x,
+          y: currentY - state.dragStartPos.y
+        };
+
+        const container = document.querySelector('.categories-wrapper');
+        const containerRect = container?.getBoundingClientRect();
+        let newX = state.initialPosition.x + state.dragOffset.x;
+        let newY = state.initialPosition.y + state.dragOffset.y;
+
+        if (containerRect) {
+          const margin = 20;
+          const cardWidth = 300; // From getCategoryStyle width
+
+          if (newX < -cardWidth + margin) newX = -cardWidth + margin;
+          if (newX > containerRect.width - margin) newX = containerRect.width - margin;
+          if (newY < 0) newY = 0;
+          if (newY > containerRect.height - 100) newY = containerRect.height - 100;
+        }
+
+        emit('move', {
+          categoryId: props.category.id,
+          position: { x: newX, y: newY }
+        });
+      },
+      handleDragEnd: () => {
+        state.isDragging = false;
+
+        emit('dragEnd', props.category.id);
+
+        document.removeEventListener('mousemove', methods.handleDragMove);
+        document.removeEventListener('touchmove', methods.handleDragMove as unknown as EventListener);
+        document.removeEventListener('mouseup', methods.handleDragEnd);
+        document.removeEventListener('touchend', methods.handleDragEnd as unknown as EventListener);
+      },
+      handleDragStart: (event: MouseEvent | TouchEvent) => {
+        state.isDragging = true;
+
+        emit('dragStart', props.category.id);
+
+        state.initialPosition = { ...props.position };
+
+        if ('touches' in event) {
+          state.dragStartPos = {
+            x: event.touches[0].clientX,
+            y: event.touches[0].clientY
+          };
+        } else {
+          state.dragStartPos = {
+            x: (event as MouseEvent).clientX,
+            y: (event as MouseEvent).clientY
+          };
+        }
+
+        state.dragOffset = { x: 0, y: 0 };
+
+        document.addEventListener('mousemove', methods.handleDragMove);
+        document.addEventListener('touchmove', methods.handleDragMove as unknown as EventListener, { passive: false });
+        document.addEventListener('mouseup', methods.handleDragEnd);
+        document.addEventListener('touchend', methods.handleDragEnd as unknown as EventListener);
+      }
     };
 
     return {
