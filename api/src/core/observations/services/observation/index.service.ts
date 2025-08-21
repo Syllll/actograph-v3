@@ -28,6 +28,8 @@ import { ActivityGraphService } from '../activity-graph.service';
 import { ProtocolService } from '../protocol/index.service';
 import { ReadingService } from '../reading.service';
 import { Example } from './example';
+import { ProtocolItemTypeEnum } from '@core/observations/entities/protocol.entity';
+import { ReadingTypeEnum } from '@core/observations/entities/reading.entity';
 
 @Injectable()
 export class ObservationService extends BaseService<
@@ -140,5 +142,96 @@ export class ObservationService extends BaseService<
     });
 
     return clonedObservation;
+  }
+
+  public async create(options: {
+    userId: number;
+    name: string;
+    description?: string;
+    protocol?: {
+      name?: string;
+      description?: string;
+      categories?: {
+        name: string;
+        description?: string;
+        observables?: {
+          name: string;
+        }[];
+      }[];
+    };
+    readings?: {
+      name: string;
+      type: ReadingTypeEnum;
+      dateTime: Date;
+    }[];
+    activityGraph?: {};
+  }) {
+    const observation = this.observationRepository.create({
+      user: {
+        id: options.userId,
+      },
+      name: options.name ?? 'Nouvelle observation',
+      description: options.description,
+      type: ObservationType.Normal,
+    });
+    
+    const savedObservation = await this.observationRepository.save(observation);
+
+    // Create the protocol
+    if (options.protocol) {
+      const protocol = await this.protocolService.create({
+        observationId: savedObservation.id,
+        name: options.protocol.name ?? 'Protocol - ' + savedObservation.name,
+        description: options.protocol.description,
+      });
+
+      // Create the categories
+      if (options.protocol.categories) {
+        let categoryOrder = 0;
+        for (const category of options.protocol.categories) {
+          const savedCategory = await this.protocolService.items.addCategory({
+            protocolId: protocol.id,
+            name: category.name,
+            description: category.description,
+            order: categoryOrder,
+          });
+
+          // Increase the order
+          categoryOrder++;
+
+          // Create the observables
+          if (category.observables) {
+            for (const observable of category.observables) {
+              await this.protocolService.items.addObservable({
+                protocolId: protocol.id,
+                categoryId: savedCategory.id,
+                name: observable.name,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Create the readings
+    if (options.readings) {
+      await this.readingService.createMany(
+        options.readings.map((r) => {
+          return {
+            ...r,
+            observationId: savedObservation.id,
+          };
+        }),
+      );
+    }
+
+    // Create the activity graph
+    if (options.activityGraph) {
+      await this.activityGraphService.create({
+        observationId: savedObservation.id,
+      });
+    }
+
+    return savedObservation;
   }
 }

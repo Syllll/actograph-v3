@@ -9,7 +9,7 @@
     dense
     no-caps
     :disable="disabled"
-    @click="$emit('click', observable)"
+    @click="methods.emitClick()"
   >
     <q-tooltip v-if="observable.description">
       {{ observable.description }}
@@ -18,7 +18,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { defineComponent, reactive, computed, PropType } from 'vue';
 import { ProtocolItem } from '@services/observations/protocol.service';
 
 export default defineComponent({
@@ -39,7 +39,17 @@ export default defineComponent({
     }
   },
   
-  emits: ['click']
+  emits: ['click'],
+
+  setup(props, { emit }) {
+    const state = reactive({});
+    const computedState = {} as const;
+    const methods = {
+      emitClick: () => emit('click', props.observable),
+    };
+
+    return { state, computedState, methods };
+  }
 });
 </script>
 

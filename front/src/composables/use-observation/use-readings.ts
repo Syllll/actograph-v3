@@ -22,6 +22,11 @@ const sharedState = reactive({
   selectedReading: null as IReading | null,
 });
 
+// Ensure we do not run multiple synchronization loops or overlapping syncs
+let isSyncInFlight = false;
+let hasStartedSyncLoop = false;
+let syncTimeoutId: number | null = null;
+
 export const useReadings = (options: {
   sharedStateFromObservation: any,
 }) => {
@@ -62,6 +67,11 @@ export const useReadings = (options: {
      * @returns Promise that resolves when synchronization is complete
      */
     synchronizeReadings: async () => {
+      if (isSyncInFlight) {
+        return;
+      }
+      isSyncInFlight = true;
+      try {
       // Make a local copy of the current readings
       const currentReadings = [...sharedState.currentReadings];
 
@@ -152,35 +162,53 @@ export const useReadings = (options: {
        * @param operation - The async operation to execute with retry
        * @param operationName - Name of the operation for logging
        */
-      const executeWithRetry = async (operation: () => Promise<any>, operationName: string) => {
+      const executeWithRetry = async <T>(operation: () => Promise<T>, operationName: string): Promise<T> => {
         let tryCount = 0;
         while (tryCount < maxTryCount) {
           try {
-            await operation();
-            return; // Success, exit the function
+            const result = await operation();
+            return result; // Success, exit the function
           } catch (error) {
             tryCount++;
             console.error(`Error in ${operationName} (attempt ${tryCount}/${maxTryCount}):`, error);
             if (tryCount >= maxTryCount) {
               console.error(`Max retries reached for ${operationName}. Giving up.`);
-              throw error; // Re-throw the error after max retries
+              throw error as any; // Re-throw the error after max retries
             }
             // Wait before retrying (exponential backoff)
             await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, tryCount - 1)));
           }
         }
+        // This should be unreachable, but TypeScript needs a fallback
+        throw new Error(`Unreachable: executeWithRetry exited loop without returning for ${operationName}`);
       };
 
       // Create new readings with retry logic
       if (newReadings.length > 0) {
         const obsId = options.sharedStateFromObservation.currentObservation.id;
-        await executeWithRetry(
+        const created = await executeWithRetry(
           () => readingService.createMany({
             observationId: obsId,
             readings: newReadings,
           }),
           'creating new readings'
         );
+        // Merge server-assigned IDs into local state using tempId
+        if (Array.isArray(created)) {
+          for (const createdReading of created) {
+            if (!createdReading?.tempId) continue;
+            const idx = sharedState.currentReadings.findIndex(r => r.tempId && r.tempId === createdReading.tempId);
+            if (idx !== -1) {
+              sharedState.currentReadings[idx] = {
+                ...sharedState.currentReadings[idx],
+                id: createdReading.id,
+                // keep tempId for correlation; server also returns createdAt/updatedAt
+                createdAt: createdReading.createdAt ?? sharedState.currentReadings[idx].createdAt,
+                updatedAt: createdReading.updatedAt ?? sharedState.currentReadings[idx].updatedAt,
+              } as IReading;
+            }
+          }
+        }
       }
 
       // Update existing readings with retry logic
@@ -202,20 +230,24 @@ export const useReadings = (options: {
         );
       }
 
-      // Delete readings with retry logic
-      if (deletedReadings.length > 0) {
+      // Delete readings with retry logic (only those that have a persisted id)
+      const deletablesWithId = deletedReadings.filter(r => !!r.id);
+      if (deletablesWithId.length > 0) {
         const obsId = options.sharedStateFromObservation.currentObservation.id;
         await executeWithRetry(
           () => readingService.deleteMany({
             observationId: obsId,
-            ids: deletedReadings.map((reading) => reading.id),
+            ids: deletablesWithId.map((reading) => reading.id as number),
           }),
           'deleting readings'
         );
       }
 
       // Update the initialReadings to match the current state after successful synchronization
-      stateless.initialReadings = [...currentReadings];
+      stateless.initialReadings = [...sharedState.currentReadings];
+      } finally {
+        isSyncInFlight = false;
+      }
     },
     
     /**
@@ -391,11 +423,15 @@ export const useReadings = (options: {
 
   const interval = 1000;
   const runSynchro = async (timeToWait: number) => {
-
-    setTimeout(async () => {
+    if (syncTimeoutId) {
+      // A loop is already scheduled/running
+      return;
+    }
+    syncTimeoutId = window.setTimeout(async () => {
+      syncTimeoutId = null;
       const start = new Date();
       if (options.sharedStateFromObservation.currentObservation?.id && !options.sharedStateFromObservation.loading) {
-        await methods.synchronizeReadings()
+        await methods.synchronizeReadings();
       }
       const end = new Date();
       const duration = end.getTime() - start.getTime();
@@ -407,7 +443,10 @@ export const useReadings = (options: {
     }, timeToWait);
   }
 
-  runSynchro(0);
+  if (!hasStartedSyncLoop) {
+    hasStartedSyncLoop = true;
+    runSynchro(0);
+  }
   
   
 

@@ -7,14 +7,14 @@
       <q-space />
       <div class="col-auto">
         <q-btn 
-          :icon="isResetting ? 'mdi-loading mdi-spin' : 'mdi-restart'" 
-          :color="isResetting ? 'accent' : 'grey-7'"
+          :icon="state.isResetting ? 'mdi-loading mdi-spin' : 'mdi-restart'" 
+          :color="state.isResetting ? 'accent' : 'grey-7'"
           flat
           round
           dense
-          :disable="isResetting"
+          :disable="state.isResetting"
           tooltip="Réinitialiser la position des catégories et observables"
-          @click="resetPositions"
+          @click="methods.resetPositions()"
         />
       </div>
     </div>
@@ -24,18 +24,18 @@
       :style="{ 'min-height': '20rem' }">
       <template v-if="sharedState.currentProtocol && sharedState.currentProtocol._items">
         <Category
-          v-for="category in categories"
+          v-for="category in computedState.categories.value"
           :key="category.id"
           :category="category"
-          :active-observable-id-by-category-id="activeObservableIdByCategoryId"
-          :position="categoryPositions[category.id] || { x: 0, y: 0 }"
-          :is-observation-active="isObservationActive"
-          :style="getCategoryStyle(category.id)"
-          @switch-click="handleSwitchClick"
-          @press-click="handlePressClick"
-          @move="handleCategoryMove"
-          @drag-start="(id) => updateDraggingState(id, true)"
-          @drag-end="(id) => updateDraggingState(id, false)"
+          :active-observable-id-by-category-id="state.activeObservableIdByCategoryId"
+          :position="state.categoryPositions[category.id] || { x: 0, y: 0 }"
+          :is-observation-active="computedState.isObservationActive.value"
+          :style="methods.getCategoryStyle(category.id)"
+          @switch-click="methods.handleSwitchClick"
+          @press-click="methods.handlePressClick"
+          @move="methods.handleCategoryMove"
+          @drag-start="(id) => methods.updateDraggingState(id, true)"
+          @drag-end="(id) => methods.updateDraggingState(id, false)"
         />
       </template>
       <div v-else class="no-data text-center q-pa-lg">
@@ -69,260 +69,239 @@ export default defineComponent({
     const readings = observation.readings;
     const { sharedState } = protocol;
     const categoriesWrapper = ref<HTMLElement | null>(null);
-    
-    // Check if buttons should be enabled based on observation status
-    const isObservationActive = computed(() => observation.sharedState.isPlaying);
-    
-    // State to track if we're currently resetting positions
-    const isResetting = ref(false);
 
-    // State for tracking active observables in continuous categories
-    const activeObservableIdByCategoryId = reactive<Record<string, string>>({});
-    
-    // Store positions of categories for drag & drop
-    const categoryPositions = reactive<Record<string, { x: number; y: number }>>({});
-    
-    // Get categories from the protocol
-    const categories = computed(() => {
-      if (!sharedState.currentProtocol || !sharedState.currentProtocol._items) {
-        return [] as ProtocolItem[];
-      }
-      
-      return sharedState.currentProtocol._items
-        .filter((item: any) => item.type === ProtocolItemTypeEnum.Category)
-        .map((item: any) => item as ProtocolItem);
+    // Reactive state
+    const state = reactive({
+      isResetting: false,
+      activeObservableIdByCategoryId: {} as Record<string, string>,
+      categoryPositions: {} as Record<string, { x: number; y: number }>,
+      isDragging: false,
+      isDraggingCategoryId: null as string | null,
+      hasInitializedStartReadings: false,
     });
-    
-    // Make sure wrapper is tall enough for all categories
-    const updateWrapperHeight = () => {
-      if (!categoriesWrapper.value) return;
-      
-      // Find the category with the largest y-position
-      let maxY = 0;
-      let maxHeight = 0;
-      
-      Object.values(categoryPositions).forEach(position => {
-        if (position.y > maxY) {
-          maxY = position.y;
-          maxHeight = 250; // Approximate height of a category card
-        }
-      });
-      
-      const minHeight = maxY + maxHeight + 50; // Add padding
-      if (minHeight > 300) {
-        categoriesWrapper.value.style.minHeight = `${minHeight}px`;
-      }
-    };
 
-    // Calculate grid-based positions for categories
-    const calculateCategoryPositions = (forceReset = false) => {
-      if (!sharedState.currentProtocol || !sharedState.currentProtocol._items) return;
-      
-      const items = sharedState.currentProtocol._items
-        .filter((item: any) => item.type === ProtocolItemTypeEnum.Category)
-        .map((item: any) => item as ProtocolItem);
-      
-      let row = 0;
-      let column = 0;
-      const maxColumns = 2; // Number of columns for layout
-      const columnWidth = 220; // Width of each column with some spacing
-      const rowHeight = 250; // Approximate height of a category card
-      
-      items.forEach((category: ProtocolItem) => {
-        // Only set position if we're doing a force reset or the category doesn't have a position yet
-        if (forceReset || !categoryPositions[category.id]) {
-          categoryPositions[category.id] = {
-            x: column * columnWidth,
-            y: row * rowHeight
-          };
+    // Computed
+    const computedState = {
+      isObservationActive: computed(() => observation.sharedState.isPlaying),
+      categories: computed(() => {
+        if (!sharedState.currentProtocol || !sharedState.currentProtocol._items) {
+          return [] as ProtocolItem[];
         }
-        
-        column++;
-        if (column >= maxColumns) {
-          column = 0;
-          row++;
+        return sharedState.currentProtocol._items
+          .filter((item: any) => item.type === ProtocolItemTypeEnum.Category)
+          .map((item: any) => item as ProtocolItem);
+      }),
+    };
+    
+    const methods = {
+      // Make sure wrapper is tall enough for all categories
+      updateWrapperHeight: () => {
+        if (!categoriesWrapper.value) return;
+        let maxY = 0;
+        let maxHeight = 0;
+        Object.values(state.categoryPositions).forEach(position => {
+          if (position.y > maxY) {
+            maxY = position.y;
+            maxHeight = 250;
+          }
+        });
+        const minHeight = maxY + maxHeight + 50;
+        if (minHeight > 300) {
+          categoriesWrapper.value.style.minHeight = `${minHeight}px`;
         }
-      });
-      
-      // Update the wrapper height after positions are calculated
-      updateWrapperHeight();
+      },
+
+      // Calculate grid-based positions for categories
+      calculateCategoryPositions: (forceReset = false) => {
+        if (!sharedState.currentProtocol || !sharedState.currentProtocol._items) return;
+        const items = sharedState.currentProtocol._items
+          .filter((item: any) => item.type === ProtocolItemTypeEnum.Category)
+          .map((item: any) => item as ProtocolItem);
+        let row = 0;
+        let column = 0;
+        const maxColumns = 2;
+        const columnWidth = 220;
+        const rowHeight = 250;
+        items.forEach((category: ProtocolItem) => {
+          if (forceReset || !state.categoryPositions[category.id]) {
+            state.categoryPositions[category.id] = {
+              x: column * columnWidth,
+              y: row * rowHeight,
+            };
+          }
+          column++;
+          if (column >= maxColumns) {
+            column = 0;
+            row++;
+          }
+        });
+        methods.updateWrapperHeight();
+      },
+
+      // Handle click on switch button (continuous category)
+      handleSwitchClick: ({ categoryId, observableId }: { categoryId: string; observableId: string }) => {
+        if (!computedState.isObservationActive.value) {
+          methods.showObservationInactiveNotification();
+          return;
+        }
+        if (state.activeObservableIdByCategoryId[categoryId] === observableId) {
+          delete state.activeObservableIdByCategoryId[categoryId];
+        } else {
+          state.activeObservableIdByCategoryId[categoryId] = observableId;
+        }
+        methods.recordReading(categoryId, observableId);
+      },
+
+      // Handle click on press button (discrete category)
+      handlePressClick: ({ categoryId, observableId }: { categoryId: string; observableId: string }) => {
+        if (!computedState.isObservationActive.value) {
+          methods.showObservationInactiveNotification();
+          return;
+        }
+        methods.recordReading(categoryId, observableId);
+      },
+
+      showObservationInactiveNotification: () => {
+        $q.notify({
+          type: 'warning',
+          message: 'Veuillez commencer l\'enregistrement avant d\'utiliser les boutons',
+          position: 'top-right',
+          timeout: 2000,
+        });
+      },
+
+      // Record a new reading
+      recordReading: (categoryId: string, observableId: string) => {
+        const category = computedState.categories.value.find(
+          (cat: ProtocolItem) => cat.id === categoryId
+        );
+        if (!category) return;
+        const observable = category.children?.find(
+          (obs: any) => obs.id === observableId
+        ) as ProtocolItem | undefined;
+        if (!observable) return;
+        readings.methods.addReading({
+          categoryName: category.name,
+          observableName: observable.name,
+          observableDescription: observable.description || '',
+          currentDate: observation.sharedState.currentDate || undefined,
+          elapsedTime: observation.sharedState.elapsedTime,
+        });
+      },
+
+      // Handle category movement (drag & drop)
+      handleCategoryMove: ({ categoryId, position }: { categoryId: string; position: { x: number; y: number } }) => {
+        const currentPos = state.categoryPositions[categoryId];
+        if (!currentPos || currentPos.x !== position.x || currentPos.y !== position.y) {
+          state.categoryPositions[categoryId] = position;
+          methods.updateWrapperHeight();
+        }
+      },
+
+      // Get styles for a category
+      getCategoryStyle: (categoryId: string) => {
+        const position = state.categoryPositions[categoryId] || { x: 0, y: 0 };
+        return {
+          position: 'absolute',
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          width: '13rem',
+          transition: state.isDragging ? 'none' : 'left 0.5s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)',
+          zIndex: state.isDragging && state.isDraggingCategoryId === categoryId ? '100' : '1',
+        } as Record<string, string>;
+      },
+
+      // Update dragging state when Category component signals drag
+      updateDraggingState: (categoryId: string, isDrag: boolean) => {
+        state.isDragging = isDrag;
+        state.isDraggingCategoryId = isDrag ? categoryId : null;
+      },
+
+      // Resets all categories to their original grid positions
+      resetPositions: () => {
+        if (state.isResetting) return;
+        state.isResetting = true;
+        Object.keys(state.categoryPositions).forEach(key => {
+          delete state.categoryPositions[key];
+        });
+        methods.calculateCategoryPositions(true);
+        setTimeout(() => {
+          state.isDragging = false;
+          state.isDraggingCategoryId = null;
+          $q.notify({
+            type: 'positive',
+            message: 'Les catégories ont été réinitialisées',
+            position: 'top-right',
+            timeout: 2000,
+          });
+          state.isResetting = false;
+        }, 600);
+      },
+
+      // Initialize readings for continuous categories on first start
+      createInitialContinuousReadingsIfNeeded: () => {
+        if (state.hasInitializedStartReadings) return;
+        if (readings.sharedState.currentReadings.length !== 1) return;
+        const first = readings.sharedState.currentReadings[0];
+        if (!first || first.type !== ReadingTypeEnum.START) return;
+        const startDate = first.dateTime;
+        // ensure insertion at end
+        readings.methods.selectReading(null);
+        computedState.categories.value.forEach((category: ProtocolItem) => {
+          if (category.action === ProtocolItemActionEnum.Continuous && category.children && category.children.length > 0) {
+            const lastObservable = category.children[category.children.length - 1] as ProtocolItem;
+            // Mark button active
+            state.activeObservableIdByCategoryId[category.id] = lastObservable.id as unknown as string;
+            // Add reading with the same timestamp as start
+            readings.methods.addReading({
+              categoryName: category.name,
+              observableName: (lastObservable as any).name,
+              observableDescription: (lastObservable as any).description || '',
+              dateTime: startDate,
+            });
+          }
+        });
+        state.hasInitializedStartReadings = true;
+      },
     };
 
     // Initialize category positions when protocol changes
     watch(() => sharedState.currentProtocol, (newProtocol) => {
       if (newProtocol && newProtocol._items) {
         // Reset active observables
-        Object.keys(activeObservableIdByCategoryId).forEach(key => {
-          delete activeObservableIdByCategoryId[key];
+        Object.keys(state.activeObservableIdByCategoryId).forEach(key => {
+          delete state.activeObservableIdByCategoryId[key];
         });
-
+        state.hasInitializedStartReadings = false;
         // Initialize positions if not already set
-        calculateCategoryPositions();
+        methods.calculateCategoryPositions();
       }
     }, { immediate: true });
 
     // Update wrapper height based on category positions
-    watch(categoryPositions, () => {
-      updateWrapperHeight();
+    watch(state.categoryPositions, () => {
+      methods.updateWrapperHeight();
     }, { deep: true });
 
     onMounted(() => {
-      calculateCategoryPositions();
-      updateWrapperHeight();
+      methods.calculateCategoryPositions();
+      methods.updateWrapperHeight();
     });
-    
-    // Handle click on switch button (continuous category)
-    const handleSwitchClick = ({ categoryId, observableId }: { categoryId: string; observableId: string }) => {
-      // Don't process clicks if observation is not active
-      if (!isObservationActive.value) {
-        showObservationInactiveNotification();
-        return;
+
+    // Trigger initial continuous readings when starting from zero
+    watch(() => observation.sharedState.isPlaying, (playing, prev) => {
+      if (playing && !state.hasInitializedStartReadings) {
+        methods.createInitialContinuousReadingsIfNeeded();
       }
-      
-      // Toggle the active state
-      if (activeObservableIdByCategoryId[categoryId] === observableId) {
-        // If clicking on already active button, deactivate it
-        delete activeObservableIdByCategoryId[categoryId];
-      } else {
-        // Activate the clicked button and deactivate others in the same category
-        activeObservableIdByCategoryId[categoryId] = observableId;
-      }
-      
-      // Record the reading
-      recordReading(categoryId, observableId);
-    };
-
-    // Handle click on press button (discrete category)
-    const handlePressClick = ({ categoryId, observableId }: { categoryId: string; observableId: string }) => {
-      // Don't process clicks if observation is not active
-      if (!isObservationActive.value) {
-        showObservationInactiveNotification();
-        return;
-      }
-      
-      // Just record the reading, no state to maintain for discrete buttons
-      recordReading(categoryId, observableId);
-    };
-
-    // Show notification when buttons are clicked while observation is inactive
-    const showObservationInactiveNotification = () => {
-      $q.notify({
-        type: 'warning',
-        message: 'Veuillez commencer l\'enregistrement avant d\'utiliser les boutons',
-        position: 'top-right',
-        timeout: 2000
-      });
-    };
-
-    // Record a new reading
-    const recordReading = (categoryId: string, observableId: string) => {
-      // Find the category and observable names
-      const category = categories.value.find(
-        (cat: ProtocolItem) => cat.id === categoryId
-      );
-      if (!category) return;
-      
-      const observable = category.children?.find(
-        (obs: any) => obs.id === observableId
-      ) as ProtocolItem | undefined;
-      
-      if (!observable) return;
-      
-      // Create the reading using the composable's createReading method
-      const newReading = readings.methods.addReading({
-        categoryName: category.name,
-        observableName: observable.name,
-        observableDescription: observable.description || '',
-        currentDate: observation.sharedState.currentDate || undefined,
-        elapsedTime: observation.sharedState.elapsedTime
-      });
-
-    };
-
-    // Handle category movement (drag & drop)
-    const handleCategoryMove = ({ categoryId, position }: { categoryId: string; position: { x: number; y: number } }) => {
-      // Avoid unnecessary re-renders by checking if position actually changed
-      const currentPos = categoryPositions[categoryId];
-      if (!currentPos || currentPos.x !== position.x || currentPos.y !== position.y) {
-        categoryPositions[categoryId] = position;
-        
-        // Update wrapper height to accommodate new position
-        updateWrapperHeight();
-      }
-    };
-
-    // Track dragging state
-    const isDragging = ref(false);
-    const isDraggingCategoryId = ref<string | null>(null);
-
-    // Get styles for a category
-    const getCategoryStyle = (categoryId: string) => {
-      const position = categoryPositions[categoryId] || { x: 0, y: 0 };
-      return {
-        position: 'absolute',
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        width: '13rem',
-        transition: isDragging.value ? 'none' : 'left 0.5s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)', // Improved transition
-        zIndex: isDragging.value && isDraggingCategoryId.value === categoryId ? '100' : '1'
-      };
-    };
-
-    // Update dragging state when Category component signals drag
-    const updateDraggingState = (categoryId: string, isDrag: boolean) => {
-      isDragging.value = isDrag;
-      isDraggingCategoryId.value = isDrag ? categoryId : null;
-    };
-
-    // Resets all categories to their original grid positions
-    const resetPositions = () => {
-      // Prevent multiple resets
-      if (isResetting.value) return;
-      
-      // Set resetting state
-      isResetting.value = true;
-      
-      // Clear all existing positions
-      Object.keys(categoryPositions).forEach(key => {
-        delete categoryPositions[key];
-      });
-      
-      // Recalculate original grid layout with force reset
-      calculateCategoryPositions(true);
-      
-      // Add a small animation delay to make the transition smooth
-      setTimeout(() => {
-        isDragging.value = false;
-        isDraggingCategoryId.value = null;
-        
-        // Show a notification to the user
-        $q.notify({
-          type: 'positive',
-          message: 'Les catégories ont été réinitialisées',
-          position: 'top-right',
-          timeout: 2000
-        });
-        
-        // Reset the loading state
-        isResetting.value = false;
-      }, 600); // Longer animation time for a smoother effect
-    };
+    });
 
     return {
       sharedState,
       observation,
-      isObservationActive,
-      categories,
-      activeObservableIdByCategoryId,
-      categoryPositions,
+      state,
+      computedState,
       categoriesWrapper,
-      isResetting,
-      handleSwitchClick,
-      handlePressClick,
-      handleCategoryMove,
-      getCategoryStyle,
-      updateDraggingState,
-      resetPositions
+      methods,
     };
   }
 });

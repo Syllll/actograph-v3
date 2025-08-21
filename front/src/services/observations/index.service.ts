@@ -49,4 +49,14 @@ export const observationService = {
     const response = await api().post(`${apiUrl}/observations/clone-example`);
     return response.data;
   },
+  create: async (options: {
+    name: string;
+    description?: string;
+  }): Promise<IObservation> => {
+    const response = await api().post(`${apiUrl}/observations`, {
+      name: options.name,
+      description: options.description,
+    });
+    return response.data;
+  },
 };

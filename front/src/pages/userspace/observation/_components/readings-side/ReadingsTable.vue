@@ -2,7 +2,6 @@
   <div class="fit">
     <q-table
       class="fit" dense
-      style="max-height: 46rem;"
       :rows="readings"
       :columns="columns"
       row-key="id"

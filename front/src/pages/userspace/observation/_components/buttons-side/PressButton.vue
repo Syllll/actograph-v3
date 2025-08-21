@@ -8,7 +8,7 @@
     no-caps
     dense
     :disable="disabled"
-    @click="handleClick"
+    @click="methods.handleClick()"
   >
     <q-tooltip v-if="observable.description">
       {{ observable.description }}
@@ -17,7 +17,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, PropType } from 'vue';
+import { defineComponent, reactive, PropType } from 'vue';
 import { ProtocolItem } from '@services/observations/protocol.service';
 
 export default defineComponent({
@@ -37,26 +37,27 @@ export default defineComponent({
   emits: ['click'],
 
   setup(props, { emit }) {
-    const isPressed = ref(false);
+    const state = reactive({
+      isPressed: false,
+    });
 
-    // Visual feedback when button is pressed
-    const handleClick = () => {
-      if (props.disabled) return;
-      
-      isPressed.value = true;
-      
-      // Emit click event
-      emit('click', props.observable);
-      
-      // Reset button state after a short delay
-      setTimeout(() => {
-        isPressed.value = false;
-      }, 200);
+    const computedState = {} as const;
+
+    const methods = {
+      handleClick: () => {
+        if (props.disabled) return;
+        state.isPressed = true;
+        emit('click', props.observable);
+        setTimeout(() => {
+          state.isPressed = false;
+        }, 200);
+      },
     };
 
     return {
-      isPressed,
-      handleClick
+      state,
+      computedState,
+      methods,
     };
   }
 });

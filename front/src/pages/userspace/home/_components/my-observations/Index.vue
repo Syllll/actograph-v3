@@ -137,6 +137,15 @@ export default defineComponent({
       },
     };
 
+    watch(
+      () => observation.sharedState.loading,
+      (newVal) => {
+        if (!newVal) {
+          state.reload = true;
+        }
+      }
+    );
+
     return {
       stateless,
       state,

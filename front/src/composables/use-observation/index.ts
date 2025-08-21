@@ -69,7 +69,7 @@ export const useObservation = (options?: { init?: boolean }) => {
 
       intervalId = window.setInterval(() => {
         if (sharedState.startTime) {
-          sharedState.elapsedTime = (now - sharedState.startTime) / 1000;
+          sharedState.elapsedTime = (Date.now() - sharedState.startTime) / 1000;
         }
       }, 10); // Update frequently for smooth milliseconds display
     },
@@ -138,6 +138,13 @@ export const useObservation = (options?: { init?: boolean }) => {
       const response = await observationService.findOne(id);
 
       await methods._loadObservation(response);
+    },
+    createObservation: async (options: {
+      name: string;
+      description?: string;
+    }) => {
+      const response = await observationService.create(options);
+      await methods.loadObservation(response.id);
     },
     _loadObservation: async (observation: IObservation) => {
       sharedState.loading = true;

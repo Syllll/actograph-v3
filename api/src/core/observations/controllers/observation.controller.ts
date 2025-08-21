@@ -33,6 +33,18 @@ import { IPaginationOutput } from '@utils/repositories/base.repositories';
 import { UserRolesGuard } from '@users/guards/user-roles.guard';
 import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
 import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+
+export class ICreateObservationDto {
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+}
 
 @Controller('observations')
 export class ObservationController extends BaseController {
@@ -122,6 +134,26 @@ export class ObservationController extends BaseController {
 
     const observation =
       await this.observationService.example.cloneExampleObservation(user.id);
+    return observation;
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRoleEnum.User)
+  async create(@Req() req: any,
+  @Body() body: ICreateObservationDto,
+): Promise<Observation> {
+    const user = req.user;
+
+    const observation = await this.observationService.create({
+      userId: user.id,
+      name: body.name,
+      description: body.description,
+      protocol: {},
+      readings: [],
+      activityGraph: {},
+    });
+    
     return observation;
   }
 

@@ -19,18 +19,21 @@
           <div class="row justify-center q-gutter-sm">
             <d-action-btn
               icon="mdi-new-box"
-              tooltip="Créer une observation"
-              label="Débuter une observation"
+              tooltip="Créer une chronique"
+              label="Nouvelle chronique"
+              @click="methods.startObservation"
             />
             <d-action-btn
-              icon="mdi-import"
-              tooltip="Charger une observation"
-              label="Charger"
+              icon="mdi-new-box"
+              tooltip="Importer une chronique"
+              label="Importer"
+              disabled
             />
             <d-action-btn
-              icon="mdi-export"
-              tooltip="Exporter une observation"
+              icon="mdi-new-box"
+              tooltip="Exporter une chronique"
               label="Exporter"
+              disabled
             />
           </div>
         </div>
@@ -100,6 +103,7 @@ import { menu } from './menu';
 import { useDrawer } from './use-drawer';
 import { useRouter } from 'vue-router';
 import { useObservation } from 'src/composables/use-observation';
+import { createDialog } from '@lib-improba/utils/dialog.utils';
 
 export default defineComponent({
   props: {
@@ -121,7 +125,31 @@ export default defineComponent({
       };
     });
 
+    const methods = {
+      startObservation: async () => {
+        // Open a dialog for the user to name its observation
+        const diagRes = await createDialog({
+          title: 'Créer une observation',
+          message: 'Veuillez entrer le nom de votre observation',
+          prompt: { 
+            model: '',
+            type: 'text',
+            placeholder: 'Nom de l\'observation',
+          },
+        });
+
+        if (!diagRes) {
+          return;
+        }
+
+        await observation.methods.createObservation({
+          name: diagRes as string,
+        });
+      },
+    };
+
     return {
+      methods,
       state,
       computedState,
       drawer,
