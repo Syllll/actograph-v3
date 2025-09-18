@@ -16,17 +16,9 @@
           <q-separator />
           -->
         </div>
-        <div class="q-mt-md">
-          <!--
-          <q-separator />
-          -->
-        </div>
 
         <!-- tools in a row -->
         <div class="column q-mx-md">
-          <!--
-            <div class="text-h4 text-weight-bold text-center q-mb-md">Outils</div>
-          -->
           <!--
             <div class="text-h4 text-weight-bold text-center q-mb-md">Outils</div>
           -->
@@ -58,7 +50,6 @@
         <q-list>
           <template
             v-for="(menuItem, index) in computedState.menuList.value"
-            v-for="(menuItem, index) in computedState.menuList.value"
             :key="index"
           >
             <q-item
@@ -88,9 +79,9 @@
         
           <div><q-separator /></div>
 
-          <!-- tools in a row -->.
-        <DCard class="q-mx-auto" bgColor="primary">
-        <div class="column q-mx-md text-text-invert">
+          <!-- Current observation card -->
+        <DCard class="q-mx-sm q-ml-md" bgColor="primary">
+        <div class="column text-text-invert">
           <div class="text-h4 text-weight-bold text-center q-mb-md">
             Votre observation
           </div>
@@ -102,7 +93,7 @@
           </div>
 
           <div
-            v-if="observation.readings.sharedState.currentReadings"
+            v-if="observation.sharedState.currentObservation?.name && observation.readings.sharedState.currentReadings"
             class="row q-mt-sm"
           >
             Relevés : {{ observation.readings.sharedState.currentReadings.length }}
@@ -126,10 +117,6 @@ import { useAuth } from '@lib-improba/composables/use-auth';
 import { userMenuItems } from '@lib-improba/components/layouts/standard/user-menu-items';
 import { useI18n } from 'vue-i18n';
 import ThemeToggler from '@lib-improba/components/layouts/theme-toggler/ThemeToggler.vue';
-import { useAuth } from '@lib-improba/composables/use-auth';
-import { userMenuItems } from '@lib-improba/components/layouts/standard/user-menu-items';
-import { useI18n } from 'vue-i18n';
-import ThemeToggler from '@lib-improba/components/layouts/theme-toggler/ThemeToggler.vue';
 
 export default defineComponent({
   props: {
@@ -142,9 +129,6 @@ export default defineComponent({
   components: {
     ThemeToggler,
   },
-  components: {
-    ThemeToggler,
-  },
   setup(props) {
     const drawer = useDrawer();
     const router = useRouter();
@@ -152,25 +136,7 @@ export default defineComponent({
     const observation = useObservation();
     const auth = useAuth(router);
     const i18n = useI18n();
-    const auth = useAuth(router);
-    const i18n = useI18n();
 
-    const computedState = {
-      menuList: computed(() => menu(router)),
-      userName: computed(() => {
-        const user = auth.sharedState?.user;
-        let userName =
-          user?.firstname ?? user?.userJwt?.username ?? '-';
-
-        // Remove the username prefix if it exists
-        if (userName.startsWith('_pc-')) {
-          userName = userName.slice(4);
-        }
-
-        return userName;
-      }),
-      userMenuItems: computed(() => userMenuItems(i18n, auth)),
-    }
     const computedState = {
       menuList: computed(() => menu(router)),
       userName: computed(() => {
@@ -217,7 +183,6 @@ export default defineComponent({
       computedState,
       drawer,
       observation,
-      auth,
       auth,
     };
   },
