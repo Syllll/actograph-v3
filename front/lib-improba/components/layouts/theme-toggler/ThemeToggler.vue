@@ -49,4 +49,3 @@ export default defineComponent({
   },
 });
 </script>
-../../../../composables/useTheme
