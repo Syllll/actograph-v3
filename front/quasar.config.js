@@ -143,7 +143,7 @@ module.exports = configure(function (/* ctx */) {
               // Change directory to api and install dependencies
               process.chdir('../api');
               await new Promise((resolve, reject) => {
-                spawn('yarn', ['install', '--production=false'], {
+                spawn('yarn', ['install', '--production=false', '--frozen-lockfile'], {
                   stdio: 'inherit',
                   shell: true,
                 }).on('close', (code) =>
@@ -163,6 +163,16 @@ module.exports = configure(function (/* ctx */) {
 
               await new Promise((resolve, reject) => {
                 spawn('npx', ['nest', 'build'], {
+                  stdio: 'inherit',
+                  shell: true,
+                }).on('close', (code) =>
+                  code === 0 ? resolve() : reject(code)
+                );
+              });
+
+              // Prune devDependencies before copying to electron extra-resources
+              await new Promise((resolve, reject) => {
+                spawn('npm', ['prune', '--omit=dev'], {
                   stdio: 'inherit',
                   shell: true,
                 }).on('close', (code) =>
@@ -341,6 +351,13 @@ module.exports = configure(function (/* ctx */) {
           target: [
             { target: 'dmg', arch: ['universal'] },
             { target: 'zip', arch: ['universal'] },
+          ],
+          // Treat API node_modules as arch-specific for universal merge
+          x64ArchFiles: [
+            'Contents/Resources/src-electron/extra-resources/api/dist/node_modules/**',
+          ],
+          arm64ArchFiles: [
+            'Contents/Resources/src-electron/extra-resources/api/dist/node_modules/**',
           ],
         },
         win: {
