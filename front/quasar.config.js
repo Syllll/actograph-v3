@@ -338,7 +338,10 @@ module.exports = configure(function (/* ctx */) {
         copyright: '©2025 SymAlgo Technologies',
         mac: {
           category: 'public.app-category.utilities',
-          universal: true,
+          target: [
+            { target: 'dmg', arch: ['universal'] },
+            { target: 'zip', arch: ['universal'] },
+          ],
         },
         win: {
           target: 'nsis',
