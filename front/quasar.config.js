@@ -352,13 +352,6 @@ module.exports = configure(function (/* ctx */) {
             { target: 'dmg', arch: ['universal'] },
             { target: 'zip', arch: ['universal'] },
           ],
-          // Treat API node_modules as arch-specific for universal merge
-          x64ArchFiles: [
-            'Contents/Resources/src-electron/extra-resources/api/dist/node_modules/**',
-          ],
-          arm64ArchFiles: [
-            'Contents/Resources/src-electron/extra-resources/api/dist/node_modules/**',
-          ],
         },
         win: {
           target: 'nsis',
