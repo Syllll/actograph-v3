@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { v4 as uuidv4 } from 'uuid';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import * as sgMail from '@sendgrid/mail';
 
 import { UserJwt, UserJwtCreateDto } from '../entities/user-jwt.entity';
@@ -46,7 +46,7 @@ export class UserJwtService {
     userCreateDto: UserJwtCreateDto,
     emitUserCreateSignal = true,
   ): Promise<Pick<UserJwt, 'id' | 'username'>> {
-    const encryptedPassword = await bcrypt.hash(userCreateDto.password, 10);
+    const encryptedPassword = bcrypt.hashSync(userCreateDto.password, 10);
 
     const UserToBeCreated = {
       activationToken: uuidv4(),
@@ -160,7 +160,7 @@ export class UserJwtService {
       select: ['username', 'id', 'password', 'activated'],
     });
 
-    if (user?.password && (await bcrypt.compare(password, user.password))) {
+    if (user?.password && bcrypt.compareSync(password, user.password)) {
       const fullUser = await this.userJwtRepository.findOne({
         where: { id: user.id },
       });
@@ -264,7 +264,7 @@ export class UserJwtService {
     if (!user) {
       throw new NotFoundException();
     }
-    user.password = await bcrypt.hash(password, 10);
+    user.password = bcrypt.hashSync(password, 10);
     user.forgetPasswordToken = null;
     await this.userJwtRepository.save(user);
     result.user = user;
