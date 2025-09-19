@@ -333,14 +333,14 @@ module.exports = configure(function (/* ctx */) {
         extraResources: ['./src-electron/extra-resources/**'],
         // We do not use the version in the artifact name, because we want to be able to
         // use the same artifact name for different versions.
-        artifactName: 'ActoGraph-v3.${ext}', // 'ActoGraph-v3-${version}.${ext}',
+        artifactName: 'ActoGraph-v3-${arch}.${ext}', // 'ActoGraph-v3-${version}.${ext}',
         productName: 'ActoGraph-v3',
         copyright: '©2025 SymAlgo Technologies',
         mac: {
           category: 'public.app-category.utilities',
           target: [
-            { target: 'dmg', arch: ['universal'] },
-            { target: 'zip', arch: ['universal'] },
+            { target: 'dmg', arch: ['x64'] },
+            { target: 'dmg', arch: ['arm64'] },
           ],
         },
         win: {

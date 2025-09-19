@@ -9,7 +9,13 @@ jobs:
   build-and-upload:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+          - os: windows-latest
+          - os: macos-13 # Intel x64 runner
+            electron_arch_flags: "--x64"
+          - os: macos-14 # Apple Silicon arm64 runner
+            electron_arch_flags: "--arm64"
     runs-on: ${{ matrix.os }}
     environment: deploy
     permissions:
@@ -140,6 +146,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WIN_CERT_PWD: ${{ secrets.WIN_CERT_PWD }}
+          ELECTRON_ARCH_FLAGS: ${{ matrix.electron_arch_flags }}
 
       # Clean up certificate for Windows only
       - name: Clean up certificate
