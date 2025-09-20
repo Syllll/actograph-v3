@@ -186,6 +186,15 @@ jobs:
         with:
           path: artifacts
 
+      - name: Normalize mac update files to avoid duplicate names
+        run: |
+          if [ -f "artifacts/electron-artifacts-macos-14/latest-mac.yml" ]; then
+            mv artifacts/electron-artifacts-macos-14/latest-mac.yml artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml
+          fi
+          if [ -f "artifacts/electron-artifacts-macos-13/latest-mac.yml" ]; then
+            mv artifacts/electron-artifacts-macos-13/latest-mac.yml artifacts/electron-artifacts-macos-13/latest-mac-x64.yml
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
