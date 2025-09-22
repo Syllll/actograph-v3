@@ -123,6 +123,10 @@ module.exports = configure(function (/* ctx */) {
           { server: false },
         ],
       ],
+      // Prefer dart-sass over deprecated node-sass for speed and compatibility
+      scss: {
+        additionalData: '',
+      },
       env: {
         // dev
         API_URL: process.env.API_URL, // 'http://localhost:3000',
