@@ -233,8 +233,7 @@ jobs:
           if compgen -G "artifacts/electron-artifacts-windows-latest/*.exe.blockmap" > /dev/null; then
             cp -f artifacts/electron-artifacts-windows-latest/*.exe.blockmap artifacts/release/
           fi
-          if compgen -G "artifacts/electron-artifacts-windows-latest/latest.yml" > 
-            /dev/null; then
+          if compgen -G "artifacts/electron-artifacts-windows-latest/latest.yml" > /dev/null; then
             cp -f artifacts/electron-artifacts-windows-latest/latest.yml artifacts/release/
           fi
 
