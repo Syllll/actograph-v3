@@ -339,8 +339,8 @@ module.exports = configure(function (/* ctx */) {
         mac: {
           category: 'public.app-category.utilities',
           target: [
-            { target: 'dmg', arch: ['x64'] },
-            { target: 'dmg', arch: ['arm64'] },
+            // We build for both arch but not here, directly in the workflow github
+            { target: 'dmg' },
           ],
         },
         win: {

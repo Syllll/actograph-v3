@@ -195,12 +195,90 @@ jobs:
             mv artifacts/electron-artifacts-macos-13/latest-mac.yml artifacts/electron-artifacts-macos-13/latest-mac-x64.yml
           fi
 
+      - name: Prepare release bundle (dedupe artifacts)
+        run: |
+          set -e
+          mkdir -p artifacts/release
+          # macOS x64 from macos-13
+          if compgen -G "artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg artifacts/release/
+          fi
+          if compgen -G "artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg.blockmap" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg.blockmap artifacts/release/
+          fi
+          if compgen -G "artifacts/electron-artifacts-macos-13/latest-mac-x64.yml" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-13/latest-mac-x64.yml artifacts/release/
+          fi
+          # macOS arm64 from macos-14
+          if compgen -G "artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg artifacts/release/
+          fi
+          if compgen -G "artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg.blockmap" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg.blockmap artifacts/release/
+          fi
+          if compgen -G "artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml artifacts/release/
+          fi
+          # Linux
+          if compgen -G "artifacts/electron-artifacts-ubuntu-latest/*.AppImage" > /dev/null; then
+            cp -f artifacts/electron-artifacts-ubuntu-latest/*.AppImage artifacts/release/
+          fi
+          if compgen -G "artifacts/electron-artifacts-ubuntu-latest/latest-linux.yml" > /dev/null; then
+            cp -f artifacts/electron-artifacts-ubuntu-latest/latest-linux.yml artifacts/release/
+          fi
+          # Windows
+          if compgen -G "artifacts/electron-artifacts-windows-latest/*.exe" > /dev/null; then
+            cp -f artifacts/electron-artifacts-windows-latest/*.exe artifacts/release/
+          fi
+          if compgen -G "artifacts/electron-artifacts-windows-latest/*.exe.blockmap" > /dev/null; then
+            cp -f artifacts/electron-artifacts-windows-latest/*.exe.blockmap artifacts/release/
+          fi
+          if compgen -G "artifacts/electron-artifacts-windows-latest/latest.yml" > 
+            /dev/null; then
+            cp -f artifacts/electron-artifacts-windows-latest/latest.yml artifacts/release/
+          fi
+
+      - name: Setup Node.js (for YAML merge)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install js-yaml in release folder
+        run: |
+          set -e
+          mkdir -p artifacts/release
+          cd artifacts/release
+          npm init -y >/dev/null 2>&1 || true
+          npm install js-yaml
+
+      - name: Merge mac update YAML into latest-mac.yml
+        run: |
+          set -e
+          cd artifacts/release
+          if [ -f latest-mac-x64.yml ] && [ -f latest-mac-arm64.yml ]; then
+            echo "Merging mac YAMLs into latest-mac.yml"
+            node -e '
+              const fs = require("fs");
+              const yaml = require("js-yaml");
+              const x64 = yaml.load(fs.readFileSync("latest-mac-x64.yml", "utf8"));
+              const arm = yaml.load(fs.readFileSync("latest-mac-arm64.yml", "utf8"));
+              const merged = { ...x64 };
+              merged.files = [...(x64.files || []), ...(arm.files || [])];
+              fs.writeFileSync("latest-mac.yml", yaml.dump(merged));
+            '
+          elif [ -f latest-mac-x64.yml ]; then
+            cp latest-mac-x64.yml latest-mac.yml
+          elif [ -f latest-mac-arm64.yml ]; then
+            cp latest-mac-arm64.yml latest-mac.yml
+          fi
+        shell: bash
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
           tag_name: actograph-v3_v${{ steps.get_version.outputs.VERSION }}
-          files: artifacts/**/*
+          files: artifacts/release/*
           draft: false
           prerelease: false
         env:
