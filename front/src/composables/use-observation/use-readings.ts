@@ -353,26 +353,68 @@ export const useReadings = (options: {
     /**
      * Removes a reading from the current readings
      * 
-     * @param readingId - The ID of the reading to remove
+     * This method supports removing readings by:
+     * - ID (for persisted readings)
+     * - tempId (for newly created readings that haven't been saved yet)
+     * - Reading object (will use id or tempId from the object)
+     * 
+     * @param readingIdOrObject - The ID, tempId, or reading object to remove
      * @returns true if the reading was removed, false otherwise
      */
-    removeReading: (readingId: any) => {
-      if (!readingId) {
-        // If no reading ID is provided, use the selected reading
+    removeReading: (readingIdOrObject: any) => {
+      // If no parameter provided, try to use the selected reading
+      if (!readingIdOrObject) {
         if (!sharedState.selectedReading) return false;
-        readingId = sharedState.selectedReading.id;
+        readingIdOrObject = sharedState.selectedReading;
       }
       
+      // Determine what identifier to use for removal
+      let idToFind: any = null;
+      let tempIdToFind: string | null = null;
+      
+      // If it's a reading object, extract id or tempId
+      if (typeof readingIdOrObject === 'object' && readingIdOrObject !== null) {
+        idToFind = readingIdOrObject.id;
+        tempIdToFind = readingIdOrObject.tempId || null;
+      } else {
+        // Assume it's an id (legacy support)
+        idToFind = readingIdOrObject;
+      }
+      
+      // Find the reading in the array by id or tempId
       const index = sharedState.currentReadings.findIndex(
-        (r: IReading) => r.id === readingId
+        (r: IReading) => {
+          // Match by id if both have id
+          if (idToFind && r.id && r.id === idToFind) {
+            return true;
+          }
+          // Match by tempId if both have tempId
+          if (tempIdToFind && r.tempId && r.tempId === tempIdToFind) {
+            return true;
+          }
+          // Match by reference (same object)
+          if (typeof readingIdOrObject === 'object' && r === readingIdOrObject) {
+            return true;
+          }
+          return false;
+        }
       );
       
+      // Remove the reading if found
       if (index !== -1) {
         sharedState.currentReadings.splice(index, 1);
         
-        // If we removed the selected reading, clear the selection
-        if (sharedState.selectedReading?.id === readingId) {
-          sharedState.selectedReading = null;
+        // Clear the selection if we removed the selected reading
+        // Check by id, tempId, or reference
+        if (sharedState.selectedReading) {
+          const isSelectedReading = 
+            (idToFind && sharedState.selectedReading.id === idToFind) ||
+            (tempIdToFind && sharedState.selectedReading.tempId === tempIdToFind) ||
+            (typeof readingIdOrObject === 'object' && sharedState.selectedReading === readingIdOrObject);
+          
+          if (isSelectedReading) {
+            sharedState.selectedReading = null;
+          }
         }
         
         return true;

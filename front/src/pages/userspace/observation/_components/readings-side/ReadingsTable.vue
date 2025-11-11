@@ -4,7 +4,7 @@
       class="fit" dense
       :rows="readings"
       :columns="columns"
-      row-key="id"
+      :row-key="getRowKey"
       :selected="selectedInternal"
       selection="single"
       binary-state-sort
@@ -33,20 +33,121 @@
             {{ props.rowIndex + 1 }}
           </q-td>
           <q-td key="type" :props="props">
-            {{ getReadingTypeLabel(props.row.type) }}
+            <div class="editable-cell">
+              {{ getReadingTypeLabel(props.row.type) }}
+              <q-popup-edit 
+                v-model="props.row.type" 
+                title="Editer le type" 
+                buttons
+                @save="(val, initialVal) => handleTypeSave(props.row, val, initialVal)"
+                v-slot="scope"
+              >
+                <q-select
+                  v-model="scope.value"
+                  :options="readingTypeOptions"
+                  option-label="label"
+                  option-value="value"
+                  emit-value
+                  map-options
+                  dense
+                  autofocus
+                />
+              </q-popup-edit>
+            </div>
           </q-td>
           <q-td key="dateTime" :props="props">
-            {{ formatDateTime(props.row.dateTime) }}
-            <q-popup-edit v-model="props.row.dateTime" title="Editer la date et l'heure" buttons v-slot="scope">
-              <q-input type="text" v-model="scope.value" dense autofocus />
-            </q-popup-edit>
-
+            <div class="editable-cell">
+              {{ formatDateTime(props.row.dateTime) }}
+              <q-popup-edit 
+                :model-value="formatDateTimeForEdit(props.row.dateTime)"
+                title="Editer la date et l'heure" 
+                buttons
+                @save="(val, initialVal) => handleDateTimeSave(props.row, val, initialVal)"
+                v-slot="scope"
+              >
+                <div class="column q-gutter-sm">
+                  <q-input
+                    v-model="scope.value"
+                    mask="##/##/#### ##:##:##.###"
+                    fill-mask="_"
+                    dense
+                    autofocus
+                    hint="Format: DD/MM/YYYY HH:mm:ss.SSS"
+                    label="Date et heure"
+                  >
+                    <template v-slot:append>
+                      <q-icon name="event" class="cursor-pointer">
+                        <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                          <q-date
+                            :model-value="getDatePart(scope.value)"
+                            @update:model-value="(val) => updateDatePart(scope, val)"
+                            mask="DD/MM/YYYY"
+                          >
+                            <div class="row items-center justify-end">
+                              <q-btn v-close-popup label="OK" color="primary" flat />
+                            </div>
+                          </q-date>
+                        </q-popup-proxy>
+                      </q-icon>
+                      <q-icon name="access_time" class="cursor-pointer">
+                        <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                          <q-time
+                            :model-value="getTimePartWithoutMs(scope.value)"
+                            @update:model-value="(val) => updateTimePartFromPicker(scope, val)"
+                            mask="HH:mm:ss"
+                            format24h
+                          >
+                            <div class="row items-center justify-end">
+                              <q-btn v-close-popup label="OK" color="primary" flat />
+                            </div>
+                          </q-time>
+                        </q-popup-proxy>
+                      </q-icon>
+                    </template>
+                  </q-input>
+                </div>
+              </q-popup-edit>
+            </div>
           </q-td>
           <q-td key="name" :props="props">
-            {{ props.row.name }}
-            <q-popup-edit v-model="props.row.name" title="Editer le label" buttons v-slot="scope">
-              <q-input type="text" v-model="scope.value" dense autofocus />
-            </q-popup-edit>
+            <div class="editable-cell">
+              {{ props.row.name }}
+              <q-popup-edit 
+                v-model="props.row.name" 
+                title="Editer le libellé" 
+                buttons
+                @save="(val, initialVal) => handleNameSave(props.row, val, initialVal)"
+                v-slot="scope"
+              >
+                <q-input 
+                  type="text" 
+                  v-model="scope.value" 
+                  dense 
+                  autofocus 
+                  :rules="[val => val && val.length > 0 || 'Le libellé ne peut pas être vide']"
+                />
+              </q-popup-edit>
+            </div>
+          </q-td>
+          <q-td key="description" :props="props">
+            <div class="editable-cell">
+              {{ props.row.description || '-' }}
+              <q-popup-edit 
+                v-model="props.row.description" 
+                title="Editer la description" 
+                buttons
+                @save="(val, initialVal) => handleDescriptionSave(props.row, val, initialVal)"
+                v-slot="scope"
+              >
+                <q-input 
+                  type="textarea" 
+                  v-model="scope.value" 
+                  dense 
+                  autofocus
+                  autogrow
+                />
+              </q-popup-edit>
+            </div>
           </q-td>
         </q-tr>
       </template>
@@ -58,7 +159,7 @@
 import { defineComponent, computed, ref, watch } from 'vue';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { QTableColumn } from 'quasar';
-import { date as qDate}  from 'quasar';
+import { date as qDate } from 'quasar';
 
 export default defineComponent({
   name: 'ReadingsTable',
@@ -106,27 +207,48 @@ export default defineComponent({
         align: 'left',
         sortable: true,
       },
+      {
+        name: 'description',
+        label: 'Description',
+        field: 'description',
+        align: 'left',
+        sortable: false,
+      },
     ];
 
     const selectedInternal = ref<IReading[]>([]);
     
     // Watch the parent's selected readings and update internal state
+    // This keeps the table's selection in sync with the parent component
     watch(() => props.selected, (newVal) => {
       selectedInternal.value = newVal || [];
     }, { immediate: true });
     
-    // Check if a row is selected using a safe comparison
+    // Check if a row is selected using a safe comparison (supports both id and tempId)
+    // This function handles three cases:
+    // 1. Readings with id (persisted readings from backend)
+    // 2. Readings with tempId (newly created readings not yet saved)
+    // 3. Same object reference (direct comparison)
     const isRowSelected = (row: IReading) => {
-      if (!row || !row.id || selectedInternal.value.length === 0) {
+      if (!row || selectedInternal.value.length === 0) {
         return false;
       }
       
-      return selectedInternal.value.some(r => r && r.id === row.id);
+      return selectedInternal.value.some(r => {
+        if (!r) return false;
+        // Compare by id if both have id
+        if (r.id && row.id && r.id === row.id) return true;
+        // Compare by tempId if both have tempId
+        if (r.tempId && row.tempId && r.tempId === row.tempId) return true;
+        // Compare by reference (same object)
+        return r === row;
+      });
     };
     
-    // Toggle row selection with improved safety
+    // Toggle row selection with improved safety (supports both id and tempId)
+    // This allows selecting readings whether they have an id or tempId
     const toggleRowSelection = (row: IReading) => {
-      if (!row || !row.id) return;
+      if (!row) return;
       console.log('toggleRowSelection', row);
       if (isRowSelected(row)) {
         selectedInternal.value = [];
@@ -139,6 +261,7 @@ export default defineComponent({
     };
     
     // Handle selection request from q-table
+    // This ensures single selection mode is enforced
     const handleRequestSelected = (details: any) => {
       // Force single selection mode
       if (details.rows && details.rows.length > 0) {
@@ -158,6 +281,50 @@ export default defineComponent({
       
       return qDate.formatDate(date, 'DD/MM/YYYY HH:mm:ss.SSS');
     };
+
+    // Format date and time for editing (returns string)
+    const formatDateTimeForEdit = (dateTime: Date | string) => {
+      if (!dateTime) return '';
+      return formatDateTime(dateTime);
+    };
+
+    // Extract date part from datetime string (DD/MM/YYYY)
+    const getDatePart = (dateTimeStr: string) => {
+      if (!dateTimeStr) return '';
+      const parts = dateTimeStr.split(' ');
+      return parts[0] || '';
+    };
+
+    // Extract time part from datetime string without milliseconds (HH:mm:ss)
+    const getTimePartWithoutMs = (dateTimeStr: string) => {
+      if (!dateTimeStr) return '';
+      const parts = dateTimeStr.split(' ');
+      const timePart = parts[1] || '';
+      // Remove milliseconds if present
+      return timePart.split('.')[0] || '';
+    };
+
+    // Extract time part from datetime string (HH:mm:ss.SSS)
+    const getTimePart = (dateTimeStr: string) => {
+      if (!dateTimeStr) return '';
+      const parts = dateTimeStr.split(' ');
+      return parts[1] || '';
+    };
+
+    // Update date part in scope value
+    const updateDatePart = (scope: any, dateVal: string) => {
+      const timePart = getTimePart(scope.value || '');
+      scope.value = `${dateVal} ${timePart || '00:00:00.000'}`;
+    };
+
+    // Update time part in scope value from time picker (without ms)
+    const updateTimePartFromPicker = (scope: any, timeVal: string) => {
+      const datePart = getDatePart(scope.value || '');
+      const currentTimePart = getTimePart(scope.value || '');
+      // Preserve milliseconds if they exist, otherwise add .000
+      const msPart = currentTimePart.includes('.') ? currentTimePart.split('.')[1] : '000';
+      scope.value = `${datePart || qDate.formatDate(new Date(), 'DD/MM/YYYY')} ${timeVal}.${msPart}`;
+    };
     
     // Get readable label for reading type
     const getReadingTypeLabel = (type: ReadingTypeEnum) => {
@@ -171,22 +338,97 @@ export default defineComponent({
       
       return labels[type] || type;
     };
+
+    // Options for reading type select
+    const readingTypeOptions = [
+      { label: 'Début', value: ReadingTypeEnum.START },
+      { label: 'Fin', value: ReadingTypeEnum.STOP },
+      { label: 'Déb pause', value: ReadingTypeEnum.PAUSE_START },
+      { label: 'Fin pause', value: ReadingTypeEnum.PAUSE_END },
+      { label: 'Data', value: ReadingTypeEnum.DATA },
+    ];
+
+    // Handle type save
+    const handleTypeSave = (row: IReading, val: ReadingTypeEnum, initialVal: ReadingTypeEnum) => {
+      if (val) {
+        row.type = val;
+        row.updatedAt = new Date();
+      }
+    };
+
+    // Handle date/time save with proper conversion
+    const handleDateTimeSave = (row: IReading, val: any, initialVal: any) => {
+      if (!val) return;
+      
+      // Convert string to Date if needed
+      let dateValue: Date;
+      if (val instanceof Date) {
+        dateValue = val;
+      } else if (typeof val === 'string') {
+        // Try to parse the date string
+        const parsed = qDate.extractDate(val, 'DD/MM/YYYY HH:mm:ss.SSS');
+        if (parsed) {
+          dateValue = parsed;
+        } else {
+          // Fallback to standard Date parsing
+          dateValue = new Date(val);
+        }
+      } else {
+        dateValue = new Date(val);
+      }
+      
+      // Update the row's dateTime
+      row.dateTime = dateValue;
+      row.updatedAt = new Date();
+    };
+
+    // Handle name save
+    const handleNameSave = (row: IReading, val: string, initialVal: string) => {
+      if (val && val.trim()) {
+        row.name = val.trim();
+        row.updatedAt = new Date();
+      }
+    };
+
+    // Handle description save
+    const handleDescriptionSave = (row: IReading, val: string | undefined, initialVal: string | undefined) => {
+      row.description = val || undefined;
+      row.updatedAt = new Date();
+    };
+    
+    // Get row key for q-table (use id if available, otherwise tempId)
+    // This ensures that both persisted readings (with id) and new readings (with tempId)
+    // can be properly tracked by the table's virtual scrolling and selection system
+    const getRowKey = (row: IReading) => {
+      return row.id ? `id-${row.id}` : `tempId-${row.tempId || 'unknown'}`;
+    };
     
     return {
       columns,
       selectedInternal,
       handleRequestSelected,
       formatDateTime,
+      formatDateTimeForEdit,
+      getDatePart,
+      getTimePart,
+      getTimePartWithoutMs,
+      updateDatePart,
+      updateTimePartFromPicker,
       getReadingTypeLabel,
+      readingTypeOptions,
       isRowSelected,
       toggleRowSelection,
+      handleDateTimeSave,
+      handleNameSave,
+      handleDescriptionSave,
+      handleTypeSave,
+      getRowKey,
     };
   },
 });
 </script>
 
 <style scoped>
-
 .selected-row {
   background-color: rgba(25, 118, 210, 0.1);
 }
@@ -194,5 +436,22 @@ export default defineComponent({
 /* Style the selected row more clearly */
 tr.selected-row td {
   font-weight: 500;
+}
+
+/* Make editable cells more visible */
+.editable-cell {
+  position: relative;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.editable-cell:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.editable-cell:active {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 </style> 
