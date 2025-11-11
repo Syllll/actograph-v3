@@ -26,7 +26,13 @@ rm -rf ./quasar
 yarn install
 
 # Build with electron mode
-./node_modules/.bin/quasar build -m electron --publish always
+# Optionally pass ELECTRON_ARCH_FLAGS (e.g., "--arm64" or "--x64") to control target archs
+if [ -n "$ELECTRON_ARCH_FLAGS" ]; then
+  echo "Using ELECTRON_ARCH_FLAGS=$ELECTRON_ARCH_FLAGS"
+  ./node_modules/.bin/quasar build -m electron --publish never -- $ELECTRON_ARCH_FLAGS
+else
+  ./node_modules/.bin/quasar build -m electron --publish never
+fi
 
 # List the content of the dist folder
 ls -la dist/electron

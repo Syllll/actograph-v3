@@ -11,11 +11,17 @@
   >
     <div class="fit">
       <div class="fit column q-col-gutter-md">
-        <div class="q-mt-md"><q-separator /></div>
+        <div class="q-mt-md">
+          <!--
+          <q-separator />
+          -->
+        </div>
 
         <!-- tools in a row -->
         <div class="column q-mx-md">
-          <div class="text-h4 text-weight-bold text-center q-mb-md">Outils</div>
+          <!--
+            <div class="text-h4 text-weight-bold text-center q-mb-md">Outils</div>
+          -->
           <div class="row justify-center q-gutter-sm">
             <d-action-btn
               icon="mdi-new-box"
@@ -43,7 +49,7 @@
         <!-- Menu -->
         <q-list>
           <template
-            v-for="(menuItem, index) in computedState.menuList"
+            v-for="(menuItem, index) in computedState.menuList.value"
             :key="index"
           >
             <q-item
@@ -73,8 +79,9 @@
         
           <div><q-separator /></div>
 
-          <!-- tools in a row -->
-        <div class="column q-mx-md">
+          <!-- Current observation card -->
+        <DCard class="q-mx-sm q-ml-md" bgColor="primary">
+        <div class="column text-text-invert">
           <div class="text-h4 text-weight-bold text-center q-mb-md">
             Votre observation
           </div>
@@ -86,12 +93,14 @@
           </div>
 
           <div
-            v-if="observation.readings.sharedState.currentReadings"
+            v-if="observation.sharedState.currentObservation?.name && observation.readings.sharedState.currentReadings"
             class="row q-mt-sm"
           >
             Relevés : {{ observation.readings.sharedState.currentReadings.length }}
           </div>
         </div>
+      </DCard>
+        
       </div>
     </div>
   </q-drawer>
@@ -104,6 +113,10 @@ import { useDrawer } from './use-drawer';
 import { useRouter } from 'vue-router';
 import { useObservation } from 'src/composables/use-observation';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
+import { useAuth } from '@lib-improba/composables/use-auth';
+import { userMenuItems } from '@lib-improba/components/layouts/standard/user-menu-items';
+import { useI18n } from 'vue-i18n';
+import ThemeToggler from '@lib-improba/components/layouts/theme-toggler/ThemeToggler.vue';
 
 export default defineComponent({
   props: {
@@ -113,17 +126,33 @@ export default defineComponent({
     },
   },
   emits: ['update:showDrawer'],
+  components: {
+    ThemeToggler,
+  },
   setup(props) {
     const drawer = useDrawer();
     const router = useRouter();
     const state = reactive({});
     const observation = useObservation();
+    const auth = useAuth(router);
+    const i18n = useI18n();
 
-    const computedState = computed(() => {
-      return {
-        menuList: menu(router),
-      };
-    });
+    const computedState = {
+      menuList: computed(() => menu(router)),
+      userName: computed(() => {
+        const user = auth.sharedState?.user;
+        let userName =
+          user?.firstname ?? user?.userJwt?.username ?? '-';
+
+        // Remove the username prefix if it exists
+        if (userName.startsWith('_pc-')) {
+          userName = userName.slice(4);
+        }
+
+        return userName;
+      }),
+      userMenuItems: computed(() => userMenuItems(i18n, auth)),
+    }
 
     const methods = {
       startObservation: async () => {
@@ -154,6 +183,7 @@ export default defineComponent({
       computedState,
       drawer,
       observation,
+      auth,
     };
   },
 });

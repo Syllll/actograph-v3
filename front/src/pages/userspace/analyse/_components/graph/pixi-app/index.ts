@@ -53,10 +53,16 @@ export class PixiApp {
       throw new Error('Observation must have protocol');
     }
 
-
     this.yAxis.setData(observation);
     this.xAxis.setData(observation);
     this.dataArea.setData(observation);
+
+    // Ensure canvas is tall enough for all observables
+    const requiredHeight = this.yAxis.getRequiredHeight();
+    if (this.app.canvas && requiredHeight > this.app.canvas.height) {
+      this.app.canvas.style.height = `${requiredHeight}px;`;
+      this.app.canvas.height = requiredHeight;
+    }
   }
 
   public async draw() {

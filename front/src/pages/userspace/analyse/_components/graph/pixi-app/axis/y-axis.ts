@@ -31,6 +31,11 @@ export class yAxis extends BaseGroup {
     },
   }
 
+  private axisOffset = {
+    x: 150,
+    y: 20,
+  };
+
   private axisStart: {
     x: number,
     y: number,
@@ -96,18 +101,17 @@ export class yAxis extends BaseGroup {
     super.clear();
   }
 
-  public draw(): void {
-    // We know the axis must end 20px below the top of the screen
-    // The start pos is determined by the number of obs and categories.
-
-    const width = this.app.screen.width;
-    const height = this.app.screen.height;
-
-    
-
-    // Loop on all categories and observables to determine total height, 
-    // and obs position
+  private computeAxisLengthAndTicks(): {
+    axisLength: number,
+    ticks: {
+      label: string,
+      pos?: number,
+      category: ProtocolItem,
+      observable: ProtocolItem,
+    }[],
+  } {
     let axisLength = 0;
+
     const ticks: {
       label: string,
       pos?: number,
@@ -119,7 +123,6 @@ export class yAxis extends BaseGroup {
         // Loop on all observables
         for (const observable of category.children) {
           axisLength += 30;
-
           ticks.push({
             label: observable.name,
             pos: axisLength,
@@ -132,13 +135,34 @@ export class yAxis extends BaseGroup {
       }
     }
 
+    return {
+      axisLength,
+      ticks,
+    };
+  }
+
+  public getRequiredHeight(): number {
+    const { axisLength } = this.computeAxisLengthAndTicks();
+    const offsetY = 20;
+    const extraMargin = 20;
+    return axisLength + offsetY + extraMargin;
+  }
+
+  public draw(): void {
+    // We know the axis must end 20px below the top of the screen
+    // The start pos is determined by the number of obs and categories.
+
+    const width = this.app.screen.width;
+    const height = this.app.screen.height;
+
+    // Loop on all categories and observables to determine total height, 
+    // and obs position
+    const { axisLength, ticks } = this.computeAxisLengthAndTicks();
+
     this.ticks = ticks;
 
     // Set the axis start and end
-    const offset = {
-      x: width * 0.2,
-      y: 20,
-    };
+    const offset = this.axisOffset;
 
     // The y axis starts at 20px below the top of the screen
     const yAxisStart = {

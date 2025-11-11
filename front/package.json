@@ -1,6 +1,6 @@
 {
   "name": "actograph",
-  "version": "0.0.50",
+  "version": "0.0.64",
   "description": "A Quasar Project",
   "productName": "actograph",
   "author": "Sylvain Meylan <sylvain@ateliom.fr>",
@@ -24,7 +24,6 @@
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "get-port-please": "^3.1.2",
-    "node-sass": "^9.0.0",
     "pixi.js": "^8.12.0",
     "quasar": "^2.8.0",
     "uuid": "^11.1.0",
@@ -45,6 +44,7 @@
     "eslint": "^8.11.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-vue": "^9.0.0",
+    "sass": "^1.77.0",
     "prettier": "^2.5.1",
     "typescript": "^4.5.4",
     "vite-plugin-checker": "^0.6.4",

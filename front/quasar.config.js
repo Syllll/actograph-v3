@@ -123,6 +123,10 @@ module.exports = configure(function (/* ctx */) {
           { server: false },
         ],
       ],
+      // Prefer dart-sass over deprecated node-sass for speed and compatibility
+      scss: {
+        additionalData: '',
+      },
       env: {
         // dev
         API_URL: process.env.API_URL, // 'http://localhost:3000',
@@ -140,9 +144,11 @@ module.exports = configure(function (/* ctx */) {
         const promise = new Promise((resolve, reject) => {
           const buildApi = async () => {
             try {
-              // Change directory to api and install dependencies
+              // Change directory to api and install dev+prod dependencies to allow building (nest, etc.)
               process.chdir('../api');
               await new Promise((resolve, reject) => {
+                // Force dev dependencies to be installed for the build phase
+                // (explicit flag overrides environment like NODE_ENV=production)
                 spawn('yarn', ['install', '--production=false'], {
                   stdio: 'inherit',
                   shell: true,
@@ -151,9 +157,11 @@ module.exports = configure(function (/* ctx */) {
                 );
               });
 
-              // Clean and build
+              // Clean and build using local binaries (avoid npx on CI)
+              const binPath = path.join(process.cwd(), 'node_modules', '.bin');
+
               await new Promise((resolve, reject) => {
-                spawn('npx', ['rimraf', 'dist'], {
+                spawn(path.join(binPath, 'rimraf'), ['dist'], {
                   stdio: 'inherit',
                   shell: true,
                 }).on('close', (code) =>
@@ -162,7 +170,7 @@ module.exports = configure(function (/* ctx */) {
               });
 
               await new Promise((resolve, reject) => {
-                spawn('npx', ['nest', 'build'], {
+                spawn(path.join(binPath, 'nest'), ['build'], {
                   stdio: 'inherit',
                   shell: true,
                 }).on('close', (code) =>
@@ -173,23 +181,68 @@ module.exports = configure(function (/* ctx */) {
               // Change back to front directory
               process.chdir('../front');
 
-              // Clean destination directory
+              // Clean destination directory where the API will be embedded in the Electron app
               await fs.remove('./src-electron/extra-resources/api');
 
-              // Create directory and copy files
+              // Create destination and copy the compiled API (dist)
               await fs.ensureDir('./src-electron/extra-resources/api');
               await fs.copy(
                 '../api/dist',
                 './src-electron/extra-resources/api/dist'
               );
+
+              // Two-phase dependency install:
+              // 1) We already installed dev+prod deps above to build the API.
+              // 2) For runtime, we only need production dependencies next to dist/.
+              //    To ensure a clean prod-only tree, install into a temporary folder
+              //    and copy its node_modules alongside the compiled dist.
+              const os = require('os');
+              const prodInstallDir = path.join(
+                os.tmpdir(),
+                'actograph-api-prod-deps'
+              );
+
+              // Prepare a minimal project (package.json + yarn.lock) in temp dir
+              await fs.remove(prodInstallDir);
+              await fs.ensureDir(prodInstallDir);
               await fs.copy(
-                '../api/node_modules',
+                '../api/package.json',
+                path.join(prodInstallDir, 'package.json')
+              );
+              if (await fs.pathExists('../api/yarn.lock')) {
+                await fs.copy(
+                  '../api/yarn.lock',
+                  path.join(prodInstallDir, 'yarn.lock')
+                );
+              }
+
+              // Install only production dependencies in the temp directory
+              await new Promise((resolve, reject) => {
+                spawn('yarn', ['install', '--production=true'], {
+                  stdio: 'inherit',
+                  shell: true,
+                  cwd: prodInstallDir,
+                }).on('close', (code) =>
+                  code === 0 ? resolve() : reject(code)
+                );
+              });
+
+              // Copy the production node_modules next to API dist for runtime
+              await fs.copy(
+                path.join(prodInstallDir, 'node_modules'),
                 './src-electron/extra-resources/api/dist/node_modules'
               );
-              await fs.copy(
-                '../api/.env',
-                './src-electron/extra-resources/api/.env'
-              );
+
+              // Copy environment file if present
+              if (await fs.pathExists('../api/.env')) {
+                await fs.copy(
+                  '../api/.env',
+                  './src-electron/extra-resources/api/.env'
+                );
+              }
+
+              // Cleanup temporary install directory
+              await fs.remove(prodInstallDir);
 
               resolve();
             } catch (error) {
@@ -340,11 +393,15 @@ module.exports = configure(function (/* ctx */) {
         extraResources: ['./src-electron/extra-resources/**'],
         // We do not use the version in the artifact name, because we want to be able to
         // use the same artifact name for different versions.
-        artifactName: 'ActoGraph-v3.${ext}', // 'ActoGraph-v3-${version}.${ext}',
+        artifactName: 'ActoGraph-v3-${arch}.${ext}', // 'ActoGraph-v3-${version}.${ext}',
         productName: 'ActoGraph-v3',
         copyright: '©2025 SymAlgo Technologies',
         mac: {
           category: 'public.app-category.utilities',
+          target: [
+            // We build for both arch but not here, directly in the workflow github
+            { target: 'dmg' },
+          ],
         },
         win: {
           target: 'nsis',
