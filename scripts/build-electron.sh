@@ -26,11 +26,20 @@ rm -rf ./quasar
 yarn install
 
 # Build with electron mode
-# Optionally pass ELECTRON_ARCH_FLAGS (e.g., "--arm64" or "--x64") to control target archs
-if [ -n "$ELECTRON_ARCH_FLAGS" ]; then
+# Support for architecture-specific builds:
+# - ELECTRON_BUILDER_ARCH: Set to "x64" or "arm64" (preferred method)
+# - ELECTRON_ARCH_FLAGS: Legacy support for "--x64" or "--arm64" flags
+if [ -n "$ELECTRON_BUILDER_ARCH" ]; then
+  echo "Using ELECTRON_BUILDER_ARCH=$ELECTRON_BUILDER_ARCH"
+  # Set environment variable for Electron Builder
+  export ELECTRON_BUILDER_ARCH=$ELECTRON_BUILDER_ARCH
+  ./node_modules/.bin/quasar build -m electron --publish never
+elif [ -n "$ELECTRON_ARCH_FLAGS" ]; then
   echo "Using ELECTRON_ARCH_FLAGS=$ELECTRON_ARCH_FLAGS"
+  # Pass flags directly to Quasar CLI (which forwards to Electron Builder)
   ./node_modules/.bin/quasar build -m electron --publish never -- $ELECTRON_ARCH_FLAGS
 else
+  echo "Building for default architecture(s)"
   ./node_modules/.bin/quasar build -m electron --publish never
 fi
 

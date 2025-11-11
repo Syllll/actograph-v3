@@ -13,9 +13,9 @@ jobs:
           - os: ubuntu-latest
           - os: windows-latest
           - os: macos-13 # Intel x64 runner
-            electron_arch_flags: "--x64"
+            electron_arch: "x64"
           - os: macos-14 # Apple Silicon arm64 runner
-            electron_arch_flags: "--arm64"
+            electron_arch: "arm64"
     runs-on: ${{ matrix.os }}
     environment: deploy
     permissions:
@@ -140,13 +140,26 @@ jobs:
       - name: Setup Yarn
         run: npm install -g yarn
 
+      - name: Prepare architecture flags
+        id: arch_flags
+        run: |
+          if [ -n "${{ matrix.electron_arch }}" ]; then
+            echo "flags=--${{ matrix.electron_arch }}" >> $GITHUB_OUTPUT
+          else
+            echo "flags=" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       - name: Run deploy script
         run: bash scripts/build-electron.sh
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WIN_CERT_PWD: ${{ secrets.WIN_CERT_PWD }}
-          ELECTRON_ARCH_FLAGS: ${{ matrix.electron_arch_flags }}
+          # Use ELECTRON_BUILDER_ARCH for architecture-specific builds (macOS only)
+          ELECTRON_BUILDER_ARCH: ${{ matrix.electron_arch || '' }}
+          # Keep ELECTRON_ARCH_FLAGS for backward compatibility with build script
+          ELECTRON_ARCH_FLAGS: ${{ steps.arch_flags.outputs.flags }}
 
       # Clean up certificate for Windows only
       - name: Clean up certificate
@@ -177,9 +190,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch tags to enable git describe
+          fetch-depth: 0
+
       - name: Extract version from tag
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
+        run: |
+          # Get the latest tag that matches prod-v*.*.* pattern
+          VERSION=$(git describe --tags --match 'prod-v*.*.*' --abbrev=0 | sed 's/prod-v//')
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+        shell: bash
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -188,12 +212,35 @@ jobs:
 
       - name: Normalize mac update files to avoid duplicate names
         run: |
-          if [ -f "artifacts/electron-artifacts-macos-14/latest-mac.yml" ]; then
-            mv artifacts/electron-artifacts-macos-14/latest-mac.yml artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml
+          set -e
+          # Enable nullglob to handle cases where no files match
+          shopt -s nullglob
+          # Find and rename latest-mac.yml files for macOS builds
+          # Handle macos-14 (arm64)
+          if [ -d "artifacts/electron-artifacts-macos-14" ]; then
+            if [ -f "artifacts/electron-artifacts-macos-14/latest-mac.yml" ]; then
+              mv artifacts/electron-artifacts-macos-14/latest-mac.yml artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml
+            fi
+            # Also handle any other YAML files that might be generated
+            for file in artifacts/electron-artifacts-macos-14/latest-mac*.yml artifacts/electron-artifacts-macos-14/latest-mac*.yaml; do
+              if [ -f "$file" ] && [[ ! "$file" =~ (arm64|x64) ]]; then
+                mv "$file" "${file%.*}-arm64.yml"
+              fi
+            done
           fi
-          if [ -f "artifacts/electron-artifacts-macos-13/latest-mac.yml" ]; then
-            mv artifacts/electron-artifacts-macos-13/latest-mac.yml artifacts/electron-artifacts-macos-13/latest-mac-x64.yml
+          # Handle macos-13 (x64)
+          if [ -d "artifacts/electron-artifacts-macos-13" ]; then
+            if [ -f "artifacts/electron-artifacts-macos-13/latest-mac.yml" ]; then
+              mv artifacts/electron-artifacts-macos-13/latest-mac.yml artifacts/electron-artifacts-macos-13/latest-mac-x64.yml
+            fi
+            # Also handle any other YAML files that might be generated
+            for file in artifacts/electron-artifacts-macos-13/latest-mac*.yml artifacts/electron-artifacts-macos-13/latest-mac*.yaml; do
+              if [ -f "$file" ] && [[ ! "$file" =~ (arm64|x64) ]]; then
+                mv "$file" "${file%.*}-x64.yml"
+              fi
+            done
           fi
+        shell: bash
 
       - name: Prepare release bundle (dedupe artifacts)
         run: |
@@ -206,6 +253,15 @@ jobs:
           if compgen -G "artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg.blockmap" > /dev/null; then
             cp -f artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg.blockmap artifacts/release/
           fi
+          # Include macOS x64 ZIP files if they exist (Electron Builder may generate ZIP files)
+          if compgen -G "artifacts/electron-artifacts-macos-13/*mac*.zip" > /dev/null; then
+            # Copy ZIP files, renaming if needed to include architecture
+            for zipfile in artifacts/electron-artifacts-macos-13/*mac*.zip; do
+              if [[ "$zipfile" =~ x64 ]] || [[ ! "$zipfile" =~ (arm64|x64) ]]; then
+                cp -f "$zipfile" artifacts/release/
+              fi
+            done
+          fi
           if compgen -G "artifacts/electron-artifacts-macos-13/latest-mac-x64.yml" > /dev/null; then
             cp -f artifacts/electron-artifacts-macos-13/latest-mac-x64.yml artifacts/release/
           fi
@@ -215,6 +271,15 @@ jobs:
           fi
           if compgen -G "artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg.blockmap" > /dev/null; then
             cp -f artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg.blockmap artifacts/release/
+          fi
+          # Include macOS arm64 ZIP files if they exist (Electron Builder may generate ZIP files)
+          if compgen -G "artifacts/electron-artifacts-macos-14/*mac*.zip" > /dev/null; then
+            # Copy ZIP files, renaming if needed to include architecture
+            for zipfile in artifacts/electron-artifacts-macos-14/*mac*.zip; do
+              if [[ "$zipfile" =~ arm64 ]] || [[ ! "$zipfile" =~ (arm64|x64) ]]; then
+                cp -f "$zipfile" artifacts/release/
+              fi
+            done
           fi
           if compgen -G "artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml" > /dev/null; then
             cp -f artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml artifacts/release/
@@ -276,7 +341,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
-          tag_name: actograph-v3_v${{ steps.get_version.outputs.VERSION }}
+          # Use consistent tag naming: keep prod-v prefix to match trigger
+          tag_name: prod-v${{ steps.get_version.outputs.VERSION }}
           files: artifacts/release/*
           draft: false
           prerelease: false
