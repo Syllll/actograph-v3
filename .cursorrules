@@ -1,0 +1,269 @@
+# ActoGraph v3 - Cursor Rules
+
+## Architecture du projet
+
+Ce projet est composé de deux parties principales :
+- **Frontend** : Application Quasar/Vue.js 3 dans le dossier `front/`
+- **Backend** : API NestJS avec TypeORM dans le dossier `api/`
+
+Les deux parties sont containerisées avec Docker pour le développement.
+
+## Docker - Conteneurs et commandes
+
+### Conteneurs Docker
+- **API** : `actograph-v3-api-dev` (dans `api/docker/`)
+- **Frontend** : `actograph-v3-front-dev` (dans `front/docker/`)
+
+### Règles pour les commandes Docker
+
+**IMPORTANT** : Toutes les commandes liées au backend (migrations, yarn install, etc.) doivent être exécutées dans le conteneur `actograph-v3-api-dev`.
+Toutes les commandes liées au frontend (yarn install, quasar dev, etc.) doivent être exécutées dans le conteneur `actograph-v3-front-dev`.
+
+#### Commandes API (Backend)
+Pour exécuter des commandes dans le conteneur API :
+```bash
+docker compose --env-file ./api/docker/../.env -f ./api/docker/docker-compose.dev.yml exec actograph-v3-api-dev <commande>
+```
+
+Exemples :
+- Migrations : `docker compose --env-file ./api/docker/../.env -f ./api/docker/docker-compose.dev.yml exec actograph-v3-api-dev yarn migration:run`
+- Yarn install : `docker compose --env-file ./api/docker/../.env -f ./api/docker/docker-compose.dev.yml exec actograph-v3-api-dev yarn install`
+- Console interactive : `sh api/docker/compose.sh console`
+
+#### Commandes Frontend
+Pour exécuter des commandes dans le conteneur Frontend :
+```bash
+docker compose --env-file ./front/docker/../.env -f ./front/docker/docker-compose.dev.yml exec actograph-v3-front-dev <commande>
+```
+
+Exemples :
+- Yarn install : `docker compose --env-file ./front/docker/../.env -f ./front/docker/docker-compose.dev.yml exec actograph-v3-front-dev yarn install`
+- Quasar dev : `docker compose --env-file ./front/docker/../.env -f ./front/docker/docker-compose.dev.yml exec actograph-v3-front-dev yarn dev`
+- Console interactive : `sh front/docker/compose.sh console`
+
+## Backend (API) - NestJS + TypeORM
+
+### Structure des fichiers
+- **Entités** : `api/src/**/*.entity.ts` - Toutes les entités TypeORM doivent être dans ce pattern
+- **Migrations** : `api/migrations/` - Toutes les migrations TypeORM
+- **Services** : `api/src/**/services/*.service.ts`
+- **Controllers** : `api/src/**/controllers/*.controller.ts`
+- **Repositories** : `api/src/**/repositories/*.repository.ts`
+- **DTOs** : `api/src/**/dtos/*.dto.ts`
+- **Modules** : `api/src/**/*.module.ts`
+
+### Conventions de code Backend
+
+#### Entités TypeORM
+- Toutes les entités doivent étendre `BaseEntity` de `@utils/entities/base.entity`
+- Utiliser les décorateurs TypeORM : `@Entity()`, `@Column()`, `@ManyToOne()`, `@OneToMany()`, `@OneToOne()`, `@JoinColumn()`
+- Ajouter des index avec `@Index()` quand nécessaire
+- Utiliser `@Expose()` de `class-transformer` pour la sérialisation avec des groupes
+- Les entités doivent être dans des fichiers se terminant par `.entity.ts`
+
+Exemple :
+```typescript
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
+import { Expose } from 'class-transformer';
+import { BaseEntity } from '@utils/entities/base.entity';
+
+@Entity('table_name')
+export class MyEntity extends BaseEntity {
+  @Column({ nullable: false })
+  @Index()
+  name!: string;
+
+  @ManyToOne(() => OtherEntity)
+  @JoinColumn()
+  otherEntity?: OtherEntity;
+}
+```
+
+#### Services NestJS
+- Tous les services doivent être décorés avec `@Injectable()`
+- Les services doivent étendre `BaseService<Entity, Repository>` quand approprié
+- Injecter les repositories avec `@InjectRepository(RepositoryClass)`
+- Utiliser `private readonly` pour les dépendances injectées
+
+Exemple :
+```typescript
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { BaseService } from '@utils/services/base.service';
+
+@Injectable()
+export class MyService extends BaseService<MyEntity, MyRepository> {
+  constructor(
+    @InjectRepository(MyRepository)
+    private readonly repository: MyRepository,
+  ) {
+    super(repository);
+  }
+}
+```
+
+#### Controllers NestJS
+- Tous les controllers doivent étendre `BaseController`
+- Utiliser les décorateurs NestJS : `@Controller()`, `@Get()`, `@Post()`, `@Patch()`, `@Delete()`
+- Utiliser `@UseGuards()` pour l'authentification/autorisation
+- Utiliser `@Roles()` pour les permissions basées sur les rôles
+- Injecter les services dans le constructeur
+
+Exemple :
+```typescript
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { BaseController } from '@utils/controllers/base.controller';
+import { JwtAuthGuard } from '@users/guards/jwt-auth.guard';
+
+@Controller('my-resource')
+export class MyController extends BaseController {
+  constructor(private readonly service: MyService) {
+    super();
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async findAll() {
+    return await this.service.findAll();
+  }
+}
+```
+
+#### Migrations TypeORM
+- Les migrations doivent être générées avec : `yarn migration:generate api/migrations/MigrationName`
+- Exécuter les migrations avec : `yarn migration:run`
+- Revenir en arrière avec : `yarn migration:revert`
+- Créer une migration vide avec : `yarn migration:create api/migrations/MigrationName`
+- **TOUJOURS exécuter les migrations dans le conteneur Docker API**
+
+#### Repositories
+- Les repositories doivent étendre `BaseRepository<Entity>` ou utiliser le décorateur `@CustomRepository()`
+- Utiliser `@InjectRepository()` dans les services pour injecter les repositories
+
+### Gestion des dépendances Backend
+- Utiliser **yarn** (pas npm)
+- Toujours exécuter `yarn install` dans le conteneur Docker API
+- Le fichier `package.json` est dans `api/package.json`
+
+## Frontend - Vue.js 3 + Quasar
+
+### Structure des fichiers
+- **Pages** : `front/src/pages/` - Pages de l'application
+- **Composants** : `front/src/components/` et `front/lib-improba/components/`
+- **Composables** : `front/src/composables/` et `front/lib-improba/composables/`
+- **Services** : `front/src/services/` et `front/lib-improba/services/`
+- **Router** : `front/src/router/`
+- **Styles** : `front/src/css/` et `front/lib-improba/css/`
+
+### Conventions de code Frontend
+
+#### Composants Vue.js
+- **IMPORTANT** : Utiliser `defineComponent` avec la fonction `setup()`, **PAS** `<script setup>`
+- Tous les composants doivent utiliser TypeScript (`<script lang="ts">`)
+- Les composants doivent exporter `defineComponent` avec un nom explicite
+- Utiliser la Composition API avec `setup()`
+- Retourner un objet depuis `setup()` avec toutes les propriétés/méthodes exposées au template
+
+Exemple :
+```vue
+<template>
+  <div>
+    <p>{{ title }}</p>
+    <button @click="increment">Count: {{ count }}</button>
+  </div>
+</template>
+
+<script lang="ts">
+import { defineComponent, ref } from 'vue';
+
+export default defineComponent({
+  name: 'MyComponent',
+  props: {
+    title: {
+      type: String,
+      required: true,
+    },
+  },
+  setup(props) {
+    const count = ref(0);
+    
+    function increment() {
+      count.value++;
+    }
+    
+    return {
+      count,
+      increment,
+    };
+  },
+});
+</script>
+```
+
+#### Composables
+- Créer des composables réutilisables dans `front/src/composables/` ou `front/lib-improba/composables/`
+- Les composables doivent être des fonctions qui retournent un objet
+- Utiliser le préfixe `use` pour les noms de composables (ex: `useAuth`, `useGraph`)
+
+Exemple :
+```typescript
+import { ref, computed } from 'vue';
+
+export function useCounter() {
+  const count = ref(0);
+  
+  const doubleCount = computed(() => count.value * 2);
+  
+  function increment() {
+    count.value++;
+  }
+  
+  return {
+    count,
+    doubleCount,
+    increment,
+  };
+}
+```
+
+#### Quasar Framework
+- Utiliser les composants Quasar avec le préfixe `q-` (ex: `q-btn`, `q-input`)
+- Utiliser les composants de la lib-improba quand disponibles (ex: `DPage`, `StandardLayout`)
+- Respecter les conventions de nommage Quasar
+
+### Gestion des dépendances Frontend
+- Utiliser **yarn** (pas npm)
+- Toujours exécuter `yarn install` dans le conteneur Docker Frontend
+- Le fichier `package.json` est dans `front/package.json`
+
+## Scripts utiles
+
+### Développement
+- Démarrer en mode web (avec Docker) : `bash scripts/dev-web.sh`
+- Démarrer en mode electron : `bash scripts/dev-electron.sh`
+- Console API : `sh api/docker/compose.sh console`
+- Console Frontend : `sh front/docker/compose.sh console`
+
+### Déploiement
+- Déployer en production : `bash scripts/publish prod`
+- Déployer manuellement : `COMPOSE_MODE=production sh compose.sh up -d`
+
+## Règles générales
+
+1. **Toujours utiliser Docker** pour les commandes de développement (yarn, migrations, etc.)
+2. **Respecter la structure** des dossiers existants
+3. **Utiliser TypeScript** partout (backend et frontend)
+4. **Suivre les conventions** de nommage existantes
+5. **Étendre les classes de base** quand disponibles (BaseEntity, BaseService, BaseController)
+6. **Utiliser yarn** pour la gestion des dépendances (pas npm)
+7. **Tester les migrations** avant de les commiter
+8. **Respecter les patterns** existants dans le code
+
+## Notes importantes
+
+- Les migrations TypeORM doivent toujours être exécutées dans le conteneur Docker API
+- Les commandes yarn doivent être exécutées dans le conteneur approprié (API ou Frontend)
+- Le frontend utilise Vue.js 3 avec `defineComponent` et `setup()`, **PAS** `<script setup>`
+- Le backend utilise NestJS avec TypeORM et des entités qui étendent `BaseEntity`
+- Tous les fichiers doivent respecter les conventions TypeScript strictes
+

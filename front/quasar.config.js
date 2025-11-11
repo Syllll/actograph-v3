@@ -308,6 +308,13 @@ module.exports = configure(function (/* ctx */) {
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/developing-electron-apps/configuring-electron
     electron: {
+      extendElectronMainConf(esbuildConf) {
+        // Ajouter les arguments pour désactiver le sandbox sur Linux
+        if (process.platform === 'linux') {
+          // Ces arguments seront passés au processus Electron
+          process.env.ELECTRON_DISABLE_SANDBOX = '1';
+        }
+      },
       // extendElectronMainConf (esbuildConf)
       // extendElectronPreloadConf (esbuildConf)
 
