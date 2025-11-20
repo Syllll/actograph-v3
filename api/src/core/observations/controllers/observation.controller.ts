@@ -257,8 +257,11 @@ export class ObservationController extends BaseController {
       );
     }
 
-    // Convertir le buffer en string
-    const fileContent = file.buffer.toString('utf8');
+    // Pour .jchronic : convertir en string UTF-8
+    // Pour .chronic : garder le Buffer (format binaire)
+    const fileContent = fileName.endsWith('.jchronic')
+      ? file.buffer.toString('utf8')
+      : file.buffer;
 
     // Importer l'observation
     const observation = await this.observationService.import.importFromFile(

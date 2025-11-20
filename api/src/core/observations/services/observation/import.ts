@@ -4,6 +4,10 @@ import { ReadingService } from '../reading.service';
 import { BadRequestException } from '@nestjs/common';
 import { ReadingTypeEnum } from '../../entities/reading.entity';
 import { ProtocolItemTypeEnum } from '../../entities/protocol.entity';
+import { ChronicV1Parser } from './chronic-v1/parser/chronic-parser';
+import { ProtocolV1Converter } from './chronic-v1/converter/protocol-converter';
+import { ReadingV1Converter } from './chronic-v1/converter/reading-converter';
+import { IChronicV1 } from './chronic-v1/types/chronic-v1.types';
 
 /**
  * Format d'import pour les fichiers .jchronic (v3)
@@ -59,48 +63,57 @@ export interface IChronicImport {
 
 /**
  * Format d'import pour les fichiers .chronic (v1)
+ * 
+ * Ce format est utilisé après parsing du fichier binaire .chronic.
+ * Il contient la structure complète parsée depuis le fichier Qt DataStream.
+ * 
+ * @see IChronicV1 - Structure complète du fichier .chronic parsé
  */
 interface IChronicV1Import {
-  observation?: {
-    name?: string;
-    description?: string;
-  };
-  readings?: Array<{
-    name: string;
-    description?: string;
-    type: string;
-    dateTime: string;
-  }>;
-  [key: string]: any;
+  chronic: IChronicV1; // Structure complète parsée depuis le fichier binaire
 }
 
 export class Import {
+  private chronicV1Parser: ChronicV1Parser;
+  private protocolV1Converter: ProtocolV1Converter;
+  private readingV1Converter: ReadingV1Converter;
+
   constructor(
     private readonly observationService: ObservationService,
     private readonly protocolService: ProtocolService,
     private readonly readingService: ReadingService,
-  ) {}
+  ) {
+    this.chronicV1Parser = new ChronicV1Parser();
+    this.protocolV1Converter = new ProtocolV1Converter();
+    this.readingV1Converter = new ReadingV1Converter();
+  }
 
   /**
    * Parse le contenu d'un fichier et détecte son format
    * 
-   * Détection du format :
-   * - .jchronic : Format JSON de la v3 (format actuel) - SUPPORTÉ
-   * - .chronic : Format de la v1 (legacy) - NON SUPPORTÉ (renvoie une erreur)
+   * Cette méthode détecte automatiquement le format du fichier via son extension
+   * et parse le contenu en conséquence :
    * 
-   * Le format est détecté via l'extension du fichier.
+   * **Format .jchronic (v3)** :
+   * - Format JSON textuel lisible
+   * - Parsing via JSON.parse()
+   * - Validation des champs essentiels
    * 
-   * IMPORTANT : Les fichiers .chronic (v1) ne sont pas encore supportés.
-   * Si un fichier .chronic est détecté, une erreur est renvoyée immédiatement
-   * sans tentative de parsing.
+   * **Format .chronic (v1)** :
+   * - Format binaire Qt DataStream
+   * - Parsing via ChronicV1Parser qui utilise la bibliothèque qtdatastream
+   * - Support des versions 1, 2 et 3 du format
+   * - Validation de la structure parsée
    * 
-   * @param fileContent Contenu du fichier (string)
+   * Le format est détecté via l'extension du fichier (.jchronic ou .chronic).
+   * 
+   * @param fileContent Contenu du fichier (string pour .jchronic, Buffer pour .chronic)
    * @param fileName Nom du fichier (pour détecter l'extension)
-   * @returns Objet avec le format détecté et les données parsées
-   * @throws BadRequestException si le format est .chronic (non supporté) ou si le JSON est invalide
+   * @returns Objet avec le format détecté ('jchronic' ou 'chronic') et les données parsées
+   * @throws BadRequestException si le format est invalide, non supporté ou si le parsing échoue
    */
   public parseFile(
-    fileContent: string,
+    fileContent: string | Buffer,
     fileName: string,
   ): { format: 'jchronic' | 'chronic'; data: IChronicImport | IChronicV1Import } {
     // Détecter le format via l'extension du fichier
@@ -110,8 +123,12 @@ export class Import {
 
     if (extension === 'jchronic') {
       // FORMAT .jchronic (v3) : Format JSON standard - SUPPORTÉ
+      if (Buffer.isBuffer(fileContent)) {
+        fileContent = fileContent.toString('utf-8');
+      }
+      
       try {
-        const data = JSON.parse(fileContent) as IChronicImport;
+        const data = JSON.parse(fileContent as string) as IChronicImport;
         
         // Validation basique : vérifier que les champs essentiels sont présents
         if (!data.observation || !data.observation.name) {
@@ -132,13 +149,43 @@ export class Import {
         );
       }
     } else {
-      // FORMAT .chronic (v1) : Format legacy - NON SUPPORTÉ
-      // Détection explicite du format .chronic et renvoi d'une erreur claire
-      // sans tentative de parsing
-      throw new BadRequestException(
-        'Le format .chronic (v1) n\'est pas encore supporté. ' +
-        'Veuillez utiliser un fichier .jchronic (v3) ou convertir votre fichier .chronic en .jchronic.',
-      );
+      // FORMAT .chronic (v1) : Format binaire Qt DataStream - SUPPORTÉ
+      // Le fichier .chronic est un format binaire qui utilise Qt DataStream pour la sérialisation.
+      // Il doit être parsé avec la bibliothèque qtdatastream qui implémente le protocole Qt DataStream.
+      
+      if (typeof fileContent === 'string') {
+        // Si c'est une string, convertir en Buffer (encodage binaire)
+        // Cela peut arriver si le fichier a été lu comme texte au lieu de binaire
+        fileContent = Buffer.from(fileContent, 'binary');
+      }
+      
+      try {
+        // Parser le fichier binaire avec le parser v1
+        // Le parser va :
+        // 1. Détecter la version du format (1, 2 ou 3)
+        // 2. Parser séquentiellement toutes les sections (name, protocol, reading, etc.)
+        // 3. Valider les données essentielles
+        // 4. Retourner la structure IChronicV1 complète
+        const chronic = this.chronicV1Parser.parse(fileContent as Buffer);
+        
+        return {
+          format: 'chronic',
+          data: {
+            chronic,
+          },
+        };
+      } catch (error) {
+        // Si c'est déjà une BadRequestException, la relancer telle quelle
+        // (elle contient déjà un message d'erreur descriptif)
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        // Sinon, encapsuler l'erreur dans une BadRequestException
+        // avec un message descriptif pour l'utilisateur
+        throw new BadRequestException(
+          `Erreur lors du parsing du fichier .chronic : ${error.message}`,
+        );
+      }
     }
   }
 
@@ -291,20 +338,66 @@ export class Import {
         }),
       };
     } else {
-      // FORMAT .chronic v1 : Format legacy (traitement simplifié)
+      // FORMAT .chronic v1 : Format binaire parsé
+      // Le fichier .chronic a été parsé et contient maintenant une structure IChronicV1.
+      // Il faut convertir cette structure vers le format normalisé attendu par ObservationService.create().
+      
       const data = parsedData as IChronicV1Import;
+      const chronic = data.chronic;
+
+      // ÉTAPE 1 : Convertir le protocole v1 en format normalisé
+      // Le protocole v1 utilise une structure récursive (arbre de nœuds),
+      // tandis que v3 utilise une structure plate (catégories contenant des observables).
+      // Le convertisseur va transformer la structure récursive en structure plate.
+      let protocolNormalized: {
+        name: string;
+        description?: string;
+        categories?: Array<{
+          name: string;
+          description?: string;
+          order?: number;
+          observables?: Array<{
+            name: string;
+            description?: string;
+            action?: string;
+            meta?: Record<string, any>;
+            order?: number;
+          }>;
+        }>;
+      } | undefined;
+
+      if (chronic.protocol) {
+        // Convertir la structure récursive en structure plate
+        // - Nœud racine → ignoré
+        // - Nœuds 'category' → catégories
+        // - Nœuds 'observable' → observables dans leur catégorie parente
+        // - Ordre préservé via indexInParentContext
+        const protocolConverted = this.protocolV1Converter.convert(chronic.protocol);
+        protocolNormalized = {
+          name: protocolConverted.name,
+          description: protocolConverted.description,
+          categories: protocolConverted.categories.length > 0
+            ? protocolConverted.categories
+            : undefined,
+        };
+      }
+
+      // ÉTAPE 2 : Convertir les readings v1 en format normalisé
+      // Les readings v1 utilisent un champ 'flag' (texte) pour le type,
+      // tandis que v3 utilise ReadingTypeEnum.
+      // Le convertisseur va mapper les flags vers les types enum.
+      const readingsNormalized = this.readingV1Converter.convert(
+        chronic.reading?.readings || [],
+      );
+
+      // ÉTAPE 3 : Construire l'objet de retour avec les données normalisées
       return {
         observation: {
-          name: data.observation?.name || 'Chronique importée',
-          description: data.observation?.description,
+          name: chronic.name || 'Chronique importée',
+          description: undefined, // Le format v1 n'a pas de description au niveau observation
         },
-        protocol: undefined, // Le format v1 pourrait ne pas avoir de protocole
-        readings: (data.readings || []).map((reading) => ({
-          name: reading.name,
-          description: reading.description,
-          type: reading.type as ReadingTypeEnum,
-          dateTime: new Date(reading.dateTime),
-        })),
+        protocol: protocolNormalized,
+        readings: readingsNormalized,
       };
     }
   }
@@ -313,10 +406,12 @@ export class Import {
    * Importe une observation depuis un fichier .jchronic ou .chronic
    * 
    * Processus d'import complet :
-   * 1. Parsing du fichier : détection du format et parsing JSON
-   *    - Si .chronic (v1) : renvoie une erreur immédiatement (non supporté)
-   *    - Si .jchronic (v3) : parse le JSON et continue
+   * 1. Parsing du fichier : détection du format et parsing
+   *    - Si .chronic (v1) : parse le fichier binaire avec Qt DataStream
+   *    - Si .jchronic (v3) : parse le JSON
    * 2. Normalisation : conversion du format d'import en format interne
+   *    - Pour v1 : conversion du protocole et des readings via les convertisseurs
+   *    - Pour v3 : conversion directe depuis le JSON
    * 3. Création : création de l'observation avec protocole et readings
    * 
    * Le service ObservationService.create() gère :
@@ -325,17 +420,14 @@ export class Import {
    * - La création de tous les readings
    * - La génération automatique des nouveaux IDs
    * 
-   * IMPORTANT : Les fichiers .chronic (v1) ne sont pas encore supportés.
-   * Si un fichier .chronic est détecté, une erreur est renvoyée dès l'étape de parsing.
-   * 
-   * @param fileContent Contenu du fichier (string JSON)
+   * @param fileContent Contenu du fichier (string pour .jchronic, Buffer pour .chronic)
    * @param fileName Nom du fichier (pour détecter l'extension)
    * @param userId ID de l'utilisateur qui importe (propriétaire de la nouvelle observation)
    * @returns Observation créée avec toutes ses relations
-   * @throws BadRequestException si le fichier est .chronic (non supporté), invalide ou le format non supporté
+   * @throws BadRequestException si le fichier est invalide ou le format non supporté
    */
   public async importFromFile(
-    fileContent: string,
+    fileContent: string | Buffer,
     fileName: string,
     userId: number,
   ) {

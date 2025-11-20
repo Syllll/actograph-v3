@@ -402,17 +402,23 @@ const observation = await observationService.import.importFromFile(
 
 1. **Détection du format** : 
    - `.jchronic` (v3) : Format JSON supporté ✅
-   - `.chronic` (v1) : Format legacy non supporté ❌ (erreur renvoyée)
+   - `.chronic` (v1) : Format binaire legacy supporté ✅
 
 2. **Parsing** : 
-   - Validation du JSON
-   - Vérification des champs essentiels (observation.name)
+   - **Format .jchronic** : Validation du JSON et vérification des champs essentiels
+   - **Format .chronic** : Parsing binaire Qt DataStream avec détection de version (1, 2 ou 3)
 
 3. **Normalisation** :
-   - Conversion de la structure items → categories/observables
-   - Conversion des dates ISO → objets Date
-   - Préservation de l'ordre (champ `order`)
-   - Préservation des métadonnées (action, meta)
+   - **Format .jchronic** :
+     - Conversion de la structure items → categories/observables
+     - Conversion des dates ISO → objets Date
+     - Préservation de l'ordre (champ `order`)
+     - Préservation des métadonnées (action, meta)
+   - **Format .chronic** :
+     - Conversion de la structure récursive → categories/observables
+     - Conversion des flags → ReadingTypeEnum
+     - Préservation de l'ordre via indexInParentContext
+     - Métadonnées graphiques ignorées (non utilisées dans v3)
 
 4. **Création** :
    - Création de l'observation
@@ -433,14 +439,39 @@ Format JSON standard utilisé par ActoGraph v3. C'est le format recommandé pour
 - Dates au format ISO 8601
 - Aucun ID de base de données
 
-#### Format .chronic (v1) - NON SUPPORTÉ ❌
+#### Format .chronic (v1) - SUPPORTÉ ✅
 
-Format legacy de la version 1. Actuellement non supporté.
+Format binaire legacy de la version 1 d'ActoGraph. Ce format utilise Qt DataStream pour la sérialisation.
 
-**Comportement** :
-- Détection automatique via l'extension `.chronic`
-- Erreur renvoyée immédiatement sans tentative de parsing
-- Message d'erreur : "Le format .chronic (v1) n'est pas encore supporté. Veuillez utiliser un fichier .jchronic (v3) ou convertir votre fichier .chronic en .jchronic."
+**Caractéristiques** :
+- Format binaire (non lisible directement)
+- Structure hiérarchique récursive du protocole
+- Versions supportées : 1, 2 et 3
+- Métadonnées graphiques présentes mais ignorées lors de l'import
+
+**Processus d'import** :
+1. **Détection** : Automatique via l'extension `.chronic`
+2. **Parsing binaire** : Utilisation de la bibliothèque qtdatastream pour parser Qt DataStream
+3. **Conversion** :
+   - Protocole : Structure récursive → structure plate (categories/observables)
+   - Readings : Flags textuels → ReadingTypeEnum
+   - Dates : Conservées telles quelles (déjà des objets Date)
+4. **Normalisation** : Conversion vers le format interne v3
+5. **Création** : Création de l'observation avec toutes ses relations
+
+**Limitations** :
+- Métadonnées graphiques ignorées (positions, couleurs, formes)
+- Fichiers média (vidéo/audio) non importés
+- Mode calendar/chronometer non préservé
+- Description non disponible (format v1 n'a pas de description)
+
+**Mapping des types de readings** :
+- `'start'` → `ReadingTypeEnum.START`
+- `'stop'` → `ReadingTypeEnum.STOP`
+- `'pause_start'` / `'pausestart'` → `ReadingTypeEnum.PAUSE_START`
+- `'pause_end'` / `'pauseend'` → `ReadingTypeEnum.PAUSE_END`
+- `'data'` → `ReadingTypeEnum.DATA`
+- Autres → `ReadingTypeEnum.DATA` (par défaut)
 
 ### Exemple d'utilisation
 
@@ -553,9 +584,12 @@ const methods = {
 
 #### Erreurs d'import
 
-- **Format non supporté** : Fichier `.chronic` (v1) détecté
+- **Format non supporté** : Version du format `.chronic` non supportée (versions 1, 2, 3 supportées)
 - **JSON invalide** : Le fichier `.jchronic` n'est pas un JSON valide
+- **Fichier binaire invalide** : Le fichier `.chronic` est corrompu ou dans un format non reconnu
 - **Champs manquants** : Le champ `observation.name` est manquant
+- **Protocole invalide** : Le protocole ne peut pas être parsé ou converti
+- **Readings invalides** : Les readings ne peuvent pas être parsés ou convertis
 - **Erreur de création** : Problème lors de la création de l'observation ou de ses relations
 
 Les erreurs du backend sont automatiquement extraites et affichées dans le frontend via `error.response.data.message`.
@@ -578,10 +612,12 @@ Les erreurs du backend sont automatiquement extraites et affichées dans le fron
 
 #### Format de fichier
 
-- Utilisez toujours le format `.jchronic` pour l'export/import
-- Ne modifiez pas manuellement les fichiers `.jchronic` (risque de corruption)
-- Conservez les fichiers d'export comme sauvegarde
-- Les fichiers `.jchronic` sont portables entre différentes instances de l'application
+- **Format recommandé** : Utilisez le format `.jchronic` pour l'export/import (format actuel, JSON lisible)
+- **Format legacy** : Le format `.chronic` (v1) est supporté pour l'import uniquement (format binaire)
+- **Modification manuelle** : Ne modifiez pas manuellement les fichiers `.jchronic` (risque de corruption)
+- **Sauvegarde** : Conservez les fichiers d'export comme sauvegarde
+- **Portabilité** : Les fichiers `.jchronic` sont portables entre différentes instances de l'application
+- **Conversion** : Pour convertir un fichier `.chronic` en `.jchronic`, importez-le puis réexportez-le en `.jchronic`
 
 ## Gestion des Readings dans l'interface
 
@@ -723,7 +759,7 @@ Si l'import d'une observation complète depuis un fichier `.jchronic` échoue :
 
 1. **Format non supporté** :
    - Vérifiez que le fichier a l'extension `.jchronic` (pas `.chronic`)
-   - Les fichiers `.chronic` (v1) ne sont pas encore supportés
+   - Les fichiers `.chronic` (v1) sont supportés mais utilisent un processus différent
 
 2. **JSON invalide** :
    - Vérifiez que le fichier est un JSON valide
@@ -742,4 +778,33 @@ Si l'import d'une observation complète depuis un fichier `.jchronic` échoue :
 5. **Message d'erreur du backend** :
    - Les erreurs du backend sont affichées dans la notification d'erreur
    - Le message exact est disponible dans `error.response.data.message`
+
+#### Import .chronic (v1)
+
+Si l'import d'une observation complète depuis un fichier `.chronic` (v1) échoue :
+
+1. **Version non supportée** :
+   - Vérifiez que le fichier est dans une version supportée (1, 2 ou 3)
+   - Le message d'erreur indiquera la version détectée si elle n'est pas supportée
+
+2. **Fichier binaire corrompu** :
+   - Vérifiez que le fichier n'est pas corrompu
+   - Essayez d'ouvrir le fichier dans l'application v1 d'origine pour vérifier
+   - Le message d'erreur indiquera le problème de parsing spécifique
+
+3. **Structure invalide** :
+   - Vérifiez que le fichier contient un protocole valide
+   - Vérifiez que le fichier contient des readings valides
+   - Le message d'erreur indiquera quel champ est manquant ou invalide
+
+4. **Erreur de conversion** :
+   - Vérifiez les logs du backend pour plus de détails
+   - Les erreurs de conversion sont généralement liées à la structure du protocole ou des readings
+
+5. **Message d'erreur du backend** :
+   - Les erreurs du backend sont affichées dans la notification d'erreur
+   - Le message exact est disponible dans `error.response.data.message`
+   - Les erreurs de parsing incluent des détails sur la section problématique
+
+**Note** : Les fichiers `.chronic` (v1) peuvent avoir des métadonnées graphiques qui ne seront pas importées (positions, couleurs, formes). Ces métadonnées sont ignorées lors de l'import car elles ne sont pas utilisées dans v3.
 
