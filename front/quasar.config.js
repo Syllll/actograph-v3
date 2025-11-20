@@ -402,6 +402,13 @@ module.exports = configure(function (/* ctx */) {
             // We build for both arch but not here, directly in the workflow github
             { target: 'dmg' },
           ],
+          // Use store compression for faster builds (like Windows)
+          // Trade-off: slightly larger file size but much faster build
+          compression: 'store',
+          // Explicitly disable code signing to avoid retries and delays
+          // Without this, electron-builder tries to sign, fails, and retries multiple times
+          identity: null,
+          gatekeeperAssess: false,
         },
         win: {
           target: 'nsis',

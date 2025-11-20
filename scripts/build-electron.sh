@@ -14,16 +14,34 @@ scriptFolderPath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd "$scriptFolderPath"
 
-# Clean and prepare API
+# Clean and prepare API (only dist, keep node_modules if cached)
 cd ../api
-rm -rf ./node_modules
 rm -rf ./dist
+# Only remove node_modules if not using cache (check if directory exists and has content)
+if [ -d "./node_modules" ] && [ -n "$(ls -A ./node_modules 2>/dev/null)" ]; then
+  echo "Using cached node_modules for API"
+else
+  echo "No cached node_modules found for API, will install fresh"
+  rm -rf ./node_modules
+fi
 
 # Build the electron app
 cd ../front
-rm -rf ./node_modules
 rm -rf ./quasar
-yarn install
+# Only remove node_modules if not using cache
+if [ -d "./node_modules" ] && [ -n "$(ls -A ./node_modules 2>/dev/null)" ]; then
+  echo "Using cached node_modules for Frontend"
+else
+  echo "No cached node_modules found for Frontend, will install fresh"
+  rm -rf ./node_modules
+fi
+
+# Install dependencies only if node_modules doesn't exist or is empty
+if [ ! -d "./node_modules" ] || [ -z "$(ls -A ./node_modules 2>/dev/null)" ]; then
+  yarn install
+else
+  echo "Skipping yarn install, using cached node_modules"
+fi
 
 # Build with electron mode
 # Support for architecture-specific builds:

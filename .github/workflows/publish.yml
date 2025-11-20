@@ -140,6 +140,37 @@ jobs:
       - name: Setup Yarn
         run: npm install -g yarn
 
+      # Cache yarn dependencies
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        shell: bash
+        run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache yarn dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            front/node_modules
+            api/node_modules
+            ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          # Isolate cache by OS and architecture (important for macOS x64 vs arm64)
+          key: ${{ runner.os }}-${{ matrix.electron_arch || 'default' }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.electron_arch || 'default' }}-yarn-
+            ${{ runner.os }}-yarn-
+
+      # Cache Electron binaries
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-electron-${{ matrix.electron_arch || 'default' }}-${{ hashFiles('front/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-${{ matrix.electron_arch || 'default' }}-
+            ${{ runner.os }}-electron-
+
       - name: Prepare architecture flags
         id: arch_flags
         run: |
@@ -160,6 +191,8 @@ jobs:
           ELECTRON_BUILDER_ARCH: ${{ matrix.electron_arch || '' }}
           # Keep ELECTRON_ARCH_FLAGS for backward compatibility with build script
           ELECTRON_ARCH_FLAGS: ${{ steps.arch_flags.outputs.flags }}
+          # Set Electron cache directory
+          ELECTRON_CACHE: ~/.cache/electron
 
       # Clean up certificate for Windows only
       - name: Clean up certificate
