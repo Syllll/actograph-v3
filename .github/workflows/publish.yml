@@ -193,6 +193,8 @@ jobs:
           ELECTRON_ARCH_FLAGS: ${{ steps.arch_flags.outputs.flags }}
           # Set Electron cache directory
           ELECTRON_CACHE: ~/.cache/electron
+          # Skip Electron binary download during yarn install - electron-builder will handle it
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
 
       # Clean up certificate for Windows only
       - name: Clean up certificate

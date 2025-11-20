@@ -37,8 +37,9 @@ else
 fi
 
 # Install dependencies only if node_modules doesn't exist or is empty
+# Skip Electron binary download during yarn install - electron-builder will handle it with cache
 if [ ! -d "./node_modules" ] || [ -z "$(ls -A ./node_modules 2>/dev/null)" ]; then
-  yarn install
+  ELECTRON_SKIP_BINARY_DOWNLOAD=1 yarn install
 else
   echo "Skipping yarn install, using cached node_modules"
 fi
