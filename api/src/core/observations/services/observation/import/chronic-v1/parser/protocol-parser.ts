@@ -14,7 +14,7 @@ export class ProtocolV1Parser {
    * @param buffer Buffer avec position de lecture
    * @returns Nœud de protocole parsé
    */
-  public parseFromBuffer(buffer: CustomBuffer): IProtocolNodeV1 {
+  public parseFromBuffer(buffer: typeof CustomBuffer.prototype): IProtocolNodeV1 {
     const version = types.QInt.read(buffer);
     let name: string;
     let type: string;

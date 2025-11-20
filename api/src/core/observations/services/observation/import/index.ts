@@ -1,9 +1,9 @@
-import { ObservationService } from './index.service';
-import { ProtocolService } from '../protocol/index.service';
-import { ReadingService } from '../reading.service';
+import { ObservationService } from '../index.service';
+import { ProtocolService } from '../../protocol/index.service';
+import { ReadingService } from '../../reading.service';
 import { BadRequestException } from '@nestjs/common';
-import { ReadingTypeEnum } from '../../entities/reading.entity';
-import { ProtocolItemTypeEnum } from '../../entities/protocol.entity';
+import { ReadingTypeEnum } from '../../../entities/reading.entity';
+import { ProtocolItemTypeEnum } from '../../../entities/protocol.entity';
 import { ChronicV1Parser } from './chronic-v1/parser/chronic-parser';
 import { ProtocolV1Converter } from './chronic-v1/converter/protocol-converter';
 import { ReadingV1Converter } from './chronic-v1/converter/reading-converter';
@@ -182,8 +182,9 @@ export class Import {
         }
         // Sinon, encapsuler l'erreur dans une BadRequestException
         // avec un message descriptif pour l'utilisateur
+        const errorMessage = error instanceof Error ? error.message : String(error);
         throw new BadRequestException(
-          `Erreur lors du parsing du fichier .chronic : ${error.message}`,
+          `Erreur lors du parsing du fichier .chronic : ${errorMessage}`,
         );
       }
     }
@@ -192,7 +193,7 @@ export class Import {
   /**
    * Normalise les données importées pour créer une observation
    * 
-   * Cette fonction convertit le format d'import (.jchronic) en format interne
+   * Cette fonction convertit le format d'import (.jchronic ou .chronic) en format interne
    * attendu par le service ObservationService.create().
    * 
    * Transformations effectuées :
@@ -432,7 +433,7 @@ export class Import {
     userId: number,
   ) {
     // ÉTAPE 1 : Parser le fichier
-    // Détecte le format (.jchronic ou .chronic) et parse le JSON
+    // Détecte le format (.jchronic ou .chronic) et parse le JSON ou le binaire
     // Si le format est .chronic, une erreur est renvoyée immédiatement
     const { format, data } = this.parseFile(fileContent, fileName);
 

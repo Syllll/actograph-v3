@@ -14,7 +14,7 @@ export class ReadingV1Parser {
    * @param buffer Buffer avec position de lecture
    * @returns Entrée de reading parsée
    */
-  private parseEntryFromBuffer(buffer: CustomBuffer): IReadingEntryV1 {
+  private parseEntryFromBuffer(buffer: typeof CustomBuffer.prototype): IReadingEntryV1 {
     const version = types.QDouble.read(buffer);
 
     let id = -1;
@@ -55,7 +55,7 @@ export class ReadingV1Parser {
    * @param buffer Buffer avec position de lecture
    * @returns Structure de readings parsée
    */
-  public parseFromBuffer(buffer: CustomBuffer): IReadingV1 {
+  public parseFromBuffer(buffer: typeof CustomBuffer.prototype): IReadingV1 {
     const version = types.QDouble.read(buffer);
     let hasLinkedVideoFile: boolean;
     let hasLinkedAudioFile: boolean;

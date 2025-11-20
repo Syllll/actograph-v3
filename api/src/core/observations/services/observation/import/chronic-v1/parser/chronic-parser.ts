@@ -71,13 +71,14 @@ export class ChronicV1Parser {
       }
 
       // Variables pour stocker les données parsées
-      let name: string;
-      let protocol: IChronicV1['protocol'];
-      let reading: IChronicV1['reading'];
-      let hasSaveFile: boolean;
-      let saveFile: string;
-      let modeManager: IChronicV1['modeManager'];
-      let graphManager: IChronicV1['graphManager'];
+      // Initialisation avec des valeurs par défaut pour satisfaire TypeScript
+      let name: string = '';
+      let protocol: IChronicV1['protocol'] | undefined;
+      let reading: IChronicV1['reading'] | undefined;
+      let hasSaveFile: boolean = false;
+      let saveFile: string = '';
+      let modeManager: IChronicV1['modeManager'] | undefined;
+      let graphManager: IChronicV1['graphManager'] | undefined;
       let autoPosButtons = true;
       let extensionData: IChronicV1['extensionData'] = {
         version: 1.0,
@@ -122,7 +123,7 @@ export class ChronicV1Parser {
         extensionData = this.extensionDataParser.parseFromBuffer(customBuffer);
       }
 
-      // Valider les données essentielles
+      // Valider les données essentielles (après parsing)
       if (!name) {
         throw new BadRequestException(
           'Le fichier .chronic doit contenir un nom d\'observation',
@@ -141,15 +142,17 @@ export class ChronicV1Parser {
         );
       }
 
+      // TypeScript nécessite une assertion ici car il ne peut pas garantir
+      // que protocol et reading sont définis même après les vérifications
       return {
         version,
         name,
-        protocol,
-        reading,
+        protocol: protocol!,
+        reading: reading!,
         hasSaveFile,
         saveFile,
-        modeManager,
-        graphManager,
+        modeManager: modeManager!,
+        graphManager: graphManager!,
         autoPosButtons,
         extensionData,
         scaleFactor,
@@ -161,8 +164,9 @@ export class ChronicV1Parser {
         throw error;
       }
       // Sinon, encapsuler l'erreur dans une BadRequestException
+      const errorMessage = error instanceof Error ? error.message : String(error);
       throw new BadRequestException(
-        `Erreur lors du parsing du fichier .chronic: ${error.message}`,
+        `Erreur lors du parsing du fichier .chronic: ${errorMessage}`,
       );
     }
   }

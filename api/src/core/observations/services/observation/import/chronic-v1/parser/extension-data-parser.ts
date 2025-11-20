@@ -14,7 +14,7 @@ export class ExtensionDataV1Parser {
    * @param buffer Buffer avec position de lecture
    * @returns Données d'extension parsées
    */
-  public parseFromBuffer(buffer: CustomBuffer): IExtensionDataV1 {
+  public parseFromBuffer(buffer: typeof CustomBuffer.prototype): IExtensionDataV1 {
     const version = types.QDouble.read(buffer);
     let extensions: { [key: string]: any } = {};
 

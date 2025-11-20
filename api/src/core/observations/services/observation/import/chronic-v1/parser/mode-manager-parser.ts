@@ -27,7 +27,7 @@ export class ModeManagerV1Parser {
    * @param buffer Buffer avec position de lecture
    * @returns Mode manager parsé
    */
-  public parseFromBuffer(buffer: CustomBuffer): IModeManagerV1 {
+  public parseFromBuffer(buffer: typeof CustomBuffer.prototype): IModeManagerV1 {
     const currentModeAsNumber = types.QUInt.read(buffer);
     const currentMode = this.modeFromNumber(currentModeAsNumber);
 

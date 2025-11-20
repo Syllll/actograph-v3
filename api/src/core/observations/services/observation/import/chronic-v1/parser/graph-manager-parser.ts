@@ -17,7 +17,7 @@ export class GraphManagerV1Parser {
    * @param buffer Buffer avec position de lecture
    * @returns Graph manager parsé (simplifié)
    */
-  public parseFromBuffer(buffer: CustomBuffer): IGraphManagerV1 {
+  public parseFromBuffer(buffer: typeof CustomBuffer.prototype): IGraphManagerV1 {
     const version = types.QDouble.read(buffer);
     const layers: any[] = [];
 
@@ -100,7 +100,7 @@ export class GraphManagerV1Parser {
   /**
    * Parse un time axis complet pour avancer dans le buffer
    */
-  private parseTimeAxis(buffer: CustomBuffer): void {
+  private parseTimeAxis(buffer: typeof CustomBuffer.prototype): void {
     const graphNodeVersion = types.QDouble.read(buffer);
     const version = types.QDouble.read(buffer);
     
@@ -163,7 +163,7 @@ export class GraphManagerV1Parser {
   /**
    * Skip obs axis - structure complexe qu'on ignore pour l'instant
    */
-  private skipObsAxis(buffer: CustomBuffer): void {
+  private skipObsAxis(buffer: typeof CustomBuffer.prototype): void {
     // Structure simplifiée : on lit juste les données de base
     // Si nécessaire, on peut implémenter le parsing complet plus tard
     const graphNodeVersion = types.QDouble.read(buffer);
