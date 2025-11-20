@@ -25,7 +25,7 @@ $modernDarkGrey: #1f2937;
 @include defineColorLightAndDark('none', transparent, transparent);
 @include defineColorLightAndDark('text', $black, $white);
 @include defineColorLightAndDark('text-invert', $white, $black);
-@include defineColorLightAndDark('text-link', darken($blue, 30), $blue);
+@include defineColorLightAndDark('text-link', darken-compat($blue, 30), $blue);
 
 // Apply color variations using our mixin
 @include defineColorVariations('accent', $orange);

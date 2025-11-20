@@ -35,6 +35,13 @@ import {
 import { ParseEnumArrayPipe, ParseIncludePipe } from '@utils/pipes';
 import { UserJwtService } from '@auth-jwt/services/user-jwt.service';
 
+/**
+ * Controller pour les endpoints publics des utilisateurs.
+ * Permet aux utilisateurs authentifiés de gérer leur propre profil :
+ * - Consulter leur profil
+ * - Mettre à jour leurs informations
+ * - Gérer la réinitialisation de leur mot de passe
+ */
 @Controller('users')
 export class UserController extends BaseController {
   constructor(
@@ -44,6 +51,15 @@ export class UserController extends BaseController {
     super();
   }
 
+  /**
+   * Génère un token de réinitialisation de mot de passe pour un utilisateur.
+   * Endpoint: GET /users/:username/resetPassword-token
+   *
+   * @param req - La requête HTTP (contient l'utilisateur authentifié)
+   * @param username - Le nom d'utilisateur pour lequel générer le token
+   * @returns Le token de réinitialisation de mot de passe
+   * @throws NotFoundException si l'utilisateur n'existe pas
+   */
   @Get(':username/resetPassword-token')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User, ...allMainUsers)
@@ -62,6 +78,14 @@ export class UserController extends BaseController {
     return resetPasswordToken;
   }
 
+  /**
+   * Permet à un utilisateur de définir un nouveau mot de passe après une demande de réinitialisation.
+   * Endpoint: PATCH /users/choosePasswordAfterReset
+   *
+   * @param req - La requête HTTP (contient l'utilisateur authentifié)
+   * @param body - Le corps de la requête contenant le nouveau mot de passe
+   * @returns L'utilisateur mis à jour
+   */
   @Patch('choosePasswordAfterReset')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User, ...allMainUsers)
@@ -80,6 +104,14 @@ export class UserController extends BaseController {
     );
   }
 
+  /**
+   * Récupère les informations de l'utilisateur actuellement authentifié.
+   * Endpoint: GET /users/current
+   *
+   * @param req - La requête HTTP (contient l'utilisateur authentifié)
+   * @returns L'utilisateur actuel
+   * @throws NotFoundException si l'utilisateur n'existe pas
+   */
   @Get('current')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User, ...allMainUsers)
@@ -92,6 +124,15 @@ export class UserController extends BaseController {
     return user;
   }
 
+  /**
+   * Met à jour les informations de l'utilisateur actuellement authentifié.
+   * Endpoint: PATCH /users/current
+   *
+   * @param req - La requête HTTP (contient l'utilisateur authentifié)
+   * @param body - Les données de mise à jour (prénom, nom, préférences, etc.)
+   * @returns L'utilisateur mis à jour
+   * @throws InternalServerErrorException si la mise à jour a échoué
+   */
   @Patch('current')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User, ...allMainUsers)

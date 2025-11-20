@@ -52,14 +52,222 @@ Exemples :
 - **DTOs** : `api/src/**/dtos/*.dto.ts`
 - **Modules** : `api/src/**/*.module.ts`
 
+### Structure d'un module NestJS
+
+Pour créer rapidement un nouveau module métier, suivre cette structure :
+
+#### Structure de dossiers
+
+```
+api/src/core/my-module/
+├── my-module.module.ts          # Module principal
+├── entities/
+│   └── my-entity.entity.ts      # Entité TypeORM
+├── repositories/
+│   └── my-entity.repository.ts  # Repository personnalisé
+├── services/
+│   └── my-entity.service.ts     # Service métier
+├── controllers/
+│   └── my-entity.controller.ts  # Controller REST
+└── dtos/
+    ├── my-entity-create.dto.ts  # DTO pour création
+    └── my-entity-update.dto.ts   # DTO pour mise à jour
+```
+
+#### Template de module (`my-module.module.ts`)
+
+```typescript
+import { Module, forwardRef } from '@nestjs/common';
+import { TypeOrmExModule } from 'src/database/typeorm-ex.module';
+import { MyEntityRepository } from './repositories/my-entity.repository';
+import { MyEntityService } from './services/my-entity.service';
+import { MyEntityController } from './controllers/my-entity.controller';
+// Si besoin d'autres modules :
+// import { UsersModule } from '@users/users.module';
+
+@Module({
+  imports: [
+    // Si dépendance circulaire, utiliser forwardRef :
+    // forwardRef(() => UsersModule),
+    TypeOrmExModule.forCustomRepository([MyEntityRepository]),
+  ],
+  controllers: [MyEntityController],
+  providers: [MyEntityService],
+  exports: [MyEntityService], // Exporter si utilisé par d'autres modules
+})
+export class MyModule {}
+```
+
+#### Template d'entité (`entities/my-entity.entity.ts`)
+
+```typescript
+import { Entity, Column, Index } from 'typeorm';
+import { Expose } from 'class-transformer';
+import { BaseEntity } from '@utils/entities/base.entity';
+import { GROUP_USER, GROUP_ADMIN } from '@users/serializationGroups/groups';
+
+@Entity('my_entities')
+export class MyEntity extends BaseEntity {
+  @Expose({ groups: [GROUP_USER, GROUP_ADMIN] })
+  @Column({ nullable: false })
+  @Index()
+  name!: string;
+
+  @Expose({ groups: [GROUP_ADMIN] })
+  @Column({ nullable: true })
+  description?: string;
+}
+```
+
+#### Template de repository (`repositories/my-entity.repository.ts`)
+
+```typescript
+import { CustomRepository } from 'src/database/typeorm-ex.decorator';
+import { BaseRepository } from '@utils/repositories/base.repositories';
+import { MyEntity } from '../entities/my-entity.entity';
+
+@CustomRepository(MyEntity)
+export class MyEntityRepository extends BaseRepository<MyEntity> {
+  // Méthodes personnalisées si nécessaire
+}
+```
+
+#### Template de service (`services/my-entity.service.ts`)
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { BaseService } from '@utils/services/base.service';
+import { MyEntityRepository } from '../repositories/my-entity.repository';
+import { MyEntity } from '../entities/my-entity.entity';
+
+@Injectable()
+export class MyEntityService extends BaseService<MyEntity, MyEntityRepository> {
+  constructor(
+    @InjectRepository(MyEntityRepository)
+    private readonly repository: MyEntityRepository,
+  ) {
+    super(repository);
+  }
+
+  // Méthodes métier personnalisées
+}
+```
+
+#### Template de controller (`controllers/my-entity.controller.ts`)
+
+```typescript
+import { Controller, Get, Post, Body, Param, UseGuards, Patch, Delete } from '@nestjs/common';
+import { BaseController } from '@utils/controllers/base.controller';
+import { JwtAuthGuard } from '@users/guards/jwt-auth.guard';
+import { UserRolesGuard } from '@users/guards/user-roles.guard';
+import { Roles } from '@users/utils/roles.decorator';
+import { UserRoleEnum } from '@users/utils/user-role.enum';
+import { MyEntityService } from '../services/my-entity.service';
+import { CreateMyEntityDto } from '../dtos/my-entity-create.dto';
+import { UpdateMyEntityDto } from '../dtos/my-entity-update.dto';
+import { PaginationQueries } from '@utils/dtos';
+import { IPaginationOptions } from '@utils/repositories/base.repositories';
+
+@Controller('my-entities')
+export class MyEntityController extends BaseController {
+  constructor(private readonly service: MyEntityService) {
+    super();
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async findAll(@PaginationQueries() pagination: IPaginationOptions) {
+    return await this.service.findAndPaginate(pagination);
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  async findOne(@Param('id') id: number) {
+    const entity = await this.service.findOne(id);
+    if (!entity) {
+      throw new NotFoundException('Entity not found');
+    }
+    return entity;
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async create(@Body() dto: CreateMyEntityDto) {
+    return await this.service.create(dto);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async update(@Param('id') id: number, @Body() dto: UpdateMyEntityDto) {
+    return await this.service.update(id, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async delete(@Param('id') id: number) {
+    return await this.service.delete(id);
+  }
+}
+```
+
+#### Template de DTO (`dtos/my-entity-create.dto.ts`)
+
+```typescript
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+
+export class CreateMyEntityDto {
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+}
+```
+
+#### Intégration dans CoreModule
+
+Après création du module, l'ajouter dans `api/src/core/core.module.ts` :
+
+```typescript
+import { MyModule } from './my-module/my-module.module';
+
+@Module({
+  imports: [
+    // ... autres modules
+    MyModule,
+  ],
+})
+export class CoreModule {}
+```
+
+#### Checklist de création d'un module
+
+1. ✅ Créer le dossier `api/src/core/my-module/`
+2. ✅ Créer l'entité dans `entities/` (étendre `BaseEntity`)
+3. ✅ Créer le repository dans `repositories/` (étendre `BaseRepository`, utiliser `@CustomRepository`)
+4. ✅ Créer le service dans `services/` (étendre `BaseService`)
+5. ✅ Créer le controller dans `controllers/` (étendre `BaseController`)
+6. ✅ Créer les DTOs dans `dtos/` (avec validation `class-validator`)
+7. ✅ Créer le module dans `my-module.module.ts`
+8. ✅ Ajouter le module dans `CoreModule`
+9. ✅ Générer la migration : `yarn migration:generate api/migrations/AddMyModule`
+10. ✅ Exécuter la migration dans le conteneur Docker
+
 ### Conventions de code Backend
 
 #### Entités TypeORM
 - Toutes les entités doivent étendre `BaseEntity` de `@utils/entities/base.entity`
 - Utiliser les décorateurs TypeORM : `@Entity()`, `@Column()`, `@ManyToOne()`, `@OneToMany()`, `@OneToOne()`, `@JoinColumn()`
 - Ajouter des index avec `@Index()` quand nécessaire
-- Utiliser `@Expose()` de `class-transformer` pour la sérialisation avec des groupes
 - Les entités doivent être dans des fichiers se terminant par `.entity.ts`
+- `BaseEntity` fournit automatiquement : `id`, `createdAt`, `updatedAt`, `deletedAt` (soft delete)
 
 Exemple :
 ```typescript
@@ -73,17 +281,27 @@ export class MyEntity extends BaseEntity {
   @Index()
   name!: string;
 
+  @Column({ nullable: true })
+  internalNote?: string;
+
   @ManyToOne(() => OtherEntity)
   @JoinColumn()
   otherEntity?: OtherEntity;
 }
 ```
 
+#### Guards et Autorisation
+- `JwtAuthGuard` : Vérifie que l'utilisateur est authentifié (token JWT valide)
+- `UserRolesGuard` : Vérifie les rôles de l'utilisateur (doit être utilisé avec `@Roles()`)
+- `@Roles(UserRoleEnum.User, ...allMainUsers)` : Définit les rôles autorisés pour une route
+- Les rôles disponibles sont dans `@users/utils/user-role.enum`
+- `allMainUsers` est un helper qui inclut tous les rôles principaux
+- Toujours utiliser `JwtAuthGuard` avant `UserRolesGuard` dans `@UseGuards()`
+
 #### Services NestJS
 - Tous les services doivent être décorés avec `@Injectable()`
 - Les services doivent étendre `BaseService<Entity, Repository>` quand approprié
 - Injecter les repositories avec `@InjectRepository(RepositoryClass)`
-- Utiliser `private readonly` pour les dépendances injectées
 
 Exemple :
 ```typescript
@@ -108,12 +326,19 @@ export class MyService extends BaseService<MyEntity, MyRepository> {
 - Utiliser `@UseGuards()` pour l'authentification/autorisation
 - Utiliser `@Roles()` pour les permissions basées sur les rôles
 - Injecter les services dans le constructeur
+- Pour la pagination, utiliser le décorateur `@PaginationQueries()` qui retourne un objet `IPaginationOptions`
+- NestJS gère automatiquement les erreurs et les exceptions HTTP
 
 Exemple :
 ```typescript
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Param, NotFoundException } from '@nestjs/common';
 import { BaseController } from '@utils/controllers/base.controller';
 import { JwtAuthGuard } from '@users/guards/jwt-auth.guard';
+import { UserRolesGuard } from '@users/guards/user-roles.guard';
+import { Roles } from '@users/utils/roles.decorator';
+import { UserRoleEnum } from '@users/utils/user-role.enum';
+import { PaginationQueries } from '@utils/dtos';
+import { IPaginationOptions } from '@utils/repositories/base.repositories';
 
 @Controller('my-resource')
 export class MyController extends BaseController {
@@ -122,9 +347,20 @@ export class MyController extends BaseController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async findAll(@PaginationQueries() pagination: IPaginationOptions) {
+    return await this.service.findAndPaginate(pagination);
+  }
+
+  @Get(':id')
   @UseGuards(JwtAuthGuard)
-  async findAll() {
-    return await this.service.findAll();
+  async findOne(@Param('id') id: number) {
+    const entity = await this.service.findOne(id);
+    if (!entity) {
+      throw new NotFoundException('Resource not found');
+    }
+    return entity;
   }
 }
 ```
@@ -139,6 +375,57 @@ export class MyController extends BaseController {
 #### Repositories
 - Les repositories doivent étendre `BaseRepository<Entity>` ou utiliser le décorateur `@CustomRepository()`
 - Utiliser `@InjectRepository()` dans les services pour injecter les repositories
+- `BaseRepository` fournit les méthodes suivantes :
+  - `findAndPaginate(options: IPaginationOptions)` : Pagination avec filtres
+  - `findOneFromId(id: number, options?: FindOneOptions)` : Trouver par ID (retourne undefined si non trouvé)
+  - `allProperties()` : Liste toutes les propriétés de l'entité
+  - `allPropertiesForSelect()` : Objet avec toutes les propriétés pour select
+- Les repositories gèrent automatiquement les relations many-to-many lors du `save()`
+
+#### DTOs et Validation
+- Tous les DTOs doivent utiliser les décorateurs de `class-validator` :
+  - `@IsString()`, `@IsNumber()`, `@IsBoolean()`, `@IsOptional()`, `@IsNotEmpty()`
+  - `@IsEnum(EnumClass)` pour les enums
+  - `@IsDateString()` pour les dates
+  - `@IsArray()`, `@ValidateNested()` pour les objets imbriqués
+  - `@Type(() => Class)` de `class-transformer` pour la transformation des objets imbriqués
+- Le `ValidationPipe` global est configuré avec `transform: true`, `whitelist: true`, `forbidNonWhitelisted: true`
+- Tous les champs doivent avoir des décorateurs de validation, sinon ils seront supprimés
+
+Exemple :
+```typescript
+import { IsString, IsNotEmpty, IsOptional, IsEnum, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CreateMyDto {
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsEnum(MyEnum)
+  @IsNotEmpty()
+  type!: MyEnum;
+
+  @ValidateNested()
+  @Type(() => NestedDto)
+  nested?: NestedDto;
+}
+```
+
+#### Pipes personnalisés
+- Utiliser les pipes disponibles dans `@utils/pipes` :
+  - `ParseEnumPipe` : Valide et parse un enum
+  - `ParseEnumArrayPipe` : Valide et parse un tableau d'enums
+  - `ParseFilterPipe` : Parse les filtres de recherche
+  - `ParseIncludePipe` : Valide les relations à inclure
+  - `ParseIntOrUndefinedPipe` : Parse un entier ou retourne undefined
+  - `ParseStringOrUndefinedPipe` : Parse une string ou retourne undefined
+  - `ParseDatePipe` : Parse une date
+- Utiliser ces pipes dans les query parameters avec `@Query('param', new ParseEnumPipe(MyEnum))`
 
 ### Gestion des dépendances Backend
 - Utiliser **yarn** (pas npm)
@@ -169,12 +456,12 @@ Exemple :
 <template>
   <div>
     <p>{{ title }}</p>
-    <button @click="increment">Count: {{ count }}</button>
+    <button @click="methods.increment">Count: {{ state.count }}</button>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, reactive } from 'vue';
 
 export default defineComponent({
   name: 'MyComponent',
@@ -185,15 +472,25 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const count = ref(0);
+    // If required, one can add:
+    // const stateless = {
+    //   myVar: myValue,
+    // }
+    // And return it
     
-    function increment() {
-      count.value++;
+    const state = reactive({
+      count: 0,
+    })
+
+    const methods = {
+      increment: () => {
+        state.count++;
+      }
     }
     
     return {
-      count,
-      increment,
+      state,
+      methods,
     };
   },
 });
@@ -204,25 +501,89 @@ export default defineComponent({
 - Créer des composables réutilisables dans `front/src/composables/` ou `front/lib-improba/composables/`
 - Les composables doivent être des fonctions qui retournent un objet
 - Utiliser le préfixe `use` pour les noms de composables (ex: `useAuth`, `useGraph`)
+- Pour un état partagé entre plusieurs composants, utiliser `reactive()` en dehors de la fonction composable
+- Structurer les composables avec :
+  - `sharedState` : État réactif partagé (utiliser `reactive()` ou `ref()`)
+  - `methods` : Méthodes exposées pour manipuler l'état
+  - Retourner `{ sharedState, methods }` ou `{ sharedState, methods, ... }`
+
+Exemple avec état partagé :
+```typescript
+import { reactive, ref, computed } from 'vue';
+
+// État partagé entre toutes les instances du composable
+const sharedState = reactive({
+  items: [] as Item[],
+  loading: false,
+});
+
+export function useItems() {
+  const methods = {
+    async loadItems() {
+      sharedState.loading = true;
+      // ... chargement des données
+      sharedState.loading = false;
+    },
+    addItem(item: Item) {
+      sharedState.items.push(item);
+    },
+  };
+  
+  return {
+    sharedState,
+    methods,
+  };
+}
+```
+
+#### Services Frontend
+- Les services sont des objets qui encapsulent les appels API
+- Utiliser `api()` depuis `lib-improba/boot/axios` pour les requêtes HTTP
+- Utiliser `httpUtils.apiUrl()` pour obtenir l'URL de l'API
+- Les services doivent être dans `front/src/services/` ou `front/lib-improba/services/`
+- Structurer les services comme des objets avec des méthodes async
+- Gérer les erreurs HTTP au niveau du composant/composable, pas dans le service
 
 Exemple :
 ```typescript
-import { ref, computed } from 'vue';
+import { api } from 'src/../lib-improba/boot/axios';
+import httpUtils from '@services/utils/http.utils';
+import { IMyEntity } from './interface';
 
-export function useCounter() {
-  const count = ref(0);
+const apiUrl = httpUtils.apiUrl();
+
+export const myService = {
+  async findAll(): Promise<IMyEntity[]> {
+    const response = await api().get(`${apiUrl}/my-resource`);
+    return response.data;
+  },
   
-  const doubleCount = computed(() => count.value * 2);
+  async findOne(id: number): Promise<IMyEntity> {
+    const response = await api().get(`${apiUrl}/my-resource/${id}`);
+    return response.data;
+  },
   
-  function increment() {
-    count.value++;
-  }
-  
-  return {
-    count,
-    doubleCount,
-    increment,
-  };
+  async create(data: CreateMyDto): Promise<IMyEntity> {
+    const response = await api().post(`${apiUrl}/my-resource`, data);
+    return response.data;
+  },
+};
+```
+
+#### Interfaces TypeScript Frontend
+- Créer des interfaces pour les entités dans `front/src/services/**/interface.ts`
+- Utiliser le préfixe `I` pour les interfaces (ex: `IObservation`, `IReading`, `IUser`)
+- Les interfaces doivent correspondre aux entités backend mais peuvent être simplifiées
+- Utiliser `interface` plutôt que `type` pour les entités principales
+
+Exemple :
+```typescript
+export interface IMyEntity {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 ```
 
@@ -248,6 +609,29 @@ export function useCounter() {
 - Déployer en production : `bash scripts/publish prod`
 - Déployer manuellement : `COMPOSE_MODE=production sh compose.sh up -d`
 
+## Processus d'implémentation de features
+
+Quand l'utilisateur demande d'implémenter une feature depuis un lien GitHub (ex: "implémente la feature de ce lien {lien}"), suivre le processus décrit dans `docs/auto-implement.md` :
+
+1. **Créer la structure de documentation** dans `docs/features/{issue-number}-{feature-name}/`
+2. **Analyser l'issue GitHub** pour comprendre les besoins fonctionnels
+3. **Analyser le code existant** pour identifier ce qui est déjà implémenté
+4. **Créer un plan d'implémentation détaillé** dans `{issue-number}-{feature-name}.md`
+5. **Demander validation** à l'utilisateur avant de commencer l'implémentation
+6. **Ajuster le plan** selon les retours de l'utilisateur
+7. **Créer un commentaire GitHub formaté** dans `comment-github.md`
+8. **Après implémentation** : Créer `{issue-number}-done.md` avec la documentation post-implémentation (ce qui a été fait, problèmes rencontrés, initiatives prises)
+
+**Points importants** :
+- ✅ Toujours analyser le code existant AVANT de proposer un plan
+- ✅ Marquer clairement ce qui existe déjà (✅) vs ce qui doit être créé (❌)
+- ✅ Ne pas proposer d'implémenter ce qui existe déjà
+- ✅ Demander validation avant de commencer à coder
+- ✅ Documenter après l'implémentation dans `{issue-number}-done.md`
+- ❌ Ne pas inclure d'estimations de temps sauf si explicitement demandé
+
+Voir `docs/auto-implement.md` pour le processus détaillé et des exemples.
+
 ## Règles générales
 
 1. **Toujours utiliser Docker** pour les commandes de développement (yarn, migrations, etc.)
@@ -266,4 +650,10 @@ export function useCounter() {
 - Le frontend utilise Vue.js 3 avec `defineComponent` et `setup()`, **PAS** `<script setup>`
 - Le backend utilise NestJS avec TypeORM et des entités qui étendent `BaseEntity`
 - Tous les fichiers doivent respecter les conventions TypeScript strictes
+- Le backend utilise un `ValidationPipe` global qui transforme et valide automatiquement les DTOs
+- Les erreurs de validation sont automatiquement renvoyées par NestJS avec un format standardisé
+- NestJS gère automatiquement les exceptions HTTP (NotFoundException, BadRequestException, etc.)
+- Les relations many-to-many sont gérées automatiquement par `BaseRepository.save()`
+- Les groupes de sérialisation (`GROUP_USER`, `GROUP_ADMIN`) permettent de contrôler quels champs sont exposés selon le rôle
+- Les services frontend doivent utiliser `api()` depuis `lib-improba/boot/axios` qui gère automatiquement l'authentification JWT
 

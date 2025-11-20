@@ -1,3 +1,6 @@
+@use "sass:color" as color;
+@use "sass:map";
+
 @mixin setGlobalColors($light, $dark, $name) {
   @include setGlobalClass($name, $light, 'body--light');
   @include setGlobalClass($name, $dark, 'body--dark');
@@ -11,9 +14,9 @@
       @if $color != transparent {
         @each $opacity, $hex in $background-opacity {
           #{"--"+$name+"-"+$opacity}: #{rgba(
-              red($color),
-              green($color),
-              blue($color),
+              color.channel($color, "red", $space: rgb),
+              color.channel($color, "green", $space: rgb),
+              color.channel($color, "blue", $space: rgb),
               $hex
             )};
         }
@@ -136,14 +139,14 @@
     &.#{ $type } {
       &:not(.flat) {
         @if $state == '' {
-          background-color: map-get($colors, 'background');
-          border-color: map-get($colors, 'border');
-          color: map-get($colors, 'color');
+          background-color: map.get($colors, 'background');
+          border-color: map.get($colors, 'border');
+          color: map.get($colors, 'color');
         } @else {
           &.#{ $state } {
-            background-color: map-get($colors, 'background');
-            border-color: map-get($colors, 'border');
-            color: map-get($colors, 'color');
+            background-color: map.get($colors, 'background');
+            border-color: map.get($colors, 'border');
+            color: map.get($colors, 'color');
           }
         }
       }
@@ -152,12 +155,12 @@
         @if $state == '' {
           background-color: transparent;
           border-color: transparent;
-          color: map-get($colors, 'flat');
+          color: map.get($colors, 'flat');
         } @else {
           &.-#{ $state } {
             background-color: transparent;
             border-color: transparent;
-            color: map-get($colors, 'flat');
+            color: map.get($colors, 'flat');
           }
         }
       }

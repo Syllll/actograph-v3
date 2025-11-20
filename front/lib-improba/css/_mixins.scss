@@ -2,8 +2,23 @@
 // Defines used to setup light and dark themes
 // ******************************
 
+@use "sass:color" as color;
+
 @import './skss/presets';
 @import './skss/mixins';
+
+// Helper functions to replicate lighten() and darken() behavior exactly
+// lighten($color, $amount) increases HSL lightness by $amount percentage points
+@function lighten-compat($color, $amount) {
+  $percent: if(unitless($amount), $amount * 1%, $amount);
+  @return color.adjust($color, $lightness: $percent);
+}
+
+// darken($color, $amount) decreases HSL lightness by $amount percentage points
+@function darken-compat($color, $amount) {
+  $percent: if(unitless($amount), -$amount * 1%, -$amount);
+  @return color.adjust($color, $lightness: $percent);
+}
 
 @mixin defineColorLight($name, $color) {
   body.body--light {
@@ -68,43 +83,43 @@
 
 @mixin defineColorVariations($name, $baseColor) {
   // Base/medium color
-  @include defineColorLightAndDark($name, $baseColor, lighten($baseColor, 10));
+  @include defineColorLightAndDark($name, $baseColor, lighten-compat($baseColor, 10));
 
   // Variations from lowest to highest
   @include defineColorLightAndDark(
     '#{$name}-lowest',
-    lighten($baseColor, 90),
-    darken($baseColor, 50)
+    lighten-compat($baseColor, 90),
+    darken-compat($baseColor, 50)
   );
   @include defineColorLightAndDark(
     '#{$name}-lower',
-    lighten($baseColor, 30),
-    darken($baseColor, 30)
+    lighten-compat($baseColor, 30),
+    darken-compat($baseColor, 30)
   );
   @include defineColorLightAndDark(
     '#{$name}-low',
-    lighten($baseColor, 20),
-    darken($baseColor, 10)
+    lighten-compat($baseColor, 20),
+    darken-compat($baseColor, 10)
   );
   @include defineColorLightAndDark(
     '#{$name}-medium',
     $baseColor,
-    lighten($baseColor, 10)
+    lighten-compat($baseColor, 10)
   );
   @include defineColorLightAndDark(
     '#{$name}-high',
-    darken($baseColor, 20),
-    lighten($baseColor, 20)
+    darken-compat($baseColor, 20),
+    lighten-compat($baseColor, 20)
   );
   @include defineColorLightAndDark(
     '#{$name}-higher',
-    darken($baseColor, 40),
-    lighten($baseColor, 30)
+    darken-compat($baseColor, 40),
+    lighten-compat($baseColor, 30)
   );
   @include defineColorLightAndDark(
     '#{$name}-highest',
-    darken($baseColor, 50),
-    lighten($baseColor, 90)
+    darken-compat($baseColor, 50),
+    lighten-compat($baseColor, 90)
   );
 }
 
@@ -115,33 +130,33 @@
   // Variations from lowest to highest
   @include defineColorLightAndDark(
     '#{$name}-lowest',
-    lighten($lightColor, 90),
-    darken($darkColor, 50)
+    lighten-compat($lightColor, 90),
+    darken-compat($darkColor, 50)
   );
   @include defineColorLightAndDark(
     '#{$name}-lower',
-    lighten($lightColor, 30),
-    darken($darkColor, 30)
+    lighten-compat($lightColor, 30),
+    darken-compat($darkColor, 30)
   );
   @include defineColorLightAndDark(
     '#{$name}-low',
-    lighten($lightColor, 20),
-    darken($darkColor, 10)
+    lighten-compat($lightColor, 20),
+    darken-compat($darkColor, 10)
   );
   @include defineColorLightAndDark('#{$name}-medium', $lightColor, $darkColor);
   @include defineColorLightAndDark(
     '#{$name}-high',
-    darken($lightColor, 20),
-    lighten($darkColor, 20)
+    darken-compat($lightColor, 20),
+    lighten-compat($darkColor, 20)
   );
   @include defineColorLightAndDark(
     '#{$name}-higher',
-    darken($lightColor, 40),
-    lighten($darkColor, 30)
+    darken-compat($lightColor, 40),
+    lighten-compat($darkColor, 30)
   );
   @include defineColorLightAndDark(
     '#{$name}-highest',
-    darken($lightColor, 50),
-    lighten($darkColor, 90)
+    darken-compat($lightColor, 50),
+    lighten-compat($darkColor, 90)
   );
 }
