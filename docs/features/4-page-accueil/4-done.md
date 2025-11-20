@@ -140,6 +140,144 @@
    - Tous les liens de navigation actifs
    - Pas d'indicateurs warning
 
+## Modifications post-implémentation
+
+### Améliorations du bloc "Chronique active"
+
+1. **Retrait des liens de navigation**
+   - Les liens de navigation (Protocole, Observation, Graphe, Statistiques) ont été retirés du bloc
+   - La navigation reste disponible uniquement via le menu drawer
+
+2. **Affichage détaillé des informations de la chronique**
+   - Affichage du nom de la chronique dans un header avec couleur primary
+   - Affichage de la description si disponible
+   - Card "Informations" avec :
+     - Date de création (formatée en français)
+     - Date de modification (formatée en français)
+     - Nombre de relevés
+     - Date du dernier relevé (si disponible)
+   - Styling avec `bg-primary` pour le header et `rgba(31, 41, 55, 0.03)` pour les cards avec bordure gauche `3px solid var(--primary)`
+
+3. **État sans chronique**
+   - Message "Aucune chronique n'est actuellement chargée"
+   - Boutons : "Nouvelle chronique" (actif), "Importer" et "Exporter" (désactivés pour l'instant)
+   - Icône `mdi-folder-open-outline` pour l'état vide
+
+4. **Reorganisation du layout**
+   - Retrait de la card "Actions"
+   - Centrage vertical des éléments
+   - Boutons d'action placés directement dans le flux
+
+5. **Ajout de scroll area**
+   - Wrapping du contenu dans `q-scroll-area` pour gérer le débordement
+
+### Améliorations du menu drawer
+
+1. **Renommage "Votre Observation" → "Votre Chronique"**
+   - Texte mis à jour dans la card flottante du drawer
+   - Message "Aucune chronique n'est chargée" au lieu de "Aucune observation n'est chargée"
+
+2. **Changement d'icône pour les items désactivés**
+   - Remplacement de l'icône `warning` par `block` (icône d'inaccessibilité)
+   - Couleur `grey-6` pour l'icône
+
+### Améliorations du bloc "Centre d'aide"
+
+1. **Ajout de liens vers actograph.io**
+   - Didacticiel "Premiers pas" : `https://www.actograph.io/fr/software/description`
+   - Documentation : `https://www.actograph.io/fr/software/install`
+   - Tutoriels : `https://www.actograph.io/fr/software/tutorial`
+   - FAQ : `https://www.actograph.io/fr/faq`
+   - Site ActoGraph.io : `https://www.actograph.io`
+   - Contact : `https://www.actograph.io/fr/contact`
+   - Tous les liens ouvrent dans le navigateur externe de l'utilisateur
+
+2. **Styling amélioré**
+   - Sections avec `rgba(31, 41, 55, 0.03)` (primary avec 3% opacity)
+   - Bordure gauche `3px solid var(--primary)`
+   - Effet hover sur les liens avec `rgba(31, 41, 55, 0.1)`
+   - Icônes Material Design pour chaque lien
+
+3. **Organisation du contenu**
+   - Section "Démarrage rapide" avec bouton "Charger l'exemple"
+   - Section "Documentation" avec liens vers la documentation
+   - Section "En savoir plus" avec lien vers le site
+   - Section "Informations" avec lien de contact
+
+4. **Gestion des liens externes**
+   - Méthode `openExternalLink` qui détecte l'environnement (Electron ou web)
+   - Utilisation de `window.api.openExternal` pour Electron
+   - Fallback `window.open` pour l'environnement web
+   - Configuration IPC dans `electron-main.ts` et `electron-preload.ts`
+
+5. **Ajout de scroll area**
+   - Wrapping du contenu dans `q-scroll-area` pour gérer le débordement
+
+### Améliorations du bloc "En savoir plus" (anciennement "Encart publicitaire")
+
+1. **Renommage**
+   - Titre changé de "Encart publicitaire" à "En savoir plus"
+
+2. **Card "Version"**
+   - Affichage dynamique de la version : `ActoGraph v{{ process.env.APP_VERSION }}`
+   - Version récupérée depuis les variables d'environnement
+
+3. **Card "Votre licence"**
+   - Affichage du nom de la licence (Student, Ultimate, Support)
+   - Description de la licence selon le type
+   - Utilisation du composable `useLicense` pour récupérer les informations
+   - Gestion des différents types de licence avec `LicenseTypeEnum`
+
+4. **Card "À propos d'ActoGraph"**
+   - Texte d'introduction sur ActoGraph
+   - Mention de l'open-source et de la nécessité d'une licence professionnelle pour l'usage en entreprise
+
+5. **Styling**
+   - Cards avec `rgba(31, 41, 55, 0.03)` (primary avec 3% opacity)
+   - Bordure gauche `3px solid var(--primary)`
+   - Même style cohérent que les autres blocs
+
+6. **Ajout de scroll area**
+   - Wrapping du contenu dans `q-scroll-area` pour gérer le débordement
+
+### Améliorations générales
+
+1. **Scroll areas dans tous les blocs**
+   - Ajout de `q-scroll-area` dans :
+     - `MyObservations` (Vos chroniques)
+     - `ActiveChronicle` (Chronique active)
+     - `FirstSteps` (Centre d'aide)
+     - `Advertisement` (En savoir plus)
+
+2. **Correction des couleurs CSS**
+   - Remplacement de `var(--q-primary)` par `var(--primary)` dans tous les styles SCSS
+   - Utilisation des couleurs définies dans l'application, pas les couleurs Quasar par défaut
+   - Application dans :
+     - `active-chronicle/Index.vue`
+     - `first-steps/Index.vue`
+     - `advertisement/Index.vue`
+
+3. **Documentation dans .cursorrules**
+   - Ajout d'une section "Couleurs CSS" dans les conventions Frontend
+   - Règle explicite : utiliser `var(--primary)` au lieu de `var(--q-primary)`
+   - Documentation des bonnes pratiques pour les couleurs dans les templates et styles SCSS
+
+### Fichiers modifiés supplémentaires
+
+1. **`front/src-electron/electron-main.ts`**
+   - Ajout de l'import `shell` depuis `electron`
+   - Handler IPC `open-external` qui utilise `shell.openExternal(url)`
+
+2. **`front/src-electron/electron-preload.ts`**
+   - Ajout de `'open-external'` dans `validChannels`
+   - Exposition de `openExternal` via `contextBridge`
+
+3. **`front/src/pages/userspace/home/_components/active-chronicle/SelectChronicleDialog.vue`**
+   - Correction de l'import path pour `columns` : utilisation de l'alias `@pages/userspace/home/_components/my-observations/columns`
+
+4. **`.cursorrules`**
+   - Ajout de la section "Couleurs CSS" dans les conventions Frontend
+
 ## Notes finales
 
 ### Points d'attention pour la maintenance
@@ -155,6 +293,15 @@
 3. **Composable useObservation**
    - Le composant dépend fortement de la structure du composable
    - Toute modification du composable nécessitera une mise à jour du composant
+
+4. **Couleurs CSS**
+   - Toujours utiliser `var(--primary)`, `var(--accent)`, `var(--secondary)` dans les styles SCSS
+   - Ne pas utiliser les couleurs Quasar (`var(--q-primary)`)
+   - Les couleurs sont définies dans `front/src/css/_colors.scss` et `front/lib-improba/css/_colors.scss`
+
+5. **Liens externes**
+   - Les liens vers `actograph.io` doivent être vérifiés périodiquement
+   - La structure du site peut changer, nécessitant une mise à jour des URLs
 
 ### Améliorations futures possibles
 
@@ -174,8 +321,17 @@
    - Ajouter un badge avec le nombre de relevés
    - Ajouter un indicateur de synchronisation
 
+5. **Fonctionnalités d'import/export**
+   - Implémenter les fonctionnalités "Importer" et "Exporter" actuellement désactivées
+   - Gérer les formats de fichiers (JSON, CSV, etc.)
+
+6. **Amélioration de la gestion des versions**
+   - Afficher les notes de version si disponibles
+   - Lien vers le changelog
+
 ## Documentation supplémentaire créée
 
 - Ce fichier de documentation post-implémentation
 - Commentaires dans le code pour expliquer la logique
+- Section "Couleurs CSS" ajoutée dans `.cursorrules`
 
