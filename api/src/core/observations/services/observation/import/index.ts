@@ -404,6 +404,47 @@ export class Import {
   }
 
   /**
+   * Génère un nom unique pour une observation importée
+   * 
+   * Si une observation avec le même nom existe déjà pour l'utilisateur,
+   * génère un nom avec le préfixe "Copie de " suivi du nom original.
+   * Si "Copie de {nom}" existe déjà, génère "Copie (2) de {nom}", etc.
+   * 
+   * @param originalName Nom original de l'observation à importer
+   * @param userId ID de l'utilisateur qui importe
+   * @returns Nom unique pour l'observation
+   */
+  private async generateUniqueObservationName(
+    originalName: string,
+    userId: number,
+  ): Promise<string> {
+    // Vérifier si le nom original existe déjà
+    const existingObservations = await this.observationService.find.findAllForuser(userId);
+    const nameExists = existingObservations.some(
+      (obs) => obs.name === originalName,
+    );
+
+    // Si le nom n'existe pas, retourner le nom original
+    if (!nameExists) {
+      return originalName;
+    }
+
+    // Le nom existe déjà, générer "Copie de {nom}"
+    let candidateName = `Copie de ${originalName}`;
+    let copyNumber = 1;
+
+    // Vérifier si "Copie de {nom}" existe déjà
+    while (
+      existingObservations.some((obs) => obs.name === candidateName)
+    ) {
+      copyNumber++;
+      candidateName = `Copie (${copyNumber}) de ${originalName}`;
+    }
+
+    return candidateName;
+  }
+
+  /**
    * Importe une observation depuis un fichier .jchronic ou .chronic
    * 
    * Processus d'import complet :
@@ -413,7 +454,8 @@ export class Import {
    * 2. Normalisation : conversion du format d'import en format interne
    *    - Pour v1 : conversion du protocole et des readings via les convertisseurs
    *    - Pour v3 : conversion directe depuis le JSON
-   * 3. Création : création de l'observation avec protocole et readings
+   * 3. Génération d'un nom unique : vérifie si le nom existe déjà et le renomme si nécessaire
+   * 4. Création : création de l'observation avec protocole et readings
    * 
    * Le service ObservationService.create() gère :
    * - La création de l'observation
@@ -446,7 +488,16 @@ export class Import {
     // car une erreur est renvoyée dans parseFile()
     const normalizedData = this.normalizeImportData(data, format);
 
-    // ÉTAPE 3 : Créer l'observation avec toutes ses données
+    // ÉTAPE 3 : Générer un nom unique pour l'observation
+    // Si une observation avec le même nom existe déjà pour l'utilisateur,
+    // génère un nom avec le préfixe "Copie de " suivi du nom original.
+    // Si "Copie de {nom}" existe déjà, génère "Copie (2) de {nom}", etc.
+    const uniqueName = await this.generateUniqueObservationName(
+      normalizedData.observation.name,
+      userId,
+    );
+
+    // ÉTAPE 4 : Créer l'observation avec toutes ses données
     // Le service create() gère la création en cascade :
     // 1. Crée l'observation
     // 2. Crée le protocole (si présent)
@@ -456,7 +507,7 @@ export class Import {
     // Tous les nouveaux IDs sont générés automatiquement
     const observation = await this.observationService.create({
       userId,
-      name: normalizedData.observation.name,
+      name: uniqueName,
       description: normalizedData.observation.description,
       protocol: normalizedData.protocol,
       readings: normalizedData.readings,
