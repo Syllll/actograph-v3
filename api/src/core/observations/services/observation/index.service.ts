@@ -28,6 +28,8 @@ import { ActivityGraphService } from '../activity-graph.service';
 import { ProtocolService } from '../protocol/index.service';
 import { ReadingService } from '../reading.service';
 import { Example } from './example';
+import { Export } from './export';
+import { Import } from './import';
 import { ProtocolItemTypeEnum } from '@core/observations/entities/protocol.entity';
 import { ReadingTypeEnum } from '@core/observations/entities/reading.entity';
 
@@ -39,6 +41,8 @@ export class ObservationService extends BaseService<
   public find: Find;
   public check: Check;
   public example: Example;
+  public export: Export;
+  public import: Import;
 
   constructor(
     @InjectRepository(ObservationRepository)
@@ -57,6 +61,17 @@ export class ObservationService extends BaseService<
       this.protocolService,
       this.readingService,
       this.activityGraphService,
+    );
+    this.export = new Export(
+      this,
+      observationRepository,
+      this.protocolService,
+      this.readingService,
+    );
+    this.import = new Import(
+      this,
+      this.protocolService,
+      this.readingService,
     );
   }
 

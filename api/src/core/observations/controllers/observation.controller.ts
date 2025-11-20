@@ -17,7 +17,11 @@ import {
   UnauthorizedException,
   forwardRef,
   Inject,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '@users/guards/jwt-auth.guard';
 import { allMainUsers, UserRoleEnum } from '@users/utils/user-role.enum';
 import { Roles } from '@users/utils/roles.decorator';
@@ -34,6 +38,7 @@ import { UserRolesGuard } from '@users/guards/user-roles.guard';
 import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
 import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
 import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IChronicExport } from '../services/observation/export';
 
 export class ICreateObservationDto {
   @IsString()
@@ -157,6 +162,43 @@ export class ObservationController extends BaseController {
     return observation;
   }
 
+  /**
+   * Endpoint pour exporter une observation au format .jchronic
+   * 
+   * IMPORTANT : Cette route doit être définie AVANT la route @Get(':id')
+   * car NestJS évalue les routes dans l'ordre de déclaration.
+   * Sinon, '/25/export' serait interprété comme '/:id' avec id='25/export'
+   * 
+   * Processus :
+   * 1. Vérification de l'authentification (JWT)
+   * 2. Vérification des permissions (rôle User)
+   * 3. Appel du service d'export qui :
+   *    - Charge l'observation avec ses relations
+   *    - Vérifie que l'utilisateur est propriétaire
+   *    - Retire tous les IDs
+   *    - Formate les données pour l'export
+   * 4. Retourne les données JSON au frontend
+   * 
+   * @param id ID de l'observation à exporter
+   * @param req Request contenant l'utilisateur authentifié
+   * @returns Données d'export au format IChronicExport (sans IDs)
+   */
+  @Get(':id/export')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async exportObservation(
+    @Param('id') id: number,
+    @Req() req: any,
+  ): Promise<IChronicExport> {
+    const user = req.user;
+    // Le service vérifie automatiquement que l'observation appartient à l'utilisateur
+    const exportData = await this.observationService.export.exportObservation(
+      id,
+      user.id,
+    );
+    return exportData;
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @Roles(UserRoleEnum.User)
@@ -188,5 +230,43 @@ export class ObservationController extends BaseController {
     }
 
     return <Observation>observation;
+  }
+
+  @Post('import')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  @UseInterceptors(FileInterceptor('file'))
+  async importObservation(
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<Observation> {
+    const user = req.user;
+
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+
+    // Vérifier l'extension du fichier
+    const fileName = file.originalname.toLowerCase();
+    if (
+      !fileName.endsWith('.jchronic') &&
+      !fileName.endsWith('.chronic')
+    ) {
+      throw new BadRequestException(
+        'Invalid file format. Expected .jchronic or .chronic file',
+      );
+    }
+
+    // Convertir le buffer en string
+    const fileContent = file.buffer.toString('utf8');
+
+    // Importer l'observation
+    const observation = await this.observationService.import.importFromFile(
+      fileContent,
+      file.originalname,
+      user.id,
+    );
+
+    return observation;
   }
 }

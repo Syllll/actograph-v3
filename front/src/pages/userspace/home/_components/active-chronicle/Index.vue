@@ -6,10 +6,10 @@
         <template v-if="observation.sharedState.currentObservation">
           <!-- Header avec nom de la chronique -->
           <div class="chronicle-header q-pa-md q-mb-md full-width">
-            <div class="text-h6 text-weight-bold q-mb-xs text-center">
+            <div class="text-h5 text-weight-bold q-mb-xs text-center text-primary">
               {{ observation.sharedState.currentObservation.name }}
             </div>
-            <div v-if="observation.sharedState.currentObservation.description" class="text-body2 text-grey-7 q-mt-xs text-center">
+            <div v-if="observation.sharedState.currentObservation.description" class="text-body1 text-grey-8 q-mt-xs text-center">
               {{ observation.sharedState.currentObservation.description }}
             </div>
           </div>
@@ -38,6 +38,18 @@
                   {{ readingsCount }} relevé{{ readingsCount > 1 ? 's' : '' }}
                 </span>
               </div>
+              <div class="row items-center">
+                <q-icon name="mdi-folder-multiple" size="sm" class="q-mr-sm text-primary" />
+                <span class="text-body2">
+                  {{ categoriesCount }} catégorie{{ categoriesCount > 1 ? 's' : '' }}
+                </span>
+              </div>
+              <div class="row items-center">
+                <q-icon name="mdi-eye" size="sm" class="q-mr-sm text-primary" />
+                <span class="text-body2">
+                  {{ observablesCount }} observable{{ observablesCount > 1 ? 's' : '' }}
+                </span>
+              </div>
               <div v-if="hasReadings" class="row items-center">
                 <q-icon name="mdi-clock-outline" size="sm" class="q-mr-sm text-primary" />
                 <span class="text-body2">
@@ -47,7 +59,56 @@
             </div>
           </div>
 
-          <!-- Boutons d'action -->
+          <!-- Boutons d'action principaux -->
+          <div class="q-px-md q-mb-md full-width">
+            <div class="row q-gutter-sm">
+              <!-- Constituer mon Protocole -->
+              <q-btn
+                label="Constituer mon Protocole"
+                @click="methods.navigateToProtocol"
+                :class="[
+                  'col',
+                  'action-btn',
+                  { 'primary-action': !hasObservables }
+                ]"
+                :outline="hasObservables"
+                color="primary"
+                no-caps
+              />
+
+              <!-- Faire mon observation -->
+              <q-btn
+                label="Faire mon observation"
+                @click="methods.navigateToObservation"
+                :class="[
+                  'col',
+                  'action-btn',
+                  { 'primary-action': hasObservables && !hasReadings }
+                ]"
+                :outline="hasObservables && hasReadings"
+                color="primary"
+                no-caps
+                :disable="!hasObservables"
+              />
+
+              <!-- Voir mon graph d'activité -->
+              <q-btn
+                label="Voir mon graph d'activité"
+                @click="methods.navigateToGraph"
+                :class="[
+                  'col',
+                  'action-btn',
+                  { 'primary-action': hasObservables && hasReadings }
+                ]"
+                :outline="!(hasObservables && hasReadings)"
+                color="primary"
+                no-caps
+                :disable="!(hasObservables && hasReadings)"
+              />
+            </div>
+          </div>
+
+          <!-- Bouton secondaire -->
           <div class="q-px-md full-width">
             <q-btn
               label="Charger une autre chronique"
@@ -56,6 +117,7 @@
               color="accent"
               no-caps
               class="full-width"
+              flat
             />
           </div>
         </template>
@@ -85,7 +147,6 @@
                 outline
                 color="primary"
                 no-caps
-                disabled
                 class="full-width"
               />
               <q-btn
@@ -94,7 +155,7 @@
                 outline
                 color="primary"
                 no-caps
-                disabled
+                :disable="!observation.sharedState.currentObservation"
                 class="full-width"
               />
             </div>
@@ -116,21 +177,32 @@ import { defineComponent, reactive, computed } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
 import SelectChronicleDialog from './SelectChronicleDialog.vue';
+import CreateObservationDialog from './CreateObservationDialog.vue';
 import { DSubmitBtn } from '@lib-improba/components';
 import { useQuasar } from 'quasar';
+import { useRouter } from 'vue-router';
+import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
+import { exportService } from '@services/observations/export.service';
+import { importService } from '@services/observations/import.service';
 
 export default defineComponent({
   name: 'ActiveChronicle',
   components: {
     SelectChronicleDialog,
+    CreateObservationDialog,
     DSubmitBtn,
   },
   setup() {
     const $q = useQuasar();
+    const router = useRouter();
     const observation = useObservation();
 
     const state = reactive({
       showSelectDialog: false,
+    });
+
+    const hasObservables = computed(() => {
+      return observablesCount.value > 0;
     });
 
     const hasReadings = computed(() => {
@@ -139,6 +211,37 @@ export default defineComponent({
 
     const readingsCount = computed(() => {
       return observation.readings.sharedState.currentReadings.length;
+    });
+
+    const categoriesCount = computed(() => {
+      const protocol = observation.protocol.sharedState.currentProtocol;
+      if (!protocol || !protocol._items) {
+        return 0;
+      }
+      return protocol._items.filter(
+        (item: any) => item.type === ProtocolItemTypeEnum.Category
+      ).length;
+    });
+
+    const observablesCount = computed(() => {
+      const protocol = observation.protocol.sharedState.currentProtocol;
+      if (!protocol || !protocol._items) {
+        return 0;
+      }
+      let count = 0;
+      // Compter les observables directs
+      count += protocol._items.filter(
+        (item: any) => item.type === ProtocolItemTypeEnum.Observable
+      ).length;
+      // Compter les observables dans les enfants des catégories
+      protocol._items.forEach((item: any) => {
+        if (item.type === ProtocolItemTypeEnum.Category && item.children) {
+          count += item.children.filter(
+            (child: any) => child.type === ProtocolItemTypeEnum.Observable
+          ).length;
+        }
+      });
+      return count;
     });
 
     const lastReadingDateText = computed(() => {
@@ -189,44 +292,194 @@ export default defineComponent({
 
       createNewObservation: async () => {
         const diagRes = await createDialog({
-          title: 'Créer une chronique',
-          message: 'Veuillez entrer le nom de votre chronique',
-          prompt: {
-            model: '',
-            type: 'text',
-            placeholder: 'Nom de la chronique',
-          },
+          component: CreateObservationDialog,
+          componentProps: {},
+          persistent: true,
         });
 
-        if (!diagRes) {
+        if (!diagRes || diagRes === false) {
           return;
         }
 
         await observation.methods.createObservation({
-          name: diagRes as string,
+          name: diagRes.name,
+          description: diagRes.description,
         });
       },
 
-      importObservation: () => {
-        $q.notify({
-          type: 'info',
-          message: 'Fonctionnalité d\'import à venir',
-        });
+      /**
+       * Importe une observation depuis un fichier .jchronic ou .chronic
+       * 
+       * Flux d'exécution :
+       * 1. Vérifie que l'API Electron est disponible
+       * 2. Ouvre le dialogue de sélection de fichier
+       * 3. Appelle le service d'import qui :
+       *    - Lit le fichier localement
+       *    - Envoie le fichier au backend
+       *    - Le backend parse, normalise et crée l'observation
+       * 4. Recharge l'observation complète dans l'application
+       * 5. Affiche une notification de succès
+       * 
+       * Note : Le backend gère toute la logique d'import :
+       * - Détection du format (.jchronic vs .chronic)
+       * - Parsing et validation du JSON
+       * - Normalisation des données
+       * - Création de l'observation avec protocole et readings
+       * - Génération des nouveaux IDs
+       */
+      importObservation: async () => {
+        // VÉRIFICATION : L'API Electron doit être disponible pour lire le fichier
+        if (!window.api || !window.api.showOpenDialog || !window.api.readFile) {
+          $q.notify({
+            type: 'negative',
+            message: 'L\'API Electron n\'est pas disponible. Cette fonctionnalité nécessite Electron.',
+          });
+          return;
+        }
+
+        try {
+          // ÉTAPE 1 : Ouvrir le dialogue de sélection de fichier
+          // L'utilisateur peut sélectionner un fichier .jchronic ou .chronic
+          const dialogResult = await window.api.showOpenDialog({
+            filters: [
+              { name: 'Fichiers Chronique', extensions: ['jchronic', 'chronic'] },
+              { name: 'Tous les fichiers', extensions: ['*'] },
+            ],
+          });
+
+          // Si l'utilisateur a annulé, ne rien faire
+          if (dialogResult.canceled || !dialogResult.filePaths || dialogResult.filePaths.length === 0) {
+            return; // Utilisateur a annulé
+          }
+
+          const filePath = dialogResult.filePaths[0];
+
+          // ÉTAPE 2 : Importer l'observation depuis le fichier (via le backend)
+          // Le service gère :
+          // - La lecture du fichier localement
+          // - L'envoi au backend pour traitement
+          // Le backend fait tout le reste : parsing, normalisation, création
+          const newObservation = await importService.importFromFile(filePath);
+
+          // ÉTAPE 3 : Recharger l'observation complète dans l'application
+          // Cela permet d'afficher immédiatement l'observation importée
+          // avec toutes ses relations (protocol, readings)
+          await observation.methods.loadObservation(newObservation.id);
+
+          // ÉTAPE 4 : Afficher une notification de succès
+          $q.notify({
+            type: 'positive',
+            message: 'Chronique importée avec succès',
+            caption: newObservation.name,
+          });
+        } catch (error: any) {
+          // Gestion des erreurs : afficher une notification d'erreur avec le message
+          // Les erreurs Axios contiennent le message du backend dans error.response.data.message
+          console.error('Erreur lors de l\'import:', error);
+          
+          // Extraire le message d'erreur du backend si disponible
+          const errorMessage = 
+            error?.response?.data?.message || 
+            error?.message || 
+            'Erreur inconnue lors de l\'import';
+          
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de l\'import de la chronique',
+            caption: errorMessage,
+          });
+        }
       },
 
-      exportObservation: () => {
-        $q.notify({
-          type: 'info',
-          message: 'Fonctionnalité d\'export à venir',
-        });
+      /**
+       * Exporte l'observation actuellement chargée au format .jchronic
+       * 
+       * Flux d'exécution :
+       * 1. Vérifie qu'une observation est chargée
+       * 2. Vérifie que l'observation a un ID
+       * 3. Appelle le service d'export qui :
+       *    - Appelle l'API backend pour récupérer les données formatées
+       *    - Ouvre le dialogue de sauvegarde dans Documents
+       *    - Sauvegarde le fichier .jchronic
+       * 4. Affiche une notification de succès avec le chemin du fichier
+       * 
+       * Note : Si l'utilisateur annule le dialogue de sauvegarde,
+       * le service retourne null et aucune notification n'est affichée
+       */
+      exportObservation: async () => {
+        const currentObservation = observation.sharedState.currentObservation;
+        
+        // Vérification 1 : Une observation doit être chargée
+        if (!currentObservation) {
+          $q.notify({
+            type: 'warning',
+            message: 'Aucune chronique chargée à exporter',
+          });
+          return;
+        }
+
+        // Vérification 2 : L'observation doit avoir un ID pour l'export
+        // L'ID est nécessaire pour appeler l'API backend
+        if (!currentObservation.id) {
+          $q.notify({
+            type: 'negative',
+            message: 'Impossible d\'exporter : ID de l\'observation manquant',
+          });
+          return;
+        }
+
+        try {
+          // Appel du service d'export
+          // Le service gère :
+          // - L'appel API backend (qui récupère toutes les données nécessaires)
+          // - Le dialogue de sauvegarde Electron
+          // - L'écriture du fichier
+          // Le backend charge automatiquement protocol et readings, pas besoin de les passer
+          const filePath = await exportService.exportObservation(currentObservation);
+
+          // Si filePath est défini, l'export a réussi
+          // Afficher une notification avec le chemin du fichier pour confirmation
+          if (filePath) {
+            $q.notify({
+              type: 'positive',
+              message: 'Chronique exportée avec succès',
+              caption: filePath, // Afficher le chemin complet du fichier
+            });
+          }
+          // Si filePath est null, l'utilisateur a annulé le dialogue
+          // Pas besoin de notification dans ce cas (comportement attendu)
+        } catch (error) {
+          // Gestion des erreurs : afficher une notification d'erreur avec le message
+          console.error('Erreur lors de l\'export:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de l\'export de la chronique',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+          });
+        }
+      },
+
+      navigateToProtocol: () => {
+        router.push({ name: 'user_protocol' });
+      },
+
+      navigateToObservation: () => {
+        router.push({ name: 'user_observation' });
+      },
+
+      navigateToGraph: () => {
+        router.push({ name: 'user_analyse' });
       },
     };
 
     return {
       observation,
       state,
+      hasObservables,
       hasReadings,
       readingsCount,
+      categoriesCount,
+      observablesCount,
       lastReadingDateText,
       methods,
     };
@@ -237,15 +490,17 @@ export default defineComponent({
 <style lang="scss" scoped>
 .active-chronicle {
   .chronicle-header {
-    background-color: rgba(31, 41, 55, 0.03); // primary color with 3% opacity
-    border-left: 3px solid var(--primary);
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.08) 0%, rgba(31, 41, 55, 0.05) 100%);
+    border-left: 4px solid var(--primary);
     border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   }
 
   .info-card {
-    background-color: rgba(31, 41, 55, 0.03); // primary color with 3% opacity
-    border-left: 3px solid var(--primary);
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.08) 0%, rgba(31, 41, 55, 0.05) 100%);
+    border-left: 4px solid var(--primary);
     border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   }
 
   .empty-state {
@@ -254,6 +509,23 @@ export default defineComponent({
     flex-direction: column;
     align-items: center;
     justify-content: center;
+  }
+
+  .action-btn {
+    transition: all 0.3s ease;
+    
+    &.primary-action {
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    &:not(.primary-action) {
+      opacity: 0.7;
+      
+      &:hover {
+        opacity: 1;
+      }
+    }
   }
 }
 </style>

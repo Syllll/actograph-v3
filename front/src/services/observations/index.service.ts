@@ -6,6 +6,7 @@ import {
 } from '@lib-improba/utils/pagination.utils';
 import { IUser } from '@services/users/user.interface';
 import { IObservation } from './interface';
+import { IChronicExport } from './export.interface';
 
 const apiUrl = httpUtils.apiUrl();
 
@@ -56,6 +57,20 @@ export const observationService = {
     const response = await api().post(`${apiUrl}/observations`, {
       name: options.name,
       description: options.description,
+    });
+    return response.data;
+  },
+  exportObservation: async (id: number): Promise<IChronicExport> => {
+    const response = await api().get(`${apiUrl}/observations/${id}/export`);
+    return response.data;
+  },
+  importObservation: async (file: File): Promise<IObservation> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api().post(`${apiUrl}/observations/import`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
     return response.data;
   },

@@ -12,6 +12,10 @@ const validChannels = [
   'update-downloaded',
   'update-error',
   'open-external',
+  'show-save-dialog',
+  'write-file',
+  'show-open-dialog',
+  'read-file',
 ];
 
 // Expose protected methods that allow the renderer process to use
@@ -42,5 +46,42 @@ contextBridge.exposeInMainWorld('api', {
   },
   openExternal: (url: string) => {
     ipcRenderer.send('open-external', url);
+  },
+  showSaveDialog: (options: {
+    defaultPath?: string;
+    filters?: { name: string; extensions: string[] }[];
+  }): Promise<{ canceled: boolean; filePath?: string }> => {
+    return ipcRenderer.invoke('show-save-dialog', options) as Promise<{
+      canceled: boolean;
+      filePath?: string;
+    }>;
+  },
+  writeFile: (filePath: string, data: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke('write-file', filePath, data) as Promise<{
+      success: boolean;
+      error?: string;
+    }>;
+  },
+  showOpenDialog: (options: {
+    filters?: { name: string; extensions: string[] }[];
+  }): Promise<{ canceled: boolean; filePaths?: string[] }> => {
+    return ipcRenderer.invoke('show-open-dialog', options) as Promise<{
+      canceled: boolean;
+      filePaths?: string[];
+    }>;
+  },
+  readFile: (filePath: string): Promise<{
+    success: boolean;
+    data?: string;
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke('read-file', filePath) as Promise<{
+      success: boolean;
+      data?: string;
+      error?: string;
+    }>;
   },
 });

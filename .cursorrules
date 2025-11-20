@@ -599,6 +599,68 @@ export interface IMyEntity {
 - Dans les styles SCSS : utiliser `var(--primary)`, `var(--accent)`, `var(--secondary)` (pas `var(--q-primary)`)
 - Les couleurs sont définies dans `front/src/css/_colors.scss` et `front/lib-improba/css/_colors.scss`
 
+#### Design des Dialogs
+- **IMPORTANT** : Tous les dialogs doivent suivre ce pattern de design pour la cohérence
+- **Structure** :
+  - Utiliser `DCard` avec `class="q-dialog-plugin"`, `bgColor="background"`, `innerHeader` et un `title`
+  - Utiliser `DCardSection` pour séparer les sections (contenu et actions)
+- **Champs de formulaire** :
+  - Utiliser directement `q-input` (pas `DFormInput`) pour éviter les labels à gauche
+  - Utiliser `outlined` et `dense` pour un style épuré
+  - Les labels sont remplacés par des `placeholder` dans les champs
+  - Pour les textarea : utiliser `type="textarea"` avec `:rows="4"` et ajouter `class="q-mb-md"` pour l'espacement
+  - Utiliser `q-gutter-md` entre les champs dans un conteneur `column`
+- **Boutons d'action** :
+  - Placer les boutons dans une `DCardSection` séparée
+  - Utiliser `row items-center justify-end full-width q-gutter-md` pour aligner à droite
+  - Utiliser `DCancelBtn` et `DSubmitBtn` de `@lib-improba/components`
+- **Exemple de structure** :
+```vue
+<template>
+  <q-dialog ref="dialogRef" @hide="onDialogHide">
+    <DCard
+      class="q-dialog-plugin"
+      style="min-width: 400px"
+      bgColor="background"
+      innerHeader
+      title="Titre du dialog"
+    >
+      <DCardSection>
+        <div class="column q-gutter-md">
+          <q-input
+            v-model="state.field1"
+            placeholder="Placeholder du champ 1"
+            outlined
+            dense
+            :rules="[(val) => (val && val.length > 0) || 'Message de validation']"
+          />
+          <q-input
+            v-model="state.field2"
+            placeholder="Placeholder du champ 2 (optionnel)"
+            outlined
+            dense
+            type="textarea"
+            :rows="4"
+            class="q-mb-md"
+          />
+        </div>
+      </DCardSection>
+
+      <DCardSection>
+        <div class="row items-center justify-end full-width q-gutter-md">
+          <DCancelBtn @click="onCancelClick" />
+          <DSubmitBtn
+            label="Action"
+            @click="onOKClick"
+            :disable="!isValid"
+          />
+        </div>
+      </DCardSection>
+    </DCard>
+  </q-dialog>
+</template>
+```
+
 ### Gestion des dépendances Frontend
 - Utiliser **yarn** (pas npm)
 - Toujours exécuter `yarn install` dans le conteneur Docker Frontend

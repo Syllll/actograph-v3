@@ -33,13 +33,14 @@
               icon="mdi-new-box"
               tooltip="Importer une chronique"
               label="Importer"
-              disabled
+              @click="methods.importObservation"
             />
             <d-action-btn
               icon="mdi-new-box"
               tooltip="Exporter une chronique"
               label="Exporter"
-              disabled
+              :disabled="!observation.sharedState.currentObservation"
+              @click="methods.exportObservation"
             />
           </div>
         </div>
@@ -122,7 +123,11 @@ import { createDialog } from '@lib-improba/utils/dialog.utils';
 import { useAuth } from '@lib-improba/composables/use-auth';
 import { userMenuItems } from '@lib-improba/components/layouts/standard/user-menu-items';
 import { useI18n } from 'vue-i18n';
+import { useQuasar } from 'quasar';
 import ThemeToggler from '@lib-improba/components/layouts/theme-toggler/ThemeToggler.vue';
+import CreateObservationDialog from '@pages/userspace/home/_components/active-chronicle/CreateObservationDialog.vue';
+import { exportService } from '@services/observations/export.service';
+import { importService } from '@services/observations/import.service';
 
 export default defineComponent({
   props: {
@@ -142,6 +147,7 @@ export default defineComponent({
     const observation = useObservation();
     const auth = useAuth(router);
     const i18n = useI18n();
+    const $q = useQuasar();
 
     const computedState = {
       menuList: computed(() => menu(router)),
@@ -164,22 +170,124 @@ export default defineComponent({
       startObservation: async () => {
         // Open a dialog for the user to name its observation
         const diagRes = await createDialog({
-          title: 'Créer une observation',
-          message: 'Veuillez entrer le nom de votre observation',
-          prompt: { 
-            model: '',
-            type: 'text',
-            placeholder: 'Nom de l\'observation',
-          },
+          component: CreateObservationDialog,
+          componentProps: {},
+          persistent: true,
         });
 
-        if (!diagRes) {
+        if (!diagRes || diagRes === false) {
           return;
         }
 
         await observation.methods.createObservation({
-          name: diagRes as string,
+          name: diagRes.name,
+          description: diagRes.description,
         });
+      },
+
+      importObservation: async () => {
+        // Vérifier que l'API Electron est disponible
+        if (!window.api || !window.api.showOpenDialog || !window.api.readFile) {
+          $q.notify({
+            type: 'negative',
+            message: 'L\'API Electron n\'est pas disponible. Cette fonctionnalité nécessite Electron.',
+          });
+          return;
+        }
+
+        try {
+          // Ouvrir le dialogue de sélection de fichier
+          const dialogResult = await window.api.showOpenDialog({
+            filters: [
+              { name: 'Fichiers Chronique', extensions: ['jchronic', 'chronic'] },
+              { name: 'Tous les fichiers', extensions: ['*'] },
+            ],
+          });
+
+          if (dialogResult.canceled || !dialogResult.filePaths || dialogResult.filePaths.length === 0) {
+            return; // Utilisateur a annulé
+          }
+
+          const filePath = dialogResult.filePaths[0];
+
+          // Importer l'observation depuis le fichier (via le backend)
+          const newObservation = await importService.importFromFile(filePath);
+
+          // Recharger l'observation complète
+          await observation.methods.loadObservation(newObservation.id);
+
+          $q.notify({
+            type: 'positive',
+            message: 'Chronique importée avec succès',
+            caption: newObservation.name,
+          });
+        } catch (error: any) {
+          // Gestion des erreurs : afficher une notification d'erreur avec le message
+          // Les erreurs Axios contiennent le message du backend dans error.response.data.message
+          console.error('Erreur lors de l\'import:', error);
+          
+          // Extraire le message d'erreur du backend si disponible
+          const errorMessage = 
+            error?.response?.data?.message || 
+            error?.message || 
+            'Erreur inconnue lors de l\'import';
+          
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de l\'import de la chronique',
+            caption: errorMessage,
+          });
+        }
+      },
+
+      /**
+       * Exporte l'observation actuellement chargée au format .jchronic
+       * 
+       * Même logique que dans Index.vue - voir les commentaires détaillés là-bas
+       * Le service d'export gère tout : appel API backend, dialogue de sauvegarde, écriture fichier
+       */
+      exportObservation: async () => {
+        const currentObservation = observation.sharedState.currentObservation;
+        
+        if (!currentObservation) {
+          $q.notify({
+            type: 'warning',
+            message: 'Aucune chronique chargée à exporter',
+          });
+          return;
+        }
+
+        if (!currentObservation.id) {
+          $q.notify({
+            type: 'negative',
+            message: 'Impossible d\'exporter : ID de l\'observation manquant',
+          });
+          return;
+        }
+
+        try {
+          // Le service d'export gère tout le processus :
+          // 1. Appel API backend pour récupérer les données (sans IDs)
+          // 2. Ouverture du dialogue de sauvegarde dans Documents
+          // 3. Écriture du fichier .jchronic
+          const filePath = await exportService.exportObservation(currentObservation);
+
+          if (filePath) {
+            $q.notify({
+              type: 'positive',
+              message: 'Chronique exportée avec succès',
+              caption: filePath,
+            });
+          }
+          // Si filePath est null, l'utilisateur a annulé, pas besoin de notification
+        } catch (error) {
+          console.error('Erreur lors de l\'export:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de l\'export de la chronique',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+          });
+        }
       },
     };
 

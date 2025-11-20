@@ -9,6 +9,7 @@ import {
 } from 'electron';
 import path from 'path';
 import os from 'os';
+import fs from 'fs';
 import { fork } from 'child_process';
 import {
   getPort,
@@ -316,6 +317,73 @@ ipcMain.handle('install-update', (event, arg) => {
 ipcMain.on('open-external', (event, url: string) => {
   // Open external links in the user's default browser
   shell.openExternal(url);
+});
+
+ipcMain.handle('show-save-dialog', async (event, options: {
+  defaultPath?: string;
+  filters?: { name: string; extensions: string[] }[];
+}) => {
+  if (!mainWindow) {
+    return { canceled: true };
+  }
+
+  // Get the Documents directory path
+  const documentsPath = app.getPath('documents');
+  
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: options.defaultPath || path.join(documentsPath, 'chronique.jchronic'),
+    filters: options.filters || [
+      { name: 'Fichiers Chronique', extensions: ['jchronic'] },
+      { name: 'Tous les fichiers', extensions: ['*'] },
+    ],
+  });
+
+  return result;
+});
+
+ipcMain.handle('write-file', async (event, filePath: string, data: string) => {
+  try {
+    fs.writeFileSync(filePath, data, 'utf8');
+    return { success: true };
+  } catch (error) {
+    log.error('Error writing file:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+ipcMain.handle('show-open-dialog', async (event, options: {
+  filters?: { name: string; extensions: string[] }[];
+}) => {
+  if (!mainWindow) {
+    return { canceled: true };
+  }
+
+  // Get the Documents directory path
+  const documentsPath = app.getPath('documents');
+  
+  const result = await dialog.showOpenDialog(mainWindow, {
+    defaultPath: documentsPath,
+    filters: options.filters || [
+      { name: 'Fichiers Chronique', extensions: ['jchronic', 'chronic'] },
+      { name: 'Tous les fichiers', extensions: ['*'] },
+    ],
+    properties: ['openFile'],
+  });
+
+  return result;
+});
+
+ipcMain.handle('read-file', async (event, filePath: string) => {
+  try {
+    const data = fs.readFileSync(filePath, 'utf8');
+    return { success: true, data };
+  } catch (error) {
+    log.error('Error reading file:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
 });
 
 // Optional: Disable auto-download

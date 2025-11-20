@@ -6,7 +6,28 @@ import { useImprobaInit } from 'src/../lib-improba/composables/use-improba-init'
 
 declare global {
   interface Window {
-    api: any;
+    api: {
+      send: (channel: string, data: any) => void;
+      invoke: (channel: string, data?: unknown) => Promise<unknown>;
+      on: (channel: string, func: any) => void;
+      openExternal: (url: string) => void;
+      showSaveDialog: (options: {
+        defaultPath?: string;
+        filters?: { name: string; extensions: string[] }[];
+      }) => Promise<{ canceled: boolean; filePath?: string }>;
+      writeFile: (
+        filePath: string,
+        data: string
+      ) => Promise<{ success: boolean; error?: string }>;
+      showOpenDialog: (options: {
+        filters?: { name: string; extensions: string[] }[];
+      }) => Promise<{ canceled: boolean; filePaths?: string[] }>;
+      readFile: (filePath: string) => Promise<{
+        success: boolean;
+        data?: string;
+        error?: string;
+      }>;
+    };
   }
 }
 
