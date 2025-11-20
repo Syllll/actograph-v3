@@ -11,6 +11,7 @@ const validChannels = [
   'update-download-progress',
   'update-downloaded',
   'update-error',
+  'open-external',
 ];
 
 // Expose protected methods that allow the renderer process to use
@@ -38,5 +39,8 @@ contextBridge.exposeInMainWorld('api', {
       // Deliberately strip event as it includes `sender`
       ipcRenderer.on(channel, (event, ...args) => func(...args));
     }
+  },
+  openExternal: (url: string) => {
+    ipcRenderer.send('open-external', url);
   },
 });

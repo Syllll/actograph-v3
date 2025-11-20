@@ -5,6 +5,7 @@ import {
   screen,
   ipcMain,
   dialog,
+  shell,
 } from 'electron';
 import path from 'path';
 import os from 'os';
@@ -310,6 +311,11 @@ ipcMain.handle('download-update', (event, arg) => {
 ipcMain.handle('install-update', (event, arg) => {
   // Manually trigger the installation
   autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.on('open-external', (event, url: string) => {
+  // Open external links in the user's default browser
+  shell.openExternal(url);
 });
 
 // Optional: Disable auto-download

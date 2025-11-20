@@ -592,6 +592,13 @@ export interface IMyEntity {
 - Utiliser les composants de la lib-improba quand disponibles (ex: `DPage`, `StandardLayout`)
 - Respecter les conventions de nommage Quasar
 
+#### Couleurs CSS
+- **IMPORTANT** : Utiliser les couleurs définies dans le CSS de l'application, pas les couleurs Quasar par défaut
+- Utiliser `primary`, `accent`, `secondary` directement (pas `q-primary`, `q-accent`, `q-secondary`)
+- Dans les templates : utiliser `text-primary`, `color="primary"`, `bg-primary`
+- Dans les styles SCSS : utiliser `var(--primary)`, `var(--accent)`, `var(--secondary)` (pas `var(--q-primary)`)
+- Les couleurs sont définies dans `front/src/css/_colors.scss` et `front/lib-improba/css/_colors.scss`
+
 ### Gestion des dépendances Frontend
 - Utiliser **yarn** (pas npm)
 - Toujours exécuter `yarn install` dans le conteneur Docker Frontend

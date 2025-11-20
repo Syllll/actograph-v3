@@ -1,63 +1,70 @@
 <template>
-  <div class="my-observations fit column">
-    <div class="col-auto row q-mb-md items-center">
-      <div class="col-12">
-        <DSearchInput class="full-width"
+  <q-dialog v-model="localShow" @hide="methods.handleHide">
+    <q-card style="min-width: 600px; max-width: 800px">
+      <q-card-section>
+        <div class="text-h6">Sélectionner une chronique</div>
+      </q-card-section>
+
+      <q-card-section>
+        <DSearchInput
           v-model:searchText="state.searchText"
           placeholder="Rechercher une chronique"
           @update:searchText="methods.handleSearch"
         />
-      </div>
-    </div>
+      </q-card-section>
 
-    <q-scroll-area class="col">
-      <div class="fit">
+      <q-card-section class="q-pt-none">
         <DPaginationTable
-          class="table fit"
+          class="table"
           flat
           :columns="stateless.columns"
           :fetchFunction="methods.fetchObservations"
           v-model:triggerReload="state.reload"
           row-key="id"
-          @row-click="methods.loadObservation"
+          @row-click="methods.selectObservation"
           hide-bottom-select
         >
           <template v-slot:table-col-name="scope">
-            <DTextLink @click="methods.loadObservation(scope.row.id)">
+            <DTextLink @click="methods.selectObservation(scope.row.id)">
               {{ scope.row.name }}
             </DTextLink>
           </template>
-
-          <!-- Custom action column -->
-          <template v-slot:table-col-actions="">
-            <div class="row items-center justify-end">
-              <DActionViewBtn flat size="sm" class="q-mr-xs" />
-            </div>
-          </template>
         </DPaginationTable>
-      </div>
-    </q-scroll-area>
-  </div>
+      </q-card-section>
+
+      <q-card-actions align="right">
+        <q-btn flat label="Annuler" color="primary" @click="methods.handleHide" />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, watch } from 'vue';
+import { defineComponent, reactive, watch, computed } from 'vue';
 import { useQuasar } from 'quasar';
 import { observationService } from '@services/observations/index.service';
-import { columns } from './columns';
 import { PaginationResponse } from '@lib-improba/utils/pagination.utils';
 import { IObservation } from '@services/observations/interface';
 import { DSearchInput } from '@lib-improba/components/app/inputs';
-import { DPaginationTable } from '@lib-improba/components';
-import { useObservation } from 'src/composables/use-observation';
+import { DPaginationTable, DTextLink } from '@lib-improba/components';
+import { columns } from '@pages/userspace/home/_components/my-observations/columns';
 
 export default defineComponent({
+  name: 'SelectChronicleDialog',
   components: {
     DSearchInput,
+    DPaginationTable,
+    DTextLink,
   },
-  setup() {
+  props: {
+    modelValue: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  emits: ['update:modelValue', 'selected'],
+  setup(props, { emit }) {
     const $q = useQuasar();
-    const observation = useObservation();
 
     const stateless = {
       columns,
@@ -67,6 +74,11 @@ export default defineComponent({
       reload: false,
       searchText: '',
       searchDebounceTimeout: null as NodeJS.Timeout | null,
+    });
+
+    const localShow = computed({
+      get: () => props.modelValue,
+      set: (value) => emit('update:modelValue', value),
     });
 
     const methods = {
@@ -104,45 +116,27 @@ export default defineComponent({
           console.error('Error fetching observations:', error);
           $q.notify({
             type: 'negative',
-            message: 'Failed to load observations',
+            message: 'Erreur lors du chargement des chroniques',
           });
           return { count: 0, results: [] };
         }
       },
 
-      loadObservation: async (id: number) => {
-        await observation.methods.loadObservation(id);
+      selectObservation: (id: number) => {
+        emit('selected', id);
       },
 
-      deleteObservation: async (id: number) => {
-        try {
-          $q.dialog({
-            title: 'Delete Observation',
-            message: 'Are you sure you want to delete this observation?',
-            cancel: true,
-            persistent: true,
-          }).onOk(async () => {
-            await observationService.delete(id);
-            $q.notify({
-              type: 'positive',
-              message: 'Observation deleted successfully',
-            });
-            state.reload = true;
-          });
-        } catch (error) {
-          console.error('Error deleting observation:', error);
-          $q.notify({
-            type: 'negative',
-            message: 'Failed to delete observation',
-          });
-        }
+      handleHide: () => {
+        localShow.value = false;
       },
     };
 
+    // Reset search when dialog opens
     watch(
-      () => observation.sharedState.loading,
+      () => props.modelValue,
       (newVal) => {
-        if (!newVal) {
+        if (newVal) {
+          state.searchText = '';
           state.reload = true;
         }
       }
@@ -151,6 +145,7 @@ export default defineComponent({
     return {
       stateless,
       state,
+      localShow,
       methods,
     };
   },
@@ -158,18 +153,14 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
-.my-observations {
-  h5 {
-    font-weight: 500;
-  }
-}
-
 .table {
+  max-height: 400px;
+  
   &:deep() {
     .q-table__select {
-      // Hide the bottom select used to increase the number of rows per page
       display: none;
     }
   }
 }
 </style>
+

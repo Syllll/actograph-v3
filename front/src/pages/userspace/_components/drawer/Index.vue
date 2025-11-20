@@ -68,6 +68,12 @@
               <q-item-section>
                 {{ menuItem.label }}
               </q-item-section>
+              <q-item-section side v-if="menuItem.tooltip && menuItem.tooltip(observation)">
+                <q-icon name="block" color="grey-6" />
+                <q-tooltip>
+                  {{ menuItem.tooltip(observation) }}
+                </q-tooltip>
+              </q-item-section>
             </q-item>
             <q-separator :key="'sep' + index" v-if="menuItem.separator" />
           </template>
@@ -83,12 +89,12 @@
         <DCard class="q-mx-sm q-ml-md" bgColor="primary">
         <div class="column text-text-invert">
           <div class="text-h4 text-weight-bold text-center q-mb-md">
-            Votre observation
+            Votre chronique
           </div>
           <div class="text-center">
             {{
               observation.sharedState.currentObservation?.name ??
-              "Aucune observation n'est chargée"
+              "Aucune chronique n'est chargée"
             }}
           </div>
 

@@ -25,11 +25,43 @@ export const menu = (router: Router) => [
     disabled: (observation: any) => !observation.sharedState.currentObservation,
   },
   {
-    label: 'Analyse',
+    label: 'Graphe',
     icon: 'mdi-chart-line',
     separator: false,
     action: () => router.push({ name: 'user_analyse' }),
     isActive: () => router.currentRoute.value.name === 'user_analyse',
-    disabled: (observation: any) => !observation.sharedState.currentObservation,
+    disabled: (observation: any) => {
+      return !observation.sharedState.currentObservation || 
+             observation.readings.sharedState.currentReadings.length === 0;
+    },
+    tooltip: (observation: any) => {
+      if (!observation.sharedState.currentObservation) {
+        return 'Aucune chronique chargée';
+      }
+      if (observation.readings.sharedState.currentReadings.length === 0) {
+        return 'Aucun relevé disponible. Veuillez d\'abord enregistrer des observations.';
+      }
+      return '';
+    },
+  },
+  {
+    label: 'Statistiques',
+    icon: 'mdi-chart-box',
+    separator: false,
+    action: () => router.push({ name: 'user_analyse' }),
+    isActive: () => router.currentRoute.value.name === 'user_analyse',
+    disabled: (observation: any) => {
+      return !observation.sharedState.currentObservation || 
+             observation.readings.sharedState.currentReadings.length === 0;
+    },
+    tooltip: (observation: any) => {
+      if (!observation.sharedState.currentObservation) {
+        return 'Aucune chronique chargée';
+      }
+      if (observation.readings.sharedState.currentReadings.length === 0) {
+        return 'Aucun relevé disponible. Veuillez d\'abord enregistrer des observations.';
+      }
+      return '';
+    },
   },
 ];
