@@ -10,7 +10,35 @@ import { IChronicExport } from './export.interface';
 
 const apiUrl = httpUtils.apiUrl();
 
-export const observationService = {
+export interface IObservationService {
+  findWithPagination(
+    options: PaginationOptions,
+    search?: { searchString?: string }
+  ): Promise<PaginationResponse<IObservation>>;
+  findOne(id: number, options?: { includes?: string[] }): Promise<IObservation>;
+  findAllForCurrentUser(): Promise<IObservation[]>;
+  delete(id: number): Promise<void>;
+  cloneExampleObservation(): Promise<IObservation>;
+  create(options: {
+    name: string;
+    description?: string;
+    videoPath?: string;
+    mode?: ObservationModeEnum;
+  }): Promise<IObservation>;
+  update(
+    id: number,
+    updateData: {
+      name?: string;
+      description?: string;
+      videoPath?: string;
+      mode?: ObservationModeEnum;
+    }
+  ): Promise<IObservation>;
+  exportObservation(id: number): Promise<IChronicExport>;
+  importObservation(file: File): Promise<IObservation>;
+}
+
+export const observationService: IObservationService = {
   async findWithPagination(
     options: PaginationOptions,
     search?: {
