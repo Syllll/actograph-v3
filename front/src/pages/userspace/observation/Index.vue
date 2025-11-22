@@ -1,11 +1,32 @@
 <template>
   <DPage>
-    <!-- Prend toute l'espace de la page-->
+    <!-- 
+      Structure principale de la page Observation
+      ===========================================
+      
+      Cette page gère deux modes d'affichage :
+      1. Mode avec vidéo : Splitter horizontal pour séparer la vidéo du reste du contenu
+      2. Mode sans vidéo : Affichage direct du contenu principal (boutons + relevés)
+      
+      Architecture des splitters :
+      - Splitter horizontal (vidéo) : Sépare la vidéo (haut) du contenu principal (bas)
+      - Splitter vertical (contenu) : Sépare les boutons (gauche) des relevés (droite)
+      
+      IMPORTANT : Le splitter horizontal nécessite une hauteur explicite en pixels pour
+      fonctionner correctement. Cette hauteur est calculée dynamiquement via ResizeObserver.
+    -->
     <div ref="containerRef" class="fit column no-wrap">
-      <!-- Video player section with horizontal splitter (always shown in chronometer mode, or if video is loaded) -->
-      <!-- IMPORTANT: q-splitter with horizontal orientation requires an explicit height to function correctly.
-           The ResizeObserver below dynamically calculates and sets this height based on the container's actual size.
-           Without this, the splitter cannot properly resize its panes when dragging the separator. -->
+      <!-- 
+        Mode avec vidéo : Splitter horizontal
+        ---------------------------------------
+        Affiché si :
+        - L'observation est en mode chronomètre, OU
+        - Une vidéo est chargée (videoPath existe)
+        
+        Le splitter horizontal permet de redimensionner la hauteur de la zone vidéo
+        en glissant le séparateur. La vidéo occupe le panneau "before" et le reste
+        du contenu (toolbar + boutons/relevés) occupe le panneau "after".
+      -->
       <q-splitter
         v-if="observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath"
         v-model="state.videoSplitterModel"
@@ -13,9 +34,12 @@
         :style="{ height: state.containerHeight + 'px' }"
         :limits="[10, 75]"
       >
+        <!-- Panneau supérieur : Lecteur vidéo -->
         <template v-slot:before>
           <VideoPlayer />
         </template>
+        
+        <!-- Séparateur : Bouton de redimensionnement horizontal -->
         <template v-slot:separator>
           <q-avatar
             color="accent"
@@ -25,15 +49,17 @@
             class="video-resize-handle"
           />
         </template>
+        
+        <!-- Panneau inférieur : Contenu principal (toolbar + boutons/relevés) -->
         <template v-slot:after>
           <div class="fit column no-wrap">
-            <!-- Calendar toolbar (if not in chronometer mode) -->
+            <!-- Toolbar calendrier (affichée uniquement en mode calendrier) -->
             <CalendarToolbar
               v-if="!observation.isChronometerMode.value"
               class="col-auto"
             />
             
-            <!-- Main area of the page with the splitter -->
+            <!-- Splitter vertical : Boutons (gauche) / Relevés (droite) -->
             <q-splitter
               v-model="state.splitterModel"
               class="col"
@@ -59,12 +85,17 @@
         </template>
       </q-splitter>
       
-      <!-- Fallback when no video: show main content directly -->
+      <!-- 
+        Mode sans vidéo : Affichage direct du contenu principal
+        --------------------------------------------------------
+        Affiché si aucune vidéo n'est chargée et que l'observation n'est pas en mode chronomètre.
+        Dans ce cas, on affiche directement la toolbar et le splitter vertical boutons/relevés.
+      -->
       <template v-else>
-        <!-- Calendar toolbar -->
+        <!-- Toolbar calendrier -->
         <CalendarToolbar class="col-auto" />
         
-        <!-- Main area of the page with the splitter -->
+        <!-- Splitter vertical : Boutons (gauche) / Relevés (droite) -->
         <q-splitter
           v-model="state.splitterModel"
           class="col"

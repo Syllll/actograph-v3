@@ -455,5 +455,7 @@ front/src/
 
 ## Documentation de l'implémentation
 
-Voir `integration-video-done.md` pour les détails complets de ce qui a été implémenté, les problèmes rencontrés et les solutions apportées.
+- **`integration-video-done.md`** : Détails complets de ce qui a été implémenté, les problèmes rencontrés et les solutions apportées
+- **`architecture-technique.md`** : Documentation technique détaillée de l'architecture, des composants et de leur interaction
+- **`ux-refactor-toolbar.md`** : Documentation du refactoring de la toolbar d'observation
 

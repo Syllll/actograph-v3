@@ -251,6 +251,84 @@
 4. Permettre de synchroniser plusieurs vidéos avec la même observation
 5. Ajouter une prévisualisation de la vidéo avant chargement (durée, résolution, codec)
 
+## Architecture et redimensionnement (Phase 7)
+
+### Restructuration UX de la page Observation
+
+**Problème initial** : La page Observation avait des problèmes de layout et de redimensionnement :
+- Scrollbar verticale indésirable
+- Vidéo ne se redimensionnait pas correctement lors du drag du séparateur
+- Tableau des relevés parfois invisible
+
+**Solution** :
+- Restructuration complète du layout avec splitters horizontaux et verticaux
+- Création de `CalendarToolbar` et `ModeToggle` pour séparer les responsabilités
+- Implémentation de `ResizeObserver` pour gérer dynamiquement la hauteur du splitter
+
+### ResizeObserver - Gestion dynamique de la hauteur
+
+**Pourquoi c'est nécessaire** :
+Le `q-splitter` avec orientation horizontale nécessite une hauteur explicite en pixels pour fonctionner correctement. Sans cela, le splitter ne peut pas redimensionner ses panneaux lors du drag du séparateur.
+
+**Implémentation** :
+```typescript
+// ResizeObserver surveille le conteneur et met à jour la hauteur
+const updateContainerHeight = () => {
+  if (containerRef.value) {
+    const height = containerRef.value.clientHeight;
+    if (height > 0) {
+      state.containerHeight = height;
+    }
+  }
+};
+
+// Création de l'observer au montage
+resizeObserver = new ResizeObserver(() => {
+  updateContainerHeight();
+});
+resizeObserver.observe(containerRef.value);
+```
+
+**Points importants** :
+- Le ResizeObserver est CRITIQUE et ne doit pas être supprimé
+- Il permet au splitter de s'adapter aux changements de taille de la fenêtre
+- Nettoyage correct dans `onUnmounted` pour éviter les fuites mémoire
+
+### Structure du layout
+
+**Mode avec vidéo** :
+```
+┌─────────────────────────────────────┐
+│         VideoPlayer (haut)          │ ← Splitter horizontal
+├─────────────────────────────────────┤
+│  CalendarToolbar (si mode calendrier) │
+├─────────────────────────────────────┤
+│  Buttons │ Readings                 │ ← Splitter vertical
+└─────────────────────────────────────┘
+```
+
+**Mode sans vidéo** :
+```
+┌─────────────────────────────────────┐
+│  CalendarToolbar                    │
+├─────────────────────────────────────┤
+│  Buttons │ Readings                 │ ← Splitter vertical
+└─────────────────────────────────────┘
+```
+
+### Corrections CSS
+
+**Problèmes résolus** :
+- Remplacement de `height: 100%` par `height: 100%` avec `min-height: 0` sur les conteneurs flex
+- Ajout de `min-height: 0` partout pour permettre le rétrécissement dans flexbox
+- Remplacement de `DScrollArea` par un `div` simple pour le tableau des relevés (compatibilité avec virtual-scroll)
+
+**Résultat** :
+- Pas de scrollbar verticale indésirable
+- Vidéo se redimensionne correctement lors du drag
+- Tableau des relevés toujours visible
+- Contenu s'adapte à la hauteur de l'écran
+
 ## Détails techniques - Optimisations de performance (Phase 6)
 
 ### Protocole `file://` vs Chargement en mémoire

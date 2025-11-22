@@ -153,6 +153,18 @@ export default defineComponent({
     const { sharedState: readingsState, methods: readingsMethods } = observation.readings;
     const videoRef = ref<HTMLVideoElement | null>(null);
 
+    /**
+     * État réactif du lecteur vidéo
+     * 
+     * - isPlaying : Indique si la vidéo est en cours de lecture
+     * - currentTime : Temps actuel de la vidéo en secondes
+     * - duration : Durée totale de la vidéo en secondes
+     * - volume : Volume de la vidéo (0-100)
+     * - playbackRate : Vitesse de lecture (1.0 = vitesse normale)
+     * - progressPercent : Pourcentage de progression (0-100) pour la barre de progression
+     * - videoError : Message d'erreur si le chargement échoue
+     * - isLoading : Indicateur de chargement de la vidéo
+     */
     const state = reactive({
       isPlaying: false,
       currentTime: 0,
@@ -179,18 +191,28 @@ export default defineComponent({
     // Video source URL (reactive)
     const videoSrc = ref<string>('');
 
-    // Convert file path to file:// URL for Electron
+    /**
+     * Convertit un chemin de fichier en URL file:// pour Electron
+     * 
+     * Cette fonction est nécessaire car Electron nécessite des URLs file:// pour
+     * charger des fichiers locaux dans le renderer process. Le protocole file://
+     * permet au navigateur de streamer la vidéo directement depuis le disque sans
+     * charger tout le fichier en mémoire (optimisation majeure pour les gros fichiers).
+     * 
+     * @param filePath - Chemin absolu du fichier (ex: "C:/Videos/démo1.mp4" ou "/home/user/video.mp4")
+     * @returns URL file:// encodée (ex: "file:///C%3A/Videos/d%C3%A9mo1.mp4")
+     */
     const pathToFileUrl = (filePath: string): string => {
-      // Normalize path separators
+      // Normaliser les séparateurs de chemin (Windows utilise \)
       let normalizedPath = filePath.replace(/\\/g, '/');
       
-      // Remove leading slash if present (for Windows paths like C:/)
+      // Supprimer le slash initial pour les chemins Windows (C:/)
       if (normalizedPath.match(/^[A-Z]:/i)) {
-        // Windows path: C:/path/to/file.mp4
         normalizedPath = normalizedPath.replace(/^\//, '');
       }
       
-      // Encode each path segment
+      // Encoder chaque segment du chemin pour gérer les caractères spéciaux
+      // (ex: espaces, accents, caractères Unicode)
       const encodedPath = normalizedPath
         .split('/')
         .map(segment => encodeURIComponent(segment))
@@ -211,7 +233,20 @@ export default defineComponent({
     // Maximum file size warning threshold (500 MB)
     const MAX_FILE_SIZE_WARNING = 500 * 1024 * 1024; // 500 MB
 
-    // Load video file using file:// protocol (streaming, no memory load)
+    /**
+     * Charge un fichier vidéo en utilisant le protocole file://
+     * 
+     * Cette fonction utilise le protocole file:// pour charger la vidéo, ce qui permet
+     * au navigateur de streamer la vidéo directement depuis le disque sans charger tout
+     * le fichier en mémoire. C'est une optimisation majeure pour les gros fichiers vidéo.
+     * 
+     * Avant le chargement, elle vérifie :
+     * - L'existence du fichier
+     * - Le type de fichier (fichier vs dossier)
+     * - La taille du fichier (avertissement si > 500 MB)
+     * 
+     * @param videoPath - Chemin absolu du fichier vidéo à charger
+     */
     const loadVideoFile = async (videoPath: string) => {
       if (!videoPath) {
         videoSrc.value = '';
@@ -343,6 +378,18 @@ export default defineComponent({
         });
       },
 
+      /**
+       * Gère la mise à jour du temps de la vidéo
+       * 
+       * Cette fonction est appelée automatiquement par l'élément <video> à chaque
+       * frame pendant la lecture. Elle :
+       * 1. Met à jour le temps actuel et le pourcentage de progression
+       * 2. Synchronise le temps avec l'observation en mode chronomètre
+       * 3. Active les boutons correspondants aux relevés à l'instant t
+       * 
+       * En mode chronomètre, le temps vidéo est synchronisé avec elapsedTime de
+       * l'observation, permettant de créer des relevés synchronisés avec la vidéo.
+       */
       handleTimeUpdate: () => {
         if (videoRef.value) {
           state.currentTime = videoRef.value.currentTime;
@@ -350,13 +397,14 @@ export default defineComponent({
             state.progressPercent = (state.currentTime / state.duration) * 100;
           }
           
-          // Sync with observation elapsedTime if in chronometer mode
+          // Synchroniser avec elapsedTime de l'observation en mode chronomètre
           if (observation.isChronometerMode.value) {
-            // Update elapsedTime based on video currentTime
+            // Mettre à jour elapsedTime basé sur le temps vidéo actuel
             observation.sharedState.elapsedTime = state.currentTime;
             
-            // Find the reading at current video time and activate corresponding button
-            // This happens during playback - use requestAnimationFrame for better performance
+            // Trouver le relevé à l'instant t et activer le bouton correspondant
+            // Utilisation de requestAnimationFrame pour optimiser les performances
+            // (synchronisation avec le cycle de rendu du navigateur)
             if (state.isPlaying) {
               requestAnimationFrame(() => {
                 methods.activateButtonForCurrentReading();
@@ -366,10 +414,31 @@ export default defineComponent({
         }
       },
 
+      /**
+       * Active automatiquement les boutons selon la position actuelle de la vidéo
+       * 
+       * Cette fonction détermine quels boutons doivent être activés en fonction du
+       * temps actuel de la vidéo. Elle respecte la logique des observables continus :
+       * - Un observable reste actif jusqu'à ce qu'un autre observable de la même catégorie soit activé
+       * - Si on se positionne entre deux relevés, le dernier relevé avant cet instant reste actif
+       * 
+       * Algorithme :
+       * 1. Convertit le temps vidéo en temps absolu (t0 + temps vidéo)
+       * 2. Pour chaque catégorie continue :
+       *    - Trouve le dernier relevé avant ou à l'instant t
+       *    - Active le bouton correspondant à l'observable de ce relevé
+       * 3. Émet un événement personnalisé avec les boutons actifs par catégorie
+       * 
+       * Cette fonction est appelée :
+       * - Pendant la lecture vidéo (via handleTimeUpdate)
+       * - Lors du clic sur la timeline
+       * - Lors du clic sur une encoche
+       */
       activateButtonForCurrentReading: () => {
         if (!observation.isChronometerMode.value || !videoRef.value) return;
         
-        const currentVideoTime = state.currentTime * 1000; // Convert to milliseconds
+        // Convertir le temps vidéo (secondes) en millisecondes
+        const currentVideoTime = state.currentTime * 1000;
         const t0 = observation.chronometerMethods.getT0();
         const t0Time = t0.getTime();
         const currentReadingTime = t0Time + currentVideoTime;
@@ -379,12 +448,12 @@ export default defineComponent({
         
         if (!protocol || !protocol._items) return;
         
-        // Get all continuous categories
+        // Récupérer toutes les catégories continues (seules celles-ci nécessitent une activation)
         const categories = protocol._items.filter(
           (item: any) => item.type === 'category' && item.action === 'continuous' && item.id
         );
         
-        // For each category, find the last reading before or at current time
+        // Pour chaque catégorie, trouver le dernier relevé avant ou à l'instant t
         const activeReadingsByCategory: Record<string, IReading | null> = {};
         
         for (const category of categories) {
@@ -393,9 +462,9 @@ export default defineComponent({
           let lastReading: IReading | null = null;
           let lastReadingTime = -1;
           
-          // For each observable in this category
+          // Pour chaque observable de cette catégorie
           for (const observable of category.children) {
-            // Find all readings with this observable name
+            // Trouver tous les relevés avec cet observable
             const observableReadings = currentReadings.filter(
               (reading) => reading.name === observable.name
             );

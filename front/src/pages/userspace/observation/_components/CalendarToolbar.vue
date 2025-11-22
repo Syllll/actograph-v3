@@ -53,12 +53,21 @@ export default defineComponent({
   setup() {
     const observation = useObservation();
 
-    // Get current mode
+    /**
+     * Récupère le mode actuel de l'observation
+     * 
+     * Retourne 'calendar', 'chronometer' ou null si non défini.
+     */
     const currentMode = computed(() => {
       return observation.sharedState.currentObservation?.mode || null;
     });
 
-    // Check if mode can be changed (observation not started)
+    /**
+     * Vérifie si le mode peut être changé
+     * 
+     * Le mode ne peut être changé que si l'observation n'a pas encore été démarrée
+     * (pas de reading de type START). Une fois démarrée, le mode est figé.
+     */
     const canChangeMode = computed(() => {
       const hasStartReading = observation.readings.sharedState.currentReadings.some(
         (reading: any) => reading.type === ReadingTypeEnum.START

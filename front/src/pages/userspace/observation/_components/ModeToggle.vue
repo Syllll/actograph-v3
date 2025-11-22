@@ -61,13 +61,27 @@ export default defineComponent({
     const $q = useQuasar();
     const observation = useObservation();
 
+    /**
+     * Gère le changement de mode entre Calendrier et Chronomètre
+     * 
+     * Cette fonction :
+     * 1. Vérifie que le mode peut être changé (observation non démarrée)
+     * 2. Demande confirmation à l'utilisateur (action irréversible)
+     * 3. Met à jour l'observation via l'API
+     * 4. Émet un événement pour notifier les composants parents
+     * 
+     * IMPORTANT : Le mode est figé une fois choisi. Il ne peut être changé que
+     * si l'observation n'a pas encore été démarrée (pas de reading de type START).
+     * 
+     * @param newMode - Le nouveau mode à activer ('calendar' ou 'chronometer')
+     */
     const handleModeChange = async (newMode: 'calendar' | 'chronometer') => {
-      // Don't switch if already in that mode
+      // Ne pas changer si déjà dans ce mode
       if (props.currentMode === newMode) {
         return;
       }
 
-      // Double check that we can change mode
+      // Vérification double que le mode peut être changé
       if (!props.canChangeMode) {
         $q.notify({
           type: 'negative',
@@ -77,7 +91,7 @@ export default defineComponent({
         return;
       }
 
-      // Confirm action
+      // Demander confirmation (action irréversible)
       const modeLabel = newMode === 'chronometer' ? 'chronomètre' : 'calendrier';
       const dialog = await createDialog({
         title: `Passer en mode ${modeLabel}`,
@@ -92,7 +106,7 @@ export default defineComponent({
 
       if (!dialog) return;
 
-      // Update observation mode
+      // Mettre à jour le mode de l'observation via l'API
       const observationId = observation.sharedState.currentObservation?.id;
       if (!observationId) {
         $q.notify({
@@ -108,7 +122,7 @@ export default defineComponent({
           mode: newMode === 'chronometer' ? ObservationModeEnum.Chronometer : ObservationModeEnum.Calendar,
         });
 
-        // Emit event for parent components
+        // Émettre un événement pour notifier les composants parents
         emit('mode-change', newMode === 'chronometer' ? ObservationModeEnum.Chronometer : ObservationModeEnum.Calendar);
 
         $q.notify({
