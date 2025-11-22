@@ -52,9 +52,20 @@ export const useAuth = (router: Router) => {
   const methods = {
     async attemptLogin(throwError = false) {
       try {
-        if (Cookies.has(`${process.env.APP_NAME}`)) {
-          const currentToken = getTokenFromCookiesAndSaveIntoAxios();
+        // First, try to get token from localStorage (fallback if cookies are not available)
+        let currentToken = getTokenFromCookiesAndSaveIntoAxios();
+        
+        // If no token in localStorage, check cookies
+        if (!currentToken && Cookies.has(`${process.env.APP_NAME}`)) {
+          // Try to get token from cookies (legacy support)
+          const cookieToken = Cookies.get(`${process.env.APP_NAME}`);
+          if (cookieToken) {
+            currentToken = cookieToken;
+            setCookiesWithToken(cookieToken);
+          }
+        }
 
+        if (currentToken) {
           const { token } = await authService.refreshToken(
             <string>currentToken
           );
@@ -63,7 +74,7 @@ export const useAuth = (router: Router) => {
           sharedState.token = token;
           await getAndSetCurrentUser();
         } else {
-          throw new Error('No cookies or no auth');
+          throw new Error('No token found in localStorage or cookies');
         }
       } catch (err) {
         if (throwError) {

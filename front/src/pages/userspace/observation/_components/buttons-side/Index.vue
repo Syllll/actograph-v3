@@ -122,15 +122,6 @@ export default defineComponent({
         }
       }
     };
-    
-    // Set up event listener
-    onMounted(() => {
-      window.addEventListener('video-reading-active', handleVideoReadingActive as EventListener);
-    });
-    
-    onUnmounted(() => {
-      window.removeEventListener('video-reading-active', handleVideoReadingActive as EventListener);
-    });
 
     // Computed
     const computedState = {
@@ -335,14 +326,21 @@ export default defineComponent({
       methods.updateWrapperHeight();
     }, { deep: true });
 
+    // Single onMounted hook consolidating all initialization logic
+    // IMPORTANT: This consolidates what was previously split across two onMounted hooks
+    // to avoid duplicate event listener registration (memory leak bug fix)
     onMounted(() => {
+      // Initialize category positions
       methods.calculateCategoryPositions();
       methods.updateWrapperHeight();
-      // Set up event listener for video reading active
+      
+      // Set up event listener for video reading active (only once)
       window.addEventListener('video-reading-active', handleVideoReadingActive as EventListener);
     });
     
+    // Single onUnmounted hook for cleanup
     onUnmounted(() => {
+      // Remove event listener (only registered once, so only remove once)
       window.removeEventListener('video-reading-active', handleVideoReadingActive as EventListener);
     });
 

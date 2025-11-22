@@ -1,8 +1,8 @@
 <template>
-  <q-btn-group class="mode-toggle">
+  <q-btn-group class="mode-toggle" flat>
     <q-btn
-      :color="currentMode === 'calendar' ? 'primary' : 'grey-5'"
-      :outline="currentMode !== 'calendar'"
+      :color="currentMode === 'calendar' ? 'accent' : 'grey-7'"
+      flat
       icon="event"
       label="Calendrier"
       size="sm"
@@ -13,8 +13,8 @@
       <q-tooltip>Passer en mode calendrier</q-tooltip>
     </q-btn>
     <q-btn
-      :color="currentMode === 'chronometer' ? 'primary' : 'grey-5'"
-      :outline="currentMode !== 'chronometer'"
+      :color="currentMode === 'chronometer' ? 'accent' : 'grey-7'"
+      flat
       icon="timer"
       label="Chronomètre"
       size="sm"
@@ -78,6 +78,17 @@ export default defineComponent({
     const handleModeChange = async (newMode: 'calendar' | 'chronometer') => {
       // Ne pas changer si déjà dans ce mode
       if (props.currentMode === newMode) {
+        return;
+      }
+
+      // Vérifier s'il y a des relevés
+      const hasReadings = observation.readings.sharedState.currentReadings.length > 0;
+      if (hasReadings) {
+        $q.notify({
+          type: 'negative',
+          message: 'Impossible de changer de mode',
+          caption: 'Le changement de mode n\'est actuellement pas possible car des relevés existent déjà',
+        });
         return;
       }
 

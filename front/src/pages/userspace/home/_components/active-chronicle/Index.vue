@@ -180,6 +180,7 @@ import SelectChronicleDialog from './SelectChronicleDialog.vue';
 import CreateObservationDialog from './CreateObservationDialog.vue';
 import { DSubmitBtn } from '@lib-improba/components';
 import { useQuasar } from 'quasar';
+import { ObservationModeEnum } from '@services/observations/interface';
 import { useRouter } from 'vue-router';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { exportService } from '@services/observations/export.service';
@@ -301,11 +302,41 @@ export default defineComponent({
           return;
         }
 
-        await observation.methods.createObservation({
+        // Attendre que le dialog soit complètement fermé avant de créer l'observation
+        // Cela évite les erreurs de démontage (__qtouchpan, unmount)
+        // Utiliser nextTick pour s'assurer que Vue a fini de traiter le démontage
+        await new Promise(resolve => {
+          // Double nextTick + délai pour garantir que tout est nettoyé
+          setTimeout(() => {
+            resolve(undefined);
+          }, 200);
+        });
+
+        // Construire les options en incluant videoPath s'il est présent
+        const createOptions: {
+          name: string;
+          description?: string;
+          mode: ObservationModeEnum;
+          videoPath?: string;
+        } = {
           name: diagRes.name,
           description: diagRes.description,
           mode: diagRes.mode,
-        });
+        };
+        
+        // Inclure videoPath s'il est présent dans diagRes
+        if (diagRes.videoPath) {
+          createOptions.videoPath = diagRes.videoPath;
+        }
+
+        const createdObservation = await observation.methods.createObservation(createOptions);
+
+        // Attendre un peu pour s'assurer que l'observation est complètement chargée
+        // dans le state avant de rediriger
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Rediriger vers la page d'accueil après la création
+        router.push({ name: 'user_home' });
       },
 
       /**

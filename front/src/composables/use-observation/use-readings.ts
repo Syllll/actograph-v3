@@ -297,13 +297,13 @@ export const useReadings = (options: {
       }
       
       // Calculate the exact timestamp based on observation time if provided
+      // IMPORTANT: Use getTime() + elapsedTime instead of setMilliseconds() because
+      // setMilliseconds() only accepts 0-999, but elapsedTime can be much larger (seconds/minutes).
+      // Adding milliseconds directly to getTime() handles overflow correctly.
       if (options.currentDate && options.elapsedTime !== undefined) {
-        const dateTimeWithOffset = new Date(options.currentDate);
-        dateTimeWithOffset.setMilliseconds(
-          dateTimeWithOffset.getMilliseconds() + 
-          (options.elapsedTime * 1000)
+        newReading.dateTime = new Date(
+          options.currentDate.getTime() + (options.elapsedTime * 1000)
         );
-        newReading.dateTime = dateTimeWithOffset;
       }
 
       // add the reading to the current readings

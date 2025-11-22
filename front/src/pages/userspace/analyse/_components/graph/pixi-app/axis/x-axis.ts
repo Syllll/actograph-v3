@@ -4,6 +4,15 @@ import { BaseGraphic } from '../lib/base-graphic';
 import { IReading, IObservation } from '@services/observations/interface';
 import { yAxis } from './y-axis';
 
+/**
+ * Pas de temps disponibles pour les graduations de l'axe X.
+ * 
+ * Ces valeurs définissent les intervalles possibles pour les ticks temporels.
+ * Le système choisira automatiquement le pas le plus approprié selon la plage
+ * de temps couverte par les readings.
+ * 
+ * Les valeurs sont en millisecondes et couvrent des plages de 10ms à 20 ans.
+ */
 const timeSteps = {
   '10ms': 10,
   '100ms': 100,
@@ -44,15 +53,44 @@ const timeSteps = {
   '20y': 24 * 60 * 60 * 365 * 20 * 1000,
 }
 
+/**
+ * Classe représentant l'axe X (horizontal) du graphique d'activité.
+ * 
+ * Cet axe affiche la timeline temporelle basée sur les readings de l'observation.
+ * Il gère :
+ * - Le calcul automatique du pas de temps optimal pour les graduations
+ * - La conversion des dates/heures en positions X sur le canvas
+ * - L'affichage des ticks et labels temporels
+ * 
+ * L'axe X est positionné en bas du graphique et s'étend horizontalement.
+ * Il dépend de l'axe Y pour connaître sa position verticale.
+ */
 export class xAxis extends BaseGroup {
+  /** Objet graphique utilisé pour dessiner l'axe et les ticks */
   private graphic: BaseGraphic;
+  
+  /** Liste des readings utilisés pour calculer la plage temporelle */
   private readings: IReading[] = [];
+  
+  /** Conteneur pour les labels textuels des dates/heures */
   private labelsContainer: Container;
+  
+  /** Référence à l'axe Y pour connaître sa position et s'aligner */
   private yAxis: yAxis;
+  
+  /** 
+   * Facteur de conversion : pixels par milliseconde.
+   * Utilisé pour convertir une date/heure en position X sur le canvas.
+   */
   private pixelsPerMsec = 0;
+  
+  /** Timestamp de début de l'axe (en millisecondes) */
   private axisStartTimeInMsec = 0;
+  
+  /** Timestamp de fin de l'axe (en millisecondes) */
   private axisEndTimeInMsec = 0;
 
+  /** Options de style pour le rendu de l'axe */
   private styleOptions = {
     axis: {
       color: 'black',
@@ -69,25 +107,38 @@ export class xAxis extends BaseGroup {
     },
   }
 
+  /** 
+   * Liste des ticks (graduations) sur l'axe X.
+   * Chaque tick représente un moment dans le temps avec sa date/heure et sa position.
+   */
   private ticks: {
     dateTime: Date,
     label: string,
     pos?: number,
   }[] = [];
 
+  /** Position de départ de l'axe (à gauche, aligné avec le début de l'axe Y) */
   private axisStart: {
     x: number,
     y: number,
   } | null = null;
 
+  /** Position de fin de l'axe (à droite) */
   private axisEnd: {
     x: number,
     y: number,
   } | null = null;
 
+  /**
+   * Retourne la position de départ de l'axe (copie pour éviter les mutations).
+   */
   public getAxisStart() {
     return { ...this.axisStart };
   }
+  
+  /**
+   * Retourne la position de fin de l'axe (copie pour éviter les mutations).
+   */
   public getAxisEnd() {
     return { ...this.axisEnd };
   }
@@ -95,44 +146,83 @@ export class xAxis extends BaseGroup {
   constructor(app: Application, yAxis: yAxis) {
     super(app);
 
+    // Sauvegarde de la référence à l'axe Y pour connaître sa position
     this.yAxis = yAxis;
 
+    // Création de l'objet graphique pour dessiner l'axe et les ticks
     this.graphic = new BaseGraphic(this.app);
     this.addChild(this.graphic);
 
+    // Création du conteneur pour les labels textuels
     this.labelsContainer = new Container();
     this.addChild(this.labelsContainer);
-
-    // this.draw();
   }
 
+  /**
+   * Convertit une date/heure en position X sur le canvas.
+   * 
+   * Cette méthode est utilisée par la zone de données pour positionner
+   * les readings sur l'axe temporel.
+   * 
+   * @param dateTime - Date/heure à convertir (Date ou string)
+   * @returns Position X en pixels
+   * @throws Error si l'axe Y n'a pas encore été initialisé
+   */
   public getPosFromDateTime(dateTime: Date | string): number {
+    // Conversion de la date en timestamp (millisecondes)
     const dateTimeInMsec = new Date(dateTime).getTime();
 
+    // Récupération de la position de départ de l'axe Y (qui sert d'origine)
     const axisStart = this.yAxis.getAxisStart();
     if (!axisStart || !axisStart.x) {
       throw new Error('No axis start found');
     }
 
-    // Get start time of axis
+    // Calcul de la position X :
+    // - On part de la position de départ de l'axe X (alignée avec l'axe Y)
+    // - On ajoute la différence de temps multipliée par le facteur de conversion
     const pos = axisStart.x + (dateTimeInMsec - this.axisStartTimeInMsec) * this.pixelsPerMsec;
 
     return pos;
   }
 
+  /**
+   * Efface tous les éléments de l'axe X.
+   * 
+   * Cette méthode supprime les labels, réinitialise les ticks et le facteur de conversion,
+   * puis appelle clear() de la classe parente pour nettoyer les graphiques.
+   */
   public clear() {
+    // Suppression de tous les labels
     this.labelsContainer.removeChildren();
 
+    // Réinitialisation des ticks et du facteur de conversion
     this.ticks = [];
     this.pixelsPerMsec = 0;
 
+    // Nettoyage des graphiques (ligne d'axe, ticks)
     super.clear();
   }
 
+  /**
+   * Configure les données de l'observation dans l'axe X.
+   * 
+   * Cette méthode :
+   * 1. Extrait les readings de l'observation
+   * 2. Calcule la plage temporelle (min/max)
+   * 3. Détermine le pas de temps optimal pour les graduations
+   * 4. Génère la liste des ticks avec leurs dates/heures et labels
+   * 
+   * Le système choisit automatiquement un pas de temps qui donne environ 5 ticks principaux,
+   * en sélectionnant le pas le plus proche de l'idéal parmi les timeSteps disponibles.
+   * 
+   * @param observation - Observation contenant les readings
+   * @throws Error si aucun reading n'est trouvé
+   */
   public setData(observation: IObservation) {
     super.setData(observation);
 
-    // Get the readings
+    // Récupération des readings depuis l'observation
     const readings = observation.readings;
     if (!readings?.length) {
       throw new Error('No readings found');
@@ -140,20 +230,20 @@ export class xAxis extends BaseGroup {
 
     this.readings = readings;
 
-    // Get the min and max reading
+    // Les readings sont supposés être triés par date/heure
+    // Le premier est le plus ancien, le dernier est le plus récent
     const minReading = readings[0];
     const maxReading = readings[readings.length - 1];
 
-    // Get the min and max timestamp
+    // Conversion des dates en timestamps (millisecondes)
     const minTimeInMsec = new Date(minReading.dateTime).getTime();
     const maxTimeInMsec = new Date(maxReading.dateTime).getTime();
 
-    // Now, we want about 5 main ticks on the axis
-    // We need to determine what is the best timesteps to use
-
+    // Calcul du pas de temps idéal pour avoir environ 5 ticks principaux
+    // Cela donne une bonne lisibilité sans surcharger l'axe
     const idealTimeStep = (maxTimeInMsec - minTimeInMsec) / 5;
 
-    // Find the best time step that is closest to the ideal time step
+    // Recherche du pas de temps le plus proche de l'idéal parmi les timeSteps disponibles
     let bestTimeStep: keyof typeof timeSteps | null = null;
     let diff = Number.MAX_SAFE_INTEGER;
 
@@ -169,7 +259,7 @@ export class xAxis extends BaseGroup {
       throw new Error('No best time step found');
     }
 
-    // Now, we have the best main time step
+    // Récupération de la valeur du pas de temps optimal (en millisecondes)
     const mainTimeStepInMsec = timeSteps[bestTimeStep];
 
     const ticks: {
@@ -177,23 +267,23 @@ export class xAxis extends BaseGroup {
       label: string,
     }[] = [];
 
-    // We want to start the axis at the first reading but we need place the ticks
-    // intelligently. For example, if the first reading is at 00:00:11.000 and the main time step is 10 seconds,
-    // we want to start the axis at 00:00:10.000.
-    // and then to have a main tick every 10 seconds.
+    // Calcul intelligent du premier tick :
+    // On veut que les ticks soient alignés sur des valeurs "rondes" du pas de temps.
+    // Par exemple, si le premier reading est à 00:00:11.000 et le pas est de 10 secondes,
+    // on veut commencer l'axe à 00:00:10.000 pour avoir des ticks tous les 10 secondes.
 
-    // Use round to find the first tick
+    // Arrondi pour trouver le premier tick aligné sur le pas de temps
     const firstTickTimeInMsec = Math.round(minTimeInMsec / mainTimeStepInMsec) * mainTimeStepInMsec;
-    //const firstTickDate = new Date(firstTickTimeInMsec);
 
-    // Now, we want to have a tick every mainTimeStepInMsec until we reach the maxTimeInMsec
+    // Génération des ticks en avançant par pas de temps jusqu'à dépasser la fin
     let currentTimeInMsec = firstTickTimeInMsec;
     while (currentTimeInMsec <= (maxTimeInMsec + mainTimeStepInMsec)) {
+      // On n'affiche que les ticks qui sont dans la plage des readings
       if (currentTimeInMsec >= minTimeInMsec) {
         const dateTime = new Date(currentTimeInMsec);
         ticks.push({ 
           dateTime,
-          // Label must be in the format dd/MM/yyyy HH:mm:ss.xxx
+          // Format du label : dd-MM-yyyy HH:mm:ss.xxx (format français)
           label: dateTime.toLocaleDateString('fr-FR', {
             day: '2-digit',
             month: '2-digit',
@@ -206,32 +296,45 @@ export class xAxis extends BaseGroup {
         });
       }
 
+      // Passage au tick suivant
       currentTimeInMsec += mainTimeStepInMsec;
     }
 
+    // Sauvegarde des ticks calculés
     this.ticks = ticks;
-    //console.log('computed ticks', this.ticks);
   }
 
+  /**
+   * Dessine l'axe X avec tous ses éléments (ligne, flèche, ticks, labels).
+   * 
+   * Cette méthode :
+   * 1. Calcule les positions de départ et de fin de l'axe (alignées avec l'axe Y)
+   * 2. Calcule le facteur de conversion pixels/millisecondes
+   * 3. Dessine la ligne principale de l'axe
+   * 4. Dessine une flèche à droite de l'axe
+   * 5. Dessine les ticks (graduations) pour chaque moment temporel
+   * 6. Affiche les labels avec les dates/heures (inclinés à 45°)
+   * 
+   * L'axe est positionné horizontalement en bas du graphique, aligné avec
+   * le début de l'axe Y.
+   */
   public draw(): void {
-    //console.log('draw')
-
-    // Clear the primitive
+    // Nettoyage du graphique avant de redessiner
     this.graphic.clear();
-    
 
     const width = this.app.screen.width;
     const height = this.app.screen.height;
 
-    // The x axis starts at 80% of the screen height
-    // and 20% of the screen width
+    // L'axe X commence à la position de départ de l'axe Y (alignement)
+    // Cette position est le point d'origine du graphique (coin inférieur gauche)
     const xAxisStart = this.yAxis.getAxisStart();
     if (!xAxisStart || !xAxisStart.x || !xAxisStart.y) {
       throw new Error('No x axis start found');
     }
     this.axisStart = xAxisStart as {x: number, y: number};
 
-    // The x axis ends at 80% of the screen width
+    // L'axe X se termine à 90% de la largeur de l'écran
+    // Cela laisse 10% de marge à droite pour la flèche et les labels
     const xAxisEnd = {
       x: width * 0.9,
       y: this.yAxis.getAxisStart().y,
@@ -241,7 +344,7 @@ export class xAxis extends BaseGroup {
     }
     this.axisEnd = xAxisEnd  as {x: number, y: number};
 
-    // Draw the axis
+    // Dessin de la ligne principale de l'axe
     this.graphic.moveTo(xAxisStart.x, xAxisStart.y);
     this.graphic.lineTo(xAxisEnd.x, xAxisEnd.y);
 
@@ -252,7 +355,8 @@ export class xAxis extends BaseGroup {
 
     this.graphic.stroke();
 
-    // Make an arrow at the end of the axis, a filled arrow
+    // Dessin d'une flèche remplie à droite de l'axe
+    // La flèche pointe vers la droite et indique la direction du temps
     this.graphic.moveTo(xAxisEnd.x, xAxisEnd.y);
     this.graphic.lineTo(xAxisEnd.x - 10, xAxisEnd.y - 10);
     this.graphic.lineTo(xAxisEnd.x - 10, xAxisEnd.y + 10);
@@ -260,11 +364,13 @@ export class xAxis extends BaseGroup {
     this.graphic.closePath();
     this.graphic.fill({ color: this.styleOptions.axis.color });
 
-    // Draw the ticks
-    const axisLengthInPixels = (xAxisEnd.x - xAxisStart.x) - 20; // 10% of the axis width is reserved for the arrow
+    // Calcul du facteur de conversion pixels/millisecondes
+    // On réserve 20px à droite pour la flèche (10% de la largeur de l'axe)
+    const axisLengthInPixels = (xAxisEnd.x - xAxisStart.x) - 20;
     const startReading = this.readings[0];
     const endTickTimeInMsecs = new Date(this.ticks[this.ticks.length - 1].dateTime).getTime();
     
+    // La plage temporelle commence au premier reading et se termine au dernier tick
     const startTimeInMsecs = new Date(startReading.dateTime).getTime();
     const endTimeInMsecs = endTickTimeInMsecs;
     this.axisStartTimeInMsec = startTimeInMsecs;
@@ -272,18 +378,22 @@ export class xAxis extends BaseGroup {
     
     const axisTimeLengthInMsec = endTimeInMsecs - startTimeInMsecs;
 
-    // pixels per msecs
+    // Calcul du facteur de conversion : combien de pixels pour une milliseconde
+    // Ce facteur sera utilisé pour convertir n'importe quelle date en position X
     const pixelsPerMsec = axisLengthInPixels / axisTimeLengthInMsec;
     this.pixelsPerMsec = pixelsPerMsec;
 
+    // Dessin des ticks (graduations) pour chaque moment temporel
     for (const tick of this.ticks) {
-      
+      // Conversion de la date/heure du tick en position X
       const tickTimeInMsec = new Date(tick.dateTime).getTime();
       const tickXpos = xAxisStart.x + (tickTimeInMsec - this.axisStartTimeInMsec) * pixelsPerMsec;
       
-      // Set the position
+      // Sauvegarde de la position du tick
       tick.pos = tickXpos;
 
+      // Dessin d'un tick vertical (ligne perpendiculaire à l'axe)
+      // Le tick s'étend de 10px au-dessus à 10px en-dessous de l'axe
       this.graphic.moveTo(tickXpos, xAxisStart.y - 10);
       this.graphic.lineTo(tickXpos, xAxisStart.y + 10);
       this.graphic.setStrokeStyle({
@@ -292,7 +402,7 @@ export class xAxis extends BaseGroup {
       });
       this.graphic.stroke();
 
-      // Draw the label
+      // Création et positionnement du label textuel avec la date/heure
       const label = new Text({
         text: tick.label,
         style: {
@@ -301,9 +411,12 @@ export class xAxis extends BaseGroup {
           fontFamily: this.styleOptions.label.fontFamily,
         },
       });
+      // Positionnement du label sous l'axe
       label.x = tickXpos;
       label.y = xAxisStart.y + 12;
+      // Ancrage du label : légèrement décalé à gauche et aligné en haut
       label.anchor.set(-0.05, 0);
+      // Rotation de 45° pour éviter le chevauchement des labels
       label.angle = 45;
       this.labelsContainer.addChild(label);
     }

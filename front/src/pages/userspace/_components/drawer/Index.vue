@@ -176,11 +176,24 @@ export default defineComponent({
           return;
         }
 
-        await observation.methods.createObservation({
+        // Construire les options en incluant videoPath s'il est présent
+        const createOptions: {
+          name: string;
+          description?: string;
+          mode: any;
+          videoPath?: string;
+        } = {
           name: diagRes.name,
           description: diagRes.description,
           mode: diagRes.mode,
-        });
+        };
+        
+        // Inclure videoPath s'il est présent dans diagRes
+        if (diagRes.videoPath) {
+          createOptions.videoPath = diagRes.videoPath;
+        }
+
+        await observation.methods.createObservation(createOptions);
       },
 
       importObservation: async () => {

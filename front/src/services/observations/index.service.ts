@@ -56,12 +56,25 @@ export const observationService = {
     videoPath?: string;
     mode?: ObservationModeEnum;
   }): Promise<IObservation> => {
-    const response = await api().post(`${apiUrl}/observations`, {
+    // Construire le payload en incluant seulement les propriétés définies
+    const payload: any = {
       name: options.name,
-      description: options.description,
-      videoPath: options.videoPath,
-      mode: options.mode,
-    });
+    };
+    
+    if (options.description !== undefined) {
+      payload.description = options.description;
+    }
+    
+    // Include videoPath if it's present
+    if (options.videoPath) {
+      payload.videoPath = options.videoPath;
+    }
+    
+    if (options.mode !== undefined) {
+      payload.mode = options.mode;
+    }
+    
+    const response = await api().post(`${apiUrl}/observations`, payload);
     return response.data;
   },
   update: async (

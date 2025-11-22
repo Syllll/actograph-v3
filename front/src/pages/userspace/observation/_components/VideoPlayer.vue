@@ -1,5 +1,6 @@
 <template>
-  <!-- No video message (shown when in chronometer mode but no video loaded) -->
+  <!-- No video message (shown when in chronometer mode but no videoPath in observation) -->
+  <!-- If videoPath exists, show video container (even if loading) -->
   <div v-if="observation.isChronometerMode.value && !observation.sharedState.currentObservation?.videoPath" class="no-video-message column items-center justify-center q-pa-lg">
     <q-icon name="videocam_off" size="48px" color="grey-6" />
     <div class="text-h6 q-mt-md text-grey-6">Aucune vidéo chargée</div>
@@ -13,7 +14,7 @@
     />
   </div>
   
-  <!-- Video player container (shown when video is loaded) -->
+  <!-- Video player container (shown when video is loaded or when videoPath exists) -->
   <div v-else class="video-player-container column">
     <!-- Video container -->
     <div class="video-wrapper col">
@@ -33,17 +34,20 @@
         Votre navigateur ne supporte pas la lecture de vidéos.
       </video>
       
-      <!-- Error message overlay -->
-      <div v-if="state.videoError" class="video-error-overlay column items-center justify-center">
-        <q-icon name="error_outline" size="48px" color="negative" />
-        <div class="text-h6 q-mt-md">{{ state.videoError }}</div>
-        <q-btn
-          label="Sélectionner un nouveau fichier"
-          color="primary"
-          @click="methods.selectVideoFile"
-          class="q-mt-md"
-        />
-      </div>
+              <!-- Error message overlay -->
+              <div v-if="state.videoError" class="video-error-overlay column items-center justify-center q-pa-lg">
+                <q-icon name="error_outline" size="48px" color="negative" />
+                <div class="text-h6 q-mt-md text-center">{{ state.videoError }}</div>
+                <div v-if="state.currentVideoPath" class="text-caption text-grey-6 q-mt-xs text-center">
+                  Fichier attendu : {{ getFileName(state.currentVideoPath) }}
+                </div>
+                <q-btn
+                  label="Sélectionner un nouveau fichier"
+                  color="primary"
+                  @click="methods.selectVideoFile"
+                  class="q-mt-md"
+                />
+              </div>
       
       <!-- Loading indicator -->
       <div v-if="state.isLoading && !state.videoError" class="video-loading-overlay column items-center justify-center">
@@ -174,6 +178,7 @@ export default defineComponent({
       progressPercent: 0,
       videoError: null as string | null,
       isLoading: false,
+      currentVideoPath: null as string | null, // Stocke le chemin actuel pour afficher le nom du fichier en cas d'erreur
     });
 
     // Available playback speeds
@@ -221,6 +226,19 @@ export default defineComponent({
       return `file:///${encodedPath}`;
     };
 
+    /**
+     * Extrait le nom du fichier depuis un chemin complet
+     * 
+     * @param path - Chemin complet du fichier
+     * @returns Nom du fichier uniquement
+     */
+    const getFileName = (path: string | null): string => {
+      if (!path) return '';
+      // Extraire le nom du fichier depuis le chemin
+      const parts = path.split(/[/\\]/);
+      return parts[parts.length - 1] || path;
+    };
+
     // Format file size for display
     const formatFileSize = (bytes: number): string => {
       if (bytes === 0) return '0 B';
@@ -250,8 +268,13 @@ export default defineComponent({
     const loadVideoFile = async (videoPath: string) => {
       if (!videoPath) {
         videoSrc.value = '';
+        state.currentVideoPath = null;
         return;
       }
+
+      // Stocker le chemin actuel pour l'afficher en cas d'erreur
+      state.currentVideoPath = videoPath;
+      const fileName = getFileName(videoPath);
 
       try {
         state.isLoading = true;
@@ -263,14 +286,30 @@ export default defineComponent({
           
           if (!statsResult.success || !statsResult.exists) {
             videoSrc.value = '';
-            state.videoError = statsResult.error || 'Le fichier vidéo est introuvable';
+            state.videoError = `Le fichier vidéo "${fileName}" est introuvable à l'emplacement enregistré.`;
             state.isLoading = false;
+            
+            // Proposer de sélectionner un nouveau fichier
+            $q.notify({
+              type: 'negative',
+              message: 'Fichier vidéo introuvable',
+              caption: `Le fichier "${fileName}" n'existe plus à l'emplacement enregistré. Veuillez sélectionner un nouveau fichier.`,
+              timeout: 5000,
+              actions: [
+                {
+                  label: 'Sélectionner un nouveau fichier',
+                  handler: () => {
+                    methods.selectVideoFile();
+                  },
+                },
+              ],
+            });
             return;
           }
 
           if (!statsResult.isFile) {
             videoSrc.value = '';
-            state.videoError = 'Le chemin spécifié n\'est pas un fichier';
+            state.videoError = `Le chemin spécifié pour "${fileName}" n'est pas un fichier`;
             state.isLoading = false;
             return;
           }
@@ -291,14 +330,26 @@ export default defineComponent({
         // This is much more efficient than loading the entire file in memory
         videoSrc.value = pathToFileUrl(videoPath);
         state.isLoading = false;
+        state.videoError = null; // Réinitialiser l'erreur si le chargement réussit
       } catch (error: any) {
         videoSrc.value = '';
-        state.videoError = 'Erreur lors du chargement de la vidéo';
+        state.videoError = `Erreur lors du chargement de la vidéo "${fileName}"`;
         state.isLoading = false;
+        
+        // Proposer de sélectionner un nouveau fichier
         $q.notify({
           type: 'negative',
           message: 'Erreur lors du chargement de la vidéo',
-          caption: error.message || 'Le fichier vidéo est inaccessible',
+          caption: `Le fichier "${fileName}" est inaccessible. Veuillez sélectionner un nouveau fichier.`,
+          timeout: 5000,
+          actions: [
+            {
+              label: 'Sélectionner un nouveau fichier',
+              handler: () => {
+                methods.selectVideoFile();
+              },
+            },
+          ],
         });
       }
     };
@@ -361,12 +412,14 @@ export default defineComponent({
       },
 
       handleVideoError: () => {
-        state.videoError = 'Impossible de charger la vidéo. Le fichier n\'existe peut-être plus.';
+        const fileName = state.currentVideoPath ? getFileName(state.currentVideoPath) : 'le fichier vidéo';
+        state.videoError = `Impossible de charger la vidéo "${fileName}". Le fichier n'existe peut-être plus.`;
         state.isLoading = false;
         $q.notify({
           type: 'negative',
           message: 'Erreur de chargement de la vidéo',
-          caption: 'Le fichier vidéo est introuvable ou inaccessible',
+          caption: `Le fichier "${fileName}" est introuvable ou inaccessible. Veuillez sélectionner un nouveau fichier.`,
+          timeout: 5000,
           actions: [
             {
               label: 'Sélectionner un nouveau fichier',
@@ -640,24 +693,111 @@ export default defineComponent({
     };
 
     // Watch for video path changes to reload video
-    watch(
+    // IMPORTANT: Ce watcher charge automatiquement la vidéo quand :
+    // 1. Le composant est monté (immediate: true)
+    // 2. Le videoPath change dans l'observation
+    // 3. L'observation est chargée après le montage du composant
+    const stopVideoPathWatcher = watch(
       () => observation.sharedState.currentObservation?.videoPath,
-      async (newPath) => {
+      async (newPath, oldPath) => {
+        console.log('[VideoPlayer] videoPath watcher triggered:', {
+          newPath,
+          oldPath,
+          currentVideoSrc: videoSrc.value,
+          currentVideoPath: state.currentVideoPath,
+          observation: observation.sharedState.currentObservation,
+        });
+        
+        // Charger la vidéo si :
+        // - Un nouveau videoPath est défini
+        // - Le videoPath a changé depuis la dernière fois
+        // - La vidéo n'est pas encore chargée (videoSrc vide ou currentVideoPath différent)
         if (newPath) {
-          await loadVideoFile(newPath);
-          // Wait a bit for the URL to be set, then load the video
-          if (videoRef.value) {
-            videoRef.value.load();
+          const shouldLoad = !oldPath || 
+            oldPath !== newPath || 
+            !videoSrc.value || 
+            videoSrc.value === '' ||
+            state.currentVideoPath !== newPath;
+          
+          console.log('[VideoPlayer] Should load video?', shouldLoad);
+          
+          if (shouldLoad) {
+            console.log('[VideoPlayer] Loading video file:', newPath);
+            await loadVideoFile(newPath);
+            // Wait a bit for the URL to be set, then load the video
+            if (videoRef.value) {
+              videoRef.value.load();
+            }
           }
         } else {
+          // Si videoPath est supprimé, vider la source
+          console.log('[VideoPlayer] No videoPath, clearing video source');
           videoSrc.value = '';
+          state.currentVideoPath = null;
+        }
+      },
+      { immediate: true }
+    );
+
+    // Watch for observation changes to ensure video loads when observation is loaded
+    // This handles the case where the component mounts before the observation is loaded
+    // or when navigating to the observation page with an observation that has a videoPath
+    const stopObservationWatcher = watch(
+      () => observation.sharedState.currentObservation,
+      async (newObservation, oldObservation) => {
+        console.log('[VideoPlayer] observation watcher triggered:', {
+          newObservation: newObservation ? {
+            id: newObservation.id,
+            name: newObservation.name,
+            videoPath: newObservation.videoPath,
+            mode: newObservation.mode,
+          } : null,
+          oldObservation: oldObservation ? {
+            id: oldObservation.id,
+            videoPath: oldObservation.videoPath,
+          } : null,
+          currentVideoSrc: videoSrc.value,
+          currentVideoPath: state.currentVideoPath,
+        });
+        
+        // Charger la vidéo si :
+        // 1. Une nouvelle observation est chargée avec un videoPath
+        // 2. L'observation change (même si elle avait déjà un videoPath)
+        // 3. Le videoPath change entre deux observations
+        // 4. La vidéo n'est pas encore chargée (videoSrc vide ou différent du videoPath actuel)
+        if (newObservation?.videoPath) {
+          const currentVideoPath = state.currentVideoPath;
+          const videoPathChanged = !oldObservation || 
+            oldObservation.videoPath !== newObservation.videoPath ||
+            !videoSrc.value ||
+            videoSrc.value === '' ||
+            currentVideoPath !== newObservation.videoPath;
+          
+          console.log('[VideoPlayer] Observation has videoPath, should load?', videoPathChanged);
+          
+          if (videoPathChanged) {
+            console.log('[VideoPlayer] Loading video from observation watcher:', newObservation.videoPath);
+            // L'observation vient d'être chargée et contient un videoPath
+            // ou le videoPath a changé
+            await loadVideoFile(newObservation.videoPath);
+            if (videoRef.value) {
+              videoRef.value.load();
+            }
+          }
+        } else if (oldObservation?.videoPath && !newObservation?.videoPath) {
+          // Si l'observation n'a plus de videoPath, vider la source
+          console.log('[VideoPlayer] Observation no longer has videoPath, clearing');
+          videoSrc.value = '';
+          state.currentVideoPath = null;
+        } else if (!newObservation?.videoPath) {
+          console.log('[VideoPlayer] Observation has no videoPath');
         }
       },
       { immediate: true }
     );
 
     // Watch for readings changes to update notches
-    watch(
+    const stopReadingsWatcher = watch(
       () => readingsState.currentReadings,
       () => {
         // Notches will update automatically via computed properties
@@ -669,12 +809,66 @@ export default defineComponent({
       { deep: true }
     );
 
+    // Force load video on mount if observation already has videoPath
+    // This handles the case where user navigates to observation page
+    // with an observation that was just created or already loaded
+    // IMPORTANT: This is a fallback in case watchers don't trigger correctly
+    onMounted(async () => {
+      console.log('[VideoPlayer] Component mounted, checking for video:', {
+        currentObservation: observation.sharedState.currentObservation ? {
+          id: observation.sharedState.currentObservation.id,
+          name: observation.sharedState.currentObservation.name,
+          videoPath: observation.sharedState.currentObservation.videoPath,
+          mode: observation.sharedState.currentObservation.mode,
+        } : null,
+        currentVideoSrc: videoSrc.value,
+        currentVideoPath: state.currentVideoPath,
+        isChronometerMode: observation.isChronometerMode.value,
+      });
+      
+      // Wait a bit to ensure all watchers have run first
+      // This gives watchers a chance to load the video automatically
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      const currentObs = observation.sharedState.currentObservation;
+      const currentVideoPath = state.currentVideoPath;
+      
+      console.log('[VideoPlayer] After watchers delay, checking again:', {
+        currentObs: currentObs ? {
+          id: currentObs.id,
+          videoPath: currentObs.videoPath,
+        } : null,
+        currentVideoSrc: videoSrc.value,
+        currentVideoPath: state.currentVideoPath,
+      });
+      
+      // Load video if:
+      // 1. Observation has videoPath
+      // 2. Video hasn't been loaded yet (videoSrc is empty or currentVideoPath doesn't match)
+      // This is a safety check to ensure video loads even if watchers didn't trigger
+      if (currentObs?.videoPath && 
+          (!videoSrc.value || 
+           videoSrc.value === '' || 
+           currentVideoPath !== currentObs.videoPath)) {
+        console.log('[VideoPlayer] Force loading video on mount:', currentObs.videoPath);
+        // Observation is already loaded with videoPath but video hasn't been loaded yet
+        await loadVideoFile(currentObs.videoPath);
+        if (videoRef.value) {
+          videoRef.value.load();
+        }
+      } else if (!currentObs?.videoPath) {
+        console.log('[VideoPlayer] No videoPath in observation on mount');
+      } else {
+        console.log('[VideoPlayer] Video already loaded or matches current path');
+      }
+    });
+
     // Debounce timer for currentTime watcher
     let currentTimeDebounceTimer: number | null = null;
 
     // Watch for currentTime changes to update buttons position
     // This handles cases where time changes without user interaction (e.g., programmatic changes)
-    watch(
+    const stopCurrentTimeWatcher = watch(
       () => state.currentTime,
       () => {
         if (observation.isChronometerMode.value && videoRef.value && state.isPlaying) {
@@ -692,10 +886,38 @@ export default defineComponent({
       }
     );
 
-    // Cleanup debounce timer on unmount
+    // Cleanup on unmount
     onUnmounted(() => {
+      // Cleanup debounce timer
       if (currentTimeDebounceTimer !== null) {
         clearTimeout(currentTimeDebounceTimer);
+        currentTimeDebounceTimer = null;
+      }
+      
+      // Stop all watchers
+      stopVideoPathWatcher();
+      stopObservationWatcher();
+      stopReadingsWatcher();
+      stopCurrentTimeWatcher();
+      
+      // Cleanup video element
+      if (videoRef.value) {
+        try {
+          videoRef.value.pause();
+          videoRef.value.src = '';
+          videoRef.value.load();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
+      }
+      
+      // Clear video source URL to free memory (only for blob URLs)
+      if (videoSrc.value && videoSrc.value.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(videoSrc.value);
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
       }
     });
 
@@ -728,6 +950,7 @@ export default defineComponent({
       canChangeMode,
       methods,
       handleModeChange,
+      getFileName, // Exposer pour le template
       // Expose methods used in template
       getNotchPosition: methods.getNotchPosition,
       getNotchTooltip: methods.getNotchTooltip,

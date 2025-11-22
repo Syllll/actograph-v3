@@ -46,6 +46,16 @@ export const init = async (auth: { methods: any; sharedState: any }) => {
 
   axiosInstance.interceptors.request.use(
     async (request) => {
+      // IMPORTANT: Always ensure token is in headers before each request
+      // This handles cases where the token exists in localStorage but wasn't
+      // properly set in axios headers (e.g., after page reload, navigation, etc.)
+      const tokenFromStorage = localStorage.getItem('token');
+      if (tokenFromStorage && !request.headers.Authorization) {
+        request.headers.Authorization = 'Bearer ' + tokenFromStorage;
+        // Also update defaults for future requests
+        axiosInstance.defaults.headers.common.Authorization = 'Bearer ' + tokenFromStorage;
+      }
+
       const user = auth.sharedState.user;
       // console.log(request.url)
       if (
@@ -57,6 +67,11 @@ export const init = async (auth: { methods: any; sharedState: any }) => {
         !isInsideUrls(request.url, urlsThatDoNotTriggerLoginRefresh)
       ) {
         await tryToRefreshLoginToken(user, auth);
+        // After refresh, ensure the token is still in headers
+        const refreshedToken = localStorage.getItem('token');
+        if (refreshedToken) {
+          request.headers.Authorization = 'Bearer ' + refreshedToken;
+        }
       }
 
       return request;

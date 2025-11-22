@@ -1,5 +1,5 @@
 <template>
-  <q-dialog ref="dialogRef" @hide="onDialogHide">
+  <q-dialog ref="dialogRef" @hide="handleDialogHide">
     <DCard
       class="q-dialog-plugin"
       style="min-width: 400px"
@@ -115,7 +115,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive } from 'vue';
+import { defineComponent, reactive, nextTick, ref, onMounted, onUnmounted } from 'vue';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import {
   DCard,
@@ -137,6 +137,17 @@ export default defineComponent({
     const $q = useQuasar();
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
       useDialogPluginComponent();
+
+    // Flag pour savoir si le composant est encore monté
+    const isMounted = ref(true);
+
+    onMounted(() => {
+      isMounted.value = true;
+    });
+
+    onUnmounted(() => {
+      isMounted.value = false;
+    });
 
     const state = reactive({
       name: '',
@@ -171,6 +182,33 @@ export default defineComponent({
         description: 'Les dates sont affichées comme des durées depuis un point de référence (t0)',
       },
     ];
+
+    // Wrapper pour onDialogHide avec protection contre les erreurs de démontage
+    // Vérifier que le composant est encore monté avant d'appeler onDialogHide
+    const handleDialogHide = async () => {
+      // Ne pas appeler onDialogHide si le composant est déjà démonté
+      if (!isMounted.value) {
+        return;
+      }
+
+      try {
+        // Attendre que Vue ait fini de traiter le cycle de démontage
+        await nextTick();
+        
+        // Vérifier à nouveau après nextTick
+        if (!isMounted.value) {
+          return;
+        }
+
+        if (onDialogHide) {
+          onDialogHide();
+        }
+      } catch (error) {
+        // Ignorer les erreurs de démontage (composant déjà démonté)
+        // Ces erreurs peuvent survenir si le composant est démonté rapidement
+        console.debug('Dialog hide error (ignored):', error);
+      }
+    };
 
     const methods = {
       selectVideoFile: async () => {
@@ -227,12 +265,23 @@ export default defineComponent({
           return;
         }
 
-        onDialogOK({
+        // Construire le résultat du dialog
+        const dialogResult: any = {
           name: state.name.trim(),
           description: state.description.trim() || undefined,
           mode: finalMode,
-          videoPath: state.videoPath || undefined,
-        });
+        };
+        
+        // IMPORTANT: Toujours inclure videoPath si observationType est 'video'
+        // On vérifie explicitement que videoPath existe et n'est pas null/undefined/vide
+        if (state.observationType === 'video') {
+          // La validation ci-dessus garantit que videoPath existe, mais on vérifie quand même
+          if (state.videoPath && typeof state.videoPath === 'string' && state.videoPath.trim() !== '') {
+            dialogResult.videoPath = state.videoPath;
+          }
+        }
+        
+        onDialogOK(dialogResult);
       },
       onCancelClick: () => {
         onDialogCancel();
@@ -245,7 +294,7 @@ export default defineComponent({
       observationTypeOptions,
       modeOptions,
       methods,
-      onDialogHide,
+      handleDialogHide,
       onOKClick: methods.onOKClick,
       onCancelClick: methods.onCancelClick,
     };

@@ -26,12 +26,16 @@
         Le splitter horizontal permet de redimensionner la hauteur de la zone vidéo
         en glissant le séparateur. La vidéo occupe le panneau "before" et le reste
         du contenu (toolbar + boutons/relevés) occupe le panneau "after".
+        
+        IMPORTANT: Utilisation de v-show au lieu de v-if pour éviter les problèmes
+        de démontage rapide avec les directives Quasar (__qtouchpan).
       -->
       <q-splitter
-        v-if="observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath"
+        v-show="observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath"
+        :key="`video-splitter-${observation.sharedState.currentObservation?.id || 'new'}`"
         v-model="state.videoSplitterModel"
         horizontal
-        :style="{ height: state.containerHeight + 'px' }"
+        :style="{ height: state.containerHeight + 'px', display: (observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath) ? 'flex' : 'none' }"
         :limits="[10, 75]"
       >
         <!-- Panneau supérieur : Lecteur vidéo -->
@@ -91,7 +95,11 @@
         Affiché si aucune vidéo n'est chargée et que l'observation n'est pas en mode chronomètre.
         Dans ce cas, on affiche directement la toolbar et le splitter vertical boutons/relevés.
       -->
-      <template v-else>
+      <div
+        v-show="!(observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath)"
+        class="fit column no-wrap"
+        :style="{ display: !(observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath) ? 'flex' : 'none' }"
+      >
         <!-- Toolbar calendrier -->
         <CalendarToolbar class="col-auto" />
         
@@ -117,7 +125,7 @@
             <ReadingsSideIndex />
           </template>
         </q-splitter>
-      </template>
+      </div>
     </div>
   </DPage>
 </template>

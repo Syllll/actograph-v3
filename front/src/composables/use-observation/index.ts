@@ -218,6 +218,9 @@ export const useObservation = (options?: { init?: boolean }) => {
       mode?: ObservationModeEnum;
     }) => {
       const response = await observationService.create(options);
+      
+      // Load the full observation (with readings and protocol)
+      // The response from create might not have all relations loaded
       await methods.loadObservation(response.id);
     },
     updateObservation: async (id: number, updateData: {
@@ -241,7 +244,20 @@ export const useObservation = (options?: { init?: boolean }) => {
 
       await protocol.methods.loadProtocol(observation);
 
+      console.log('[useObservation] Loading observation:', {
+        id: observation.id,
+        name: observation.name,
+        videoPath: observation.videoPath,
+        mode: observation.mode,
+      });
+
       sharedState.currentObservation = observation;
+
+      console.log('[useObservation] Observation loaded in state:', {
+        id: sharedState.currentObservation?.id,
+        videoPath: sharedState.currentObservation?.videoPath,
+        mode: sharedState.currentObservation?.mode,
+      });
 
       sharedState.loading = false;
     },
