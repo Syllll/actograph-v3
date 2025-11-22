@@ -1,5 +1,5 @@
 <template>
-  <div class="buttons-side-container q-pa-sm column">
+  <div class="buttons-side-container q-pa-sm column fit">
     <div class="col-auto text-h6 q-mb-sm row">
       <div class="col-auto">
         Tableau de bord d'observation
@@ -19,31 +19,30 @@
       </div>
     </div>
 
-    <DScrollArea class="col" style="min-height: 0; max-height: 100%">
+    <DScrollArea class="col" style="min-height: 0;">
       <div class="categories-wrapper" 
-        ref="categoriesWrapper"
-        :style="{ 'min-height': '0px' }">
-      <template v-if="sharedState.currentProtocol && sharedState.currentProtocol._items">
+        ref="categoriesWrapper">
+      <template v-if="sharedState.currentProtocol && sharedState.currentProtocol._items && computedState.categories.value.length > 0">
         <Category
           v-for="category in computedState.categories.value"
           :key="category.id"
-          :category="category"
-          :active-observable-id-by-category-id="state.activeObservableIdByCategoryId"
-          :position="state.categoryPositions[category.id] || { x: 0, y: 0 }"
-          :is-observation-active="computedState.isObservationActive.value"
-          :style="methods.getCategoryStyle(category.id)"
-          @switch-click="methods.handleSwitchClick"
-          @press-click="methods.handlePressClick"
-          @move="methods.handleCategoryMove"
-          @drag-start="(id) => methods.updateDraggingState(id, true)"
-          @drag-end="(id) => methods.updateDraggingState(id, false)"
-        />
-      </template>
-      <div v-else class="no-data text-center q-pa-lg">
-        <q-icon name="info" size="2rem" color="grey-7" />
-        <div class="text-subtitle1 q-mt-sm">Aucun protocole chargé</div>
-        <div class="text-caption q-mt-xs">Veuillez sélectionner une observation pour afficher son protocole.</div>
-      </div>
+            :category="category"
+            :active-observable-id-by-category-id="state.activeObservableIdByCategoryId"
+            :position="state.categoryPositions[category.id] || { x: 0, y: 0 }"
+            :is-observation-active="computedState.isObservationActive.value"
+            :style="methods.getCategoryStyle(category.id)"
+            @switch-click="methods.handleSwitchClick"
+            @press-click="methods.handlePressClick"
+            @move="methods.handleCategoryMove"
+            @drag-start="(id) => methods.updateDraggingState(id, true)"
+            @drag-end="(id) => methods.updateDraggingState(id, false)"
+          />
+        </template>
+        <div v-else class="no-data text-center q-pa-lg">
+          <q-icon name="info" size="2rem" color="grey-7" />
+          <div class="text-subtitle1 q-mt-sm">Aucun protocole chargé</div>
+          <div class="text-caption q-mt-xs">Veuillez sélectionner une observation pour afficher son protocole.</div>
+        </div>
       </div>
     </DScrollArea>
   </div>
@@ -130,28 +129,107 @@ export default defineComponent({
         if (!sharedState.currentProtocol || !sharedState.currentProtocol._items) {
           return [] as ProtocolItem[];
         }
-        return sharedState.currentProtocol._items
-          .filter((item: any) => item.type === ProtocolItemTypeEnum.Category)
+        
+        // Ensure _items is an array
+        const items = Array.isArray(sharedState.currentProtocol._items) 
+          ? sharedState.currentProtocol._items 
+          : [];
+        
+        // Filter categories - use loose comparison to handle potential type mismatches
+        return items
+          .filter((item: any) => {
+            // Handle both string and enum comparisons
+            const itemType = item?.type;
+            return itemType === ProtocolItemTypeEnum.Category || 
+                   itemType === 'category' ||
+                   (typeof itemType === 'string' && itemType.toLowerCase() === 'category');
+          })
           .map((item: any) => item as ProtocolItem);
       }),
     };
     
     const methods = {
-      // Make sure wrapper is tall enough for all categories
+      /**
+       * Met à jour la hauteur minimale du conteneur pour s'assurer qu'il est assez grand
+       * pour afficher toutes les catégories, même lorsqu'elles sont déplacées vers le bas.
+       * 
+       * Cette fonction est appelée après chaque déplacement de catégorie pour ajuster
+       * dynamiquement la hauteur du conteneur scrollable. Elle garantit que :
+       * 1. Toutes les catégories restent visibles et accessibles via le scroll
+       * 2. Le conteneur s'agrandit automatiquement quand une catégorie est déplacée vers le bas
+       * 3. Les hauteurs variables des catégories (selon le nombre d'observables) sont prises en compte
+       * 
+       * IMPORTANT : Les catégories utilisent `position: absolute`, donc elles ne contribuent
+       * pas naturellement à la hauteur du conteneur. Cette fonction calcule manuellement
+       * la hauteur nécessaire en fonction des positions et hauteurs réelles des catégories.
+       */
       updateWrapperHeight: () => {
         if (!categoriesWrapper.value) return;
-        let maxY = 0;
-        let maxHeight = 0;
-        Object.values(state.categoryPositions).forEach(position => {
-          if (position.y > maxY) {
-            maxY = position.y;
-            maxHeight = 250;
-          }
-        });
-        const minHeight = maxY + maxHeight + 50;
-        if (minHeight > 300) {
-          categoriesWrapper.value.style.minHeight = `${minHeight}px`;
+        
+        // Variables pour tracker la catégorie la plus basse
+        let maxY = 0; // Position Y la plus basse
+        let maxHeight = 0; // Hauteur de la catégorie la plus basse
+        
+        // Récupérer toutes les catégories depuis le DOM pour obtenir leurs dimensions réelles
+        // On utilise le DOM plutôt que state.categoryPositions car :
+        // 1. Les hauteurs réelles peuvent varier selon le nombre d'observables
+        // 2. Le DOM reflète l'état visuel actuel après le rendu
+        const allCategoryElements = categoriesWrapper.value.querySelectorAll('.category-container');
+        
+        // Si des éléments existent dans le DOM, calculer la hauteur basée sur leurs positions réelles
+        if (allCategoryElements.length > 0) {
+          // Obtenir les dimensions du conteneur et son padding
+          const containerRect = categoriesWrapper.value.getBoundingClientRect();
+          const containerStyles = window.getComputedStyle(categoriesWrapper.value);
+          const paddingTop = parseFloat(containerStyles.paddingTop) || 0;
+          
+          // Parcourir toutes les catégories pour trouver celle qui est le plus bas
+          allCategoryElements.forEach((el) => {
+            const elRect = el.getBoundingClientRect();
+            
+            // Calculer la position Y relative au contenu du conteneur (sans padding)
+            // Cette position correspond à state.categoryPositions[categoryId].y
+            const relativeY = elRect.top - containerRect.top - paddingTop;
+            
+            // Obtenir la hauteur RÉELLE de cette catégorie depuis le DOM
+            // Cette hauteur varie selon le nombre d'observables dans la catégorie
+            const elHeight = elRect.height;
+            
+            // Calculer la position du bas de la catégorie (Y + hauteur)
+            // Si cette position est plus basse que celle qu'on a déjà vue, la garder
+            const bottom = relativeY + elHeight;
+            if (bottom > maxY + maxHeight) {
+              maxY = relativeY;
+              maxHeight = elHeight;
+            }
+          });
         }
+        
+        // Fallback : si aucune catégorie n'est trouvée dans le DOM (peut arriver lors
+        // du premier rendu ou si les catégories ne sont pas encore chargées),
+        // utiliser les positions depuis state.categoryPositions
+        if (maxHeight === 0) {
+          // Parcourir toutes les positions stockées dans le state
+          Object.values(state.categoryPositions).forEach(position => {
+            if (position.y > maxY) {
+              maxY = position.y;
+            }
+          });
+          // Utiliser une hauteur par défaut si on ne peut pas mesurer depuis le DOM
+          // Cette valeur est une approximation et sera remplacée dès que les éléments
+          // seront rendus dans le DOM
+          maxHeight = 250; // Hauteur approximative d'une catégorie moyenne
+        }
+        
+        // Calculer la hauteur minimale nécessaire pour le conteneur
+        // Formule : position Y la plus basse + hauteur de cette catégorie + marge inférieure
+        const minHeight = maxY + maxHeight + 50; // 50px de marge pour le confort visuel
+        
+        // Appliquer la hauteur minimale au conteneur
+        // On utilise Math.max pour garantir une hauteur minimale de 300px même si toutes
+        // les catégories sont en haut (pour éviter un conteneur trop petit)
+        // Cette hauteur permet le scroll vertical quand les catégories sont déplacées vers le bas
+        categoriesWrapper.value.style.minHeight = `${Math.max(minHeight, 300)}px`;
       },
 
       // Calculate grid-based positions for categories
@@ -321,6 +399,14 @@ export default defineComponent({
       }
     }, { immediate: true });
 
+    // Ensure protocol is loaded when observation is loaded
+    watch(() => observation.sharedState.currentObservation, async (newObservation) => {
+      if (newObservation && !sharedState.currentProtocol) {
+        // Observation is loaded but protocol is not, load it
+        await protocol.methods.loadProtocol(newObservation);
+      }
+    }, { immediate: true });
+
     // Update wrapper height based on category positions
     watch(state.categoryPositions, () => {
       methods.updateWrapperHeight();
@@ -365,15 +451,13 @@ export default defineComponent({
 
 <style scoped>
 .buttons-side-container {
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  flex: 1;
   min-height: 0;
 }
 
 :deep(.q-scrollarea) {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
@@ -383,9 +467,8 @@ export default defineComponent({
   border-radius: 8px;
   padding: 16px;
   background-color: #fcfcfc;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
+  min-height: 100%;
+  box-sizing: border-box;
 }
 
 .no-data {
