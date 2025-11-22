@@ -13,6 +13,7 @@ import { BaseService } from '@utils/services/base.service';
 import {
   Observation,
   ObservationType,
+  ObservationModeEnum,
 } from '../../entities/observation.entity';
 import { ObservationRepository } from '../../repositories/obsavation.repository';
 import {
@@ -73,6 +74,20 @@ export class ObservationService extends BaseService<
       this.protocolService,
       this.readingService,
     );
+  }
+
+  public async update(id: number, updateData: Partial<Observation>): Promise<Observation> {
+    const observation = await this.findOne(id);
+    if (!observation) {
+      throw new NotFoundException('Observation not found');
+    }
+
+    const updatedObservation = {
+      ...observation,
+      ...updateData,
+    };
+
+    return await this.observationRepository.save(updatedObservation as Observation);
   }
 
   public async remove(id: number) {
@@ -163,6 +178,8 @@ export class ObservationService extends BaseService<
     userId: number;
     name: string;
     description?: string;
+    videoPath?: string;
+    mode?: ObservationModeEnum;
     protocol?: {
       name?: string;
       description?: string;
@@ -187,6 +204,8 @@ export class ObservationService extends BaseService<
       },
       name: options.name ?? 'Nouvelle observation',
       description: options.description,
+      videoPath: options.videoPath,
+      mode: options.mode,
       type: ObservationType.Normal,
     });
     

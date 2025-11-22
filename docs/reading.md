@@ -372,6 +372,38 @@ L'éditeur de date/heure inclut :
 - Support des millisecondes
 - Format : `DD/MM/YYYY HH:mm:ss.SSS`
 
+### Mode chronomètre
+
+Lorsqu'une observation est en mode **chronomètre** (défini lors de la création), les dates sont affichées et éditées comme des **durées** depuis un point de référence (t0 = 9 février 1989).
+
+#### Affichage des durées
+
+En mode chronomètre, la colonne "Date & heure" devient "Durée" et affiche les durées au format compact :
+- Format : `Xj Yh Zm Ws Vms` (ex: `2j 3h 15m 30s 500ms`)
+- Seules les unités non nulles sont affichées
+- Exemples :
+  - `1h 30m 15s 200ms` : 1 heure, 30 minutes, 15 secondes, 200 millisecondes
+  - `45s 500ms` : 45 secondes, 500 millisecondes
+  - `2j 5h` : 2 jours, 5 heures
+
+#### Édition des durées
+
+L'éditeur de durée en mode chronomètre inclut :
+- Champs séparés pour chaque unité : jours, heures, minutes, secondes, millisecondes
+- Validation des valeurs (heures 0-23, minutes 0-59, secondes 0-59, millisecondes 0-999)
+- Conversion automatique entre durée et date lors de la sauvegarde
+- La durée est convertie en date selon la formule : `date = t0 + durée`
+
+#### Synchronisation avec la vidéo
+
+En mode chronomètre avec une vidéo chargée :
+- Le temps de la vidéo est synchronisé avec `elapsedTime` de l'observation
+- Les readings créés utilisent automatiquement le temps actuel de la vidéo
+- Les encoches sur la timeline de la vidéo correspondent aux readings
+- Les boutons s'activent automatiquement selon la position de la vidéo
+
+Voir la documentation de la feature [intégration vidéo](../features/integration-video/integration-video.md) pour plus de détails.
+
 ### Sélection
 
 La table supporte la sélection d'un reading :
@@ -444,6 +476,16 @@ Query params:
 - Incluez les millisecondes pour la précision
 - Utilisez UTC pour éviter les problèmes de fuseau horaire
 
+### Mode chronomètre
+
+En mode chronomètre, les dates sont stockées normalement en base de données (format ISO 8601), mais sont affichées et manipulées comme des durées depuis t0 (9 février 1989).
+
+**Important** :
+- Le mode d'une observation est **figé** une fois choisi lors de la création
+- Les dates sont toujours stockées en format ISO 8601 dans la base de données
+- La conversion entre durée et date se fait automatiquement dans l'interface utilisateur
+- Le t0 est fixé au **9 février 1989 à 00:00:00 UTC**
+
 ### Gestion des tempId
 
 - Générez des `tempId` uniques avec `uuid`
@@ -463,6 +505,53 @@ Query params:
 - Vérifiez que les types sont valides
 - Vérifiez que l'observation existe
 
+## Mode chronomètre et intégration vidéo
+
+### Vue d'ensemble
+
+Le mode chronomètre permet de travailler avec des durées au lieu de dates calendaires. Ce mode est particulièrement utile lors de l'analyse de vidéos, où les événements sont mesurés en temps relatif depuis le début de la vidéo.
+
+### Activation du mode chronomètre
+
+Le mode chronomètre est défini lors de la création d'une observation :
+- Sélectionnez "Chronomètre" dans le champ "Mode de la chronique"
+- Le mode est **figé** une fois l'observation créée
+- Une fois en mode chronomètre, toutes les dates sont affichées comme des durées
+
+### Point de référence (t0)
+
+- **Date t0** : 9 février 1989 à 00:00:00 UTC
+- Toutes les durées sont calculées depuis cette date
+- La conversion se fait automatiquement : `date = t0 + durée`
+
+### Format des durées
+
+Les durées sont affichées au format compact :
+- `Xj Yh Zm Ws Vms` où :
+  - `j` = jours
+  - `h` = heures
+  - `m` = minutes
+  - `s` = secondes
+  - `ms` = millisecondes
+- Seules les unités non nulles sont affichées
+- Exemple : `2j 3h 15m 30s 500ms`
+
+### Synchronisation avec la vidéo
+
+Lorsqu'une vidéo est chargée en mode chronomètre :
+- Le temps de la vidéo (`video.currentTime`) est synchronisé avec `elapsedTime`
+- Les readings créés utilisent automatiquement le temps actuel de la vidéo
+- Les encoches sur la timeline de la vidéo indiquent la position des readings
+- Les boutons s'activent automatiquement selon la position de la vidéo
+
+### Création de readings en mode chronomètre
+
+Les readings créés en mode chronomètre utilisent automatiquement :
+- `currentDate` : Date calculée comme t0 + elapsedTime
+- `elapsedTime` : Temps écoulé depuis le début de l'observation
+
+Cela garantit que les readings sont correctement synchronisés avec la vidéo si elle est chargée.
+
 ## Dépannage
 
 ### Readings non synchronisés
@@ -481,6 +570,24 @@ Si vous recevez des erreurs de format :
 1. Vérifiez que le format est ISO 8601
 2. Vérifiez que la date est valide
 3. Vérifiez le fuseau horaire
+
+### Problèmes en mode chronomètre
+
+Si les durées ne s'affichent pas correctement :
+
+1. Vérifiez que l'observation est bien en mode chronomètre (`mode === 'chronometer'`)
+2. Vérifiez que le t0 est correct (9 février 1989)
+3. Vérifiez que les dates sont valides dans la base de données
+4. Vérifiez la console pour les erreurs de conversion
+
+### Problèmes de synchronisation vidéo
+
+Si la vidéo n'est pas synchronisée avec les readings :
+
+1. Vérifiez que l'observation est en mode chronomètre
+2. Vérifiez que le fichier vidéo existe et est accessible
+3. Vérifiez que les readings ont des dates valides
+4. Vérifiez la console pour les erreurs de synchronisation
 
 ### Problèmes de performance
 

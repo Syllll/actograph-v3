@@ -30,6 +30,7 @@ let syncTimeoutId: number | null = null;
 export const useReadings = (options: {
   sharedStateFromObservation: any,
 }) => {
+  const observationSharedState = options.sharedStateFromObservation;
   const methods = {
     /**
      * Loads all readings associated with the provided observation
@@ -50,8 +51,17 @@ export const useReadings = (options: {
         }
       );
       const readings = r.results;
-      stateless.initialReadings = readings;
-      sharedState.currentReadings = readings;
+      
+      // Convert dateTime strings to Date objects
+      const readingsWithDates = readings.map((reading: IReading) => ({
+        ...reading,
+        dateTime: reading.dateTime instanceof Date ? reading.dateTime : new Date(reading.dateTime),
+        createdAt: reading.createdAt instanceof Date ? reading.createdAt : new Date(reading.createdAt),
+        updatedAt: reading.updatedAt instanceof Date ? reading.updatedAt : new Date(reading.updatedAt),
+      }));
+      
+      stateless.initialReadings = readingsWithDates;
+      sharedState.currentReadings = readingsWithDates;
     },
     
     /**
@@ -436,28 +446,32 @@ export const useReadings = (options: {
       methods.addReading({
         name: 'Début de la chronique',
         type: ReadingTypeEnum.START,
-        dateTime: new Date(),
+        currentDate: observationSharedState.currentDate || new Date(),
+        elapsedTime: observationSharedState.elapsedTime || 0,
       });
     },
     addStopReading: async () => {
       methods.addReading({
         name: 'Fin de la chronique',
         type: ReadingTypeEnum.STOP,
-        dateTime: new Date(),
+        currentDate: observationSharedState.currentDate || new Date(),
+        elapsedTime: observationSharedState.elapsedTime || 0,
       });
     },
     addPauseStartReading: async () => {
       methods.addReading({
         name: 'Début de pause',
         type: ReadingTypeEnum.PAUSE_START,
-        dateTime: new Date(),
+        currentDate: observationSharedState.currentDate || new Date(),
+        elapsedTime: observationSharedState.elapsedTime || 0,
       });
     },
     addPauseEndReading: async () => {
       methods.addReading({
         name: 'Fin de pause',
         type: ReadingTypeEnum.PAUSE_END,
-        dateTime: new Date(),
+        currentDate: observationSharedState.currentDate || new Date(),
+        elapsedTime: observationSharedState.elapsedTime || 0,
       });
     },
 

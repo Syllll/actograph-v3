@@ -304,6 +304,7 @@ export default defineComponent({
         await observation.methods.createObservation({
           name: diagRes.name,
           description: diagRes.description,
+          mode: diagRes.mode,
         });
       },
 

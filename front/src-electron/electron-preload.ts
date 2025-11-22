@@ -16,6 +16,7 @@ const validChannels = [
   'write-file',
   'show-open-dialog',
   'read-file',
+  'read-file-binary',
 ];
 
 // Expose protected methods that allow the renderer process to use
@@ -79,6 +80,17 @@ contextBridge.exposeInMainWorld('api', {
     error?: string;
   }> => {
     return ipcRenderer.invoke('read-file', filePath) as Promise<{
+      success: boolean;
+      data?: string;
+      error?: string;
+    }>;
+  },
+  readFileBinary: (filePath: string): Promise<{
+    success: boolean;
+    data?: string; // base64 encoded
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke('read-file-binary', filePath) as Promise<{
       success: boolean;
       data?: string;
       error?: string;

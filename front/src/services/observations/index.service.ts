@@ -5,7 +5,7 @@ import {
   PaginationResponse,
 } from '@lib-improba/utils/pagination.utils';
 import { IUser } from '@services/users/user.interface';
-import { IObservation } from './interface';
+import { IObservation, ObservationModeEnum } from './interface';
 import { IChronicExport } from './export.interface';
 
 const apiUrl = httpUtils.apiUrl();
@@ -53,11 +53,27 @@ export const observationService = {
   create: async (options: {
     name: string;
     description?: string;
+    videoPath?: string;
+    mode?: ObservationModeEnum;
   }): Promise<IObservation> => {
     const response = await api().post(`${apiUrl}/observations`, {
       name: options.name,
       description: options.description,
+      videoPath: options.videoPath,
+      mode: options.mode,
     });
+    return response.data;
+  },
+  update: async (
+    id: number,
+    updateData: {
+      name?: string;
+      description?: string;
+      videoPath?: string;
+      mode?: ObservationModeEnum;
+    }
+  ): Promise<IObservation> => {
+    const response = await api().patch(`${apiUrl}/observations/${id}`, updateData);
     return response.data;
   },
   exportObservation: async (id: number): Promise<IChronicExport> => {

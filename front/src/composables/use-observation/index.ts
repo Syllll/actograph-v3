@@ -3,12 +3,17 @@ import {
   IObservation,
   IProtocol,
   IReading,
+  ObservationModeEnum,
 } from '@services/observations/interface';
 import { observationService } from '@services/observations/index.service';
 import { readingService } from '@services/observations/reading.service';
 import { protocolService } from '@services/observations/protocol.service';
 import { useProtocol } from './use-protocol';
 import { useReadings } from './use-readings';
+import { useDuration } from '../use-duration';
+
+// Chronometer t0: 9 février 1989
+const CHRONOMETER_T0 = new Date('1989-02-09T00:00:00.000Z');
 
 const sharedState = reactive({
   loading: false,
@@ -39,8 +44,16 @@ export const useObservation = (options?: { init?: boolean }) => {
     // Nothing yet, but if we want to load on observation at startup it should be done here
   }
 
+  // Duration composable
+  const duration = useDuration();
+
   // Timer related computed properties
   const isActive = computed(() => sharedState.isPlaying || sharedState.elapsedTime > 0);
+
+  // Chronometer mode computed property
+  const isChronometerMode = computed(() => {
+    return sharedState.currentObservation?.mode === ObservationModeEnum.Chronometer;
+  });
 
   // Timer methods
   const timerMethods = {
@@ -60,7 +73,14 @@ export const useObservation = (options?: { init?: boolean }) => {
 
       // If we're starting fresh (not resuming), set the current date
       if (!sharedState.startTime) {
+        // In chronometer mode, use t0 + elapsedTime
+        if (isChronometerMode.value) {
+          const t0 = chronometerMethods.getT0();
+          const elapsedMs = sharedState.elapsedTime * 1000;
+          sharedState.currentDate = new Date(t0.getTime() + elapsedMs);
+        } else {
         sharedState.currentDate = new Date();
+        }
       }
       
       sharedState.startTime = now - sharedState.elapsedTime * 1000;
@@ -70,6 +90,15 @@ export const useObservation = (options?: { init?: boolean }) => {
       intervalId = window.setInterval(() => {
         if (sharedState.startTime) {
           sharedState.elapsedTime = (Date.now() - sharedState.startTime) / 1000;
+          
+          // Update currentDate based on mode
+          if (isChronometerMode.value) {
+            const t0 = chronometerMethods.getT0();
+            const elapsedMs = sharedState.elapsedTime * 1000;
+            sharedState.currentDate = new Date(t0.getTime() + elapsedMs);
+          } else {
+            sharedState.currentDate = new Date(sharedState.startTime + sharedState.elapsedTime * 1000);
+          }
         }
       }, 10); // Update frequently for smooth milliseconds display
     },
@@ -127,6 +156,49 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
   };
 
+  // Chronometer methods
+  const chronometerMethods = {
+    /**
+     * Gets the t0 date (9 février 1989)
+     */
+    getT0: (): Date => {
+      return CHRONOMETER_T0;
+    },
+
+    /**
+     * Converts a date to duration (milliseconds) since t0
+     * Only works in chronometer mode
+     */
+    dateToDuration: (date: Date): number => {
+      if (!isChronometerMode.value) {
+        throw new Error('Cannot convert date to duration: not in chronometer mode');
+      }
+      return duration.dateToDuration(date, CHRONOMETER_T0);
+    },
+
+    /**
+     * Converts a duration (milliseconds) to a date by adding it to t0
+     * Only works in chronometer mode
+     */
+    durationToDate: (milliseconds: number): Date => {
+      if (!isChronometerMode.value) {
+        throw new Error('Cannot convert duration to date: not in chronometer mode');
+      }
+      return duration.durationToDate(milliseconds, CHRONOMETER_T0);
+    },
+
+    /**
+     * Formats a date as a duration string (compact format)
+     * Only works in chronometer mode
+     */
+    formatDateAsDuration: (date: Date): string => {
+      if (!isChronometerMode.value) {
+        throw new Error('Cannot format date as duration: not in chronometer mode');
+      }
+      return duration.formatFromDate(date, CHRONOMETER_T0);
+    },
+  };
+
   const methods = {
     cloneExampleObservation: async () => {
       const exampleObservation =
@@ -142,9 +214,22 @@ export const useObservation = (options?: { init?: boolean }) => {
     createObservation: async (options: {
       name: string;
       description?: string;
+      videoPath?: string;
+      mode?: ObservationModeEnum;
     }) => {
       const response = await observationService.create(options);
       await methods.loadObservation(response.id);
+    },
+    updateObservation: async (id: number, updateData: {
+      name?: string;
+      description?: string;
+      videoPath?: string;
+      mode?: ObservationModeEnum;
+    }) => {
+      const response = await observationService.update(id, updateData);
+      // Reload the observation to get updated data
+      await methods.loadObservation(id);
+      return response;
     },
     _loadObservation: async (observation: IObservation) => {
       sharedState.loading = true;
@@ -168,6 +253,9 @@ export const useObservation = (options?: { init?: boolean }) => {
     protocol,
     readings,
     timerMethods,
+    chronometerMethods,
+    duration,
     isActive,
+    isChronometerMode,
   };
 };

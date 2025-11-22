@@ -37,8 +37,9 @@ import { IPaginationOutput } from '@utils/repositories/base.repositories';
 import { UserRolesGuard } from '@users/guards/user-roles.guard';
 import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
 import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 import { IChronicExport } from '../services/observation/export';
+import { ObservationModeEnum } from '../entities/observation.entity';
 
 export class ICreateObservationDto {
   @IsString()
@@ -49,6 +50,31 @@ export class ICreateObservationDto {
   @IsString()
   description?: string;
 
+  @IsOptional()
+  @IsString()
+  videoPath?: string;
+
+  @IsOptional()
+  @IsEnum(ObservationModeEnum)
+  mode?: ObservationModeEnum;
+}
+
+export class IUpdateObservationDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  videoPath?: string;
+
+  @IsOptional()
+  @IsEnum(ObservationModeEnum)
+  mode?: ObservationModeEnum;
 }
 
 @Controller('observations')
@@ -154,6 +180,8 @@ export class ObservationController extends BaseController {
       userId: user.id,
       name: body.name,
       description: body.description,
+      videoPath: body.videoPath,
+      mode: body.mode,
       protocol: {},
       readings: [],
       activityGraph: {},
@@ -230,6 +258,41 @@ export class ObservationController extends BaseController {
     }
 
     return <Observation>observation;
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async update(
+    @Param('id') id: number,
+    @Req() req: any,
+    @Body() body: IUpdateObservationDto,
+  ): Promise<Observation> {
+    const user = req.user;
+
+    // Check if the user is the owner of the observation
+    const observation = await this.observationService.findOne(id, {
+      where: {
+        user: {
+          id: user.id,
+        },
+      },
+    });
+    if (!observation) {
+      throw new NotFoundException(
+        'Cannot update observation, you are not the owner',
+      );
+    }
+
+    // Update only provided fields
+    const updateData: Partial<Observation> = {};
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.description !== undefined) updateData.description = body.description;
+    if (body.videoPath !== undefined) updateData.videoPath = body.videoPath;
+    if (body.mode !== undefined) updateData.mode = body.mode;
+
+    const updatedObservation = await this.observationService.update(id, updateData);
+    return updatedObservation;
   }
 
   @Post('import')

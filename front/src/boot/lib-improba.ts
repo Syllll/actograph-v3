@@ -27,6 +27,11 @@ declare global {
         data?: string;
         error?: string;
       }>;
+      readFileBinary: (filePath: string) => Promise<{
+        success: boolean;
+        data?: string; // base64 encoded
+        error?: string;
+      }>;
     };
   }
 }

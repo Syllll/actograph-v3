@@ -1,7 +1,19 @@
 <template>
   <div class="readings-toolbar q-pb-md">
     <div class="row justify-between items-center">
+      <div class="row items-center q-gutter-md">
       <div class="text-h6">Relevés</div>
+        <!-- Mode indicator -->
+        <q-chip
+          v-if="currentMode"
+          :color="currentMode === 'chronometer' ? 'primary' : 'grey-7'"
+          text-color="white"
+          :icon="currentMode === 'chronometer' ? 'timer' : 'event'"
+          size="sm"
+        >
+          {{ currentMode === 'chronometer' ? 'Mode Chronomètre' : 'Mode Calendrier' }}
+        </q-chip>
+      </div>
       
       <div class="row q-gutter-sm">
         <!-- Search input -->
@@ -55,6 +67,19 @@
         >
           <q-tooltip>Supprimer tous les relevés</q-tooltip>
         </q-btn>
+        
+        <!-- Activate chronometer mode button -->
+        <q-btn
+          v-if="canActivateChronometerMode"
+          color="primary"
+          icon="timer"
+          label="Mode chronomètre"
+          @click="$emit('activate-chronometer-mode')"
+          flat
+          dense
+        >
+          <q-tooltip>Passer en mode chronomètre (iéo)</q-tooltip>
+        </q-btn>
       </div>
     </div>
   </div>
@@ -80,13 +105,25 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    canActivateChronometerMode: {
+      type: Boolean,
+      default: false,
+    },
+    currentMode: {
+      type: String,
+      default: null,
+      validator: (value: string | null) => {
+        return value === null || value === 'calendar' || value === 'chronometer';
+      },
+    },
   },
   
   emits: [
     'update:search',
     'add-reading',
     'remove-reading',
-    'remove-all-readings'
+    'remove-all-readings',
+    'activate-chronometer-mode'
   ],
 
   setup(props, { emit }) {

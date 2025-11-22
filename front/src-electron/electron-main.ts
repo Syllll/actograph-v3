@@ -386,6 +386,21 @@ ipcMain.handle('read-file', async (event, filePath: string) => {
   }
 });
 
+ipcMain.handle('read-file-binary', async (event, filePath: string) => {
+  try {
+    const data = fs.readFileSync(filePath);
+    // Convert Buffer to base64 for transmission
+    const base64 = data.toString('base64');
+    return { success: true, data: base64 };
+  } catch (error) {
+    log.error('Error reading binary file:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+});
+
 // Optional: Disable auto-download
 autoUpdater.autoDownload = false;
 

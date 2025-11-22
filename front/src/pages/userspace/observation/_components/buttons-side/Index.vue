@@ -48,7 +48,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, computed, onMounted, watch } from 'vue';
+import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
 import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { ReadingTypeEnum } from '@services/observations/interface';
@@ -78,6 +78,54 @@ export default defineComponent({
       isDragging: false,
       isDraggingCategoryId: null as string | null,
       hasInitializedStartReadings: false,
+    });
+    
+    // Listen for video reading active events to auto-activate buttons
+    const handleVideoReadingActive = (event: CustomEvent) => {
+      const readingsByCategory = event.detail.readingsByCategory;
+      
+      if (!readingsByCategory) {
+        // Clear all active buttons if no data
+        Object.keys(state.activeObservableIdByCategoryId).forEach(key => {
+          delete state.activeObservableIdByCategoryId[key];
+        });
+        return;
+      }
+      
+      // For each category, activate the button corresponding to the last reading
+      for (const category of computedState.categories.value) {
+        // Only handle continuous categories (discrete don't need activation)
+        if (category.action !== ProtocolItemActionEnum.Continuous) continue;
+        
+        const reading = readingsByCategory[category.id];
+        
+        if (reading && reading.name && category.children) {
+          // Find the observable that matches the reading name
+          const observable = category.children.find(
+            (obs: any) => obs.name === reading.name
+          );
+          
+          if (observable) {
+            // Activate the button for this observable
+            state.activeObservableIdByCategoryId[category.id] = observable.id as string;
+          } else {
+            // If observable not found, deactivate button for this category
+            delete state.activeObservableIdByCategoryId[category.id];
+          }
+        } else {
+          // If no reading found for this category, deactivate button
+          delete state.activeObservableIdByCategoryId[category.id];
+        }
+      }
+    };
+    
+    // Set up event listener
+    onMounted(() => {
+      window.addEventListener('video-reading-active', handleVideoReadingActive as EventListener);
+    });
+    
+    onUnmounted(() => {
+      window.removeEventListener('video-reading-active', handleVideoReadingActive as EventListener);
     });
 
     // Computed
@@ -286,6 +334,12 @@ export default defineComponent({
     onMounted(() => {
       methods.calculateCategoryPositions();
       methods.updateWrapperHeight();
+      // Set up event listener for video reading active
+      window.addEventListener('video-reading-active', handleVideoReadingActive as EventListener);
+    });
+    
+    onUnmounted(() => {
+      window.removeEventListener('video-reading-active', handleVideoReadingActive as EventListener);
     });
 
     // Trigger initial continuous readings when starting from zero

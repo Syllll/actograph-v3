@@ -19,6 +19,11 @@ export enum ObservationType {
   Normal = 'normal',
 }
 
+export enum ObservationModeEnum {
+  Calendar = 'calendar',
+  Chronometer = 'chronometer',
+}
+
 @Entity('observations')
 export class Observation extends BaseEntity {
   @Column({ nullable: false })
@@ -30,6 +35,12 @@ export class Observation extends BaseEntity {
 
   @Column({ type: 'text', nullable: true })
   description?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  videoPath?: string | null;
+
+  @Column({ type: 'varchar', enum: ObservationModeEnum, nullable: true })
+  mode?: ObservationModeEnum | null;
 
   @OneToOne(() => ActivityGraph, (activityGraph) => activityGraph.observation)
   activityGraph?: ActivityGraph;

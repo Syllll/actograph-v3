@@ -6,9 +6,12 @@
       v-model:search="search"
       :has-selected="hasSelectedReading"
       :is-add-disabled="false"
+      :can-activate-chronometer-mode="canActivateChronometerMode"
+      :current-mode="currentObservationMode"
       @add-reading="handleAddReading"
       @remove-reading="handleRemoveReading"
       @remove-all-readings="handleRemoveAllReadings"
+      @activate-chronometer-mode="handleActivateChronometerMode"
     />
 
     <DScrollArea class="col">
@@ -24,11 +27,13 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue';
 import { useReadings } from 'src/composables/use-observation/use-readings';
-import { IReading, ReadingTypeEnum } from '@services/observations/interface';
+import { IReading, ReadingTypeEnum, ObservationModeEnum } from '@services/observations/interface';
 import { v4 as uuidv4 } from 'uuid';
 import ReadingsToolbar from './ReadingsToolbar.vue';
 import ReadingsTable from './ReadingsTable.vue';
 import { useObservation } from 'src/composables/use-observation';
+import { useQuasar } from 'quasar';
+import { createDialog } from '@lib-improba/utils/dialog.utils';
 
 export default defineComponent({
   name: 'ReadingsSideIndex',
@@ -39,6 +44,7 @@ export default defineComponent({
   },
 
   setup() {
+    const $q = useQuasar();
     const observation = useObservation();
     // Use the readings composable to access shared state and methods
     const { sharedState, methods } = observation.readings;
@@ -46,6 +52,27 @@ export default defineComponent({
     // Local state for this component
     const search = ref('');
     const selectedReading = ref<IReading[]>([]);
+    
+    // Get current observation mode
+    const currentObservationMode = computed(() => {
+      return observation.sharedState.currentObservation?.mode || null;
+    });
+    
+    // Check if chronometer mode can be activated
+    // Conditions:
+    // 1. Observation mode is not Calendar (must be null or Chronometer)
+    // 2. Observation has not been started (no reading of type START)
+    const canActivateChronometerMode = computed(() => {
+      const currentMode = observation.sharedState.currentObservation?.mode;
+      const hasStartReading = sharedState.currentReadings.some(
+        (reading: IReading) => reading.type === ReadingTypeEnum.START
+      );
+      
+      // Can activate if:
+      // - Mode is not Calendar (null or Chronometer)
+      // - No START reading exists (observation not started)
+      return currentMode !== ObservationModeEnum.Calendar && !hasStartReading;
+    });
     
     // Watch for selection changes to keep the composable's selected reading in sync
     // This ensures that other components can access the selected reading via the composable
@@ -158,6 +185,62 @@ export default defineComponent({
         selectedReading.value = [];
       }
     };
+    
+    // Handler for activating chronometer mode
+    const handleActivateChronometerMode = async () => {
+      // Double check conditions
+      if (!canActivateChronometerMode.value) {
+        $q.notify({
+          type: 'negative',
+          message: 'Impossible de passer en mode chronomètre',
+          caption: 'L\'observation a déjà été démarrée ou est en mode calendrier',
+        });
+        return;
+      }
+      
+      // Confirm action
+      const dialog = await createDialog({
+        title: 'Activer le mode chronomètre',
+        message: 'Voulez-vous passer cette observation en mode chronomètre ? Cette action est irréversible.',
+        cancel: 'Annuler',
+        ok: {
+          label: 'Activer',
+          color: 'primary',
+        },
+        persistent: true,
+      });
+      
+      if (!dialog) return;
+      
+      // Update observation mode
+      const observationId = observation.sharedState.currentObservation?.id;
+      if (!observationId) {
+        $q.notify({
+          type: 'negative',
+          message: 'Erreur',
+          caption: 'Observation introuvable',
+        });
+        return;
+      }
+      
+      try {
+        await observation.methods.updateObservation(observationId, {
+          mode: ObservationModeEnum.Chronometer,
+        });
+        
+        $q.notify({
+          type: 'positive',
+          message: 'Mode chronomètre activé',
+          caption: 'L\'observation est maintenant en mode chronomètre',
+        });
+      } catch (error: any) {
+        $q.notify({
+          type: 'negative',
+          message: 'Erreur lors de l\'activation du mode chronomètre',
+          caption: error.message || 'Une erreur est survenue',
+        });
+      }
+    };
 
     // Lifecycle hook: synchronize readings when component is unmounted
     // This ensures any pending changes are saved to the backend before the component is destroyed
@@ -171,9 +254,12 @@ export default defineComponent({
       selectedReading,
       hasSelectedReading,
       filteredReadings,
+      currentObservationMode,
+      canActivateChronometerMode,
       handleAddReading,
       handleRemoveReading,
       handleRemoveAllReadings,
+      handleActivateChronometerMode,
     };
   },
 });

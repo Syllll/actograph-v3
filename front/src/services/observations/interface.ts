@@ -53,9 +53,16 @@ export interface IReading extends IEntity {
   tempId?: string | null;
 }
 
+export enum ObservationModeEnum {
+  Calendar = 'calendar',
+  Chronometer = 'chronometer',
+}
+
 export interface IObservation extends IEntity {
   name: string;
   description?: string;
+  videoPath?: string | null;
+  mode?: ObservationModeEnum | null;
   user: IUser;
   protocol?: IProtocol;
   readings?: IReading[];

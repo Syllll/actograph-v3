@@ -57,15 +57,76 @@
           </q-td>
           <q-td key="dateTime" :props="props">
             <div class="editable-cell">
+              <span v-if="observation.isChronometerMode.value">
+                {{ formatDuration(props.row.dateTime) }}
+              </span>
+              <span v-else>
               {{ formatDateTime(props.row.dateTime) }}
+              </span>
               <q-popup-edit 
-                :model-value="formatDateTimeForEdit(props.row.dateTime)"
-                title="Editer la date et l'heure" 
+                :model-value="observation.isChronometerMode.value ? formatDurationForEdit(props.row.dateTime) : formatDateTimeForEdit(props.row.dateTime)"
+                :title="observation.isChronometerMode.value ? 'Editer la durée' : 'Editer la date et l\'heure'" 
                 buttons
                 @save="(val, initialVal) => handleDateTimeSave(props.row, val, initialVal)"
                 v-slot="scope"
               >
-                <div class="column q-gutter-sm">
+                <!-- Duration editor (chronometer mode) -->
+                <div v-if="observation.isChronometerMode.value" class="column q-gutter-sm">
+                  <div class="row q-gutter-sm">
+                    <q-input
+                      v-model.number="durationEditState.days"
+                      type="number"
+                      label="Jours"
+                      dense
+                      autofocus
+                      :min="0"
+                      style="width: 100px"
+                    />
+                    <q-input
+                      v-model.number="durationEditState.hours"
+                      type="number"
+                      label="Heures"
+                      dense
+                      :min="0"
+                      :max="23"
+                      style="width: 100px"
+                    />
+                    <q-input
+                      v-model.number="durationEditState.minutes"
+                      type="number"
+                      label="Minutes"
+                      dense
+                      :min="0"
+                      :max="59"
+                      style="width: 100px"
+                    />
+                  </div>
+                  <div class="row q-gutter-sm">
+                    <q-input
+                      v-model.number="durationEditState.seconds"
+                      type="number"
+                      label="Secondes"
+                      dense
+                      :min="0"
+                      :max="59"
+                      style="width: 100px"
+                    />
+                    <q-input
+                      v-model.number="durationEditState.milliseconds"
+                      type="number"
+                      label="Millisecondes"
+                      dense
+                      :min="0"
+                      :max="999"
+                      style="width: 150px"
+                    />
+                  </div>
+                  <div class="text-caption text-grey-6">
+                    Format: Xj Yh Zm Ws Vms
+                  </div>
+                </div>
+                <!-- Date/time editor (calendar mode) -->
+                <div v-else class="column q-gutter-sm">
                   <q-input
                     v-model="scope.value"
                     mask="##/##/#### ##:##:##.###"
@@ -156,10 +217,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref, watch } from 'vue';
+import { defineComponent, computed, ref, watch, reactive } from 'vue';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { QTableColumn } from 'quasar';
 import { date as qDate } from 'quasar';
+import { useObservation } from 'src/composables/use-observation';
+import { useDuration } from 'src/composables/use-duration';
 
 export default defineComponent({
   name: 'ReadingsTable',
@@ -215,6 +278,19 @@ export default defineComponent({
         sortable: false,
       },
     ];
+
+    const observation = useObservation();
+    const duration = useDuration();
+    const isChronometerMode = computed(() => observation.isChronometerMode.value);
+    
+    // State for duration editing
+    const durationEditState = reactive({
+      days: 0,
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      milliseconds: 0,
+    });
 
     const selectedInternal = ref<IReading[]>([]);
     
@@ -288,6 +364,50 @@ export default defineComponent({
       return formatDateTime(dateTime);
     };
 
+    // Format duration for display (chronometer mode)
+    const formatDuration = (dateTime: Date | string): string => {
+      if (!dateTime) return '';
+      
+      const date = dateTime instanceof Date ? dateTime : new Date(dateTime);
+      
+      if (!isChronometerMode.value) {
+        return formatDateTime(dateTime);
+      }
+      
+      return observation.chronometerMethods.formatDateAsDuration(date);
+    };
+
+    // Format duration for editing (returns object with parts)
+    const formatDurationForEdit = (dateTime: Date | string) => {
+      if (!dateTime) {
+        durationEditState.days = 0;
+        durationEditState.hours = 0;
+        durationEditState.minutes = 0;
+        durationEditState.seconds = 0;
+        durationEditState.milliseconds = 0;
+        return '';
+      }
+      
+      const date = dateTime instanceof Date ? dateTime : new Date(dateTime);
+      
+      if (!isChronometerMode.value) {
+        return formatDateTimeForEdit(dateTime);
+      }
+      
+      // Convert date to duration milliseconds
+      const durationMs = observation.chronometerMethods.dateToDuration(date);
+      const parts = duration.millisecondsToParts(durationMs);
+      
+      // Update edit state
+      durationEditState.days = parts.days;
+      durationEditState.hours = parts.hours;
+      durationEditState.minutes = parts.minutes;
+      durationEditState.seconds = parts.seconds;
+      durationEditState.milliseconds = parts.milliseconds;
+      
+      return duration.formatCompact(durationMs);
+    };
+
     // Extract date part from datetime string (DD/MM/YYYY)
     const getDatePart = (dateTimeStr: string) => {
       if (!dateTimeStr) return '';
@@ -358,10 +478,20 @@ export default defineComponent({
 
     // Handle date/time save with proper conversion
     const handleDateTimeSave = (row: IReading, val: any, initialVal: any) => {
-      if (!val) return;
+      if (!val && !isChronometerMode.value) return;
       
-      // Convert string to Date if needed
       let dateValue: Date;
+      
+      if (isChronometerMode.value) {
+        // In chronometer mode, convert duration parts to date
+        if (!duration.validateParts(durationEditState)) {
+          return; // Invalid duration parts
+        }
+        
+        const durationMs = duration.partsToMilliseconds(durationEditState);
+        dateValue = observation.chronometerMethods.durationToDate(durationMs);
+      } else {
+        // In calendar mode, parse date string
       if (val instanceof Date) {
         dateValue = val;
       } else if (typeof val === 'string') {
@@ -375,6 +505,7 @@ export default defineComponent({
         }
       } else {
         dateValue = new Date(val);
+        }
       }
       
       // Update the row's dateTime
@@ -404,9 +535,15 @@ export default defineComponent({
     };
     
     return {
+      observation,
+      duration,
+      isChronometerMode,
+      durationEditState,
       columns,
       selectedInternal,
       handleRequestSelected,
+      formatDuration,
+      formatDurationForEdit,
       formatDateTime,
       formatDateTimeForEdit,
       getDatePart,
