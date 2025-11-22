@@ -401,6 +401,25 @@ ipcMain.handle('read-file-binary', async (event, filePath: string) => {
   }
 });
 
+ipcMain.handle('get-file-stats', async (event, filePath: string) => {
+  try {
+    const stats = fs.statSync(filePath);
+    return { 
+      success: true, 
+      size: stats.size,
+      isFile: stats.isFile(),
+      exists: true
+    };
+  } catch (error) {
+    log.error('Error getting file stats:', error);
+    return { 
+      success: false,
+      exists: false,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+});
+
 // Optional: Disable auto-download
 autoUpdater.autoDownload = false;
 

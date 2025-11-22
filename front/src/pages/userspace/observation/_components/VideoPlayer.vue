@@ -154,71 +154,92 @@ export default defineComponent({
     // Video source URL (reactive)
     const videoSrc = ref<string>('');
 
-    // Load video file using Electron API
+    // Convert file path to file:// URL for Electron
+    const pathToFileUrl = (filePath: string): string => {
+      // Normalize path separators
+      let normalizedPath = filePath.replace(/\\/g, '/');
+      
+      // Remove leading slash if present (for Windows paths like C:/)
+      if (normalizedPath.match(/^[A-Z]:/i)) {
+        // Windows path: C:/path/to/file.mp4
+        normalizedPath = normalizedPath.replace(/^\//, '');
+      }
+      
+      // Encode each path segment
+      const encodedPath = normalizedPath
+        .split('/')
+        .map(segment => encodeURIComponent(segment))
+        .join('/');
+      
+      return `file:///${encodedPath}`;
+    };
+
+    // Format file size for display
+    const formatFileSize = (bytes: number): string => {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+    };
+
+    // Maximum file size warning threshold (500 MB)
+    const MAX_FILE_SIZE_WARNING = 500 * 1024 * 1024; // 500 MB
+
+    // Load video file using file:// protocol (streaming, no memory load)
     const loadVideoFile = async (videoPath: string) => {
       if (!videoPath) {
         videoSrc.value = '';
         return;
       }
 
-      // In Electron, read the file as binary and create a blob URL
-      if (window.api && window.api.readFileBinary) {
-        try {
-          state.isLoading = true;
-          state.videoError = null;
+      try {
+        state.isLoading = true;
+        state.videoError = null;
+
+        // Check file stats if Electron API is available
+        if (window.api && window.api.getFileStats) {
+          const statsResult = await window.api.getFileStats(videoPath);
           
-          const readResult = await window.api.readFileBinary(videoPath);
-          if (readResult.success && readResult.data) {
-            // Convert base64 to binary
-            const binaryString = atob(readResult.data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            
-            // Determine MIME type from file extension
-            const extension = videoPath.split('.').pop()?.toLowerCase();
-            const mimeTypes: Record<string, string> = {
-              'mp4': 'video/mp4',
-              'webm': 'video/webm',
-              'ogg': 'video/ogg',
-              'mov': 'video/quicktime',
-              'avi': 'video/x-msvideo',
-            };
-            const mimeType = mimeTypes[extension || ''] || 'video/mp4';
-            
-            // Create a blob from the binary data
-            const blob = new Blob([bytes], { type: mimeType });
-            // Create object URL for the blob
-            const objectUrl = URL.createObjectURL(blob);
-            
-            // Revoke previous URL if exists
-            if (videoSrc.value && videoSrc.value.startsWith('blob:')) {
-              URL.revokeObjectURL(videoSrc.value);
-            }
-            
-            videoSrc.value = objectUrl;
-            state.isLoading = false;
-          } else {
+          if (!statsResult.success || !statsResult.exists) {
             videoSrc.value = '';
-            state.videoError = readResult.error || 'Impossible de lire le fichier vidéo';
+            state.videoError = statsResult.error || 'Le fichier vidéo est introuvable';
             state.isLoading = false;
+            return;
           }
-        } catch (error: any) {
-          videoSrc.value = '';
-          state.videoError = 'Erreur lors du chargement de la vidéo';
-          state.isLoading = false;
-          $q.notify({
-            type: 'negative',
-            message: 'Erreur lors du chargement de la vidéo',
-            caption: error.message || 'Le fichier vidéo est inaccessible',
-          });
+
+          if (!statsResult.isFile) {
+            videoSrc.value = '';
+            state.videoError = 'Le chemin spécifié n\'est pas un fichier';
+            state.isLoading = false;
+            return;
+          }
+
+          // Warn if file is very large
+          if (statsResult.size && statsResult.size > MAX_FILE_SIZE_WARNING) {
+            const sizeStr = formatFileSize(statsResult.size);
+            $q.notify({
+              type: 'warning',
+              message: `Fichier volumineux détecté (${sizeStr})`,
+              caption: 'Le chargement peut prendre du temps',
+              timeout: 3000,
+            });
+          }
         }
-      } else {
-        // Fallback: try file:// protocol (may not work in browser)
-        const normalizedPath = videoPath.replace(/\\/g, '/');
-        const encodedPath = normalizedPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
-        videoSrc.value = `file:///${encodedPath}`;
+
+        // Use file:// protocol directly - allows browser to stream the video
+        // This is much more efficient than loading the entire file in memory
+        videoSrc.value = pathToFileUrl(videoPath);
+        state.isLoading = false;
+      } catch (error: any) {
+        videoSrc.value = '';
+        state.videoError = 'Erreur lors du chargement de la vidéo';
+        state.isLoading = false;
+        $q.notify({
+          type: 'negative',
+          message: 'Erreur lors du chargement de la vidéo',
+          caption: error.message || 'Le fichier vidéo est inaccessible',
+        });
       }
     };
 
@@ -298,7 +319,9 @@ export default defineComponent({
       handleTimeUpdate: () => {
         if (videoRef.value) {
           state.currentTime = videoRef.value.currentTime;
-          state.progressPercent = (state.currentTime / state.duration) * 100;
+          if (state.duration > 0) {
+            state.progressPercent = (state.currentTime / state.duration) * 100;
+          }
           
           // Sync with observation elapsedTime if in chronometer mode
           if (observation.isChronometerMode.value) {
@@ -306,9 +329,11 @@ export default defineComponent({
             observation.sharedState.elapsedTime = state.currentTime;
             
             // Find the reading at current video time and activate corresponding button
-            // This happens during playback
+            // This happens during playback - use requestAnimationFrame for better performance
             if (state.isPlaying) {
-              methods.activateButtonForCurrentReading();
+              requestAnimationFrame(() => {
+                methods.activateButtonForCurrentReading();
+              });
             }
           }
         }
@@ -528,29 +553,11 @@ export default defineComponent({
             videoRef.value.load();
           }
         } else {
-          // Revoke URL if exists
-          if (videoSrc.value && videoSrc.value.startsWith('blob:')) {
-            URL.revokeObjectURL(videoSrc.value);
-          }
           videoSrc.value = '';
         }
       },
       { immediate: true }
     );
-
-    // Cleanup object URL on unmount
-    onUnmounted(() => {
-      if (videoSrc.value && videoSrc.value.startsWith('blob:')) {
-        URL.revokeObjectURL(videoSrc.value);
-      }
-    });
-
-    // Cleanup object URL on unmount
-    onUnmounted(() => {
-      if (videoSrc.value && videoSrc.value.startsWith('blob:')) {
-        URL.revokeObjectURL(videoSrc.value);
-      }
-    });
 
     // Watch for readings changes to update notches
     watch(
@@ -565,19 +572,35 @@ export default defineComponent({
       { deep: true }
     );
 
+    // Debounce timer for currentTime watcher
+    let currentTimeDebounceTimer: number | null = null;
+
     // Watch for currentTime changes to update buttons position
     // This handles cases where time changes without user interaction (e.g., programmatic changes)
     watch(
       () => state.currentTime,
       () => {
-        if (observation.isChronometerMode.value && videoRef.value) {
-          // Use a small debounce to avoid too many updates
-          setTimeout(() => {
+        if (observation.isChronometerMode.value && videoRef.value && state.isPlaying) {
+          // Clear previous timer
+          if (currentTimeDebounceTimer !== null) {
+            clearTimeout(currentTimeDebounceTimer);
+          }
+          
+          // Use debounce to avoid too many updates during playback
+          currentTimeDebounceTimer = window.setTimeout(() => {
             methods.activateButtonForCurrentReading();
-          }, 50);
+            currentTimeDebounceTimer = null;
+          }, 100);
         }
       }
     );
+
+    // Cleanup debounce timer on unmount
+    onUnmounted(() => {
+      if (currentTimeDebounceTimer !== null) {
+        clearTimeout(currentTimeDebounceTimer);
+      }
+    });
 
     return {
       observation,

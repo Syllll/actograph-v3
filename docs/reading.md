@@ -401,6 +401,8 @@ En mode chronomètre avec une vidéo chargée :
 - Les readings créés utilisent automatiquement le temps actuel de la vidéo
 - Les encoches sur la timeline de la vidéo correspondent aux readings
 - Les boutons s'activent automatiquement selon la position de la vidéo
+- **Performance optimisée** : Utilisation du protocole `file://` pour streaming natif (pas de chargement en mémoire)
+- **Vérification de taille** : Avertissement automatique pour fichiers volumineux (>500 MB)
 
 Voir la documentation de la feature [intégration vidéo](../features/integration-video/integration-video.md) pour plus de détails.
 

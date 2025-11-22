@@ -32,6 +32,13 @@ declare global {
         data?: string; // base64 encoded
         error?: string;
       }>;
+      getFileStats: (filePath: string) => Promise<{
+        success: boolean;
+        size?: number;
+        isFile?: boolean;
+        exists?: boolean;
+        error?: string;
+      }>;
     };
   }
 }
