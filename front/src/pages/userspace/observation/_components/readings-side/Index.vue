@@ -1,5 +1,5 @@
 <template>
-  <div class="fit q-pa-md column">
+  <div class="readings-side-container q-pa-sm column">
     <!-- Toolbar with search, add, and remove buttons -->
     <readings-toolbar
       class="col-auto"
@@ -7,20 +7,19 @@
       :has-selected="hasSelectedReading"
       :is-add-disabled="false"
       :can-activate-chronometer-mode="canActivateChronometerMode"
-      :current-mode="currentObservationMode"
+      :current-mode="currentObservationMode || undefined"
       @add-reading="handleAddReading"
       @remove-reading="handleRemoveReading"
       @remove-all-readings="handleRemoveAllReadings"
       @activate-chronometer-mode="handleActivateChronometerMode"
     />
 
-    <DScrollArea class="col">
-      <!-- Table with virtual scrolling -->
+    <div class="col" style="min-height: 0; overflow: hidden">
       <readings-table
         :readings="filteredReadings"
         v-model:selected="selectedReading"
       />
-    </DScrollArea>
+    </div>
   </div>
 </template>
 
@@ -266,4 +265,17 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.readings-side-container {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.readings-side-container > .col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 </style>

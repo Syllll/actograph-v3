@@ -33,16 +33,15 @@
         />
       </div>
       <div class="col-2">
-        <div class="row items-center q-gutter-sm">
-          <!-- Mode indicator and toggle buttons -->
+        <div class="row items-center q-gutter-sm justify-end">
+          <!-- Mode indicator - Always visible -->
           <q-chip 
-            v-if="currentMode"
-            :color="currentMode === 'chronometer' ? 'primary' : 'grey-7'"
+            :color="currentMode === 'chronometer' ? 'primary' : currentMode === 'calendar' ? 'grey-7' : 'grey-5'"
             text-color="white"
             :icon="currentMode === 'chronometer' ? 'timer' : 'event'"
             size="sm"
           >
-            {{ currentMode === 'chronometer' ? 'Mode Chronomètre' : 'Mode Calendrier' }}
+            {{ currentMode === 'chronometer' ? 'Mode Chronomètre' : currentMode === 'calendar' ? 'Mode Calendrier' : 'Mode non défini' }}
           </q-chip>
           
           <!-- Mode toggle buttons (only if observation not started) -->
@@ -71,9 +70,9 @@
             </q-btn>
           </div>
           
-        <q-chip color="accent" text-color="white" icon="access_time">
-          {{ observation.timerMethods.formatDuration(observation.sharedState.elapsedTime) }}
-        </q-chip>
+          <q-chip color="accent" text-color="white" icon="access_time">
+            {{ observation.timerMethods.formatDuration(observation.sharedState.elapsedTime) }}
+          </q-chip>
         </div>
       </div>
     </div>
@@ -199,7 +198,7 @@ export default defineComponent({
 <style scoped>
 .observation-toolbar {
   background-color: rgba(255, 255, 255, 0.95);
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--separator);
 }
 
 .recording-status-indicator {
@@ -212,7 +211,7 @@ export default defineComponent({
 }
 
 .recording-active {
-  background-color: var(--q-accent);
+  background-color: var(--accent);
   box-shadow: 0 0 0 rgba(255, 0, 0, 0.4);
   animation: pulse 2s infinite;
 }

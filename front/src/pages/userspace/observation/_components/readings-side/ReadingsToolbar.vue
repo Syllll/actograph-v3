@@ -2,16 +2,15 @@
   <div class="readings-toolbar q-pb-md">
     <div class="row justify-between items-center">
       <div class="row items-center q-gutter-md">
-      <div class="text-h6">Relevés</div>
-        <!-- Mode indicator -->
+        <div class="text-h6">Relevés</div>
+        <!-- Mode indicator - Always visible -->
         <q-chip
-          v-if="currentMode"
           :color="currentMode === 'chronometer' ? 'primary' : 'grey-7'"
           text-color="white"
           :icon="currentMode === 'chronometer' ? 'timer' : 'event'"
           size="sm"
         >
-          {{ currentMode === 'chronometer' ? 'Mode Chronomètre' : 'Mode Calendrier' }}
+          {{ currentMode === 'chronometer' ? 'Mode Chronomètre' : currentMode === 'calendar' ? 'Mode Calendrier' : 'Mode non défini' }}
         </q-chip>
       </div>
       

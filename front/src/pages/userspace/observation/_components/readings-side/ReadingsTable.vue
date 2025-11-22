@@ -1,7 +1,7 @@
 <template>
-  <div class="fit">
+  <div class="fit column" style="min-height: 0">
     <q-table
-      class="fit" dense
+      class="fit col" dense
       :rows="readings"
       :columns="columns"
       :row-key="getRowKey"

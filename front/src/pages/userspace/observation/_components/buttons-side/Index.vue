@@ -1,6 +1,6 @@
 <template>
-  <div class="fit q-pa-md column">
-    <div class="col-auto text-h6 q-mb-md row">
+  <div class="buttons-side-container q-pa-sm column">
+    <div class="col-auto text-h6 q-mb-sm row">
       <div class="col-auto">
         Tableau de bord d'observation
       </div>
@@ -19,9 +19,10 @@
       </div>
     </div>
 
-    <div class="col categories-wrapper" 
-      ref="categoriesWrapper"
-      :style="{ 'min-height': '20rem' }">
+    <DScrollArea class="col" style="min-height: 0; max-height: 100%">
+      <div class="categories-wrapper" 
+        ref="categoriesWrapper"
+        :style="{ 'min-height': '0px' }">
       <template v-if="sharedState.currentProtocol && sharedState.currentProtocol._items">
         <Category
           v-for="category in computedState.categories.value"
@@ -43,7 +44,8 @@
         <div class="text-subtitle1 q-mt-sm">Aucun protocole chargé</div>
         <div class="text-caption q-mt-xs">Veuillez sélectionner une observation pour afficher son protocole.</div>
       </div>
-    </div>
+      </div>
+    </DScrollArea>
   </div>
 </template>
 
@@ -54,12 +56,14 @@ import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@ser
 import { ReadingTypeEnum } from '@services/observations/interface';
 import Category from './Category.vue';
 import { useQuasar } from 'quasar';
+import { DScrollArea } from '@lib-improba/components/app/scroll-areas';
 
 export default defineComponent({
   name: 'ButtonsSideIndex',
 
   components: {
-    Category
+    Category,
+    DScrollArea,
   },
 
   setup() {
@@ -362,14 +366,28 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.buttons-side-container {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+:deep(.q-scrollarea) {
+  flex: 1;
+  min-height: 0;
+}
+
 .categories-wrapper {
   position: relative;
   border: 1px dashed #ddd;
   border-radius: 8px;
   padding: 16px;
   background-color: #fcfcfc;
-  overflow: hidden;
-  min-height: 20rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .no-data {
@@ -379,6 +397,7 @@ export default defineComponent({
   justify-content: center;
   align-items: center;
   height: 100%;
-  min-height: 15rem;
+  min-height: 0;
+  padding: 2rem;
 }
 </style>

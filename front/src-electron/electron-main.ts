@@ -64,6 +64,9 @@ async function createWindow() {
         __dirname,
         process.env.QUASAR_ELECTRON_PRELOAD || ''
       ),
+      // Allow loading local files via file:// protocol for video streaming
+      // This is safe in Electron desktop app context since we already have file system access via IPC
+      webSecurity: false,
     },
   });
 

@@ -68,10 +68,7 @@
               </q-item-section>
               <q-item-section>
                 {{ menuItem.label }}
-              </q-item-section>
-              <q-item-section side v-if="menuItem.tooltip && menuItem.tooltip(observation)">
-                <q-icon name="block" color="grey-6" />
-                <q-tooltip>
+                <q-tooltip v-if="menuItem.tooltip && menuItem.tooltip(observation)">
                   {{ menuItem.tooltip(observation) }}
                 </q-tooltip>
               </q-item-section>

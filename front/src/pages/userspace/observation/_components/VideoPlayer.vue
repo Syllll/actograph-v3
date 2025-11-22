@@ -1,11 +1,27 @@
 <template>
-  <div v-if="observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath" class="video-player-container column">
-    <!-- Video container with controls -->
-    <div class="video-wrapper" :style="{ height: `${state.videoHeight}px` }">
+  <!-- No video message (shown when in chronometer mode but no video loaded) -->
+  <div v-if="observation.isChronometerMode.value && !observation.sharedState.currentObservation?.videoPath" class="no-video-message column items-center justify-center q-pa-lg">
+    <q-icon name="videocam_off" size="48px" color="grey-6" />
+    <div class="text-h6 q-mt-md text-grey-6">Aucune vidéo chargée</div>
+    <div class="text-caption q-mt-xs text-grey-6">En mode chronomètre, vous pouvez analyser une vidéo enregistrée</div>
+    <q-btn
+      label="Sélectionner une vidéo"
+      color="primary"
+      icon="videocam"
+      @click="methods.selectVideoFile"
+      class="q-mt-md"
+    />
+  </div>
+  
+  <!-- Video player container (shown when video is loaded) -->
+  <div v-else class="video-player-container column">
+    <!-- Video container -->
+    <div class="video-wrapper col">
       <video
         ref="videoRef"
         :src="videoSrc"
         class="video-element"
+        :controls="false"
         @loadedmetadata="methods.handleVideoLoaded"
         @timeupdate="methods.handleTimeUpdate"
         @play="methods.handlePlay"
@@ -35,7 +51,7 @@
         <div class="text-subtitle1 q-mt-md">Chargement de la vidéo...</div>
       </div>
       
-      <!-- Custom timeline with notches -->
+      <!-- Custom timeline with notches - Unique clickable timeline -->
       <div class="timeline-container" @click="handleTimelineClick">
         <div class="timeline-track">
           <div
@@ -55,24 +71,58 @@
       </div>
     </div>
 
-    <!-- Controls -->
-    <div class="video-controls row items-center q-pa-sm q-gutter-sm">
-      <q-btn
-        round
-        dense
-        :icon="state.isPlaying ? 'pause' : 'play_arrow'"
-        @click="togglePlayPause"
-        color="primary"
-      />
-      <q-slider
-        v-model="state.volume"
-        :min="0"
-        :max="100"
-        style="width: 100px"
-        @update:model-value="handleVolumeChange"
-      />
-      <q-icon name="volume_up" />
-      <div class="col">
+    <!-- Controls bar -->
+    <div class="video-controls col-auto">
+      <div class="row items-center q-pa-sm q-gutter-md">
+        <!-- Play/Pause button -->
+        <q-btn
+          round
+          dense
+          :icon="state.isPlaying ? 'pause' : 'play_arrow'"
+          @click="togglePlayPause"
+          color="primary"
+          size="sm"
+        />
+        
+        <!-- Volume controls -->
+        <div class="row items-center q-gutter-xs">
+          <q-icon name="volume_up" size="sm" />
+          <q-slider
+            v-model="state.volume"
+            :min="0"
+            :max="100"
+            style="width: 80px"
+            dense
+            @update:model-value="handleVolumeChange"
+          />
+        </div>
+        
+        <!-- Playback speed control -->
+        <q-select
+          v-model="state.playbackRate"
+          :options="playbackSpeeds"
+          option-label="label"
+          emit-value
+          map-options
+          dense
+          outlined
+          style="min-width: 70px"
+          @update:model-value="methods.handlePlaybackRateChange"
+        >
+          <template v-slot:selected>
+            <span class="text-caption">{{ state.playbackRate }}x</span>
+          </template>
+        </q-select>
+        
+        <!-- Mode toggle -->
+        <ModeToggle
+          v-if="canChangeMode"
+          :current-mode="currentMode"
+          :can-change-mode="canChangeMode"
+          @mode-change="handleModeChange"
+        />
+        
+        <!-- Time display -->
         <div class="row items-center q-gutter-xs">
           <span class="text-caption">{{ formatTime(state.currentTime) }}</span>
           <span class="text-caption">/</span>
@@ -80,57 +130,22 @@
         </div>
       </div>
     </div>
-
-    <!-- Height slider -->
-    <div class="height-slider-container q-px-md q-pb-sm">
-      <div class="row items-center q-gutter-md">
-        <q-icon name="height" size="sm" color="grey-6" />
-        <q-slider
-          v-model="state.videoHeight"
-          :min="state.minHeight"
-          :max="state.maxHeight"
-          label
-          label-always
-          :label-value="`${state.videoHeight}px`"
-          style="flex: 1"
-          @update:model-value="methods.handleHeightChange"
-        />
-        <q-btn
-          flat
-          dense
-          round
-          icon="refresh"
-          size="sm"
-          @click="methods.resetVideoHeight"
-          title="Réinitialiser la hauteur"
-        />
-      </div>
-    </div>
-  </div>
-  
-  <!-- No video message (shown when in chronometer mode but no video loaded) -->
-  <div v-if="observation.isChronometerMode.value && !observation.sharedState.currentObservation?.videoPath" class="no-video-message column items-center justify-center q-pa-lg">
-    <q-icon name="videocam_off" size="48px" color="grey-6" />
-    <div class="text-h6 q-mt-md text-grey-6">Aucune vidéo chargée</div>
-    <div class="text-caption q-mt-xs text-grey-6">En mode chronomètre, vous pouvez analyser une vidéo enregistrée</div>
-    <q-btn
-      label="Sélectionner une vidéo"
-      color="primary"
-      icon="videocam"
-      @click="methods.selectVideoFile"
-      class="q-mt-md"
-    />
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, reactive, ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
-import { IReading } from '@services/observations/interface';
+import { IReading, ObservationModeEnum, ReadingTypeEnum } from '@services/observations/interface';
 import { useQuasar } from 'quasar';
+import ModeToggle from './ModeToggle.vue';
 
 export default defineComponent({
   name: 'VideoPlayer',
+
+  components: {
+    ModeToggle,
+  },
 
   setup() {
     const $q = useQuasar();
@@ -139,17 +154,27 @@ export default defineComponent({
     const videoRef = ref<HTMLVideoElement | null>(null);
 
     const state = reactive({
-      videoHeight: 300, // Default height
-      minHeight: 100, // Minimum height
-      maxHeight: 600, // Maximum height
       isPlaying: false,
       currentTime: 0,
       duration: 0,
       volume: 100,
+      playbackRate: 1.0, // Normal speed (1x)
       progressPercent: 0,
       videoError: null as string | null,
       isLoading: false,
     });
+
+    // Available playback speeds
+    const playbackSpeeds = [
+      { label: '0.25x', value: 0.25 },
+      { label: '0.5x', value: 0.5 },
+      { label: '0.75x', value: 0.75 },
+      { label: '1x', value: 1.0 },
+      { label: '1.25x', value: 1.25 },
+      { label: '1.5x', value: 1.5 },
+      { label: '1.75x', value: 1.75 },
+      { label: '2x', value: 2.0 },
+    ];
 
     // Video source URL (reactive)
     const videoSrc = ref<string>('');
@@ -295,6 +320,8 @@ export default defineComponent({
           state.duration = videoRef.value.duration;
           state.videoError = null;
           state.isLoading = false;
+          // Set initial playback rate
+          videoRef.value.playbackRate = state.playbackRate;
         }
       },
 
@@ -354,7 +381,7 @@ export default defineComponent({
         
         // Get all continuous categories
         const categories = protocol._items.filter(
-          (item: any) => item.type === 'category' && item.action === 'continuous'
+          (item: any) => item.type === 'category' && item.action === 'continuous' && item.id
         );
         
         // For each category, find the last reading before or at current time
@@ -390,7 +417,10 @@ export default defineComponent({
           }
           
           // Store the last reading for this category
-          activeReadingsByCategory[category.id] = lastReading;
+          const categoryId = (category as any).id;
+          if (categoryId) {
+            activeReadingsByCategory[categoryId] = lastReading;
+          }
         }
         
         // Emit event with all active readings by category
@@ -437,13 +467,11 @@ export default defineComponent({
         }
       },
 
-      handleHeightChange: (value: number) => {
-        // Ensure value is within bounds
-        state.videoHeight = Math.max(state.minHeight, Math.min(state.maxHeight, value));
-      },
-
-      resetVideoHeight: () => {
-        state.videoHeight = 300; // Reset to default
+      handlePlaybackRateChange: (rate: number) => {
+        if (videoRef.value) {
+          videoRef.value.playbackRate = rate;
+          state.playbackRate = rate;
+        }
       },
 
       handleTimelineClick: (event: MouseEvent) => {
@@ -602,13 +630,35 @@ export default defineComponent({
       }
     });
 
+    // Get current mode
+    const currentMode = computed(() => {
+      return observation.sharedState.currentObservation?.mode || null;
+    });
+
+    // Check if mode can be changed (observation not started)
+    const canChangeMode = computed(() => {
+      const hasStartReading = observation.readings.sharedState.currentReadings.some(
+        (reading: any) => reading.type === ReadingTypeEnum.START
+      );
+      return !hasStartReading;
+    });
+
+    const handleModeChange = (mode: ObservationModeEnum) => {
+      // Mode change is handled by ModeToggle component
+      // This handler is here for potential future use
+    };
+
     return {
       observation,
       readings,
       videoRef,
       state,
       videoSrc,
+      playbackSpeeds,
+      currentMode,
+      canChangeMode,
       methods,
+      handleModeChange,
       // Expose methods used in template
       getNotchPosition: methods.getNotchPosition,
       getNotchTooltip: methods.getNotchTooltip,
@@ -626,20 +676,67 @@ export default defineComponent({
 .video-player-container {
   background-color: var(--background);
   border-bottom: 1px solid var(--separator);
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .video-wrapper {
   position: relative;
   width: 100%;
+  flex: 1;
+  min-height: 0;
   background-color: #000;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .video-element {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  display: block;
+  min-height: 0;
+}
+
+/* Hide native browser controls completely */
+.video-element::-webkit-media-controls {
+  display: none !important;
+}
+
+.video-element::-webkit-media-controls-enclosure {
+  display: none !important;
+}
+
+.video-element::-webkit-media-controls-panel {
+  display: none !important;
+}
+
+.video-element::-webkit-media-controls-play-button {
+  display: none !important;
+}
+
+.video-element::-webkit-media-controls-timeline {
+  display: none !important;
+}
+
+.video-element::-webkit-media-controls-current-time-display {
+  display: none !important;
+}
+
+.video-element::-webkit-media-controls-time-remaining-display {
+  display: none !important;
+}
+
+.video-element::-webkit-media-controls-mute-button {
+  display: none !important;
+}
+
+.video-element::-webkit-media-controls-volume-slider {
+  display: none !important;
 }
 
 .timeline-container {
@@ -653,6 +750,7 @@ export default defineComponent({
   display: flex;
   align-items: center;
   padding: 0 8px;
+  z-index: 5;
 }
 
 .timeline-track {
@@ -681,7 +779,7 @@ export default defineComponent({
   background-color: var(--accent);
   cursor: pointer;
   z-index: 10;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, width 0.2s;
 }
 
 .timeline-notch:hover {
@@ -692,17 +790,22 @@ export default defineComponent({
 .video-controls {
   background-color: rgba(255, 255, 255, 0.95);
   border-top: 1px solid var(--separator);
+  flex: 0 0 auto;
 }
 
-.height-slider-container {
-  background-color: rgba(255, 255, 255, 0.95);
-  border-top: 1px solid var(--separator);
+.video-controls .q-slider {
+  margin: 0;
+  padding: 0;
+  max-width: 80px;
+  flex-shrink: 0;
 }
 
 .no-video-message {
-  min-height: 200px;
   background-color: var(--background);
   border-bottom: 1px solid var(--separator);
+  overflow: hidden;
+  flex: 1;
+  min-height: 200px;
 }
 
 .video-error-overlay {
