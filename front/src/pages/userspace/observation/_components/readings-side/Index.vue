@@ -12,6 +12,7 @@
       @remove-reading="handleRemoveReading"
       @remove-all-readings="handleRemoveAllReadings"
       @activate-chronometer-mode="handleActivateChronometerMode"
+      @auto-correct-readings="handleAutoCorrectReadings"
     />
 
     <div class="col" style="min-height: 0; overflow: hidden">
@@ -33,6 +34,8 @@ import ReadingsTable from './ReadingsTable.vue';
 import { useObservation } from 'src/composables/use-observation';
 import { useQuasar } from 'quasar';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
+import { Dialog } from 'quasar';
+import AutoCorrectReadingsDialog from './AutoCorrectReadingsDialog.vue';
 
 export default defineComponent({
   name: 'ReadingsSideIndex',
@@ -40,6 +43,7 @@ export default defineComponent({
   components: {
     ReadingsToolbar,
     ReadingsTable,
+    AutoCorrectReadingsDialog,
   },
 
   setup() {
@@ -185,6 +189,38 @@ export default defineComponent({
       }
     };
     
+    // Handler for auto-correcting readings
+    const handleAutoCorrectReadings = async () => {
+      // Analyser les relevés et obtenir les actions proposées
+      const result = methods.autoCorrectReadings(false);
+      
+      if (result.actions.length === 0) {
+        $q.notify({
+          type: 'positive',
+          message: 'Aucune correction nécessaire',
+          caption: 'Tous les relevés sont correctement ordonnés et structurés.',
+        });
+        return;
+      }
+
+      // Afficher le dialog avec les actions proposées
+      Dialog.create({
+        component: AutoCorrectReadingsDialog,
+        componentProps: {
+          actions: result.actions,
+        },
+      }).onOk(async () => {
+        // Appliquer les corrections
+        methods.autoCorrectReadings(true);
+        
+        $q.notify({
+          type: 'positive',
+          message: 'Corrections appliquées',
+          caption: `${result.actions.length} correction(s) ont été appliquée(s) avec succès.`,
+        });
+      });
+    };
+
     // Handler for activating chronometer mode
     const handleActivateChronometerMode = async () => {
       // Double check conditions
@@ -259,6 +295,7 @@ export default defineComponent({
       handleRemoveReading,
       handleRemoveAllReadings,
       handleActivateChronometerMode,
+      handleAutoCorrectReadings,
     };
   },
 });

@@ -62,6 +62,11 @@
             class="timeline-progress"
             :style="{ width: `${state.progressPercent}%` }"
           ></div>
+          <!-- Current position marker -->
+          <div
+            class="timeline-current-position"
+            :style="{ left: `${state.progressPercent}%` }"
+          ></div>
           <!-- Notches for each reading -->
           <div
             v-for="(reading, index) in readings.sharedState.currentReadings"
@@ -87,6 +92,19 @@
           color="primary"
           size="sm"
         />
+        
+        <!-- Stop button -->
+        <q-btn
+          round
+          dense
+          icon="stop"
+          @click="handleStop"
+          color="grey-8"
+          size="sm"
+          :disable="!isObservationActive"
+        >
+          <q-tooltip>Arrêter l'observation</q-tooltip>
+        </q-btn>
         
         <!-- Volume controls -->
         <div class="row items-center q-gutter-xs">
@@ -451,9 +469,9 @@ export default defineComponent({
           }
           
           // Synchroniser avec elapsedTime de l'observation en mode chronomètre
+          // Utiliser la méthode unifiée qui gère automatiquement la source du temps
           if (observation.isChronometerMode.value) {
-            // Mettre à jour elapsedTime basé sur le temps vidéo actuel
-            observation.sharedState.elapsedTime = state.currentTime;
+            observation.updateTimeFromSource(state.currentTime);
             
             // Trouver le relevé à l'instant t et activer le bouton correspondant
             // Utilisation de requestAnimationFrame pour optimiser les performances
@@ -583,6 +601,31 @@ export default defineComponent({
         }
       },
 
+      handleStop: () => {
+        if (videoRef.value) {
+          // Stop the video
+          videoRef.value.pause();
+          // Reset video to beginning
+          videoRef.value.currentTime = 0;
+          state.isPlaying = false;
+          state.currentTime = 0;
+          state.progressPercent = 0;
+          
+          // IMPORTANT: Synchroniser elapsedTime et currentDate avec le temps vidéo (0)
+          // Utiliser la méthode unifiée pour garantir la cohérence
+          if (observation.isChronometerMode.value) {
+            observation.updateTimeFromSource(0);
+          }
+        }
+        // Stop observation timer
+        observation.timerMethods.stopTimer();
+        
+        // IMPORTANT: Appliquer automatiquement la correction des relevés
+        // Toutes les corrections sont appliquées sans demander de validation
+        // Cela garantit que les relevés sont toujours correctement structurés à la fin de l'observation
+        observation.readings.methods.autoCorrectReadings(true);
+      },
+
       handleVolumeChange: (value: number) => {
         if (videoRef.value) {
           videoRef.value.volume = value / 100;
@@ -608,33 +651,61 @@ export default defineComponent({
         videoRef.value.currentTime = newTime;
         state.currentTime = newTime;
         
+        // IMPORTANT: Synchroniser elapsedTime avec le nouveau temps vidéo en mode chronomètre
+        // Utiliser la méthode unifiée qui gère automatiquement la source du temps
+        if (observation.isChronometerMode.value) {
+          observation.updateTimeFromSource(newTime);
+        }
+        
         // Update buttons position based on new time
         if (observation.isChronometerMode.value) {
           methods.activateButtonForCurrentReading();
         }
       },
 
+      /**
+       * Calcule la position d'une encoche sur la timeline vidéo en pourcentage.
+       * 
+       * En mode chronomètre, les readings sont créés avec dateTime = t0 + elapsedTime,
+       * où elapsedTime est le temps vidéo actuel (en secondes) au moment de la création.
+       * 
+       * Le calcul de position :
+       * 1. readingDuration = readingTime - t0Time = elapsedTime (en millisecondes)
+       * 2. position = (readingDuration / durationMs) * 100 = (elapsedTime / duration) * 100
+       * 
+       * Cela donne la position exacte sur la timeline vidéo où le reading a été créé.
+       * 
+       * @param reading - Le reading dont on veut calculer la position
+       * @returns Position en pourcentage (0-100) sur la timeline
+       */
       getNotchPosition: (reading: IReading): number => {
+        // Ne calculer la position qu'en mode chronomètre et si la vidéo est chargée
         if (!observation.isChronometerMode.value || !state.duration) return 0;
         
-        // Ensure dateTime is a Date object
+        // S'assurer que dateTime est un objet Date
         const readingDate = reading.dateTime instanceof Date 
           ? reading.dateTime 
           : new Date(reading.dateTime);
         
-        // Calculate position based on reading dateTime relative to t0
+        // Récupérer t0 (9 février 1989) et convertir en timestamp
         const t0 = observation.chronometerMethods.getT0();
-        const readingTime = readingDate.getTime();
-        const t0Time = t0.getTime();
-        const durationMs = state.duration * 1000;
+        const readingTime = readingDate.getTime(); // Timestamp du reading en millisecondes
+        const t0Time = t0.getTime(); // Timestamp de t0 en millisecondes
+        const durationMs = state.duration * 1000; // Durée vidéo en millisecondes
         
-        // If reading is before t0, position at 0%
+        // Si le reading est avant t0 (ne devrait pas arriver normalement), positionner à 0%
         if (readingTime < t0Time) return 0;
         
-        // Calculate position as percentage
-        const readingDuration = readingTime - t0Time;
+        // Calculer la durée entre t0 et le reading
+        // En mode chronomètre avec vidéo, reading.dateTime = t0 + elapsedTime
+        // Donc readingDuration = elapsedTime (le temps vidéo au moment de la création)
+        const readingDuration = readingTime - t0Time; // En millisecondes
+        
+        // Calculer la position en pourcentage sur la timeline
+        // position = (temps_vidéo_du_reading / durée_totale_vidéo) * 100
         const position = (readingDuration / durationMs) * 100;
         
+        // Contraindre entre 0% et 100% pour éviter les positions hors limites
         return Math.min(100, Math.max(0, position));
       },
 
@@ -673,6 +744,10 @@ export default defineComponent({
               videoRef.value.currentTime = videoTime;
               state.currentTime = videoTime;
               
+              // IMPORTANT: Synchroniser elapsedTime avec le nouveau temps vidéo
+              // Utiliser la méthode unifiée qui gère automatiquement la source du temps
+              observation.updateTimeFromSource(videoTime);
+              
               // Update buttons position based on new time
               methods.activateButtonForCurrentReading();
             }
@@ -700,14 +775,6 @@ export default defineComponent({
     const stopVideoPathWatcher = watch(
       () => observation.sharedState.currentObservation?.videoPath,
       async (newPath, oldPath) => {
-        console.log('[VideoPlayer] videoPath watcher triggered:', {
-          newPath,
-          oldPath,
-          currentVideoSrc: videoSrc.value,
-          currentVideoPath: state.currentVideoPath,
-          observation: observation.sharedState.currentObservation,
-        });
-        
         // Charger la vidéo si :
         // - Un nouveau videoPath est défini
         // - Le videoPath a changé depuis la dernière fois
@@ -719,10 +786,7 @@ export default defineComponent({
             videoSrc.value === '' ||
             state.currentVideoPath !== newPath;
           
-          console.log('[VideoPlayer] Should load video?', shouldLoad);
-          
           if (shouldLoad) {
-            console.log('[VideoPlayer] Loading video file:', newPath);
             await loadVideoFile(newPath);
             // Wait a bit for the URL to be set, then load the video
             if (videoRef.value) {
@@ -731,7 +795,6 @@ export default defineComponent({
           }
         } else {
           // Si videoPath est supprimé, vider la source
-          console.log('[VideoPlayer] No videoPath, clearing video source');
           videoSrc.value = '';
           state.currentVideoPath = null;
         }
@@ -745,21 +808,6 @@ export default defineComponent({
     const stopObservationWatcher = watch(
       () => observation.sharedState.currentObservation,
       async (newObservation, oldObservation) => {
-        console.log('[VideoPlayer] observation watcher triggered:', {
-          newObservation: newObservation ? {
-            id: newObservation.id,
-            name: newObservation.name,
-            videoPath: newObservation.videoPath,
-            mode: newObservation.mode,
-          } : null,
-          oldObservation: oldObservation ? {
-            id: oldObservation.id,
-            videoPath: oldObservation.videoPath,
-          } : null,
-          currentVideoSrc: videoSrc.value,
-          currentVideoPath: state.currentVideoPath,
-        });
-        
         // Charger la vidéo si :
         // 1. Une nouvelle observation est chargée avec un videoPath
         // 2. L'observation change (même si elle avait déjà un videoPath)
@@ -773,10 +821,7 @@ export default defineComponent({
             videoSrc.value === '' ||
             currentVideoPath !== newObservation.videoPath;
           
-          console.log('[VideoPlayer] Observation has videoPath, should load?', videoPathChanged);
-          
           if (videoPathChanged) {
-            console.log('[VideoPlayer] Loading video from observation watcher:', newObservation.videoPath);
             // L'observation vient d'être chargée et contient un videoPath
             // ou le videoPath a changé
             await loadVideoFile(newObservation.videoPath);
@@ -786,11 +831,8 @@ export default defineComponent({
           }
         } else if (oldObservation?.videoPath && !newObservation?.videoPath) {
           // Si l'observation n'a plus de videoPath, vider la source
-          console.log('[VideoPlayer] Observation no longer has videoPath, clearing');
           videoSrc.value = '';
           state.currentVideoPath = null;
-        } else if (!newObservation?.videoPath) {
-          console.log('[VideoPlayer] Observation has no videoPath');
         }
       },
       { immediate: true }
@@ -814,33 +856,12 @@ export default defineComponent({
     // with an observation that was just created or already loaded
     // IMPORTANT: This is a fallback in case watchers don't trigger correctly
     onMounted(async () => {
-      console.log('[VideoPlayer] Component mounted, checking for video:', {
-        currentObservation: observation.sharedState.currentObservation ? {
-          id: observation.sharedState.currentObservation.id,
-          name: observation.sharedState.currentObservation.name,
-          videoPath: observation.sharedState.currentObservation.videoPath,
-          mode: observation.sharedState.currentObservation.mode,
-        } : null,
-        currentVideoSrc: videoSrc.value,
-        currentVideoPath: state.currentVideoPath,
-        isChronometerMode: observation.isChronometerMode.value,
-      });
-      
       // Wait a bit to ensure all watchers have run first
       // This gives watchers a chance to load the video automatically
       await new Promise(resolve => setTimeout(resolve, 200));
       
       const currentObs = observation.sharedState.currentObservation;
       const currentVideoPath = state.currentVideoPath;
-      
-      console.log('[VideoPlayer] After watchers delay, checking again:', {
-        currentObs: currentObs ? {
-          id: currentObs.id,
-          videoPath: currentObs.videoPath,
-        } : null,
-        currentVideoSrc: videoSrc.value,
-        currentVideoPath: state.currentVideoPath,
-      });
       
       // Load video if:
       // 1. Observation has videoPath
@@ -850,16 +871,11 @@ export default defineComponent({
           (!videoSrc.value || 
            videoSrc.value === '' || 
            currentVideoPath !== currentObs.videoPath)) {
-        console.log('[VideoPlayer] Force loading video on mount:', currentObs.videoPath);
         // Observation is already loaded with videoPath but video hasn't been loaded yet
         await loadVideoFile(currentObs.videoPath);
         if (videoRef.value) {
           videoRef.value.load();
         }
-      } else if (!currentObs?.videoPath) {
-        console.log('[VideoPlayer] No videoPath in observation on mount');
-      } else {
-        console.log('[VideoPlayer] Video already loaded or matches current path');
       }
     });
 
@@ -934,6 +950,11 @@ export default defineComponent({
       return !hasStartReading;
     });
 
+    // Check if observation is active (playing or has elapsed time)
+    const isObservationActive = computed(() => {
+      return observation.sharedState.isPlaying || observation.sharedState.elapsedTime > 0;
+    });
+
     const handleModeChange = (mode: ObservationModeEnum) => {
       // Mode change is handled by ModeToggle component
       // This handler is here for potential future use
@@ -957,8 +978,10 @@ export default defineComponent({
       handleNotchClick: methods.handleNotchClick,
       handleTimelineClick: methods.handleTimelineClick,
       togglePlayPause: methods.togglePlayPause,
+      handleStop: methods.handleStop,
       handleVolumeChange: methods.handleVolumeChange,
       formatTime: methods.formatTime,
+      isObservationActive,
     };
   },
 });
@@ -1061,6 +1084,21 @@ export default defineComponent({
   background-color: var(--primary);
   border-radius: 2px;
   transition: width 0.1s linear;
+}
+
+.timeline-current-position {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background-color: var(--primary);
+  border: 2px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  z-index: 15;
+  pointer-events: none;
+  transition: left 0.1s linear;
 }
 
 .timeline-notch {

@@ -47,7 +47,11 @@ export const useProtocol = (options: { sharedStateFromObservation: any }) => {
       );
 
       // Update the current protocol in the shared state
-      sharedState.currentProtocol = protocol;
+      // Ensure reactivity by creating a new object reference
+      sharedState.currentProtocol = {
+        ...protocol,
+        _items: protocol._items || [],
+      };
 
       return protocol;
     },

@@ -102,13 +102,21 @@ export const protocolService = {
 
     // Parse the items JSON string into an object
     const protocol = response.data;
+    
+    // Ensure _items is always defined for reactivity
     if (protocol && protocol.items) {
       try {
-        protocol._items = JSON.parse(protocol.items);
+        const parsedItems = JSON.parse(protocol.items);
+        // Use Object.assign to ensure reactivity works correctly
+        protocol._items = Array.isArray(parsedItems) ? parsedItems : [];
       } catch (e) {
         console.error('Failed to parse protocol items:', e);
         protocol._items = [];
       }
+    } else {
+      // If protocol.items is null, undefined, or empty, set _items to empty array
+      // This ensures the component can check for _items existence
+      protocol._items = [];
     }
 
     return protocol;

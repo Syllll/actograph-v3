@@ -67,6 +67,18 @@
           <q-tooltip>Supprimer tous les relevés</q-tooltip>
         </q-btn>
         
+        <!-- Auto-correct readings button -->
+        <q-btn
+          color="accent"
+          icon="auto_fix_high"
+          @click="$emit('auto-correct-readings')"
+          flat
+          round
+          dense
+        >
+          <q-tooltip>Corriger automatiquement les relevés</q-tooltip>
+        </q-btn>
+        
         <!-- Activate chronometer mode button -->
         <q-btn
           v-if="canActivateChronometerMode"
@@ -122,7 +134,8 @@ export default defineComponent({
     'add-reading',
     'remove-reading',
     'remove-all-readings',
-    'activate-chronometer-mode'
+    'activate-chronometer-mode',
+    'auto-correct-readings'
   ],
 
   setup(props, { emit }) {

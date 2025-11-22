@@ -31,6 +31,7 @@ export const useReadings = (options: {
   sharedStateFromObservation: any,
 }) => {
   const observationSharedState = options.sharedStateFromObservation;
+  
   const methods = {
     /**
      * Loads all readings associated with the provided observation
@@ -300,10 +301,26 @@ export const useReadings = (options: {
       // IMPORTANT: Use getTime() + elapsedTime instead of setMilliseconds() because
       // setMilliseconds() only accepts 0-999, but elapsedTime can be much larger (seconds/minutes).
       // Adding milliseconds directly to getTime() handles overflow correctly.
+      // 
+      // NOTE: In chronometer mode, currentDate is already t0 + elapsedTime, so we should NOT
+      // add elapsedTime again. We use currentDate directly if it exists, otherwise fallback
+      // to using elapsedTime with t0 (if in chronometer mode).
       if (options.currentDate && options.elapsedTime !== undefined) {
-        newReading.dateTime = new Date(
-          options.currentDate.getTime() + (options.elapsedTime * 1000)
-        );
+        // In chronometer mode, currentDate is already t0 + elapsedTime, so use it directly
+        // In calendar mode, currentDate is the actual current date, and elapsedTime is the offset
+        // from the start of the observation, so we add elapsedTime to currentDate
+        const isChronometerMode = observationSharedState?.currentObservation?.mode === 'chronometer';
+        
+        if (isChronometerMode) {
+          // In chronometer mode, currentDate is already t0 + elapsedTime
+          // Use it directly without adding elapsedTime again
+          newReading.dateTime = new Date(options.currentDate.getTime());
+        } else {
+          // In calendar mode, add elapsedTime to currentDate
+          newReading.dateTime = new Date(
+            options.currentDate.getTime() + (options.elapsedTime * 1000)
+          );
+        }
       }
 
       // add the reading to the current readings
@@ -443,12 +460,28 @@ export const useReadings = (options: {
     },
 
     addStartReading: async () => {
-      methods.addReading({
-        name: 'Début de la chronique',
-        type: ReadingTypeEnum.START,
-        currentDate: observationSharedState.currentDate || new Date(),
-        elapsedTime: observationSharedState.elapsedTime || 0,
-      });
+      // En mode chronomètre, le reading de début doit être à t0 (durée = 0)
+      // On utilise directement t0 comme dateTime pour garantir que la durée affichée sera 0
+      const isChronometerMode = observationSharedState.currentObservation?.mode === 'chronometer';
+      
+      if (isChronometerMode) {
+        // En mode chronomètre, utiliser t0 directement pour que la durée soit 0
+        // t0 = 9 février 1989
+        const CHRONOMETER_T0 = new Date('1989-02-09T00:00:00.000Z');
+        methods.addReading({
+          name: 'Début de la chronique',
+          type: ReadingTypeEnum.START,
+          dateTime: CHRONOMETER_T0, // Utiliser t0 directement
+        });
+      } else {
+        // En mode calendrier, utiliser currentDate et elapsedTime normalement
+        methods.addReading({
+          name: 'Début de la chronique',
+          type: ReadingTypeEnum.START,
+          currentDate: observationSharedState.currentDate || new Date(),
+          elapsedTime: observationSharedState.elapsedTime || 0,
+        });
+      }
     },
     addStopReading: async () => {
       methods.addReading({
@@ -473,6 +506,464 @@ export const useReadings = (options: {
         currentDate: observationSharedState.currentDate || new Date(),
         elapsedTime: observationSharedState.elapsedTime || 0,
       });
+    },
+
+    /**
+     * Corrige automatiquement les relevés en appliquant plusieurs règles :
+     * 1. Trie les relevés par ordre croissant d'horodatage
+     * 2. Supprime les doublons pour START et STOP (il ne doit y en avoir que 2 au total)
+     * 3. Place START au début et STOP à la fin avec horodatage intelligent :
+     *    - Si un relevé STOP existe mais n'est pas le plus tardif, le repositionne après le dernier relevé (+ 1ms)
+     *    - Si aucun relevé STOP n'existe, en crée un après le dernier relevé (+ 1ms)
+     * 4. Vérifie que chaque pause a un début et une fin, ajoute l'élément manquant si nécessaire
+     * 
+     * @param applyCorrections - Si true, applique les corrections directement. Si false, retourne seulement les actions proposées
+     * @returns Objet contenant la liste des actions proposées et les relevés corrigés (si applyCorrections est true)
+     */
+    autoCorrectReadings: (applyCorrections = false): {
+      actions: Array<{
+        type: 'sort' | 'remove_duplicate' | 'reorder' | 'add_missing_pause';
+        description: string;
+        readingIds?: number[];
+        tempIds?: string[];
+        newReading?: Partial<IReading>;
+        stopReadingId?: number;
+        stopReadingTempId?: string;
+        newStopDateTime?: Date;
+      }>;
+      correctedReadings: IReading[];
+    } => {
+      const readings = [...sharedState.currentReadings];
+      const actions: Array<{
+        type: 'sort' | 'remove_duplicate' | 'reorder' | 'add_missing_pause';
+        description: string;
+        readingIds?: number[];
+        tempIds?: string[];
+        newReading?: Partial<IReading>;
+      }> = [];
+      const correctedReadings: IReading[] = [];
+
+      // 1. Trier les relevés par ordre croissant d'horodatage
+      const sortedReadings = [...readings].sort((a, b) => {
+        const dateA = a.dateTime instanceof Date ? a.dateTime : new Date(a.dateTime);
+        const dateB = b.dateTime instanceof Date ? b.dateTime : new Date(b.dateTime);
+        return dateA.getTime() - dateB.getTime();
+      });
+
+      // Vérifier si un tri est nécessaire
+      const needsSorting = sortedReadings.some((reading, index) => {
+        const originalIndex = readings.findIndex(r => 
+          (r.id && reading.id && r.id === reading.id) ||
+          (r.tempId && reading.tempId && r.tempId === reading.tempId)
+        );
+        return originalIndex !== index;
+      });
+
+      if (needsSorting) {
+        actions.push({
+          type: 'sort',
+          description: 'Trier les relevés par ordre chronologique croissant',
+        });
+      }
+
+      // 2. Supprimer les doublons pour START et STOP (il ne doit y en avoir que 2 au total)
+      const startReadings = sortedReadings.filter(r => r.type === ReadingTypeEnum.START);
+      const stopReadings = sortedReadings.filter(r => r.type === ReadingTypeEnum.STOP);
+
+      // Garder seulement le premier START et le dernier STOP
+      if (startReadings.length > 1) {
+        const toRemove = startReadings.slice(1); // Garder le premier, supprimer les autres
+        // Collecter les ids ET les tempIds pour pouvoir supprimer même les readings non sauvegardés
+        const toRemoveIds = toRemove.map(r => r.id).filter((id): id is number => !!id);
+        const toRemoveTempIds = toRemove.map(r => r.tempId).filter((id): id is string => !!id);
+        
+        actions.push({
+          type: 'remove_duplicate',
+          description: `Supprimer ${toRemove.length} doublon(s) de relevé "Début" (garder le premier)`,
+          readingIds: toRemoveIds.length > 0 ? toRemoveIds : undefined,
+          // Stocker aussi les tempIds pour pouvoir les supprimer
+          tempIds: toRemoveTempIds.length > 0 ? toRemoveTempIds : undefined,
+        } as any);
+      }
+
+      if (stopReadings.length > 1) {
+        const toRemove = stopReadings.slice(0, -1); // Garder le dernier, supprimer les autres
+        const toRemoveIds = toRemove.map(r => r.id).filter((id): id is number => !!id);
+        const toRemoveTempIds = toRemove.map(r => r.tempId).filter((id): id is string => !!id);
+        
+        actions.push({
+          type: 'remove_duplicate',
+          description: `Supprimer ${toRemove.length} doublon(s) de relevé "Fin" (garder le dernier)`,
+          readingIds: toRemoveIds.length > 0 ? toRemoveIds : undefined,
+          tempIds: toRemoveTempIds.length > 0 ? toRemoveTempIds : undefined,
+        } as any);
+      }
+
+      // 3. Placer START au début et STOP à la fin avec horodatage intelligent
+      const hasStart = sortedReadings.some(r => r.type === ReadingTypeEnum.START);
+      const hasStop = sortedReadings.some(r => r.type === ReadingTypeEnum.STOP);
+      const firstReading = sortedReadings[0];
+      const lastReading = sortedReadings[sortedReadings.length - 1];
+
+      if (hasStart && firstReading.type !== ReadingTypeEnum.START) {
+        actions.push({
+          type: 'reorder',
+          description: 'Déplacer le relevé "Début" au début de la liste',
+        });
+      }
+
+      // Gestion intelligente du relevé STOP
+      if (hasStop) {
+        // Trouver tous les relevés STOP
+        const stopReadings = sortedReadings.filter(r => r.type === ReadingTypeEnum.STOP);
+        
+        // Trouver le relevé le plus tardif (hors STOP)
+        const nonStopReadings = sortedReadings.filter(r => r.type !== ReadingTypeEnum.STOP);
+        const latestNonStopReading = nonStopReadings.length > 0 
+          ? nonStopReadings[nonStopReadings.length - 1]
+          : null;
+        
+        // Trouver le STOP le plus tardif
+        const latestStopReading = stopReadings.reduce((latest, current) => {
+          const latestDate = latest.dateTime instanceof Date ? latest.dateTime : new Date(latest.dateTime);
+          const currentDate = current.dateTime instanceof Date ? current.dateTime : new Date(current.dateTime);
+          return currentDate.getTime() > latestDate.getTime() ? current : latest;
+        }, stopReadings[0]);
+        
+        // Vérifier si le STOP est bien le dernier relevé (le plus tardif)
+        if (latestNonStopReading) {
+          const stopDate = latestStopReading.dateTime instanceof Date 
+            ? latestStopReading.dateTime 
+            : new Date(latestStopReading.dateTime);
+          const latestNonStopDate = latestNonStopReading.dateTime instanceof Date 
+            ? latestNonStopReading.dateTime 
+            : new Date(latestNonStopReading.dateTime);
+          
+          // Si le STOP n'est pas après le dernier relevé, il faut le repositionner
+          if (stopDate.getTime() <= latestNonStopDate.getTime()) {
+            // Calculer le nouvel horodatage : dernier reading + 1ms pour être sûr qu'il soit après
+            const newStopDate = new Date(latestNonStopDate.getTime() + 1);
+            
+            actions.push({
+              type: 'reorder',
+              description: `Repositionner le relevé "Fin" après le dernier relevé (${newStopDate.toLocaleString()})`,
+              // Stocker les informations pour la correction
+              stopReadingId: latestStopReading.id,
+              stopReadingTempId: latestStopReading.tempId,
+              newStopDateTime: newStopDate,
+            } as any);
+          }
+        }
+        
+        // Vérifier si le STOP est bien le dernier élément de la liste (après tri)
+        // Cette vérification se fera après le tri, donc on ne l'ajoute pas ici
+      } else {
+        // Pas de relevé STOP, il faut en créer un
+        if (sortedReadings.length > 0) {
+          const lastReadingDate = lastReading.dateTime instanceof Date 
+            ? lastReading.dateTime 
+            : new Date(lastReading.dateTime);
+          // Créer un relevé STOP juste après le dernier reading (+ 1ms)
+          const newStopDate = new Date(lastReadingDate.getTime() + 1);
+          
+          actions.push({
+            type: 'add_missing_pause', // Réutiliser ce type pour ajouter un relevé manquant
+            description: `Ajouter un relevé "Fin" manquant après le dernier relevé (${newStopDate.toLocaleString()})`,
+            newReading: {
+              name: 'Fin de la chronique',
+              type: ReadingTypeEnum.STOP,
+              dateTime: newStopDate,
+            },
+          });
+        }
+      }
+
+      // 4. Supprimer les doublons de pauses et apparier correctement les pauses
+      const pauseStarts: IReading[] = [];
+      const pauseEnds: IReading[] = [];
+      
+      // Collecter tous les PAUSE_START et PAUSE_END
+      sortedReadings.forEach(reading => {
+        if (reading.type === ReadingTypeEnum.PAUSE_START) {
+          pauseStarts.push(reading);
+        } else if (reading.type === ReadingTypeEnum.PAUSE_END) {
+          pauseEnds.push(reading);
+        }
+      });
+      
+      // Apparier les pauses : chaque PAUSE_START doit avoir un PAUSE_END correspondant
+      // On garde seulement les paires valides, on supprime les doublons
+      const validPausePairs: Array<{ start: IReading; end: IReading }> = [];
+      const usedStarts = new Set<IReading>();
+      const usedEnds = new Set<IReading>();
+      
+      // Pour chaque PAUSE_START, trouver le PAUSE_END le plus proche après lui
+      pauseStarts.forEach(pauseStart => {
+        const pauseStartDate = pauseStart.dateTime instanceof Date 
+          ? pauseStart.dateTime 
+          : new Date(pauseStart.dateTime);
+        
+        // Trouver le PAUSE_END non utilisé le plus proche après ce PAUSE_START
+        const matchingEnd = pauseEnds
+          .filter(end => !usedEnds.has(end))
+          .filter(end => {
+            const endDate = end.dateTime instanceof Date ? end.dateTime : new Date(end.dateTime);
+            return endDate.getTime() > pauseStartDate.getTime();
+          })
+          .sort((a, b) => {
+            const dateA = a.dateTime instanceof Date ? a.dateTime : new Date(a.dateTime);
+            const dateB = b.dateTime instanceof Date ? b.dateTime : new Date(b.dateTime);
+            return dateA.getTime() - dateB.getTime();
+          })[0];
+        
+        if (matchingEnd) {
+          validPausePairs.push({ start: pauseStart, end: matchingEnd });
+          usedStarts.add(pauseStart);
+          usedEnds.add(matchingEnd);
+        }
+      });
+      
+      // Supprimer les PAUSE_START non appariés (doublons)
+      const unpairedStarts = pauseStarts.filter(start => !usedStarts.has(start));
+      if (unpairedStarts.length > 0) {
+        const toRemoveIds = unpairedStarts.map(r => r.id).filter((id): id is number => !!id);
+        const toRemoveTempIds = unpairedStarts.map(r => r.tempId).filter((id): id is string => !!id);
+        
+        actions.push({
+          type: 'remove_duplicate',
+          description: `Supprimer ${unpairedStarts.length} relevé(s) "Début de pause" non apparié(s)`,
+          readingIds: toRemoveIds.length > 0 ? toRemoveIds : undefined,
+          tempIds: toRemoveTempIds.length > 0 ? toRemoveTempIds : undefined,
+        } as any);
+      }
+      
+      // Pour chaque PAUSE_END non apparié, ajouter un PAUSE_START avant lui
+      const unpairedEnds = pauseEnds.filter(end => !usedEnds.has(end));
+      unpairedEnds.forEach(pauseEnd => {
+        const pauseEndDate = pauseEnd.dateTime instanceof Date 
+          ? pauseEnd.dateTime 
+          : new Date(pauseEnd.dateTime);
+        const pauseStartDate = new Date(pauseEndDate.getTime() - 1);
+        
+        actions.push({
+          type: 'add_missing_pause',
+          description: `Ajouter un relevé "Début de pause" manquant avant le relevé "Fin de pause" à ${pauseEndDate.toLocaleString()}`,
+          newReading: {
+            name: 'Début de pause',
+            type: ReadingTypeEnum.PAUSE_START,
+            dateTime: pauseStartDate,
+          },
+        });
+      });
+      
+      // Pour chaque PAUSE_START apparié mais sans PAUSE_END après lui (cas théorique)
+      // Ce cas ne devrait pas arriver car on a déjà apparié, mais on vérifie quand même
+      pauseStarts.forEach(pauseStart => {
+        if (usedStarts.has(pauseStart)) {
+          const pair = validPausePairs.find(p => p.start === pauseStart);
+          if (!pair) {
+            // PAUSE_START apparié mais la paire n'existe pas ? Ajouter un PAUSE_END
+            const pauseStartDate = pauseStart.dateTime instanceof Date 
+              ? pauseStart.dateTime 
+              : new Date(pauseStart.dateTime);
+            const pauseEndDate = new Date(pauseStartDate.getTime() + 1);
+            
+            actions.push({
+              type: 'add_missing_pause',
+              description: `Ajouter un relevé "Fin de pause" manquant après le relevé "Début de pause" à ${pauseStartDate.toLocaleString()}`,
+              newReading: {
+                name: 'Fin de pause',
+                type: ReadingTypeEnum.PAUSE_END,
+                dateTime: pauseEndDate,
+              },
+            });
+          }
+        }
+      });
+
+      // Si applyCorrections est true, appliquer les corrections
+      if (applyCorrections) {
+        // ÉTAPE 1 : Trier d'abord chronologiquement
+        const workingReadings = [...readings].sort((a, b) => {
+          const dateA = a.dateTime instanceof Date ? a.dateTime : new Date(a.dateTime);
+          const dateB = b.dateTime instanceof Date ? b.dateTime : new Date(b.dateTime);
+          return dateA.getTime() - dateB.getTime();
+        });
+
+        // ÉTAPE 2 : Appliquer les suppressions de doublons
+        actions.forEach(action => {
+          if (action.type === 'remove_duplicate') {
+            // Trouver les readings à supprimer par id ou tempId
+            const readingsToRemove = workingReadings.filter(r => {
+              if (action.readingIds && r.id && action.readingIds.includes(r.id)) {
+                return true;
+              }
+              if (action.tempIds && r.tempId && action.tempIds.includes(r.tempId)) {
+                return true;
+              }
+              return false;
+            });
+            
+            // Supprimer chaque reading de la liste (en ordre inverse pour éviter les problèmes d'index)
+            readingsToRemove.reverse().forEach(readingToRemove => {
+              const index = workingReadings.findIndex(r => 
+                (r.id && readingToRemove.id && r.id === readingToRemove.id) ||
+                (r.tempId && readingToRemove.tempId && r.tempId === readingToRemove.tempId)
+              );
+              if (index !== -1) {
+                workingReadings.splice(index, 1);
+              }
+            });
+          }
+        });
+
+        // ÉTAPE 3 : Appliquer les ajouts de pauses manquantes
+        actions.forEach(action => {
+          if (action.type === 'add_missing_pause' && action.newReading) {
+            const newReading = methods.createReading({
+              name: action.newReading.name || 'Nouveau relevé',
+              type: action.newReading.type || ReadingTypeEnum.DATA,
+              dateTime: action.newReading.dateTime || new Date(),
+            });
+            workingReadings.push(newReading as IReading);
+          }
+        });
+
+        // ÉTAPE 4 : Appliquer les repositionnements de STOP avec horodatage intelligent
+        actions.forEach(action => {
+          if (action.type === 'reorder' && (action as any).newStopDateTime) {
+            const stopReading = workingReadings.find(r => 
+              ((action as any).stopReadingId && r.id === (action as any).stopReadingId) ||
+              ((action as any).stopReadingTempId && r.tempId === (action as any).stopReadingTempId)
+            );
+            
+            if (stopReading && (action as any).newStopDateTime) {
+              stopReading.dateTime = (action as any).newStopDateTime;
+            }
+          }
+        });
+
+        // ÉTAPE 5 : Retrier après toutes les modifications
+        workingReadings.sort((a, b) => {
+          const dateA = a.dateTime instanceof Date ? a.dateTime : new Date(a.dateTime);
+          const dateB = b.dateTime instanceof Date ? b.dateTime : new Date(b.dateTime);
+          return dateA.getTime() - dateB.getTime();
+        });
+
+        // ÉTAPE 6 : S'assurer que START a l'horodatage le plus petit et STOP le plus grand
+        const startReadings = workingReadings.filter(r => r.type === ReadingTypeEnum.START);
+        const stopReadings = workingReadings.filter(r => r.type === ReadingTypeEnum.STOP);
+        const otherReadings = workingReadings.filter(r => 
+          r.type !== ReadingTypeEnum.START && r.type !== ReadingTypeEnum.STOP
+        );
+
+        // Trouver le relevé avec l'horodatage le plus petit (hors START)
+        let earliestDate: Date | null = null;
+        if (otherReadings.length > 0) {
+          const dates = otherReadings.map(r => {
+            return r.dateTime instanceof Date ? r.dateTime : new Date(r.dateTime);
+          });
+          earliestDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        }
+
+        // Trouver le relevé avec l'horodatage le plus grand (hors STOP)
+        let latestDate: Date | null = null;
+        if (otherReadings.length > 0) {
+          const dates = otherReadings.map(r => {
+            return r.dateTime instanceof Date ? r.dateTime : new Date(r.dateTime);
+          });
+          latestDate = new Date(Math.max(...dates.map(d => d.getTime())));
+        } else if (startReadings.length > 0) {
+          // Si pas d'autres relevés, utiliser START comme référence
+          const startDate = startReadings[0].dateTime instanceof Date 
+            ? startReadings[0].dateTime 
+            : new Date(startReadings[0].dateTime);
+          latestDate = startDate;
+        }
+
+        // Ajuster START pour qu'il soit avant tous les autres
+        if (startReadings.length > 0) {
+          const startReading = startReadings[0]; // On garde seulement le premier
+          if (earliestDate) {
+            const startDate = startReading.dateTime instanceof Date 
+              ? startReading.dateTime 
+              : new Date(startReading.dateTime);
+            // Si START n'est pas avant le premier relevé, le repositionner
+            if (startDate.getTime() >= earliestDate.getTime()) {
+              startReading.dateTime = new Date(earliestDate.getTime() - 1);
+            }
+          } else {
+            // Pas d'autres relevés, START peut rester à sa date actuelle ou être mis à 0
+            const startDate = startReading.dateTime instanceof Date 
+              ? startReading.dateTime 
+              : new Date(startReading.dateTime);
+            // Si START n'est pas à 0 ou avant, le mettre juste avant le premier relevé
+            if (startDate.getTime() > 0) {
+              startReading.dateTime = new Date(0);
+            }
+          }
+        }
+
+        // Ajuster STOP pour qu'il soit après tous les autres
+        if (stopReadings.length > 0) {
+          const stopReading = stopReadings[stopReadings.length - 1]; // On garde seulement le dernier
+          if (latestDate) {
+            const stopDate = stopReading.dateTime instanceof Date 
+              ? stopReading.dateTime 
+              : new Date(stopReading.dateTime);
+            // Si STOP n'est pas après le dernier relevé, le repositionner
+            if (stopDate.getTime() <= latestDate.getTime()) {
+              stopReading.dateTime = new Date(latestDate.getTime() + 1);
+            }
+          } else {
+            // Pas d'autres relevés, STOP doit être après START
+            const startReading = startReadings[0];
+            if (startReading) {
+              const startDate = startReading.dateTime instanceof Date 
+                ? startReading.dateTime 
+                : new Date(startReading.dateTime);
+              stopReading.dateTime = new Date(startDate.getTime() + 1);
+            }
+          }
+        }
+
+        // ÉTAPE 7 : Trier une dernière fois après les ajustements d'horodatage
+        workingReadings.sort((a, b) => {
+          const dateA = a.dateTime instanceof Date ? a.dateTime : new Date(a.dateTime);
+          const dateB = b.dateTime instanceof Date ? b.dateTime : new Date(b.dateTime);
+          return dateA.getTime() - dateB.getTime();
+        });
+
+        // ÉTAPE 8 : Reconstruire la liste en s'assurant que START est le premier et STOP le dernier
+        correctedReadings.length = 0;
+        
+        // Ajouter START en premier s'il existe
+        const finalStartReading = workingReadings.find(r => r.type === ReadingTypeEnum.START);
+        if (finalStartReading) {
+          correctedReadings.push(finalStartReading);
+        }
+        
+        // Ajouter tous les autres relevés (triés par dateTime)
+        const finalOtherReadings = workingReadings.filter(r => 
+          r.type !== ReadingTypeEnum.START && r.type !== ReadingTypeEnum.STOP
+        );
+        correctedReadings.push(...finalOtherReadings);
+        
+        // Ajouter STOP en dernier s'il existe
+        const finalStopReading = workingReadings.find(r => r.type === ReadingTypeEnum.STOP);
+        if (finalStopReading) {
+          correctedReadings.push(finalStopReading);
+        }
+
+        // ÉTAPE 9 : Appliquer les corrections à sharedState.currentReadings
+        // On remplace complètement la liste pour garantir l'ordre correct
+        sharedState.currentReadings = correctedReadings;
+      }
+
+      return {
+        actions,
+        correctedReadings: applyCorrections ? correctedReadings : [],
+      };
     },
 
   };

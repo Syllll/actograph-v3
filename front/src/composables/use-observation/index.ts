@@ -55,6 +55,56 @@ export const useObservation = (options?: { init?: boolean }) => {
     return sharedState.currentObservation?.mode === ObservationModeEnum.Chronometer;
   });
 
+  /**
+   * Détermine si on utilise le temps vidéo comme source de vérité pour elapsedTime
+   * En mode chronomètre avec vidéo, le VideoPlayer gère elapsedTime
+   */
+  const usesVideoTime = computed(() => {
+    return isChronometerMode.value && !!sharedState.currentObservation?.videoPath;
+  });
+
+  /**
+   * Met à jour elapsedTime et currentDate depuis la source appropriée
+   * Cette méthode unifie la gestion du temps pour éviter les conflits
+   * 
+   * @param videoTime - Temps vidéo en secondes (optionnel)
+   *                    - Si fourni ET qu'on est en mode chronomètre avec vidéo : utilise ce temps
+   *                    - Si non fourni ET qu'on est en mode vidéo : ne fait rien (le temps vidéo est géré par handleTimeUpdate)
+   *                    - Si non fourni ET qu'on n'est PAS en mode vidéo : calcule depuis startTime
+   */
+  const updateTimeFromSource = (videoTime?: number) => {
+    // Cas 1 : Mode chronomètre avec vidéo ET temps vidéo fourni
+    // C'est le cas quand VideoPlayer appelle cette méthode avec le temps actuel
+    if (usesVideoTime.value && videoTime !== undefined) {
+      sharedState.elapsedTime = videoTime;
+      const t0 = chronometerMethods.getT0();
+      const elapsedMs = videoTime * 1000;
+      sharedState.currentDate = new Date(t0.getTime() + elapsedMs);
+      return;
+    }
+    
+    // Cas 2 : Mode normal (sans vidéo) ET timer démarré
+    // C'est le cas quand le timer interne appelle cette méthode sans paramètre
+    if (!usesVideoTime.value && sharedState.startTime) {
+      sharedState.elapsedTime = (Date.now() - sharedState.startTime) / 1000;
+      
+      // Update currentDate based on mode
+      if (isChronometerMode.value) {
+        const t0 = chronometerMethods.getT0();
+        const elapsedMs = sharedState.elapsedTime * 1000;
+        sharedState.currentDate = new Date(t0.getTime() + elapsedMs);
+      } else {
+        sharedState.currentDate = new Date(sharedState.startTime + sharedState.elapsedTime * 1000);
+      }
+      return;
+    }
+    
+    // Cas 3 : Mode vidéo mais pas de temps fourni
+    // Le timer appelle cette méthode mais on est en mode vidéo
+    // On ne fait rien car le temps est géré par handleTimeUpdate du VideoPlayer
+    // C'est le comportement attendu pour éviter les conflits
+  };
+
   // Timer methods
   const timerMethods = {
     startTimer: () => {
@@ -89,16 +139,10 @@ export const useObservation = (options?: { init?: boolean }) => {
 
       intervalId = window.setInterval(() => {
         if (sharedState.startTime) {
-          sharedState.elapsedTime = (Date.now() - sharedState.startTime) / 1000;
-          
-          // Update currentDate based on mode
-          if (isChronometerMode.value) {
-            const t0 = chronometerMethods.getT0();
-            const elapsedMs = sharedState.elapsedTime * 1000;
-            sharedState.currentDate = new Date(t0.getTime() + elapsedMs);
-          } else {
-            sharedState.currentDate = new Date(sharedState.startTime + sharedState.elapsedTime * 1000);
-          }
+          // Utiliser la méthode unifiée pour mettre à jour le temps
+          // Si on est en mode vidéo, cette méthode ne fera rien (videoTime non fourni)
+          // Sinon, elle calculera depuis startTime
+          updateTimeFromSource();
         }
       }, 10); // Update frequently for smooth milliseconds display
     },
@@ -244,20 +288,7 @@ export const useObservation = (options?: { init?: boolean }) => {
 
       await protocol.methods.loadProtocol(observation);
 
-      console.log('[useObservation] Loading observation:', {
-        id: observation.id,
-        name: observation.name,
-        videoPath: observation.videoPath,
-        mode: observation.mode,
-      });
-
       sharedState.currentObservation = observation;
-
-      console.log('[useObservation] Observation loaded in state:', {
-        id: sharedState.currentObservation?.id,
-        videoPath: sharedState.currentObservation?.videoPath,
-        mode: sharedState.currentObservation?.mode,
-      });
 
       sharedState.loading = false;
     },
@@ -273,5 +304,8 @@ export const useObservation = (options?: { init?: boolean }) => {
     duration,
     isActive,
     isChronometerMode,
+    // Méthode unifiée pour mettre à jour le temps depuis n'importe quelle source
+    // (VideoPlayer ou timer interne)
+    updateTimeFromSource,
   };
 };
