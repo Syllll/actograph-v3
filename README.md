@@ -186,7 +186,37 @@ Pour contribuer au projet, veuillez :
 
 ## Licence
 
-Ce projet est privé et propriétaire.
+ActoGraph v3 est la propriété exclusive de **SymAlgo Technologies**. Le code source est disponible en open source sous une licence dual avec les conditions suivantes :
+
+### 🎓 Utilisation par les étudiants
+
+Le code source d'ActoGraph v3 peut être utilisé **librement par les étudiants** à des fins éducatives et non commerciales. Les étudiants peuvent :
+- Utiliser le logiciel dans le cadre de leurs activités académiques
+- Étudier, modifier et adapter le code source
+- Partager le code modifié avec d'autres étudiants ou enseignants dans un contexte éducatif
+
+### 🏢 Utilisation par les entreprises
+
+**Toute utilisation par des entreprises est strictement interdite** sans l'obtention préalable d'une licence commerciale auprès de SymAlgo Technologies.
+
+**Modèle de licence par utilisateur :**
+- **1 licence = 1 utilisateur** : Chaque licence commerciale est accordée pour un seul utilisateur
+- **Plusieurs utilisateurs = plusieurs licences** : Si votre entreprise a besoin de plusieurs utilisateurs, une licence distincte est requise pour chaque utilisateur
+- Le partage d'une licence entre plusieurs utilisateurs est strictement interdit
+
+Une licence commerciale est requise pour :
+- Toute utilisation à des fins commerciales ou professionnelles
+- Toute utilisation dans un contexte commercial, même si elle n'est pas directement monétisée
+- Toute intégration dans des produits ou services commerciaux
+- Toute utilisation par des consultants ou prestataires de services
+
+### 📄 Détails complets
+
+Pour plus d'informations sur les conditions d'utilisation, consultez le fichier [LICENSE](LICENSE) à la racine du projet.
+
+**Pour obtenir une licence commerciale**, veuillez contacter SymAlgo Technologies :
+- Email : [À COMPLÉTER]
+- Site web : [À COMPLÉTER]
 
 ## Support
 
