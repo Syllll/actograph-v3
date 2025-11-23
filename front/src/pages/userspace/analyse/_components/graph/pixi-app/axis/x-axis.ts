@@ -187,6 +187,46 @@ export class xAxis extends BaseGroup {
   }
 
   /**
+   * Convertit une position X sur le canvas en date/heure.
+   * 
+   * Cette méthode est l'inverse de getPosFromDateTime et permet de déterminer
+   * la date/heure correspondant à une position X donnée sur l'axe temporel.
+   * 
+   * @param xPos - Position X en pixels sur le canvas (doit être dans le même système de coordonnées que getPosFromDateTime)
+   * @returns Date/heure correspondante
+   * @throws Error si l'axe n'a pas encore été initialisé ou si pixelsPerMsec est 0
+   */
+  public getDateTimeFromPos(xPos: number): Date {
+    // Vérification que le facteur de conversion est initialisé
+    if (this.pixelsPerMsec === 0) {
+      throw new Error('Axis not initialized: pixelsPerMsec is 0');
+    }
+
+    // Vérification que le timestamp de début est initialisé
+    if (this.axisStartTimeInMsec === 0) {
+      throw new Error('Axis not initialized: axisStartTimeInMsec is 0');
+    }
+
+    // Récupération de la position de départ de l'axe Y (qui sert d'origine)
+    const axisStart = this.yAxis.getAxisStart();
+    if (!axisStart || axisStart.x === undefined) {
+      throw new Error('No axis start found');
+    }
+
+    // Calcul de la différence en pixels depuis le début de l'axe
+    const pixelsFromStart = xPos - axisStart.x;
+
+    // Conversion en millisecondes : pixels / (pixels par milliseconde)
+    const timeDiffInMsec = pixelsFromStart / this.pixelsPerMsec;
+
+    // Calcul du timestamp final : début de l'axe + différence de temps
+    const dateTimeInMsec = this.axisStartTimeInMsec + timeDiffInMsec;
+
+    // Création et retour de la date
+    return new Date(dateTimeInMsec);
+  }
+
+  /**
    * Efface tous les éléments de l'axe X.
    * 
    * Cette méthode supprime les labels, réinitialise les ticks et le facteur de conversion,

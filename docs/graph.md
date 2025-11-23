@@ -257,6 +257,7 @@ const xPos = axisStart.x + (dateTimeInMsec - axisStartTimeInMsec) * pixelsPerMse
 ### Méthodes publiques
 
 - `getPosFromDateTime(dateTime: Date | string)`: Convertit une date/heure en position X sur le canvas
+- `getDateTimeFromPos(xPos: number)`: Convertit une position X sur le canvas en date/heure (méthode inverse de `getPosFromDateTime`)
 - `getAxisStart()`: Retourne la position de départ de l'axe (à gauche)
 - `getAxisEnd()`: Retourne la position de fin de l'axe (à droite)
 
@@ -300,9 +301,25 @@ La zone de données gère les interactions avec la souris :
 - Ces lignes aident l'utilisateur à lire les valeurs en suivant le curseur depuis l'origine
 - Les lignes disparaissent lorsque la souris quitte la zone
 
+**Affichage du temps sur l'axe X** :
+- Lors du mouvement de la souris, un label affiche la date/heure correspondant à la position du curseur
+- **Position** :
+  - Horizontalement : Centré sur la position du curseur (aligné avec la ligne verticale pointillée)
+  - Verticalement : Juste sous l'axe X (abscisse), avec un décalage de 15px
+- **Style** :
+  - Fond blanc pour améliorer la lisibilité et créer un contraste avec le fond du graphique
+  - Texte noir, police Arial, taille 12px
+  - Format : `dd-MM-yyyy HH:mm:ss.xxx` (format français, identique aux labels des ticks)
+  - Padding de 4px autour du texte pour l'espace blanc
+- **Fonctionnement** :
+  - La position X du curseur est convertie en date/heure via `xAxis.getDateTimeFromPos()`
+  - Le label est mis à jour dynamiquement lors du mouvement de la souris
+  - Le fond blanc s'adapte automatiquement à la taille du texte affiché
+  - Le label disparaît lorsque la souris quitte la zone de données
+
 **Zone interactive** :
 - Un rectangle transparent couvre toute la zone de données
-- Ce rectangle capture les événements souris pour afficher les lignes de référence
+- Ce rectangle capture les événements souris pour afficher les lignes de référence et le label de temps
 - Les coordonnées sont converties en coordonnées locales pour un positionnement précis
 
 ### Rendu

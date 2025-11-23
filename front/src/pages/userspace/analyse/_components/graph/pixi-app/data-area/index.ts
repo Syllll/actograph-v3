@@ -1,4 +1,4 @@
-import { Application, Rectangle } from 'pixi.js';
+import { Application, Rectangle, Text, Container, Graphics } from 'pixi.js';
 import { BaseGroup } from '../lib/base-group';
 import {
   IReading,
@@ -56,6 +56,27 @@ export class DataArea extends BaseGroup {
   /** Graphique pour les lignes en pointillés qui suivent le curseur */
   private pointerDashedLines: BaseGraphic;
 
+  /** 
+   * Conteneur pour le label de temps avec fond blanc.
+   * Ce conteneur regroupe le texte et le rectangle de fond pour faciliter
+   * le positionnement et la gestion de la visibilité.
+   */
+  private timeLabelContainer: Container | null = null;
+  
+  /** 
+   * Label textuel affichant le temps à la position du curseur sur l'axe X.
+   * Le temps est formaté au format français (dd-MM-yyyy HH:mm:ss.xxx)
+   * et affiché juste sous l'axe X (abscisse), centré horizontalement sur le curseur.
+   */
+  private timeLabel: Text | null = null;
+  
+  /** 
+   * Rectangle de fond blanc pour le label de temps.
+   * Ce rectangle améliore la lisibilité du texte en créant un contraste
+   * avec le fond du graphique et les autres éléments.
+   */
+  private timeLabelBackground: Graphics | null = null;
+
   constructor(app: Application, yAxis: yAxis, xAxis: xAxis) {
     super(app);
 
@@ -70,6 +91,31 @@ export class DataArea extends BaseGroup {
     // Création du graphique pour les lignes en pointillés du curseur
     this.pointerDashedLines = new BaseGraphic(app);
     this.addChild(this.pointerDashedLines);
+
+    // Création d'un conteneur pour le label de temps avec fond blanc
+    // Ce conteneur permet de grouper le texte et son fond pour faciliter
+    // le positionnement et la gestion de la visibilité
+    this.timeLabelContainer = new Container();
+    this.addChild(this.timeLabelContainer);
+
+    // Création du rectangle de fond blanc
+    // Ce rectangle sera redessiné dynamiquement selon la taille du texte
+    // pour s'adapter au contenu affiché
+    this.timeLabelBackground = new Graphics();
+    this.timeLabelContainer.addChild(this.timeLabelBackground);
+
+    // Création du label textuel pour afficher le temps
+    // Le texte sera mis à jour dynamiquement lors du mouvement de la souris
+    // pour afficher la date/heure correspondant à la position du curseur
+    this.timeLabel = new Text({
+      text: '',
+      style: {
+        fontSize: 12,
+        fill: 'black',
+        fontFamily: 'Arial',
+      },
+    });
+    this.timeLabelContainer.addChild(this.timeLabel);
   }
 
   /**
@@ -120,11 +166,95 @@ export class DataArea extends BaseGroup {
         .moveTo(p.x, p.y)
         .dashedLineTo(originLocal.x, p.y)
         .stroke();
+
+      // Affichage du temps sur l'axe X à la position du curseur
+      // Le label affiche la date/heure correspondant à la position X du curseur,
+      // positionné juste sous l'axe X (abscisse) avec un fond blanc pour la lisibilité
+      if (this.timeLabel) {
+        try {
+          // Conversion de la position X du curseur en date/heure
+          // p.x est en coordonnées locales de pointerDashedLines (qui est un enfant de DataArea)
+          // getDateTimeFromPos attend une position X dans le même système de coordonnées que getPosFromDateTime
+          // getPosFromDateTime utilise axisStart.x qui est relatif au conteneur parent (plot/stage)
+          // On doit donc convertir p.x en coordonnées du stage pour être cohérent
+          const globalPos = this.pointerDashedLines.toGlobal({ x: p.x, y: p.y });
+          const stagePos = this.app.stage.toLocal(globalPos);
+          
+          // Conversion de la position X en date/heure en utilisant la méthode inverse de getPosFromDateTime
+          const dateTime = this.xAxis.getDateTimeFromPos(stagePos.x);
+          
+          // Formatage de la date/heure au format français (identique aux labels des ticks de l'axe X)
+          // Format : dd-MM-yyyy HH:mm:ss.xxx (ex: 15-01-2024 10:30:45.123)
+          const timeString = dateTime.toLocaleDateString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            fractionalSecondDigits: 3,
+          }).replace(/\//g, '-');
+
+          // Vérification que tous les éléments nécessaires sont disponibles
+          if (!this.timeLabel || !this.timeLabelContainer || !this.timeLabelBackground) {
+            return;
+          }
+
+          // Mise à jour du texte du label avec la date/heure formatée
+          this.timeLabel.text = timeString;
+          
+          // Calcul des dimensions du texte pour créer le fond blanc adaptatif
+          // Le fond blanc s'adapte automatiquement à la taille du texte affiché
+          const padding = 4; // Padding autour du texte (en pixels)
+          const textWidth = this.timeLabel.width;
+          const textHeight = this.timeLabel.height;
+          const backgroundWidth = textWidth + padding * 2;
+          const backgroundHeight = textHeight + padding * 2;
+
+          // Dessin du rectangle de fond blanc
+          // Le rectangle est redessiné à chaque mise à jour pour s'adapter à la taille du texte
+          this.timeLabelBackground.clear();
+          this.timeLabelBackground.rect(0, 0, backgroundWidth, backgroundHeight);
+          this.timeLabelBackground.fill({ color: 'white' });
+
+          // Positionnement du texte dans le conteneur (avec padding)
+          // Le texte est positionné avec un décalage égal au padding pour créer l'espace blanc autour
+          this.timeLabel.x = padding;
+          this.timeLabel.y = padding;
+          
+          // Positionnement du conteneur sur l'axe X, juste sous l'axe (abscisse)
+          // Horizontalement : centré sur le curseur (p.x - backgroundWidth / 2)
+          //   - Le label est centré horizontalement sur la position du curseur
+          //   - Cela permet de suivre précisément la position temporelle indiquée par la ligne verticale pointillée
+          // Verticalement : sous l'axe X (originLocal.y + 15px)
+          //   - Le label est positionné juste sous l'axe X pour ne pas masquer les autres éléments
+          //   - L'offset de 15px permet de laisser un espace entre l'axe et le label
+          // p.x est en coordonnées locales de pointerDashedLines, qui est aligné avec DataArea
+          // Comme timeLabelContainer est aussi un enfant de DataArea, on peut utiliser p.x directement
+          this.timeLabelContainer.x = p.x - backgroundWidth / 2; // Centré horizontalement sur le curseur
+          this.timeLabelContainer.y = originLocal.y + 15; // 15px sous l'axe X
+          this.timeLabelContainer.visible = true;
+        } catch (error) {
+          // Si l'axe n'est pas encore initialisé ou si une erreur survient, on masque le label
+          // Cela peut arriver si l'axe X n'a pas encore été dessiné ou si les données ne sont pas disponibles
+          // En développement, on pourrait logger l'erreur pour le débogage
+          if (this.timeLabelContainer) {
+            this.timeLabelContainer.visible = false;
+          }
+        }
+      }
     });
     
-    // Masquage des lignes lorsque la souris quitte la zone
+    // Masquage des lignes et du label lorsque la souris quitte la zone
+    // Lorsque l'utilisateur sort de la zone de données, on nettoie les éléments visuels
+    // (lignes pointillées et label de temps) pour éviter qu'ils restent affichés
     this.graphicForBackground.on('pointerleave', (evt) => {
+      // Nettoyage des lignes pointillées de référence
       this.pointerDashedLines.clear();
+      // Masquage du label de temps
+      if (this.timeLabelContainer) {
+        this.timeLabelContainer.visible = false;
+      }
     });
   }
 
@@ -206,6 +336,7 @@ export class DataArea extends BaseGroup {
    * Cette méthode nettoie :
    * - Le fond de la zone
    * - Les lignes en pointillés du curseur
+   * - Le label de temps
    * - Les readings groupés par catégorie
    * - Tous les graphiques des catégories
    */
@@ -215,6 +346,11 @@ export class DataArea extends BaseGroup {
     // Nettoyage des graphiques principaux
     this.graphicForBackground.clear();
     this.pointerDashedLines.clear();
+
+    // Masquage du label de temps lors du nettoyage de la zone de données
+    if (this.timeLabelContainer) {
+      this.timeLabelContainer.visible = false;
+    }
 
     // Réinitialisation des données
     this.readingsPerCategory = [];
