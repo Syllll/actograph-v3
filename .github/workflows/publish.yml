@@ -85,6 +85,25 @@ jobs:
           jq '.version = "${{ steps.get_version.outputs.VERSION }}"' front/package.json > front/package.json.tmp
           mv front/package.json.tmp front/package.json
 
+      - name: Get package.json hash
+        id: package-json-hash
+        shell: bash
+        run: |
+          if [ -f front/package.json ]; then
+            # Utiliser shasum sur macOS, sha256sum sur Linux
+            if command -v sha256sum > /dev/null 2>&1; then
+              HASH=$(cat front/package.json | sha256sum | cut -d' ' -f1)
+            elif command -v shasum > /dev/null 2>&1; then
+              HASH=$(cat front/package.json | shasum -a 256 | cut -d' ' -f1)
+            else
+              # Fallback: utiliser openssl si disponible
+              HASH=$(cat front/package.json | openssl dgst -sha256 | cut -d' ' -f2)
+            fi
+            echo "hash=$HASH" >> $GITHUB_OUTPUT
+          else
+            echo "hash=no-package-json" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create API .env file
         shell: bash
         run: |
@@ -185,7 +204,7 @@ jobs:
           path: |
             ~/.cache/electron
             ~/.cache/electron-builder
-          key: ${{ runner.os }}-electron-${{ matrix.electron_arch || 'default' }}-${{ hashFiles('front/package.json') }}
+          key: ${{ runner.os }}-electron-${{ matrix.electron_arch || 'default' }}-${{ steps.package-json-hash.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-electron-${{ matrix.electron_arch || 'default' }}-
             ${{ runner.os }}-electron-
