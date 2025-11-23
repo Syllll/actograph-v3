@@ -154,7 +154,7 @@ jobs:
             api/node_modules
             ${{ steps.yarn-cache-dir-path.outputs.dir }}
           # Isolate cache by OS and architecture (important for macOS x64 vs arm64)
-          key: ${{ runner.os }}-${{ matrix.electron_arch || 'default' }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ runner.os }}-${{ matrix.electron_arch || 'default' }}-yarn-${{ hashFiles('api/yarn.lock', 'front/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.electron_arch || 'default' }}-yarn-
             ${{ runner.os }}-yarn-

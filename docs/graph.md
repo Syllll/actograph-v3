@@ -318,6 +318,63 @@ Le rendu utilise des primitives PixiJS :
 
 ## Intégration Vue
 
+### Composant DCanvas
+
+Le composant `DCanvas` (`front/lib-improba/components/app/canvas/DCanvas.vue`) fournit un canvas HTML avec redimensionnement automatique.
+
+**Fonctionnalités** :
+- **Redimensionnement automatique** : Utilise `ResizeObserver` pour détecter les changements de taille du conteneur parent
+- **Deux modes de redimensionnement** :
+  - **Mode square** (`square=true`) : Le canvas prend la plus petite dimension (largeur ou hauteur) pour créer un carré
+  - **Mode normal** (`square=false`) : Le canvas s'adapte à toutes les dimensions du conteneur parent
+- **Événements souris** : Émet des événements `canvasMouseEnter`, `canvasMouseMove`, `canvasMouseLeave`
+- **Événement resize** : Émet un événement `resize` lors du redimensionnement (avec la taille en mode square)
+
+**Props** :
+- `canvasId` (String, optionnel) : ID HTML pour le canvas
+- `square` (Boolean, défaut: false) : Active le mode carré
+
+**Événements** :
+- `resize` : Émis lors du redimensionnement (avec `size` en mode square)
+- `canvasMouseEnter` : Émis lorsque la souris entre dans le canvas
+- `canvasMouseMove` : Émis lorsque la souris se déplace sur le canvas
+- `canvasMouseLeave` : Émis lorsque la souris quitte le canvas
+
+**Références exposées** :
+- `containerRef` : Référence au conteneur div (interne)
+- `canvasRef` : Référence au canvas HTML (pour PixiJS)
+
+**Gestion du cycle de vie** :
+- Le composant nettoie automatiquement le `ResizeObserver` lors du démontage (`onBeforeUnmount`)
+- Vérifie que les références existent avant d'y accéder pour éviter les erreurs lors du démontage
+- Évite les fuites mémoire en arrêtant l'observation lors du changement d'onglet ou du démontage
+
+**Exemple d'utilisation** :
+```vue
+<template>
+  <d-canvas ref="canvasRef" @resize="onResize" />
+</template>
+
+<script lang="ts">
+import { defineComponent, ref } from 'vue';
+
+export default defineComponent({
+  setup() {
+    const canvasRef = ref<any>(null);
+    
+    const onResize = (size?: number) => {
+      console.log('Canvas resized', size);
+    };
+    
+    return {
+      canvasRef,
+      onResize,
+    };
+  },
+});
+</script>
+```
+
 ### Composant Index.vue
 
 Le composant principal (`Index.vue`) est très simple :
@@ -399,15 +456,22 @@ watch(() => observation.readings.sharedState.currentReadings, async () => {
 
 ## Redimensionnement
 
-### Redimensionnement automatique
+### Redimensionnement automatique du conteneur
 
-Le canvas se redimensionne automatiquement selon son conteneur :
+Le composant `DCanvas` gère automatiquement le redimensionnement du canvas selon son conteneur parent :
+- Utilise `ResizeObserver` pour détecter les changements de taille
+- Ajuste dynamiquement les dimensions du canvas
+- Émet un événement `resize` pour notifier les composants parents
+
+Le canvas HTML est redimensionné automatiquement par le composant, et PixiJS suit ce redimensionnement :
 
 ```typescript
 await this.app.init({
-  resizeTo: canvasElement, // Redimensionnement automatique
+  resizeTo: canvasElement, // Redimensionnement automatique selon le canvas HTML
 });
 ```
+
+**Important** : Le composant `DCanvas` nettoie automatiquement le `ResizeObserver` lors du démontage pour éviter les fuites mémoire et les erreurs lors du changement d'onglet.
 
 ### Ajustement de la hauteur
 
@@ -420,6 +484,8 @@ if (requiredHeight > this.app.canvas.height) {
   this.app.canvas.height = requiredHeight;
 }
 ```
+
+Cette logique s'exécute après le redimensionnement automatique du `DCanvas`, permettant d'ajuster la hauteur si nécessaire pour afficher tous les observables.
 
 ## Classes de base
 
@@ -538,6 +604,17 @@ Si le canvas n'apparaît pas :
 2. Vérifiez que la référence au canvas est correcte
 3. Vérifiez les dimensions du conteneur parent
 4. Consultez la console pour les erreurs PixiJS
+
+### Erreur "Cannot read properties of null (reading 'parentElement')"
+
+Si vous rencontrez cette erreur lors du changement d'onglet ou du démontage du composant :
+
+**Cause** : Le `ResizeObserver` continue d'observer après le démontage du composant.
+
+**Solution** : Le composant `DCanvas` nettoie automatiquement le `ResizeObserver` dans `onBeforeUnmount`. Si l'erreur persiste, vérifiez que :
+- Le composant utilise bien `DCanvas` et non un canvas HTML directement
+- La version de `DCanvas` inclut le nettoyage du `ResizeObserver`
+- Aucun autre code ne crée de `ResizeObserver` sans le nettoyer
 
 ### Données non affichées
 
