@@ -4,6 +4,7 @@ import {
   IReading,
   IObservation,
   ReadingTypeEnum,
+  ObservationModeEnum,
 } from '@services/observations/interface';
 import { yAxis } from '../axis/y-axis';
 import { xAxis } from '../axis/x-axis';
@@ -12,6 +13,8 @@ import {
   protocolService,
 } from '@services/observations/protocol.service';
 import { BaseGraphic } from '../lib/base-graphic';
+import { useDuration } from 'src/composables/use-duration';
+import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
 
 /**
  * Classe représentant la zone de données du graphique d'activité.
@@ -65,8 +68,10 @@ export class DataArea extends BaseGroup {
   
   /** 
    * Label textuel affichant le temps à la position du curseur sur l'axe X.
-   * Le temps est formaté au format français (dd-MM-yyyy HH:mm:ss.xxx)
-   * et affiché juste sous l'axe X (abscisse), centré horizontalement sur le curseur.
+   * Le format dépend du mode de l'observation :
+   * - Mode chronomètre : durée formatée (ex: "2j 3h 15m 30s 500ms")
+   * - Mode calendrier : date/heure au format français (dd-MM-yyyy HH:mm:ss.xxx)
+   * Le label est affiché juste sous l'axe X (abscisse), centré horizontalement sur le curseur.
    */
   private timeLabel: Text | null = null;
   
@@ -76,6 +81,9 @@ export class DataArea extends BaseGroup {
    * avec le fond du graphique et les autres éléments.
    */
   private timeLabelBackground: Graphics | null = null;
+
+  /** Instance du composable useDuration pour formater les durées en mode chronomètre */
+  private duration = useDuration();
 
   constructor(app: Application, yAxis: yAxis, xAxis: xAxis) {
     super(app);
@@ -168,8 +176,9 @@ export class DataArea extends BaseGroup {
         .stroke();
 
       // Affichage du temps sur l'axe X à la position du curseur
-      // Le label affiche la date/heure correspondant à la position X du curseur,
-      // positionné juste sous l'axe X (abscisse) avec un fond blanc pour la lisibilité
+      // Le label affiche la date/heure ou la durée correspondant à la position X du curseur,
+      // selon le mode de l'observation (chronomètre ou calendrier).
+      // Le label est positionné juste sous l'axe X (abscisse) avec un fond blanc pour la lisibilité
       if (this.timeLabel) {
         try {
           // Conversion de la position X du curseur en date/heure
@@ -183,17 +192,28 @@ export class DataArea extends BaseGroup {
           // Conversion de la position X en date/heure en utilisant la méthode inverse de getPosFromDateTime
           const dateTime = this.xAxis.getDateTimeFromPos(stagePos.x);
           
-          // Formatage de la date/heure au format français (identique aux labels des ticks de l'axe X)
-          // Format : dd-MM-yyyy HH:mm:ss.xxx (ex: 15-01-2024 10:30:45.123)
-          const timeString = dateTime.toLocaleDateString('fr-FR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            fractionalSecondDigits: 3,
-          }).replace(/\//g, '-');
+          // Formatage selon le mode de l'observation
+          // En mode chronomètre : afficher une durée (format compact : "Xj Yh Zm Ws Vms")
+          // En mode calendrier : afficher la date/heure (format français : dd-MM-yyyy HH:mm:ss.xxx)
+          let timeString: string;
+          if (this.observation?.mode === ObservationModeEnum.Chronometer) {
+            // Mode chronomètre : formater comme une durée depuis t0
+            // CHRONOMETER_T0 est la date de référence définie dans @utils/chronometer.constants.ts
+            // La durée est calculée comme la différence entre dateTime et CHRONOMETER_T0
+            timeString = this.duration.formatFromDate(dateTime, CHRONOMETER_T0);
+          } else {
+            // Mode calendrier : formater comme une date/heure au format français
+            // Format : dd-MM-yyyy HH:mm:ss.xxx (ex: 15-01-2024 10:30:45.123)
+            timeString = dateTime.toLocaleDateString('fr-FR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              fractionalSecondDigits: 3,
+            }).replace(/\//g, '-');
+          }
 
           // Vérification que tous les éléments nécessaires sont disponibles
           if (!this.timeLabel || !this.timeLabelContainer || !this.timeLabelBackground) {

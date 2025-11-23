@@ -10,6 +10,7 @@ import { IReading, IObservation, ReadingTypeEnum } from '@services/observations/
 import { reactive } from 'vue';
 import { readingService } from '@services/observations/reading.service';
 import { v4 as uuidv4 } from 'uuid';
+import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
 
 // Stateless object to store the initial readings (used for comparison during sync)
 const stateless = {
@@ -465,13 +466,13 @@ export const useReadings = (options: {
       const isChronometerMode = observationSharedState.currentObservation?.mode === 'chronometer';
       
       if (isChronometerMode) {
-        // En mode chronomètre, utiliser t0 directement pour que la durée soit 0
-        // t0 = 9 février 1989
-        const CHRONOMETER_T0 = new Date('1989-02-09T00:00:00.000Z');
+        // En mode chronomètre, utiliser CHRONOMETER_T0 directement pour que la durée soit 0
+        // CHRONOMETER_T0 est la date de référence définie dans @utils/chronometer.constants.ts
+        // (9 février 1989 à 00:00:00.000 UTC)
         methods.addReading({
           name: 'Début de la chronique',
           type: ReadingTypeEnum.START,
-          dateTime: CHRONOMETER_T0, // Utiliser t0 directement
+          dateTime: CHRONOMETER_T0, // Utiliser t0 directement pour garantir une durée de 0
         });
       } else {
         // En mode calendrier, utiliser currentDate et elapsedTime normalement

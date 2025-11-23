@@ -56,6 +56,14 @@ L'application PixiJS est configurée avec :
 - **ResizeTo** : Redimensionnement automatique selon le canvas
 - **View** : Canvas HTML fourni
 
+### Formatage selon le mode
+
+Le graphique s'adapte automatiquement au mode de l'observation :
+- **Mode chronomètre** : Les labels de l'axe X et le label de temps affichent des durées au format compact (ex: "2j 3h 15m 30s 500ms")
+  - Les durées sont calculées depuis CHRONOMETER_T0 (9 février 1989) définie dans `@utils/chronometer.constants.ts`
+  - Format identique à celui utilisé dans le tableau des relevés en mode chronomètre
+- **Mode calendrier** : Les labels de l'axe X et le label de temps affichent des dates/heures au format français (ex: "15-01-2024 10:30:45.123")
+
 ### Structure du graphique
 
 Le graphique est composé de trois éléments principaux :
@@ -199,7 +207,7 @@ La méthode `computeAxisLengthAndTicks()` parcourt toutes les catégories et leu
 L'axe X affiche la timeline :
 - Plage de temps basée sur les readings
 - Graduations temporelles adaptatives
-- Labels de dates/heures inclinés à 45°
+- Labels de dates/heures ou durées (selon le mode de l'observation) inclinés à 45°
 - L'axe est positionné horizontalement en bas du graphique, aligné avec le début de l'axe Y
 
 ### Positionnement
@@ -249,8 +257,11 @@ const xPos = axisStart.x + (dateTimeInMsec - axisStartTimeInMsec) * pixelsPerMse
 - **Ligne principale** : Ligne horizontale de 2px de largeur en noir
 - **Flèche** : Triangle rempli à droite de l'axe pointant vers la droite
 - **Ticks** : Lignes verticales de 1px de largeur, s'étendant de 10px au-dessus à 10px en-dessous de l'axe
-- **Labels** : Dates/heures affichées sous l'axe, inclinées à 45° pour éviter le chevauchement
-  - Format : `dd-MM-yyyy HH:mm:ss.xxx` (format français)
+- **Labels** : Dates/heures ou durées affichées sous l'axe, inclinées à 45° pour éviter le chevauchement
+  - **Mode calendrier** : Format `dd-MM-yyyy HH:mm:ss.xxx` (format français, ex: "15-01-2024 10:30:45.123")
+  - **Mode chronomètre** : Format compact de durée (ex: "2j 3h 15m 30s 500ms")
+    - La durée est calculée depuis CHRONOMETER_T0 (définie dans @utils/chronometer.constants.ts)
+    - Format identique à celui utilisé dans le tableau des relevés en mode chronomètre
   - Police : Arial, 12px
   - Position : 12px sous l'axe, légèrement décalés à gauche
 
@@ -299,20 +310,28 @@ La zone de données gère les interactions avec la souris :
   - **Ligne verticale** : Depuis le curseur jusqu'à l'axe X (référence temporelle)
   - **Ligne horizontale** : Depuis le curseur jusqu'à l'axe Y (référence observable)
 - Ces lignes aident l'utilisateur à lire les valeurs en suivant le curseur depuis l'origine
+- La ligne verticale pointe vers l'axe X où la valeur temporelle (date/heure ou durée selon le mode) est affichée
 - Les lignes disparaissent lorsque la souris quitte la zone
 
 **Affichage du temps sur l'axe X** :
-- Lors du mouvement de la souris, un label affiche la date/heure correspondant à la position du curseur
+- Lors du mouvement de la souris, un label affiche la date/heure ou la durée correspondant à la position du curseur
 - **Position** :
   - Horizontalement : Centré sur la position du curseur (aligné avec la ligne verticale pointillée)
   - Verticalement : Juste sous l'axe X (abscisse), avec un décalage de 15px
 - **Style** :
   - Fond blanc pour améliorer la lisibilité et créer un contraste avec le fond du graphique
   - Texte noir, police Arial, taille 12px
-  - Format : `dd-MM-yyyy HH:mm:ss.xxx` (format français, identique aux labels des ticks)
   - Padding de 4px autour du texte pour l'espace blanc
+- **Format selon le mode** :
+  - **Mode chronomètre** : Durée formatée au format compact (ex: `2j 3h 15m 30s 500ms`)
+    - La durée est calculée depuis t0 (9 février 1989) jusqu'à la date/heure correspondant à la position
+    - Format identique à celui utilisé dans le tableau des relevés en mode chronomètre
+  - **Mode calendrier** : Date/heure au format français (ex: `15-01-2024 10:30:45.123`)
+    - Format : `dd-MM-yyyy HH:mm:ss.xxx` (identique aux labels des ticks de l'axe X)
 - **Fonctionnement** :
   - La position X du curseur est convertie en date/heure via `xAxis.getDateTimeFromPos()`
+  - Le formatage dépend du mode de l'observation (`observation.mode`)
+  - En mode chronomètre, la durée est calculée avec `useDuration().formatFromDate(date, CHRONOMETER_T0)`
   - Le label est mis à jour dynamiquement lors du mouvement de la souris
   - Le fond blanc s'adapte automatiquement à la taille du texte affiché
   - Le label disparaît lorsque la souris quitte la zone de données
@@ -567,7 +586,9 @@ public destroy() {
 ### Lignes de référence (implémenté)
 
 Lors du mouvement de la souris dans la zone de données :
-- **Ligne verticale** : Depuis le curseur jusqu'à l'axe X (aide à lire la date/heure)
+- **Ligne verticale** : Depuis le curseur jusqu'à l'axe X (aide à lire la date/heure ou la durée selon le mode)
+  - En mode chronomètre : affiche la durée depuis t0
+  - En mode calendrier : affiche la date/heure
 - **Ligne horizontale** : Depuis le curseur jusqu'à l'axe Y (aide à lire l'observable)
 - Les lignes disparaissent lorsque la souris quitte la zone
 

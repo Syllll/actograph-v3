@@ -11,9 +11,7 @@ import { protocolService } from '@services/observations/protocol.service';
 import { useProtocol } from './use-protocol';
 import { useReadings } from './use-readings';
 import { useDuration } from '../use-duration';
-
-// Chronometer t0: 9 février 1989
-const CHRONOMETER_T0 = new Date('1989-02-09T00:00:00.000Z');
+import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
 
 const sharedState = reactive({
   loading: false,
@@ -203,15 +201,26 @@ export const useObservation = (options?: { init?: boolean }) => {
   // Chronometer methods
   const chronometerMethods = {
     /**
-     * Gets the t0 date (9 février 1989)
+     * Retourne la date de référence (t0) pour le mode chronomètre.
+     * 
+     * Cette méthode retourne la constante CHRONOMETER_T0 définie dans
+     * @utils/chronometer.constants.ts (9 février 1989 à 00:00:00.000 UTC).
+     * 
+     * @returns Date de référence t0 pour les calculs de durée en mode chronomètre
      */
     getT0: (): Date => {
       return CHRONOMETER_T0;
     },
 
     /**
-     * Converts a date to duration (milliseconds) since t0
-     * Only works in chronometer mode
+     * Convertit une date en durée (millisecondes) depuis t0.
+     * 
+     * Cette méthode calcule la différence entre la date fournie et la date de référence
+     * CHRONOMETER_T0 (définie dans @utils/chronometer.constants.ts).
+     * 
+     * @param date - Date à convertir en durée
+     * @returns Durée en millisecondes depuis t0
+     * @throws Error si on n'est pas en mode chronomètre
      */
     dateToDuration: (date: Date): number => {
       if (!isChronometerMode.value) {
@@ -221,8 +230,14 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
 
     /**
-     * Converts a duration (milliseconds) to a date by adding it to t0
-     * Only works in chronometer mode
+     * Convertit une durée (millisecondes) en date en l'ajoutant à t0.
+     * 
+     * Cette méthode ajoute la durée fournie à la date de référence CHRONOMETER_T0
+     * (définie dans @utils/chronometer.constants.ts) pour obtenir une date absolue.
+     * 
+     * @param milliseconds - Durée en millisecondes depuis t0
+     * @returns Date correspondant à t0 + durée
+     * @throws Error si on n'est pas en mode chronomètre
      */
     durationToDate: (milliseconds: number): Date => {
       if (!isChronometerMode.value) {
@@ -232,8 +247,15 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
 
     /**
-     * Formats a date as a duration string (compact format)
-     * Only works in chronometer mode
+     * Formate une date comme une chaîne de durée (format compact).
+     * 
+     * Cette méthode calcule la durée entre la date fournie et la date de référence
+     * CHRONOMETER_T0 (définie dans @utils/chronometer.constants.ts), puis formate
+     * cette durée au format compact (ex: "2j 3h 15m 30s 500ms").
+     * 
+     * @param date - Date à formater comme durée
+     * @returns Chaîne de durée formatée (format compact)
+     * @throws Error si on n'est pas en mode chronomètre
      */
     formatDateAsDuration: (date: Date): string => {
       if (!isChronometerMode.value) {

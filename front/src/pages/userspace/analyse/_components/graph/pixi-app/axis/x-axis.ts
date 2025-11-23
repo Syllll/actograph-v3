@@ -1,8 +1,10 @@
 import { Application, Container, Graphics, Text } from 'pixi.js'
 import { BaseGroup } from '../lib/base-group';
 import { BaseGraphic } from '../lib/base-graphic';
-import { IReading, IObservation } from '@services/observations/interface';
+import { IReading, IObservation, ObservationModeEnum } from '@services/observations/interface';
 import { yAxis } from './y-axis';
+import { useDuration } from 'src/composables/use-duration';
+import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
 
 /**
  * Pas de temps disponibles pour les graduations de l'axe X.
@@ -72,7 +74,11 @@ export class xAxis extends BaseGroup {
   /** Liste des readings utilisés pour calculer la plage temporelle */
   private readings: IReading[] = [];
   
-  /** Conteneur pour les labels textuels des dates/heures */
+  /** 
+   * Conteneur pour les labels textuels de l'axe X.
+   * Les labels affichent soit des dates/heures (mode calendrier) soit des durées (mode chronomètre),
+   * selon le mode de l'observation.
+   */
   private labelsContainer: Container;
   
   /** Référence à l'axe Y pour connaître sa position et s'aligner */
@@ -128,6 +134,9 @@ export class xAxis extends BaseGroup {
     x: number,
     y: number,
   } | null = null;
+
+  /** Instance du composable useDuration pour formater les durées en mode chronomètre */
+  private duration = useDuration();
 
   /**
    * Retourne la position de départ de l'axe (copie pour éviter les mutations).
@@ -256,6 +265,10 @@ export class xAxis extends BaseGroup {
    * Le système choisit automatiquement un pas de temps qui donne environ 5 ticks principaux,
    * en sélectionnant le pas le plus proche de l'idéal parmi les timeSteps disponibles.
    * 
+   * Les labels des ticks sont formatés selon le mode de l'observation :
+   * - Mode chronomètre : durées au format compact (ex: "2j 3h 15m 30s 500ms")
+   * - Mode calendrier : dates/heures au format français (ex: "15-01-2024 10:30:45.123")
+   * 
    * @param observation - Observation contenant les readings
    * @throws Error si aucun reading n'est trouvé
    */
@@ -321,10 +334,20 @@ export class xAxis extends BaseGroup {
       // On n'affiche que les ticks qui sont dans la plage des readings
       if (currentTimeInMsec >= minTimeInMsec) {
         const dateTime = new Date(currentTimeInMsec);
-        ticks.push({ 
-          dateTime,
-          // Format du label : dd-MM-yyyy HH:mm:ss.xxx (format français)
-          label: dateTime.toLocaleDateString('fr-FR', {
+        
+        // Formatage du label selon le mode de l'observation
+        // En mode chronomètre : afficher une durée (format compact : "Xj Yh Zm Ws Vms")
+        // En mode calendrier : afficher la date/heure (format français : dd-MM-yyyy HH:mm:ss.xxx)
+        let label: string;
+        if (this.observation?.mode === ObservationModeEnum.Chronometer) {
+          // Mode chronomètre : formater comme une durée depuis t0
+          // CHRONOMETER_T0 est la date de référence définie dans @utils/chronometer.constants.ts
+          // La durée est calculée comme la différence entre dateTime et CHRONOMETER_T0
+          label = this.duration.formatFromDate(dateTime, CHRONOMETER_T0);
+        } else {
+          // Mode calendrier : formater comme une date/heure au format français
+          // Format : dd-MM-yyyy HH:mm:ss.xxx (ex: 15-01-2024 10:30:45.123)
+          label = dateTime.toLocaleDateString('fr-FR', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
@@ -332,7 +355,12 @@ export class xAxis extends BaseGroup {
             minute: '2-digit',
             second: '2-digit',
             fractionalSecondDigits: 3,
-          }).replace(/\//g, '-'),
+          }).replace(/\//g, '-');
+        }
+        
+        ticks.push({ 
+          dateTime,
+          label,
         });
       }
 
@@ -442,7 +470,9 @@ export class xAxis extends BaseGroup {
       });
       this.graphic.stroke();
 
-      // Création et positionnement du label textuel avec la date/heure
+      // Création et positionnement du label textuel
+      // Le label contient soit une date/heure (mode calendrier) soit une durée (mode chronomètre)
+      // Le formatage a été effectué lors de la génération des ticks dans setData()
       const label = new Text({
         text: tick.label,
         style: {
