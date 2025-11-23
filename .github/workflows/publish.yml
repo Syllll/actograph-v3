@@ -146,6 +146,17 @@ jobs:
         shell: bash
         run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
 
+      - name: Get yarn.lock hash
+        id: yarn-lock-hash
+        shell: bash
+        run: |
+          if [ -f api/yarn.lock ] && [ -f front/yarn.lock ]; then
+            HASH=$(cat api/yarn.lock front/yarn.lock | sha256sum | cut -d' ' -f1)
+            echo "hash=$HASH" >> $GITHUB_OUTPUT
+          else
+            echo "hash=no-lockfiles" >> $GITHUB_OUTPUT
+          fi
+
       - name: Cache yarn dependencies
         uses: actions/cache@v4
         with:
@@ -154,7 +165,7 @@ jobs:
             api/node_modules
             ${{ steps.yarn-cache-dir-path.outputs.dir }}
           # Isolate cache by OS and architecture (important for macOS x64 vs arm64)
-          key: ${{ runner.os }}-${{ matrix.electron_arch || 'default' }}-yarn-${{ hashFiles('api/yarn.lock', 'front/yarn.lock') }}
+          key: ${{ runner.os }}-${{ matrix.electron_arch || 'default' }}-yarn-${{ steps.yarn-lock-hash.outputs.hash }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.electron_arch || 'default' }}-yarn-
             ${{ runner.os }}-yarn-
