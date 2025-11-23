@@ -40,7 +40,7 @@ import {
   ProtocolItemActionEnum,
   ProtocolItemTypeEnum,
 } from '../entities/protocol.entity';
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
 class AddProtocolItemDto {
   @IsNotEmpty()
   @IsString()
@@ -59,7 +59,7 @@ class AddProtocolItemDto {
   type?: ProtocolItemTypeEnum;
 
   @IsOptional()
-  @IsString()
+  @IsObject()
   meta?: Record<string, any>;
 
   @IsNotEmpty()
@@ -105,7 +105,7 @@ class EditProtocolItemDto {
   type?: ProtocolItemTypeEnum;
 
   @IsOptional()
-  @IsString()
+  @IsObject()
   meta?: Record<string, any>;
 }
 
@@ -173,14 +173,32 @@ export class ProtocolController extends BaseController {
     let output: ProtocolItem;
 
     if (body.type === ProtocolItemTypeEnum.Category) {
-      output = await this.protocolService.items.editCategory({
+      /**
+       * IMPORTANT: Mise à jour partielle des catégories
+       * 
+       * Pour éviter d'écraser les valeurs existantes lors d'une mise à jour partielle
+       * (ex: mise à jour uniquement de la position dans meta), on ne passe que les
+       * champs qui sont explicitement fournis dans le body (pas undefined).
+       * 
+       * Cela garantit que :
+       * - Les champs non fournis (undefined) ne sont pas envoyés au service
+       * - Les valeurs existantes (nom, description, action, etc.) sont préservées
+       * - Seuls les champs fournis sont mis à jour
+       * 
+       * Exemple : Si on envoie seulement { meta: { position: { x: 100, y: 200 } } },
+       * le nom, la description et les autres champs restent inchangés.
+       */
+      const categoryUpdates: any = {
         protocolId: body.protocolId,
         categoryId: id,
-        name: body.name,
-        description: body.description,
-        action: body.action,
-        order: body.order,
-      });
+      };
+      if (body.name !== undefined) categoryUpdates.name = body.name;
+      if (body.description !== undefined) categoryUpdates.description = body.description;
+      if (body.action !== undefined) categoryUpdates.action = body.action;
+      if (body.order !== undefined) categoryUpdates.order = body.order;
+      if (body.meta !== undefined) categoryUpdates.meta = body.meta;
+      
+      output = await this.protocolService.items.editCategory(categoryUpdates);
     } else if (body.type === ProtocolItemTypeEnum.Observable) {
       output = await this.protocolService.items.editObservable({
         protocolId: body.protocolId,

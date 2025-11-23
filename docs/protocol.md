@@ -165,25 +165,60 @@ const observable = await protocolService.addObservable({
 
 ### Modifier un item
 
+**Mise à jour partielle (recommandée)**
+
+Les mises à jour sont **partielles** par défaut : seuls les champs fournis sont modifiés, les autres sont préservés.
+
 **Backend :**
 ```typescript
-await protocolService.items.editItem({
+// Mise à jour complète
+await protocolService.items.editCategory({
   protocolId: 1,
-  itemId: 'uuid-de-l-item',
+  categoryId: 'uuid-de-la-categorie',
   name: 'Nom modifié',
   description: 'Description modifiée',
+  action: ProtocolItemActionEnum.Continuous,
 });
+
+// Mise à jour partielle : seulement la position dans meta
+await protocolService.items.editCategory({
+  protocolId: 1,
+  categoryId: 'uuid-de-la-categorie',
+  meta: {
+    position: { x: 100, y: 200 }
+  }
+});
+// Le nom, la description et les autres champs restent inchangés
 ```
 
 **Frontend :**
 ```typescript
-await protocolService.editItem({
+// Mise à jour complète
+await protocolService.editProtocolItem({
+  id: 'uuid-de-l-item',
   protocolId: 1,
-  itemId: 'uuid-de-l-item',
+  type: ProtocolItemTypeEnum.Category,
   name: 'Nom modifié',
   description: 'Description modifiée',
 });
+
+// Mise à jour partielle : seulement meta
+await protocolService.editProtocolItem({
+  id: 'uuid-de-l-item',
+  protocolId: 1,
+  type: ProtocolItemTypeEnum.Category,
+  meta: {
+    ...existingMeta,
+    position: { x: 100, y: 200 }
+  }
+});
 ```
+
+**Important :**
+- Les champs non fournis (`undefined`) ne sont **pas** envoyés au backend
+- Les valeurs existantes sont **automatiquement préservées**
+- Seuls les champs explicitement fournis sont mis à jour
+- Cela permet des mises à jour ciblées (ex: position, métadonnées) sans risquer d'écraser d'autres données
 
 ### Supprimer un item
 
@@ -325,12 +360,30 @@ Body: {
 ```
 PATCH /observations/protocols/item/:id
 Body: {
-  name?: string,
-  description?: string,
-  action?: string,
-  meta?: object
+  protocolId: number,      // Requis
+  type: 'category' | 'observable',  // Requis
+  name?: string,           // Optionnel - seulement si on veut modifier le nom
+  description?: string,     // Optionnel - seulement si on veut modifier la description
+  action?: string,          // Optionnel - seulement si on veut modifier l'action
+  order?: number,           // Optionnel - seulement si on veut modifier l'ordre
+  meta?: object             // Optionnel - seulement si on veut modifier les métadonnées
 }
 ```
+
+**Note importante :** Les champs non fournis (`undefined`) ne sont pas envoyés au backend. Les valeurs existantes sont automatiquement préservées. Cela permet des mises à jour partielles sécurisées.
+
+**Exemple : Mise à jour uniquement de la position**
+```json
+PATCH /observations/protocols/item/ea5919a4-dc92-4646-9183-c511b8bfda5a
+{
+  "protocolId": 1,
+  "type": "category",
+  "meta": {
+    "position": { "x": 100, "y": 200 }
+  }
+}
+```
+Le nom, la description et les autres champs de la catégorie restent inchangés.
 
 **Supprimer un item :**
 ```
@@ -365,6 +418,42 @@ Avant de modifier/supprimer un item :
 - Seul le propriétaire de l'observation peut modifier le protocole
 - Les protocoles sont privés à chaque utilisateur
 
+## Métadonnées (meta)
+
+Le champ `meta` permet de stocker des données additionnelles pour chaque item. Il est couramment utilisé pour :
+
+- **Position dans l'interface** : `{ position: { x: 100, y: 200 } }`
+- **Préférences d'affichage** : `{ collapsed: true, color: '#ff0000' }`
+- **Données personnalisées** : toute structure JSON valide
+
+### Mise à jour des métadonnées
+
+Lors de la mise à jour de `meta`, il est important de préserver les métadonnées existantes :
+
+```typescript
+// ❌ Mauvaise pratique : écrase toutes les métadonnées existantes
+await protocolService.editProtocolItem({
+  id: categoryId,
+  protocolId: 1,
+  type: ProtocolItemTypeEnum.Category,
+  meta: {
+    position: { x: 100, y: 200 }
+  }
+});
+
+// ✅ Bonne pratique : préserve les métadonnées existantes
+const category = await getCategory(categoryId);
+await protocolService.editProtocolItem({
+  id: categoryId,
+  protocolId: 1,
+  type: ProtocolItemTypeEnum.Category,
+  meta: {
+    ...(category.meta || {}),
+    position: { x: 100, y: 200 }
+  }
+});
+```
+
 ## Bonnes pratiques
 
 ### Structure hiérarchique
@@ -384,6 +473,12 @@ Avant de modifier/supprimer un item :
 - Utilisez des noms courts mais descriptifs
 - Respectez une convention de nommage cohérente
 - Utilisez les descriptions pour plus de détails
+
+### Mises à jour partielles
+
+- **Toujours utiliser des mises à jour partielles** : ne fournissez que les champs à modifier
+- **Préserver les métadonnées existantes** : utilisez le spread operator pour `meta`
+- **Ne pas envoyer de valeurs `undefined`** : le backend les ignore automatiquement, mais c'est une bonne pratique
 
 ## Dépannage
 
@@ -411,4 +506,30 @@ Si l'arborescence ne s'affiche pas correctement :
 1. Vérifiez que les items sont bien parsés
 2. Vérifiez que la structure hiérarchique est correcte
 3. Vérifiez que l'ordre (`order`) est défini
+
+### Perte de données lors de la mise à jour
+
+Si des champs disparaissent après une mise à jour :
+
+1. **Vérifiez que vous utilisez une mise à jour partielle** : ne fournissez que les champs à modifier
+2. **Vérifiez que vous préservez les métadonnées** : utilisez `...(existingMeta || {})` lors de la mise à jour de `meta`
+3. **Vérifiez les logs du backend** : les valeurs `undefined` ne devraient pas être envoyées
+4. **Vérifiez que le backend a bien reçu les données** : le backend préserve automatiquement les champs non fournis
+
+**Exemple de problème et solution :**
+
+```typescript
+// ❌ Problème : envoie seulement meta, mais le nom disparaît
+await protocolService.editProtocolItem({
+  id: categoryId,
+  protocolId: 1,
+  type: ProtocolItemTypeEnum.Category,
+  meta: { position: { x: 100, y: 200 } }
+});
+
+// ✅ Solution : le backend préserve automatiquement le nom
+// (correction appliquée dans le code)
+// Le problème venait du fait que le controller envoyait tous les champs,
+// y compris undefined, ce qui écrasait les valeurs existantes.
+```
 

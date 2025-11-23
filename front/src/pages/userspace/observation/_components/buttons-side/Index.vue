@@ -245,10 +245,15 @@ export default defineComponent({
         const rowHeight = 250;
         items.forEach((category: ProtocolItem) => {
           if (forceReset || !state.categoryPositions[category.id]) {
-            state.categoryPositions[category.id] = {
-              x: column * columnWidth,
-              y: row * rowHeight,
-            };
+            // Check if position is stored in meta
+            if (!forceReset && category.meta && category.meta.position) {
+              state.categoryPositions[category.id] = category.meta.position;
+            } else {
+              state.categoryPositions[category.id] = {
+                x: column * columnWidth,
+                y: row * rowHeight,
+              };
+            }
           }
           column++;
           if (column >= maxColumns) {
@@ -319,6 +324,51 @@ export default defineComponent({
         }
       },
 
+      /**
+       * Sauvegarde la position d'une catégorie dans le backend
+       * 
+       * Cette fonction est appelée après le déplacement d'une catégorie (drag & drop).
+       * Elle sauvegarde uniquement la position dans le champ `meta.position` de la catégorie,
+       * sans affecter les autres propriétés (nom, description, action, etc.).
+       * 
+       * IMPORTANT: Mise à jour partielle
+       * - Seul le champ `meta` est envoyé au backend
+       * - Le backend préserve automatiquement les autres champs (nom, description, etc.)
+       * - Après la sauvegarde, `editProtocolItem` recharge le protocole complet depuis le backend
+       * - Le watch sur `sharedState.currentProtocol` mettra à jour les positions depuis `meta`
+       * 
+       * @param categoryId - ID de la catégorie à sauvegarder
+       */
+      saveCategoryPosition: async (categoryId: string) => {
+        const position = state.categoryPositions[categoryId];
+        if (!position) return;
+
+        const category = computedState.categories.value.find(c => c.id === categoryId);
+        if (!category || !sharedState.currentProtocol) return;
+
+        try {
+          await protocol.methods.editProtocolItem({
+            id: categoryId,
+            protocolId: sharedState.currentProtocol.id,
+            type: ProtocolItemTypeEnum.Category,
+            meta: {
+              ...(category.meta || {}),
+              position
+            }
+          });
+          
+          // Note: No need to update locally as editProtocolItem reloads the protocol
+          // The reload will trigger the watch which will update positions from meta
+        } catch (error) {
+          console.error('Failed to save category position:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de la sauvegarde de la position',
+            position: 'top-right'
+          });
+        }
+      },
+
       // Get styles for a category
       getCategoryStyle: (categoryId: string) => {
         const position = state.categoryPositions[categoryId] || { x: 0, y: 0 };
@@ -336,27 +386,62 @@ export default defineComponent({
       updateDraggingState: (categoryId: string, isDrag: boolean) => {
         state.isDragging = isDrag;
         state.isDraggingCategoryId = isDrag ? categoryId : null;
+        
+        // If drag ended, save the position
+        if (!isDrag) {
+          methods.saveCategoryPosition(categoryId);
+        }
       },
 
       // Resets all categories to their original grid positions
       resetPositions: () => {
-        if (state.isResetting) return;
+        if (state.isResetting || !sharedState.currentProtocol) return;
+        const currentProtocolId = sharedState.currentProtocol.id;
         state.isResetting = true;
         Object.keys(state.categoryPositions).forEach(key => {
           delete state.categoryPositions[key];
         });
-        methods.calculateCategoryPositions(true);
-        setTimeout(() => {
-          state.isDragging = false;
-          state.isDraggingCategoryId = null;
-          $q.notify({
-            type: 'positive',
-            message: 'Les catégories ont été réinitialisées',
-            position: 'top-right',
-            timeout: 2000,
-          });
+        
+        // Reset positions in backend for all categories
+        const promises = computedState.categories.value.map(async (category) => {
+          if (category.meta && category.meta.position) {
+            const newMeta = { ...category.meta };
+            delete newMeta.position;
+            
+            await protocol.methods.editProtocolItem({
+              id: category.id,
+              protocolId: currentProtocolId,
+              type: ProtocolItemTypeEnum.Category,
+              meta: newMeta
+            });
+            
+            // Update local state
+            category.meta = newMeta;
+          }
+        });
+        
+        Promise.all(promises).then(() => {
+          methods.calculateCategoryPositions(true);
+          setTimeout(() => {
+            state.isDragging = false;
+            state.isDraggingCategoryId = null;
+            $q.notify({
+              type: 'positive',
+              message: 'Les catégories ont été réinitialisées',
+              position: 'top-right',
+              timeout: 2000,
+            });
+            state.isResetting = false;
+          }, 600);
+        }).catch(error => {
+          console.error('Failed to reset positions:', error);
           state.isResetting = false;
-        }, 600);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de la réinitialisation',
+            position: 'top-right'
+          });
+        });
       },
 
       // Initialize readings for continuous categories on first start

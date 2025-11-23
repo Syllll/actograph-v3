@@ -16,7 +16,7 @@ export class Items {
   constructor(
     private readonly protocolService: ProtocolService,
     private readonly protocolRepository: ProtocolRepository,
-  ) {}
+  ) { }
 
   public getItemsAsJson(itemsStr: string | undefined): ProtocolItem[] {
     if (!itemsStr) {
@@ -164,6 +164,7 @@ export class Items {
     description?: string;
     action?: ProtocolItemActionEnum;
     order?: number;
+    meta?: Record<string, any>;
   }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
@@ -185,10 +186,33 @@ export class Items {
       throw new NotFoundException('Category was not found');
     }
 
-    // Create a copy of the category with updated properties
+    /**
+     * Création d'une copie de la catégorie avec les propriétés mises à jour
+     * 
+     * IMPORTANT: Protection contre l'écrasement des valeurs existantes
+     * 
+     * 1. Exclusion des propriétés techniques (categoryId, protocolId) qui ne font
+     *    pas partie des données de la catégorie elle-même
+     * 
+     * 2. Filtrage des valeurs undefined pour éviter d'écraser les valeurs existantes
+     *    lors d'une mise à jour partielle (ex: mise à jour uniquement de meta.position)
+     * 
+     * Cela garantit que :
+     * - Les champs non fournis (undefined) ne remplacent pas les valeurs existantes
+     * - Les valeurs existantes (nom, description, action, children, etc.) sont préservées
+     * - Seuls les champs explicitement fournis sont mis à jour
+     * 
+     * Exemple : Si options = { meta: { position: {...} } }, le nom, la description
+     * et les autres champs de la catégorie restent inchangés.
+     */
+    const { categoryId, protocolId, ...categoryUpdates } = options;
+    // Filter out undefined values to avoid overwriting existing values
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(categoryUpdates).filter(([_, value]) => value !== undefined)
+    );
     const updatedCategory = {
       ...categories[categoryIndex],
-      ...options,
+      ...filteredUpdates,
     };
 
     // Handle order change if specified
