@@ -215,8 +215,7 @@ Une licence commerciale est requise pour :
 Pour plus d'informations sur les conditions d'utilisation, consultez le fichier [LICENSE](LICENSE) à la racine du projet.
 
 **Pour obtenir une licence commerciale**, veuillez contacter SymAlgo Technologies :
-- Email : [À COMPLÉTER]
-- Site web : [À COMPLÉTER]
+- Site web : https://actograph.io
 
 ## Support
 

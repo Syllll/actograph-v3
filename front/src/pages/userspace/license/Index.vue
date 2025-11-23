@@ -402,9 +402,7 @@
               <div class="q-mt-sm q-pl-md">
                 <p class="q-mb-sm">
                   <strong>SymAlgo Technologies</strong><br>
-                  [À COMPLÉTER - Adresse postale]<br>
-                  Email : [À COMPLÉTER]<br>
-                  Site web : [À COMPLÉTER]
+                  Site web : <a href="https://actograph.io" target="_blank" rel="noopener noreferrer" class="text-primary">https://actograph.io</a>
                 </p>
               </div>
               <p class="q-mt-sm">
