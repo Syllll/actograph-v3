@@ -15,7 +15,8 @@
   </div>
   
   <!-- Video player container (shown when video is loaded or when videoPath exists) -->
-  <div v-else class="video-player-container column">
+  <!-- IMPORTANT: Ne pas afficher en mode calendrier -->
+  <div v-else-if="observation.isChronometerMode.value" class="video-player-container column">
     <!-- Video container -->
     <div class="video-wrapper col">
       <video
@@ -772,9 +773,19 @@ export default defineComponent({
     // 1. Le composant est monté (immediate: true)
     // 2. Le videoPath change dans l'observation
     // 3. L'observation est chargée après le montage du composant
+    // IMPORTANT: Ne charger la vidéo QUE si on est en mode chronomètre
     const stopVideoPathWatcher = watch(
       () => observation.sharedState.currentObservation?.videoPath,
       async (newPath, oldPath) => {
+        // Ne charger la vidéo QUE si on est en mode chronomètre
+        if (!observation.isChronometerMode.value) {
+          // En mode calendrier, ne pas charger de vidéo même si videoPath existe
+          videoSrc.value = '';
+          state.currentVideoPath = null;
+          state.videoError = null;
+          return;
+        }
+
         // Charger la vidéo si :
         // - Un nouveau videoPath est défini
         // - Le videoPath a changé depuis la dernière fois
@@ -805,9 +816,19 @@ export default defineComponent({
     // Watch for observation changes to ensure video loads when observation is loaded
     // This handles the case where the component mounts before the observation is loaded
     // or when navigating to the observation page with an observation that has a videoPath
+    // IMPORTANT: Ne charger la vidéo QUE si on est en mode chronomètre
     const stopObservationWatcher = watch(
       () => observation.sharedState.currentObservation,
       async (newObservation, oldObservation) => {
+        // Ne charger la vidéo QUE si on est en mode chronomètre
+        if (!observation.isChronometerMode.value) {
+          // En mode calendrier, ne pas charger de vidéo même si videoPath existe
+          videoSrc.value = '';
+          state.currentVideoPath = null;
+          state.videoError = null;
+          return;
+        }
+
         // Charger la vidéo si :
         // 1. Une nouvelle observation est chargée avec un videoPath
         // 2. L'observation change (même si elle avait déjà un videoPath)
@@ -838,6 +859,34 @@ export default defineComponent({
       { immediate: true }
     );
 
+    // Watch for mode changes to reset video state when switching to calendar mode
+    // IMPORTANT: En mode calendrier, on ne doit pas charger de vidéo ni afficher d'erreurs
+    const stopModeWatcher = watch(
+      () => observation.isChronometerMode.value,
+      (isChronometerMode) => {
+        if (!isChronometerMode) {
+          // En mode calendrier, réinitialiser complètement l'état vidéo
+          videoSrc.value = '';
+          state.currentVideoPath = null;
+          state.videoError = null;
+          state.isLoading = false;
+          state.isPlaying = false;
+          
+          // Arrêter et nettoyer la vidéo si elle est en cours de lecture
+          if (videoRef.value) {
+            try {
+              videoRef.value.pause();
+              videoRef.value.src = '';
+              videoRef.value.load();
+            } catch (e) {
+              // Ignore errors during cleanup
+            }
+          }
+        }
+      },
+      { immediate: true }
+    );
+
     // Watch for readings changes to update notches
     const stopReadingsWatcher = watch(
       () => readingsState.currentReadings,
@@ -855,7 +904,17 @@ export default defineComponent({
     // This handles the case where user navigates to observation page
     // with an observation that was just created or already loaded
     // IMPORTANT: This is a fallback in case watchers don't trigger correctly
+    // IMPORTANT: Ne charger la vidéo QUE si on est en mode chronomètre
     onMounted(async () => {
+      // Ne charger la vidéo QUE si on est en mode chronomètre
+      if (!observation.isChronometerMode.value) {
+        // En mode calendrier, ne pas charger de vidéo même si videoPath existe
+        videoSrc.value = '';
+        state.currentVideoPath = null;
+        state.videoError = null;
+        return;
+      }
+
       // Wait a bit to ensure all watchers have run first
       // This gives watchers a chance to load the video automatically
       await new Promise(resolve => setTimeout(resolve, 200));
@@ -913,6 +972,7 @@ export default defineComponent({
       // Stop all watchers
       stopVideoPathWatcher();
       stopObservationWatcher();
+      stopModeWatcher();
       stopReadingsWatcher();
       stopCurrentTimeWatcher();
       

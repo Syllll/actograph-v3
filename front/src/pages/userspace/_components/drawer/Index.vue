@@ -111,7 +111,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, computed } from 'vue';
+import { defineComponent, reactive, computed, nextTick } from 'vue';
 import { menu } from './menu';
 import { useDrawer } from './use-drawer';
 import { useRouter } from 'vue-router';
@@ -193,7 +193,26 @@ export default defineComponent({
           createOptions.videoPath = diagRes.videoPath;
         }
 
-        await observation.methods.createObservation(createOptions);
+        try {
+          // Créer l'observation (cette méthode charge déjà l'observation complète)
+          await observation.methods.createObservation(createOptions);
+
+          // Attendre que Vue ait mis à jour le DOM avec la nouvelle observation
+          await nextTick();
+          
+          // Petit délai supplémentaire pour s'assurer que tout est bien chargé
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          // Rediriger vers la page d'accueil après la création
+          await router.push({ name: 'user_home' });
+        } catch (error) {
+          console.error('Erreur lors de la création de l\'observation:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de la création de la chronique',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+          });
+        }
       },
 
       importObservation: async () => {

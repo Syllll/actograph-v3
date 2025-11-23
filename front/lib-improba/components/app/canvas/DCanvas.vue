@@ -1,6 +1,6 @@
 <template>
   <div :class="'fit row justify-center items-center'">
-    <div class="fit relative-position" ref="__canvasRef" style="overflow: hidden">
+    <div class="fit relative-position" ref="containerRef" style="overflow: hidden">
       <canvas
         ref="canvasRef"
         :id="$props.canvasId"
@@ -32,15 +32,15 @@ export default defineComponent({
   },
   emits: ['resize', 'canvasMouseEnter', 'canvasMouseMove', 'canvasMouseLeave'],
   setup(props, context) {
-    const __canvasRef = ref<any>(null);
+    const containerRef = ref<any>(null);
     const canvasRef = ref<any>(null);
     
     const resizeAction = () => {
-      if (!__canvasRef?.value) {
+      if (!containerRef?.value) {
         return;
       }
 
-      const parentElement = __canvasRef.value.parentElement;
+      const parentElement = containerRef.value.parentElement;
       if (!parentElement) {
         return;
       }
@@ -55,16 +55,16 @@ export default defineComponent({
         Math.floor(rect.height)
       );
 
-      //__canvasRef.value.style.width = `${sideValue}px !important`;
-      //__canvasRef.value.style.height = `${sideValue}px !important`;
-      __canvasRef.value.style = `width: ${sideValue - 25}px !important; height: ${
+      //containerRef.value.style.width = `${sideValue}px !important`;
+      //containerRef.value.style.height = `${sideValue}px !important`;
+      containerRef.value.style = `width: ${sideValue - 25}px !important; height: ${
         sideValue - 25
       }px !important`;
       context.emit('resize', sideValue);
     };
 
     const resizeEvent = () => {
-      const parentElement = __canvasRef.value.parentElement;
+      const parentElement = containerRef.value.parentElement;
       if (!parentElement) {
         return;
       }
@@ -74,14 +74,14 @@ export default defineComponent({
         return;
       }
 
-      /*__canvasRef.value.style.width = `${Math.floor(
+      /*containerRef.value.style.width = `${Math.floor(
         rect.width - 25
       )}px !important`;
-      __canvasRef.value.style.height = `${Math.floor(
+      containerRef.value.style.height = `${Math.floor(
         rect.height - 25
       )}px !important`;*/
 
-      __canvasRef.value.style = `width: ${Math.floor(
+      containerRef.value.style = `width: ${Math.floor(
         rect.width - 5
       )}px !important; height: ${Math.floor(rect.height - 5)}px !important`;
 
@@ -89,7 +89,7 @@ export default defineComponent({
     };
 
     onMounted(() => {
-      const parentElement = __canvasRef.value.parentElement;
+      const parentElement = containerRef.value.parentElement;
 
       if (props.square) {
         resizeAction();
@@ -109,7 +109,9 @@ export default defineComponent({
     });
 
     return {
-      __canvasRef,
+      // Référence au conteneur div (utilisée en interne pour le resize)
+      containerRef,
+      // Référence au canvas HTML (exposée pour les composants parents)
       canvasRef,
     };
   },

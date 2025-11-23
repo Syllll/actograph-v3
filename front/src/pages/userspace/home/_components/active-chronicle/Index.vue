@@ -173,7 +173,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, computed } from 'vue';
+import { defineComponent, reactive, computed, nextTick } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
 import SelectChronicleDialog from './SelectChronicleDialog.vue';
@@ -181,7 +181,7 @@ import CreateObservationDialog from './CreateObservationDialog.vue';
 import { DSubmitBtn } from '@lib-improba/components';
 import { useQuasar } from 'quasar';
 import { ObservationModeEnum } from '@services/observations/interface';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { exportService } from '@services/observations/export.service';
 import { importService } from '@services/observations/import.service';
@@ -196,6 +196,7 @@ export default defineComponent({
   setup() {
     const $q = useQuasar();
     const router = useRouter();
+    const route = useRoute();
     const observation = useObservation();
 
     const state = reactive({
@@ -329,14 +330,28 @@ export default defineComponent({
           createOptions.videoPath = diagRes.videoPath;
         }
 
-        const createdObservation = await observation.methods.createObservation(createOptions);
+        try {
+          // Créer l'observation (cette méthode charge déjà l'observation complète)
+          await observation.methods.createObservation(createOptions);
 
-        // Attendre un peu pour s'assurer que l'observation est complètement chargée
-        // dans le state avant de rediriger
-        await new Promise(resolve => setTimeout(resolve, 100));
+          // Attendre que Vue ait mis à jour le DOM avec la nouvelle observation
+          await nextTick();
+          
+          // Petit délai supplémentaire pour s'assurer que tout est bien chargé
+          await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Rediriger vers la page d'accueil après la création
-        router.push({ name: 'user_home' });
+          // Toujours rediriger vers la page d'accueil après la création
+          // Même si on est déjà sur la page d'accueil, cela garantit que le composant
+          // se met à jour avec la nouvelle observation chargée
+          await router.push({ name: 'user_home' });
+        } catch (error) {
+          console.error('Erreur lors de la création de l\'observation:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de la création de la chronique',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+          });
+        }
       },
 
       /**

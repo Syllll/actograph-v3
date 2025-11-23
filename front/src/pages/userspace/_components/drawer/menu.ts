@@ -48,8 +48,8 @@ export const menu = (router: Router) => [
     label: 'Statistiques',
     icon: 'mdi-chart-box',
     separator: false,
-    action: () => router.push({ name: 'user_analyse' }),
-    isActive: () => router.currentRoute.value.name === 'user_analyse',
+    action: () => router.push({ name: 'user_statistics' }),
+    isActive: () => router.currentRoute.value.name === 'user_statistics',
     disabled: (observation: any) => {
       return !observation.sharedState.currentObservation || 
              observation.readings.sharedState.currentReadings.length === 0;
