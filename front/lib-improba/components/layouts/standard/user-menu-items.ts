@@ -11,6 +11,11 @@ export const userMenuItems = (i18n: any, auth: any) => {
       class: 'q-pa-none',
       action: undefined,
     },
+    {
+      name: 'license',
+      label: 'Licence',
+      route: { name: 'user_license' },
+    },
     /*{
     label: i18n.t('layout.dropDownMenu.profile'),
     disable: true,

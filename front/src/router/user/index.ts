@@ -35,6 +35,11 @@ export const userRoutes: RouteRecordRaw[] = [
         name: 'user_statistics',
         component: () => import('pages/userspace/statistics/Index.vue'),
       },
+      {
+        path: 'license',
+        name: 'user_license',
+        component: () => import('pages/userspace/license/Index.vue'),
+      },
     ],
   },
 ];

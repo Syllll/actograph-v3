@@ -1,0 +1,456 @@
+<template>
+  <DPage>
+    <div class="fit column">
+      <div class="col-auto q-pa-md">
+        <div class="text-h4 text-weight-bold q-mb-md">Licence d'utilisation</div>
+        <div class="text-body2 text-grey-7">
+          Dernière mise à jour : Janvier 2024
+        </div>
+      </div>
+      <DScrollArea class="col">
+        <div class="q-pa-lg">
+          <div class="license-content text-body1">
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                LICENCE D'UTILISATION D'ACTOGRAPH V3
+              </div>
+              <div class="text-body2 text-grey-7">
+                Copyright (c) 2024 SymAlgo Technologies. Tous droits réservés.
+              </div>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                PROPRIÉTÉ INTELLECTUELLE
+              </div>
+              <p>
+                ActoGraph v3 est la propriété exclusive de SymAlgo Technologies. Tous les droits de 
+                propriété intellectuelle, y compris mais sans s'y limiter, les droits d'auteur, les 
+                marques de commerce, les brevets et les secrets commerciaux, appartiennent à SymAlgo 
+                Technologies.
+              </p>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                DÉFINITIONS
+              </div>
+              <p>
+                Aux fins de la présente licence, les termes suivants ont la signification qui leur est 
+                attribuée ci-dessous :
+              </p>
+              <ul class="q-pl-md q-mt-sm">
+                <li class="q-mb-sm">
+                  <strong>"Étudiant"</strong> : toute personne physique inscrite dans un établissement d'enseignement 
+                  reconnu (école, université, institut, centre de formation, etc.) et poursuivant des 
+                  études à temps plein ou à temps partiel, y compris les doctorants et les chercheurs 
+                  en formation.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>"Établissement d'enseignement"</strong> : toute institution reconnue par les autorités 
+                  compétentes comme dispensant un enseignement académique, y compris les établissements 
+                  publics et privés d'enseignement supérieur, les écoles, les instituts de recherche 
+                  académique et les centres de formation professionnelle.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>"Utilisation commerciale"</strong> : toute utilisation du Logiciel qui génère ou est destinée 
+                  à générer un revenu, un profit ou un avantage économique, directement ou indirectement, 
+                  y compris mais sans s'y limiter : (i) l'utilisation dans le cadre d'une activité 
+                  professionnelle rémunérée, (ii) l'intégration dans un produit ou service vendu ou 
+                  commercialisé, (iii) l'utilisation par une entreprise pour ses besoins internes, 
+                  (iv) l'utilisation par un prestataire de services pour le compte d'un client, 
+                  (v) toute utilisation dans un contexte commercial ou professionnel.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>"Entreprise"</strong> : toute personne morale ou physique exerçant une activité économique, 
+                  y compris mais sans s'y limiter : les sociétés commerciales, les entreprises 
+                  individuelles, les associations à but lucratif, les institutions gouvernementales 
+                  (sauf établissements d'enseignement publics), les organisations non gouvernementales 
+                  exerçant des activités commerciales, les consultants indépendants exerçant une 
+                  activité professionnelle, et toute entité utilisant le Logiciel dans un contexte 
+                  commercial ou professionnel.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>"Logiciel"</strong> : le logiciel ActoGraph v3, y compris son code source, ses fichiers 
+                  exécutables, sa documentation, et toute version modifiée ou dérivée du Logiciel.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>"Utilisateur"</strong> : toute personne physique qui utilise le Logiciel, que ce soit 
+                  directement ou indirectement, y compris mais sans s'y limiter : les employés, 
+                  les consultants, les prestataires, les sous-traitants ou toute autre personne 
+                  agissant pour le compte d'une Entreprise ou dans le cadre d'une activité 
+                  professionnelle. Un Utilisateur est identifié par un compte utilisateur unique 
+                  dans le Logiciel ou par toute autre méthode d'identification mise en place par 
+                  SymAlgo Technologies.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>"Licence commerciale"</strong> : un contrat écrit et signé entre SymAlgo Technologies et 
+                  une Entreprise, accordant à cette dernière le droit d'utiliser le Logiciel dans 
+                  le cadre d'une activité commerciale, sous réserve du respect des termes et 
+                  conditions spécifiés dans ledit contrat. Une Licence commerciale est accordée 
+                  pour un Utilisateur unique et spécifique. Chaque Utilisateur nécessite sa propre 
+                  Licence commerciale distincte.
+                </li>
+              </ul>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                1. UTILISATION PAR LES ÉTUDIANTS (LICENCE ÉDUCATIVE)
+              </div>
+              <p>
+                Sous réserve du respect strict des conditions énoncées dans la présente licence, 
+                SymAlgo Technologies accorde aux Étudiants une licence gratuite, non exclusive, 
+                non transférable et révocable pour :
+              </p>
+              <ul class="q-pl-md q-mt-sm">
+                <li class="q-mb-sm">
+                  a) Utiliser le Logiciel à des fins exclusivement éducatives et non commerciales, 
+                  dans le cadre de leurs activités académiques ;
+                </li>
+                <li class="q-mb-sm">
+                  b) Étudier, examiner, analyser, modifier et adapter le code source du Logiciel 
+                  dans le cadre de leurs études ou recherches académiques ;
+                </li>
+                <li class="q-mb-sm">
+                  c) Partager le code source modifié avec d'autres Étudiants ou enseignants dans le 
+                  cadre d'activités éducatives, à condition que cette distribution soit gratuite 
+                  et non commerciale ;
+                </li>
+                <li class="q-mb-sm">
+                  d) Créer des travaux académiques (mémoires, thèses, articles, etc.) faisant 
+                  référence au Logiciel ou utilisant le Logiciel comme support pédagogique.
+                </li>
+              </ul>
+              <p class="q-mt-sm">
+                Cette licence éducative est accordée uniquement aux Étudiants inscrits dans un 
+                Établissement d'enseignement et uniquement pour leurs activités académiques. 
+                Toute utilisation en dehors du cadre académique est strictement interdite.
+              </p>
+              <p class="q-mt-sm">
+                Les établissements d'enseignement publics peuvent également utiliser le Logiciel 
+                à des fins d'enseignement et de recherche académique, sous réserve des mêmes 
+                restrictions (non commercial).
+              </p>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                2. UTILISATION PAR LES ENTREPRISES (LICENCE COMMERCIALE REQUISE)
+              </div>
+              <p>
+                Toute Utilisation commerciale du Logiciel par une Entreprise est STRICTEMENT 
+                INTERDITE sans l'obtention préalable d'une Licence commerciale écrite et signée 
+                auprès de SymAlgo Technologies.
+              </p>
+              <p class="q-mt-sm">
+                <strong>IMPORTANT - MODÈLE DE LICENCE PAR UTILISATEUR :</strong>
+              </p>
+              <p class="q-mt-sm">
+                Une Licence commerciale est accordée pour UN SEUL Utilisateur. Chaque Utilisateur 
+                nécessite sa propre Licence commerciale distincte. Si une Entreprise souhaite 
+                que plusieurs Utilisateurs utilisent le Logiciel, elle doit obtenir une Licence 
+                commerciale séparée pour chaque Utilisateur.
+              </p>
+              <p class="q-mt-sm">
+                Par exemple :
+              </p>
+              <ul class="q-pl-md q-mt-sm">
+                <li>1 Utilisateur = 1 Licence commerciale</li>
+                <li>5 Utilisateurs = 5 Licences commerciales distinctes</li>
+                <li>10 Utilisateurs = 10 Licences commerciales distinctes</li>
+              </ul>
+              <p class="q-mt-sm">
+                Le partage d'une Licence commerciale entre plusieurs Utilisateurs est strictement 
+                interdit et constitue une violation de la présente licence.
+              </p>
+              <p class="q-mt-sm">
+                Une Licence commerciale est expressément requise pour :
+              </p>
+              <ul class="q-pl-md q-mt-sm">
+                <li class="q-mb-sm">a) Toute utilisation du Logiciel à des fins commerciales ou professionnelles ;</li>
+                <li class="q-mb-sm">b) Toute utilisation du Logiciel dans un contexte commercial, même si elle n'est 
+                  pas directement monétisée ou génératrice de revenus ;</li>
+                <li class="q-mb-sm">c) Toute intégration du Logiciel dans des produits ou services commerciaux, 
+                  qu'ils soient vendus, loués, ou fournis dans le cadre d'un contrat commercial ;</li>
+                <li class="q-mb-sm">d) Toute utilisation du Logiciel par des consultants, des prestataires de services, 
+                  des sous-traitants ou des freelances agissant pour le compte d'une Entreprise 
+                  ou dans le cadre d'une activité professionnelle rémunérée ;</li>
+                <li class="q-mb-sm">e) Toute utilisation du Logiciel par une institution gouvernementale à des fins 
+                  non académiques ;</li>
+                <li class="q-mb-sm">f) Toute utilisation du Logiciel dans le cadre d'une activité de recherche 
+                  financée par une Entreprise ou ayant un objectif commercial.</li>
+              </ul>
+              <p class="q-mt-sm">
+                Chaque Licence commerciale est personnelle, nominative et non transférable. 
+                Elle ne peut être utilisée que par l'Utilisateur spécifiquement désigné dans 
+                le contrat de Licence commerciale. En cas de changement d'Utilisateur, une 
+                nouvelle Licence commerciale doit être obtenue.
+              </p>
+              <p class="q-mt-sm">
+                Pour obtenir une Licence commerciale, veuillez contacter SymAlgo Technologies 
+                aux coordonnées indiquées à l'article 10 de la présente licence.
+              </p>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                3. RESTRICTIONS GÉNÉRALES
+              </div>
+              <p>
+                Sans préjudice des restrictions spécifiques mentionnées ci-dessus, il est expressément 
+                interdit :
+              </p>
+              <ul class="q-pl-md q-mt-sm">
+                <li class="q-mb-sm">
+                  a) De supprimer, modifier ou altérer les avis de droits d'auteur, les mentions de 
+                  propriété intellectuelle, les notices légales ou toute autre information 
+                  relative à la propriété du Logiciel ;
+                </li>
+                <li class="q-mb-sm">
+                  b) D'utiliser le Logiciel de manière à violer les lois, réglementations ou 
+                  conventions internationales applicables ;
+                </li>
+                <li class="q-mb-sm">
+                  c) De revendre, sous-licencier, transférer, louer, prêter ou céder le Logiciel, 
+                  en tout ou partie, à des tiers sans autorisation écrite préalable et expresse 
+                  de SymAlgo Technologies ;
+                </li>
+                <li class="q-mb-sm">
+                  d) De partager une Licence commerciale entre plusieurs Utilisateurs. Chaque 
+                  Utilisateur doit posséder sa propre Licence commerciale distincte ;
+                </li>
+                <li class="q-mb-sm">
+                  e) D'utiliser le Logiciel pour créer, développer ou commercialiser des produits 
+                  concurrents ou dérivés à des fins commerciales sans licence commerciale ;
+                </li>
+                <li class="q-mb-sm">
+                  f) De contourner, désactiver ou altérer les mesures techniques de protection du 
+                  Logiciel, le cas échéant ;
+                </li>
+                <li class="q-mb-sm">
+                  g) D'utiliser le Logiciel de manière à porter atteinte aux droits de propriété 
+                  intellectuelle de SymAlgo Technologies ou de tiers.
+                </li>
+              </ul>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                4. DISPONIBILITÉ DU CODE SOURCE
+              </div>
+              <p>
+                Le code source d'ActoGraph v3 est rendu accessible publiquement (source disponible) 
+                pour permettre aux Étudiants de l'étudier et de l'utiliser dans le cadre de leurs 
+                activités éducatives. Cette disponibilité publique du code source ne constitue en 
+                aucun cas une autorisation d'utilisation commerciale et ne modifie pas les 
+                restrictions énoncées dans la présente licence.
+              </p>
+              <p class="q-mt-sm">
+                <strong>IMPORTANT :</strong> Le fait que le code source soit accessible publiquement ne signifie 
+                pas que le Logiciel est distribué sous une licence open source standard (telle que 
+                définie par l'Open Source Initiative). Le Logiciel reste soumis aux restrictions 
+                d'utilisation commerciale énoncées dans la présente licence.
+              </p>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                5. MODIFICATIONS ET CONTRIBUTIONS
+              </div>
+              <p>
+                Les Étudiants peuvent modifier le code source du Logiciel pour leurs besoins 
+                éducatifs, dans le respect des restrictions énoncées à l'article 1. Toutefois :
+              </p>
+              <ul class="q-pl-md q-mt-sm">
+                <li class="q-mb-sm">
+                  a) Les modifications créées par les Étudiants restent soumises aux termes de la 
+                  présente licence et ne peuvent être utilisées à des fins commerciales ;
+                </li>
+                <li class="q-mb-sm">
+                  b) Toute contribution au projet principal d'ActoGraph v3 peut être soumise à un 
+                  accord de contribution spécifique (Contributor License Agreement) avec SymAlgo 
+                  Technologies, qui pourra inclure la cession de droits sur les contributions ;
+                </li>
+                <li class="q-mb-sm">
+                  c) Les modifications ne peuvent pas être distribuées de manière à créer l'impression 
+                  qu'elles constituent une version officielle ou approuvée d'ActoGraph v3.
+                </li>
+              </ul>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                6. GARANTIE ET RESPONSABILITÉ
+              </div>
+              <p>
+                CE LOGICIEL EST FOURNI "TEL QUEL" ("AS IS"), SANS GARANTIE D'AUCUNE SORTE, EXPRESSE 
+                OU IMPLICITE, Y COMPRIS MAIS SANS S'Y LIMITER LES GARANTIES DE QUALITÉ MARCHANDE, 
+                D'ADÉQUATION À UN USAGE PARTICULIER, DE NON-CONTREFAÇON ET D'ABSENCE DE VICES CACHÉS.
+              </p>
+              <p class="q-mt-sm">
+                EN AUCUN CAS SYMALGO TECHNOLOGIES, SES DIRIGEANTS, SES EMPLOYÉS, SES ASSOCIÉS OU 
+                SES PRESTATAIRES NE POURRONT ÊTRE TENUS RESPONSABLES DE TOUT DOMMAGE, QU'IL SOIT 
+                DIRECT, INDIRECT, ACCESSOIRE, SPÉCIAL, EXEMPLAIRE, CONSÉCUTIF OU PUNITIF (Y COMPRIS, 
+                MAIS SANS S'Y LIMITER, LES DOMMAGES LIÉS À LA PERTE DE DONNÉES, AUX PERTES DE PROFITS, 
+                À L'INTERRUPTION D'ACTIVITÉ, À LA PERTE DE CLIENTÈLE OU À LA PERTE D'INFORMATION) 
+                RÉSULTANT DE L'UTILISATION OU DE L'IMPOSSIBILITÉ D'UTILISER CE LOGICIEL, MÊME SI 
+                SYMALGO TECHNOLOGIES A ÉTÉ AVISÉ DE LA POSSIBILITÉ DE TELS DOMMAGES.
+              </p>
+              <p class="q-mt-sm">
+                Dans les juridictions où l'exclusion ou la limitation de responsabilité pour 
+                dommages accessoires ou consécutifs n'est pas autorisée, la responsabilité de 
+                SymAlgo Technologies sera limitée dans la mesure maximale permise par la loi.
+              </p>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                7. RÉSILIATION
+              </div>
+              <p>
+                La présente licence peut être résiliée immédiatement et sans préavis par SymAlgo 
+                Technologies en cas de violation de l'un quelconque de ses termes ou conditions. 
+                En cas de résiliation :
+              </p>
+              <ul class="q-pl-md q-mt-sm">
+                <li class="q-mb-sm">
+                  a) Tous les droits d'utilisation accordés par la présente licence prennent fin 
+                  immédiatement ;
+                </li>
+                <li class="q-mb-sm">
+                  b) Vous devez cesser immédiatement toute utilisation du Logiciel ;
+                </li>
+                <li class="q-mb-sm">
+                  c) Vous devez détruire ou retourner à SymAlgo Technologies toutes les copies du 
+                  Logiciel et de sa documentation en votre possession, sous quelque forme que ce soit ;
+                </li>
+                <li class="q-mb-sm">
+                  d) Les dispositions relatives à la propriété intellectuelle, aux garanties et à la 
+                  responsabilité continuent de s'appliquer après la résiliation.
+                </li>
+              </ul>
+              <p class="q-mt-sm">
+                La résiliation de la présente licence n'affecte pas les droits de SymAlgo Technologies 
+                de rechercher des recours en cas de violation de ses droits de propriété intellectuelle.
+              </p>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                8. LOI APPLICABLE ET JURIDICTION
+              </div>
+              <p>
+                La présente licence est régie par les lois françaises, sans égard aux principes de 
+                conflits de lois.
+              </p>
+              <p class="q-mt-sm">
+                Tout litige relatif à la présente licence, y compris les questions relatives à son 
+                existence, sa validité, son interprétation ou son exécution, sera soumis à la 
+                compétence exclusive des tribunaux français compétents, et les parties consentent 
+                expressément à la compétence de ces tribunaux.
+              </p>
+              <p class="q-mt-sm">
+                Si SymAlgo Technologies a son siège social en France, les tribunaux du ressort du 
+                siège social de SymAlgo Technologies seront compétents.
+              </p>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                9. DISPOSITIONS GÉNÉRALES
+              </div>
+              <ul class="q-pl-md q-mt-sm">
+                <li class="q-mb-sm">
+                  <strong>a) Intégralité de l'accord</strong> : La présente licence constitue l'intégralité de l'accord 
+                  entre vous et SymAlgo Technologies concernant l'utilisation du Logiciel et remplace 
+                  tout accord ou arrangement antérieur relatif au Logiciel.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>b) Modification</strong> : Aucune modification de la présente licence ne sera valable sauf si 
+                  elle est faite par écrit et signée par un représentant dûment autorisé de SymAlgo 
+                  Technologies.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>c) Divisibilité</strong> : Si une disposition de la présente licence est jugée invalide ou 
+                  inapplicable par un tribunal compétent, cette invalidité n'affectera pas la validité 
+                  des autres dispositions, qui resteront en vigueur.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>d) Non-renonciation</strong> : Le fait pour SymAlgo Technologies de ne pas exercer un droit ou 
+                  de ne pas exiger le respect d'une obligation prévue par la présente licence ne 
+                  constitue pas une renonciation à ce droit ou à cette obligation.
+                </li>
+                <li class="q-mb-sm">
+                  <strong>e) Cession</strong> : Vous ne pouvez pas céder, transférer ou sous-licencier vos droits ou 
+                  obligations découlant de la présente licence sans l'autorisation écrite préalable 
+                  de SymAlgo Technologies. SymAlgo Technologies peut librement céder la présente 
+                  licence ou tout droit y afférent.
+                </li>
+              </ul>
+            </div>
+
+            <div class="q-mb-lg">
+              <div class="text-h6 text-weight-bold q-mb-sm">
+                10. CONTACT
+              </div>
+              <p>
+                Pour toute question concernant la présente licence, pour signaler une utilisation 
+                non autorisée, ou pour obtenir une licence commerciale, veuillez contacter SymAlgo 
+                Technologies :
+              </p>
+              <div class="q-mt-sm q-pl-md">
+                <p class="q-mb-sm">
+                  <strong>SymAlgo Technologies</strong><br>
+                  [À COMPLÉTER - Adresse postale]<br>
+                  Email : [À COMPLÉTER]<br>
+                  Site web : [À COMPLÉTER]
+                </p>
+              </div>
+              <p class="q-mt-sm">
+                Toute demande de licence commerciale doit être adressée par écrit aux coordonnées 
+                ci-dessus et sera traitée dans les meilleurs délais.
+              </p>
+            </div>
+          </div>
+        </div>
+      </DScrollArea>
+    </div>
+  </DPage>
+</template>
+
+<script lang="ts">
+import { defineComponent } from 'vue';
+import { DScrollArea } from '@lib-improba/components/app/scroll-areas';
+
+export default defineComponent({
+  name: 'LicensePage',
+  components: {
+    DScrollArea,
+  },
+  setup() {
+    return {};
+  },
+});
+</script>
+
+<style lang="scss" scoped>
+.license-content {
+  max-width: 900px;
+  margin: 0 auto;
+  line-height: 1.6;
+
+  ul {
+    list-style-type: disc;
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    margin-bottom: 0.75rem;
+  }
+}
+</style>
+
