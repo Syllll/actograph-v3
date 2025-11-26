@@ -7,14 +7,13 @@
       >Masquer la modale</DBtn
     >
     <p class="text-white">state.modal = {{ state.triggerOpen }}</p>
-    <DModal
+    <DDialog
       title="Titre"
       class="col-5"
-      v-model:triggerOpen="state.triggerOpen"
-      v-model:triggerClose="state.triggerClose"
+      v-model="state.triggerOpen"
     >
       Contenu de la modale
-    </DModal>
+    </DDialog>
   </div>
 </template>
 

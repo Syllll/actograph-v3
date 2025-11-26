@@ -58,6 +58,7 @@ export interface EditItemDto {
   action?: ProtocolItemActionEnum;
   type: ProtocolItemTypeEnum;
   order?: number;
+  meta?: Record<string, any>;
 }
 
 export const protocolService = {
@@ -102,7 +103,7 @@ export const protocolService = {
 
     // Parse the items JSON string into an object
     const protocol = response.data;
-    
+
     // Ensure _items is always defined for reactivity
     if (protocol && protocol.items) {
       try {

@@ -13,6 +13,8 @@ import { ObservationController } from './controllers/observation.controller';
 import { ProtocolController } from './controllers/protocol.controller';
 import { ReadingController } from './controllers/reading.controller';
 import { ActivityGraphController } from './controllers/activity-graph.controller';
+import { StatisticsController } from './controllers/statistics.controller';
+import { StatisticsService } from './services/statistics.service';
 
 @Module({
   imports: [
@@ -29,12 +31,14 @@ import { ActivityGraphController } from './controllers/activity-graph.controller
     ProtocolController,
     ReadingController,
     ActivityGraphController,
+    StatisticsController,
   ],
   providers: [
     ActivityGraphService,
     ObservationService,
     ProtocolService,
     ReadingService,
+    StatisticsService,
   ],
   exports: [
     ActivityGraphService,

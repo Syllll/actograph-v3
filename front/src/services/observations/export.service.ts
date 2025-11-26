@@ -1,6 +1,7 @@
 import { observationService } from './index.service';
 import { IObservation } from './interface';
 import { IChronicExport } from './export.interface';
+import { autosaveService } from './autosave.service';
 
 /**
  * Service pour exporter une observation au format .jchronic via le backend
@@ -57,7 +58,18 @@ export const exportService = {
     // Utile pour le débogage et la vérification manuelle
     const jsonContent = JSON.stringify(exportData, null, 2);
 
-    // ÉTAPE 3 : Générer un nom de fichier par défaut
+    // ÉTAPE 3 : Obtenir le dossier Actograph par défaut
+    // Le dossier sera créé automatiquement s'il n'existe pas
+    let defaultFolder: string;
+    try {
+      defaultFolder = await window.api.getActographFolder();
+    } catch (error) {
+      // Si l'API n'est pas disponible ou en cas d'erreur, on continue sans dossier par défaut
+      console.warn('Could not get Actograph folder, using default:', error);
+      defaultFolder = '';
+    }
+
+    // ÉTAPE 4 : Générer un nom de fichier par défaut
     // Format : {nom_observation}_{date}.jchronic
     // Exemple : ma_chronique_2024-01-15.jchronic
     const sanitizedFileName = observation.name
@@ -68,8 +80,8 @@ export const exportService = {
       .toISOString()
       .split('T')[0]}.jchronic`; // Date au format YYYY-MM-DD
 
-    // ÉTAPE 4 : Ouvrir le dialogue de sauvegarde
-    // Le dialogue s'ouvre dans le dossier Documents de l'utilisateur
+    // ÉTAPE 5 : Ouvrir le dialogue de sauvegarde
+    // Le dialogue s'ouvre dans le dossier Actograph par défaut
     // L'utilisateur peut modifier le nom et l'emplacement du fichier
     const dialogResult = await window.api.showSaveDialog({
       defaultPath: defaultFileName,
@@ -79,14 +91,14 @@ export const exportService = {
       ],
     });
 
-    // ÉTAPE 5 : Vérifier si l'utilisateur a annulé
+    // ÉTAPE 6 : Vérifier si l'utilisateur a annulé
     // Si l'utilisateur ferme le dialogue sans sauvegarder, on retourne null
     // Pas besoin de notification dans ce cas (comportement attendu)
     if (dialogResult.canceled || !dialogResult.filePath) {
       return null;
     }
 
-    // ÉTAPE 6 : Écrire le fichier sur le disque
+    // ÉTAPE 7 : Écrire le fichier sur le disque
     // Le fichier est écrit en UTF-8 pour supporter tous les caractères
     const writeResult = await window.api.writeFile(
       dialogResult.filePath,
@@ -98,6 +110,20 @@ export const exportService = {
       throw new Error(
         writeResult.error || 'Erreur lors de l\'écriture du fichier'
       );
+    }
+
+    // Clean up autosave files for this observation after successful manual save
+    try {
+      const autosaveFiles = await autosaveService.listAutosaveFiles();
+      const filesToDelete = autosaveFiles.filter(
+        (file) => file.name.includes(`_${observation.id}_`)
+      );
+      for (const file of filesToDelete) {
+        await autosaveService.deleteAutosaveFile(file.path);
+      }
+    } catch (error) {
+      // Don't fail the export if autosave cleanup fails
+      console.warn('Failed to cleanup autosave files:', error);
     }
 
     // Retourner le chemin du fichier sauvegardé pour affichage à l'utilisateur

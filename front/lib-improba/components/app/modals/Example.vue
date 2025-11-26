@@ -1,13 +1,11 @@
 <template>
-  <DModal
+  <DDialog
     :title="'Titre'"
-    :minWidth="'50vw'"
-    :maxHeight="'30rem'"
-    :triggerOpen="props.triggerOpen"
-    @update:triggerOpen="$emit('update:triggerOpen', $event)"
-    v-model:triggerClose="state.triggerClose"
+    :width="'50vw'"
+    :model-value="props.triggerOpen"
+    @update:model-value="$emit('update:triggerOpen', $event)"
   >
-    <div class="fit q-pa-sm row justify-center">
+    <div class="fit row justify-center">
       <DForm
         v-if="state.form"
         ref="formRef"
@@ -16,26 +14,25 @@
       >
       </DForm>
     </div>
-    <template v-slot:layout-buttons>
-      <div>
-        <DCancelBtn class="q-mx-sm" @click="state.triggerClose = true" />
-      </div>
-      <div>
-        <DSubmitBtn
-          :loading="state.loading"
-          class="q-mx-sm"
-          @click="methods.submit"
-        />
-      </div>
+    <template #actions>
+      <DCancelBtn class="q-mx-sm" @click="$emit('update:triggerOpen', false)" label="Annuler" />
+      <DSubmitBtn
+        :loading="state.loading"
+        class="q-mx-sm"
+        @click="methods.submit"
+        label="Valider"
+      />
     </template>
-  </DModal>
+  </DDialog>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, reactive, onMounted, watch } from 'vue';
 
+import { DDialog, DForm, DCancelBtn, DSubmitBtn } from '@lib-improba/components';
+
 export default defineComponent({
-  components: {},
+  components: { DDialog, DForm, DCancelBtn, DSubmitBtn },
   props: {
     triggerOpen: { type: Boolean, default: false },
   },
@@ -72,7 +69,7 @@ export default defineComponent({
             username: state.form.username,
             password: state.form.password,
           });*/
-          state.triggerClose = true;
+          context.emit('update:triggerOpen', false);
           state.loading = false;
           context.emit('refresh');
         } catch (err: any) {

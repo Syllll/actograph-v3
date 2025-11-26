@@ -1,15 +1,10 @@
 <template>
-  <DModal
-    :trigger-open="modelValue"
-    @update:trigger-open="$emit('update:modelValue', $event)"
+  <DDialog
+    :model-value="modelValue"
+    @update:model-value="$emit('update:modelValue', $event)"
     :title="'Supprimer l\'observable'"
-    button1Label="components.DModal.cancel"
-    button2Label="components.DModal.delete"
-    @cancelled="$emit('update:modelValue', false)"
-    @submitted="removeObservable"
-    persistent
   >
-    <div class="q-pa-md">
+    <div>
       <div v-if="state.error" class="text-negative q-mb-md">
         {{ state.error }}
       </div>
@@ -21,7 +16,18 @@
         Attention : Cette action est irréversible.
       </p>
     </div>
-  </DModal>
+    <template #actions>
+      <DCancelBtn
+        @click="$emit('update:modelValue', false)"
+        label="Annuler"
+      />
+      <DSubmitBtn
+        @click="removeObservable"
+        label="Supprimer"
+        color="negative"
+      />
+    </template>
+  </DDialog>
 </template>
 
 <script lang="ts">
@@ -30,8 +36,19 @@ import { useQuasar } from 'quasar';
 import { ProtocolItem, protocolService } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 
+import {
+  DDialog,
+  DCancelBtn,
+  DSubmitBtn,
+} from '@lib-improba/components';
+
 export default defineComponent({
   name: 'RemoveObservableModal',
+  components: {
+    DDialog,
+    DCancelBtn,
+    DSubmitBtn,
+  },
 
   props: {
     modelValue: {
@@ -93,12 +110,21 @@ export default defineComponent({
         state.loading = true;
         state.error = '';
 
-        await protocol.methods.removeItem(props.observable.id);
+        const result = await protocol.methods.removeItem(props.observable.id);
 
         $q.notify({
           type: 'positive',
           message: 'Observable supprimé avec succès',
         });
+
+        // If a default template was created, show an informative message
+        if (result && result.defaultTemplateCreated) {
+          $q.notify({
+            type: 'info',
+            message: 'Un template par défaut a été créé automatiquement (1 catégorie + 1 observable)',
+            timeout: 5000,
+          });
+        }
 
         emit('observable-removed', props.categoryId);
         emit('update:modelValue', false);

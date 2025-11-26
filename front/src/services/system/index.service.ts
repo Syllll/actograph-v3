@@ -29,5 +29,5 @@ export default {
     electronApi.on('update-error', callback);
   },
 
-  quitAndInstallUpdate: () => electronApi.invoke('update-install'),
+  quitAndInstallUpdate: () => electronApi.invoke('install-update'),
 };

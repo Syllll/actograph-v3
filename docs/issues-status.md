@@ -12,9 +12,9 @@ Ce document récapitule l'état d'implémentation réel de chaque issue basé su
 ### Vue d'ensemble
 
 - **Total des issues** : 47 issues
-- **✅ Complètement implémentées** : 23 issues (48.9%)
-- **🟡 Partiellement implémentées** : 7 issues (14.9%)
-- **❌ Non implémentées** : 17 issues (36.2%)
+- **✅ Complètement implémentées** : 30 issues (63.8%)
+- **🟡 Partiellement implémentées** : 3 issues (6.4%)
+- **❌ Non implémentées** : 14 issues (29.8%)
 
 ### Calcul détaillé
 
@@ -24,20 +24,20 @@ Ce document récapitule l'état d'implémentation réel de chaque issue basé su
 - Issues non implémentées : 0%
 
 **Résultat** :
-- Points complétés : 23 × 100% + 7 × 50% = 23 + 3.5 = **26.5 points**
+- Points complétés : 30 × 100% + 3 × 50% = 30 + 1.5 = **31.5 points**
 - Points totaux : 47 × 100% = **47 points**
-- **Pourcentage de complétion : 56.4%** 🎯
+- **Pourcentage de complétion : 67.0%** 🎯
 
 ### Répartition par EPIC
 
 | EPIC | Issues | Complètes | Partielles | Non faites | Complétion |
 |------|--------|-----------|------------|------------|------------|
-| **EPIC #0** : Socle technique | 9 | 5 | 2 | 2 | 66.7% |
+| **EPIC #0** : Socle technique | 9 | 6 | 1 | 2 | 72.2% |
 | **EPIC #1** : Tableau de bord | 7 | 3 | 2 | 2 | 57.1% |
-| **EPIC #2** : Éditeur protocole | 3 | 2 | 0 | 1 | 66.7% |
+| **EPIC #2** : Éditeur protocole | 3 | 3 | 0 | 0 | 100.0% |
 | **EPIC #3** : Module observation | 6 | 4 | 0 | 2 | 66.7% |
-| **EPIC #4** : Visualisation graphique | 4 | 1 | 0 | 3 | 25.0% |
-| **EPIC #5** : Statistiques | 4 | 1 | 0 | 3 | 25.0% |
+| **EPIC #4** : Visualisation graphique | 4 | 2 | 0 | 2 | 50.0% |
+| **EPIC #5** : Statistiques | 4 | 3 | 0 | 1 | 75.0% |
 | **EPIC #6** : Architecture | 2 | 1 | 0 | 1 | 50.0% |
 | **EPIC #7** : Accessibilité | 3 | 0 | 3 | 0 | 50.0% |
 | **Gestion projet** | 4 | 4 | 0 | 0 | 100.0% |
@@ -46,21 +46,25 @@ Ce document récapitule l'état d'implémentation réel de chaque issue basé su
 
 | Priorité | Issues | Complètes | Complétion |
 |----------|--------|-----------|------------|
-| **P1-Must Have** | 25 | 14 | 56.0% |
-| **P2-Should Have** | 12 | 4 | 33.3% |
+| **P1-Must Have** | 25 | 17 | 68.0% |
+| **P2-Should Have** | 12 | 7 | 58.3% |
 | **P3-Could Have** | 6 | 1 | 16.7% |
 | **Sans priorité** | 4 | 4 | 100.0% |
 
 ### Points d'attention
 
-⚠️ **Priorités critiques (P1) non complètes** :
-- #2 : Mise à jour automatique (Error/Blocking) - **Blocage critique**
-- #22, #23 : Statistiques (non implémentées) - **Fonctionnalité attendue**
-- #28 : Dossier par défaut exports (partiel) - **Quick win possible**
+✅ **Améliorations récentes** :
+- #2 : Mise à jour automatique - **Corrigée** ✅
+- #22, #23 : Statistiques - **Implémentées complètement** ✅
+- #28 : Dossier par défaut exports - **Implémenté** ✅
+- #14 : Template protocole - **Implémenté** ✅
+- #24 : Système de warnings - **Implémenté** ✅
+- #27 : Autosave - **Implémenté** ✅
+- #31 : Zoom et pan graphique - **Implémenté** ✅
 
 ⚠️ **EPIC avec faible complétion** :
-- **EPIC #4** (Visualisation graphique) : 25% - Manque zoom, export, personnalisation
-- **EPIC #5** (Statistiques) : 25% - Fonctionnalité critique non implémentée
+- **EPIC #4** (Visualisation graphique) : 50% - Manque export, personnalisation
+- **EPIC #7** (Accessibilité) : 50% - Améliorations d'accessibilité en cours
 
 ✅ **Points positifs** :
 - **EPIC #0** (Socle technique) : 66.7% - Bonne base technique
@@ -82,74 +86,30 @@ Ce document récapitule l'état d'implémentation réel de chaque issue basé su
 
 Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes recommandées par ordre de priorité :
 
-### 🔴 Priorité 1 : Blocages et fonctionnalités critiques (P1-Must Have)
+### ✅ Fonctionnalités critiques complétées récemment
 
-#### 1. **Corriger le système de mise à jour automatique (#2)**
-- **Statut actuel** : Error/Blocking
-- **Impact** : Bloque le déploiement et la maintenance
-- **Actions** :
-  - Analyser et corriger l'erreur dans `electron-updater`
-  - Tester le flux complet de mise à jour
-  - Ajouter des logs détaillés pour le debugging
-- **Estimation** : 2-3 jours
+Les fonctionnalités suivantes ont été implémentées et sont maintenant disponibles :
+- ✅ **#2** : Système de mise à jour automatique (corrigé avec logs et gestion d'erreurs)
+- ✅ **#22, #23** : Statistiques complètes (vue globale, par catégorie avec camembert/histogramme, mode avancé avec conditions ET/OU)
+- ✅ **#28** : Dossier par défaut pour les exports (création automatique du dossier Actograph)
+- ✅ **#14** : Template par défaut pour les protocoles (création automatique d'une catégorie + observable)
+- ✅ **#24** : Système de warnings et notifications (composable centralisé avec messages contextuels)
+- ✅ **#27** : Autosave avec restauration automatique (sauvegarde périodique + dialogue de sélection)
+- ✅ **#31** : Zoom et pan sur le graphique d'activité (molette souris, boutons, détection intelligente)
 
-#### 2. **Implémenter les statistiques de base (#22, #23)**
-- **Statut actuel** : Non implémenté (page "En construction")
-- **Impact** : Fonctionnalité critique mentionnée dans la navigation mais non disponible
-- **Actions** :
-  - Créer le backend pour calculer les statistiques depuis les readings
-  - Implémenter le tableau général des statistiques
-  - Implémenter les diagrammes par catégorie et combinés
-  - Utiliser une bibliothèque de graphiques (ex: Chart.js, D3.js, ou Quasar QChart)
-- **Estimation** : 5-7 jours
-- **Dépendances** : Les readings existent déjà, il faut juste les agréger
-
-#### 3. **Améliorer le dossier par défaut pour les exports (#28)**
-- **Statut actuel** : Partiellement implémenté
-- **Impact** : Améliore l'expérience utilisateur pour l'export
-- **Actions** :
-  - Configurer un dossier par défaut "Actograph" dans les chemins système
-  - Sauvegarder la préférence utilisateur pour le dernier dossier utilisé
-  - Créer le dossier s'il n'existe pas
-- **Estimation** : 1-2 jours
+📝 **Documentation détaillée** :
+- Statistiques : `docs/features/22-23-statistiques/22-23-statistiques.md`
+- Autosave : `docs/features/27-autosave/27-autosave.md`
 
 ### 🟡 Priorité 2 : Améliorations importantes (P2-Should Have)
 
-#### 4. **Ajouter le template par défaut pour les protocoles (#14)**
-- **Statut actuel** : Non implémenté
-- **Impact** : Améliore l'UX lors de la création de protocoles
-- **Actions** :
-  - Détecter quand tous les éléments sont supprimés
-  - Créer automatiquement 1 catégorie + 1 observable par défaut
-  - Permettre à l'utilisateur de personnaliser ce template
-- **Estimation** : 1 jour
-
-#### 5. **Améliorer le système de warnings et notifications (#24)**
+#### 1. **Améliorer le non-blocage pendant l'installation (#13)**
 - **Statut actuel** : Partiellement implémenté
-- **Impact** : Améliore la compréhension des erreurs/blocages
+- **Impact** : Améliore l'expérience utilisateur
 - **Actions** :
-  - Créer un système centralisé de notifications/warnings
-  - Ajouter des messages contextuels pour les blocages
-  - Intégrer avec le système de logging existant
-- **Estimation** : 2-3 jours
-
-#### 6. **Implémenter l'autosave (#27)**
-- **Statut actuel** : Non implémenté
-- **Impact** : Protection contre la perte de données
-- **Actions** :
-  - Implémenter un système d'autosave périodique (toutes les X minutes)
-  - Sauvegarder dans un fichier temporaire
-  - Restaurer automatiquement au démarrage si crash détecté
-- **Estimation** : 3-4 jours
-
-#### 7. **Améliorer le graphique d'activité (#31)**
-- **Statut actuel** : Non implémenté
-- **Impact** : Fonctionnalité importante pour l'analyse
-- **Actions** :
-  - Ajouter le zoom (molette souris + boutons)
-  - Ajouter le pan (glisser pour naviguer)
-  - Ajuster l'échelle de temps dynamiquement
-- **Estimation** : 4-5 jours
+  - Gestion explicite du non-blocage pendant l'installation/mise à jour
+  - Indicateurs visuels pendant les opérations longues
+- **Estimation** : 1-2 jours
 
 ### 🟢 Priorité 3 : Fonctionnalités avancées (P3-Could Have)
 
@@ -198,12 +158,13 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 9. Personnalisation symboles (#47)
 10. Statistiques croisées (#32)
 
-### ⚠️ Notes importantes
+### ✅ Notes importantes
 
-- **#2 (Mise à jour)** doit être corrigé en priorité car c'est un blocage
-- **#22, #23 (Statistiques)** sont critiques car la page existe mais affiche "En construction", ce qui frustre les utilisateurs
-- Les **quick wins** (#14, #28) peuvent être faits rapidement et améliorent l'UX
-- Les fonctionnalités **P3** peuvent être reportées si nécessaire
+- ✅ **#2 (Mise à jour)** : Corrigé et fonctionnel
+- ✅ **#22, #23 (Statistiques)** : Implémentées complètement avec vue globale, par catégorie et mode avancé
+- ✅ **#14, #28 (Quick wins)** : Implémentés et améliorant l'UX
+- ✅ **#24, #27, #31** : Toutes les améliorations importantes sont complétées
+- Les fonctionnalités **P3** peuvent être implémentées selon les besoins utilisateurs
 
 ---
 
@@ -225,13 +186,16 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 - **Statut GitHub** : Error/Blocking
 - **Priorité** : P2-Should Have
 - **Taille** : M
-- **État réel** : 🟡 **Partiellement implémenté**
+- **État réel** : ✅ **Implémenté**
 - **Détails** :
   - ✅ Système de mise à jour Electron configuré avec `electron-updater` dans `front/src-electron/electron-main.ts`
   - ✅ Handlers IPC pour les événements de mise à jour (`update-available`, `update-download-progress`, `update-downloaded`, `update-error`)
   - ✅ Modal de mise à jour (`front/src/components/update-modal/Index.vue`)
   - ✅ Service système (`front/src/services/system/index.service.ts`)
-  - ⚠️ **Problème** : Statut "Error/Blocking" indique un problème dans l'implémentation actuelle
+  - ✅ Correction des handlers IPC (`install-update` au lieu de `update-install`)
+  - ✅ Configuration `autoUpdater` avant les event listeners
+  - ✅ Logs détaillés pour le debugging
+  - ✅ Gestion d'erreurs avec try-catch dans les handlers IPC
 
 ### #3 - ETQ user, je peux saisir ma clef de licence et voir mon compte "pro" s'activer
 - **Statut GitHub** : In test
@@ -269,11 +233,14 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 - **Statut GitHub** : Backlog
 - **Priorité** : P2-Should Have
 - **Taille** : S
-- **État réel** : 🟡 **Partiellement implémenté**
+- **État réel** : ✅ **Implémenté**
 - **Détails** :
+  - ✅ Composable `useNotifications` centralisé (`front/src/composables/use-notifications/index.ts`)
+  - ✅ Messages contextuels pour Graph/Stats grisés dans le drawer
+  - ✅ Notifications au clic sur les éléments désactivés avec messages explicatifs
+  - ✅ Intégration avec Quasar Notify pour les notifications système
   - ✅ Messages d'erreur dans les modals (ex: `UpdateModal`, `ActivatePro`)
   - ✅ Gestion des erreurs dans les services
-  - ❌ Pas de système centralisé de warnings/notifications pour les blocages
 
 ### #25 - ETQ user, lorsque je lance Actograph-V3, je vois tout de suite une fenetre et le statut
 - **Statut GitHub** : To do
@@ -298,11 +265,19 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 ### #27 - ETQ user, en cas d'arrêt inattendu d'Actograph-V3, je peux retrouver un Save automatique récent
 - **Statut GitHub** : Dev done
 - **Priorité** : P2-Should Have
-- **Taille** : S
-- **État réel** : ❌ **Non implémenté**
+- **Taille** : M
+- **État réel** : ✅ **Implémenté**
 - **Détails** :
-  - Pas de système d'autosave visible dans le code
-  - Les observations sont sauvegardées manuellement via l'API
+  - ✅ Système d'autosave périodique (toutes les 5 minutes) (`front/src/composables/use-autosave/index.ts`)
+  - ✅ Service autosave (`front/src/services/observations/autosave.service.ts`)
+  - ✅ Sauvegarde dans le dossier temporaire Electron (`{userData}/autosave/`)
+  - ✅ Détection de changements avec hash complet incluant toutes les entités liées (observation, toutes les readings, protocol avec hash du contenu, activityGraph)
+  - ✅ Restauration automatique au démarrage si crash détecté (`front/src/pages/Index.vue`)
+  - ✅ Dialogue de sélection de fichier autosave (`front/src/components/autosave-file-picker/Index.vue`)
+  - ✅ Nettoyage automatique des fichiers anciens (>7 jours)
+  - ✅ Suppression des fichiers autosave après sauvegarde manuelle réussie
+  - ✅ Handlers IPC pour la gestion des fichiers autosave
+  - 📝 **Documentation** : `docs/features/27-autosave/27-autosave.md`
 
 ---
 
@@ -406,7 +381,12 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 - **Statut GitHub** : Backlog
 - **Priorité** : P2-Should Have
 - **Taille** : S
-- **État réel** : ❌ **Non implémenté**
+- **État réel** : ✅ **Implémenté**
+- **Détails** :
+  - ✅ Détection automatique d'un protocole vide (`front/src/composables/use-observation/use-protocol.ts`)
+  - ✅ Création automatique d'une catégorie "Catégorie 1" et d'un observable "Observable 1"
+  - ✅ Notification informative à l'utilisateur lors de la création du template
+  - ✅ Intégration dans les modals de suppression (`RemoveCategoryModal`, `RemoveObservableModal`)
 - **Détails** :
   - Pas de système de template par défaut visible dans le code
 
@@ -516,9 +496,16 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 - **Statut GitHub** : Backlog
 - **Priorité** : P2-Should Have
 - **Taille** : M
-- **État réel** : ❌ **Non implémenté**
+- **État réel** : ✅ **Implémenté**
 - **Détails** :
-  - Pas de fonctionnalité de zoom visible dans le code
+  - ✅ Zoom avec molette de souris (centré sur la position de la souris) (`front/src/pages/userspace/analyse/_components/graph/pixi-app/index.ts`)
+  - ✅ Pan avec clic-glisser (détection intelligente des éléments interactifs)
+  - ✅ Boutons de contrôle (zoom in/out, reset) dans l'interface
+  - ✅ Indicateur du niveau de zoom actuel
+  - ✅ Limites min/max pour éviter le zoom excessif (0.1x à 5x)
+  - ✅ Ajustement automatique de l'échelle de temps selon le zoom
+  - ✅ Gestion du viewport PixiJS pour le zoom et pan
+  - ✅ Détection des éléments interactifs pour éviter les conflits avec le pan
 
 ### #47 - ETQ user, je souhaite personnaliser les symboles graphiques pour les observables événementiels
 - **Statut GitHub** : Backlog
@@ -550,17 +537,34 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 - **Statut GitHub** : Backlog
 - **Priorité** : P1-Must Have
 - **Taille** : M
-- **État réel** : ❌ **Non implémenté**
+- **État réel** : ✅ **Implémenté**
 - **Détails** :
-  - Page statistiques existe mais affiche "En construction" (`front/src/pages/userspace/statistics/Index.vue`)
+  - ✅ Backend : Service de statistiques (`api/src/core/observations/services/statistics.service.ts`)
+  - ✅ Backend : Controller REST (`api/src/core/observations/controllers/statistics.controller.ts`)
+  - ✅ Backend : DTOs pour les statistiques (`api/src/core/observations/dtos/statistics-*.dto.ts`)
+  - ✅ Frontend : Service de statistiques (`front/src/services/observations/statistics.service.ts`)
+  - ✅ Frontend : Composable `useStatistics` (`front/src/composables/use-statistics/index.ts`)
+  - ✅ Vue globale avec tableau des statistiques générales (`front/src/pages/userspace/statistics/_components/GeneralStatisticsView.vue`)
+  - ✅ Calculs : Durée totale, durée d'observation (moins pauses), nombre de readings, pauses
+  - ✅ Statistiques par catégorie : nombre d'observables actifs, durée totale
+  - ✅ Logs détaillés pour le debugging
+  - 📝 **Documentation** : `docs/features/22-23-statistiques/22-23-statistiques.md`
 
 ### #23 - ETQ user je peux voir les statistiques sous forme de diagrammes Par catégorie et Combinés
 - **Statut GitHub** : Backlog
 - **Priorité** : P1-Must Have
 - **Taille** : M
-- **État réel** : ❌ **Non implémenté**
+- **État réel** : ✅ **Implémenté**
 - **Détails** :
-  - Page statistiques existe mais affiche "En construction"
+  - ✅ Vue par catégorie avec sélecteur (`front/src/pages/userspace/statistics/_components/CategoryStatisticsView.vue`)
+  - ✅ Camembert (PieChart) pour les pourcentages d'état "on" (`front/src/pages/userspace/statistics/_components/PieChart.vue`)
+  - ✅ Histogramme (BarChart) pour les durées d'état "on" (`front/src/pages/userspace/statistics/_components/BarChart.vue`)
+  - ✅ Mode avancé avec conditions (ET/OU) (`front/src/pages/userspace/statistics/_components/ConditionalStatisticsView.vue`)
+  - ✅ Construction de conditions multiples avec opérateurs logiques
+  - ✅ Calcul des durées d'état "on" avec gestion des pauses
+  - ✅ Calcul des pourcentages par rapport à la durée totale d'observation
+  - ✅ Interface complète avec onglets (Vue globale, Par catégorie, Mode avancé)
+  - 📝 **Documentation** : `docs/features/22-23-statistiques/22-23-statistiques.md`
 
 ### #32 - ETQ user, je peux croiser les statistiques entre catégories et observables
 - **Statut GitHub** : Backlog
@@ -603,11 +607,15 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 ### #28 - ETQ user, je trouve tous les exports dans mon dossier Actograph par défaut
 - **Statut GitHub** : Backlog
 - **Priorité** : P1-Must Have
-- **Taille** : M
-- **État réel** : 🟡 **Partiellement implémenté**
+- **Taille** : S
+- **État réel** : ✅ **Implémenté**
 - **Détails** :
+  - ✅ Création automatique du dossier "Actograph" dans Documents (`front/src-electron/electron-main.ts`)
+  - ✅ Handler IPC `get-actograph-folder` pour obtenir le chemin du dossier
+  - ✅ Utilisation du dossier par défaut dans le dialogue de sauvegarde (`front/src/services/observations/export.service.ts`)
+  - ✅ Création automatique du dossier s'il n'existe pas
+  - ✅ Support multi-plateforme (Windows, macOS, Linux)
   - ✅ Dialog de sauvegarde Electron avec sélection de dossier
-  - ⚠️ Pas de dossier par défaut "Actograph" configuré automatiquement
 
 ### #34 - ETQ user, je peux utiliser ActoGraph sur desktop, tablette et mobile
 - **Statut GitHub** : Backlog
@@ -660,14 +668,14 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 
 ## Résumé par statut
 
-### ✅ Implémenté (23 issues)
-- #1, #3, #4, #5, #6, #8, #10, #12, #15, #16, #17, #20, #21, #26, #29, #30, #50, #51, #52, #49
+### ✅ Implémenté (30 issues)
+- #1, #2, #3, #4, #5, #6, #8, #10, #12, #14, #15, #16, #17, #20, #21, #22, #23, #24, #26, #27, #28, #29, #30, #31, #50, #51, #52, #49
 
-### 🟡 Partiellement implémenté (7 issues)
-- #2, #13, #24, #28, #34, #35, #39
+### 🟡 Partiellement implémenté (3 issues)
+- #13, #34, #35, #39
 
-### ❌ Non implémenté (17 issues)
-- #11, #14, #18, #22, #23, #27, #31, #32, #33, #36, #37, #47, #48
+### ❌ Non implémenté (14 issues)
+- #11, #18, #32, #33, #36, #37, #47, #48
 
 ---
 
@@ -679,5 +687,12 @@ Basé sur l'analyse de l'état actuel du projet, voici les prochaines étapes re
 
 3. **Documentation** : Les issues avec documentation détaillée sont marquées avec un lien vers le fichier correspondant dans `docs/features/`.
 
-4. **Mise à jour** : Ce document doit être mis à jour régulièrement pour refléter l'état réel du code.
+4. **Mise à jour** : Ce document a été mis à jour le 2025-01-XX pour refléter les nouvelles implémentations :
+   - ✅ #2 : Mise à jour automatique (corrigée)
+   - ✅ #14 : Template protocole par défaut
+   - ✅ #22, #23 : Statistiques complètes
+   - ✅ #24 : Système de warnings/notifications
+   - ✅ #27 : Autosave avec restauration
+   - ✅ #28 : Dossier par défaut pour exports
+   - ✅ #31 : Zoom et pan sur le graphique
 

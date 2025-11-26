@@ -592,6 +592,16 @@ export interface IMyEntity {
 - Utiliser les composants de la lib-improba quand disponibles (ex: `DPage`, `StandardLayout`)
 - Respecter les conventions de nommage Quasar
 
+#### Classes utilitaires Quasar
+- **IMPORTANT** : Toujours utiliser les classes utilitaires Quasar quand c'est possible, plutôt que du CSS custom
+- Utiliser les classes Quasar pour le layout : `row`, `column`, `col`, `col-auto`, `col-shrink`, `fit`, `full-width`
+- Utiliser les classes Quasar pour l'espacement : `q-pa-md`, `q-px-sm`, `q-py-md`, `q-mb-md`, `q-gutter-md`, `q-col-gutter-md`
+- Utiliser les classes Quasar pour l'alignement : `items-center`, `justify-center`, `justify-end`
+- Utiliser les classes Quasar pour le texte : `text-text`, `text-body1`, `text-body2`, `text-negative`
+- Utiliser les classes Quasar pour les backgrounds : `bg-primary-lowest`, `bg-secondary-medium`
+- Éviter de créer du CSS custom pour des styles qui peuvent être gérés par les classes utilitaires Quasar
+- Consulter la documentation Quasar pour les classes disponibles : https://quasar.dev/style/utility-classes
+
 #### Couleurs CSS
 - **IMPORTANT** : Utiliser les couleurs définies dans le CSS de l'application, pas les couleurs Quasar par défaut
 - Utiliser `primary`, `accent`, `secondary` directement (pas `q-primary`, `q-accent`, `q-secondary`)

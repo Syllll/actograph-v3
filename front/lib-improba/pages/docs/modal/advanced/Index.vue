@@ -4,26 +4,22 @@
       >Afficher la modale</DBtn
     >
     <p class="text-white">state.modal = {{ state.modal }}</p>
-    <DModal
+    <DDialog
       title="Titre"
-      v-model:triggerOpen="state.triggerOpen"
-      :minWidth="'50vw'"
-      :maxHeight="'30rem'"
+      v-model="state.triggerOpen"
+      :width="'50vw'"
     >
       <div class="fit q-pa-sm row justify-center">Contenu</div>
-      <template v-slot:layout-buttons>
-        <div>
-          <DCancelBtn class="q-mx-sm" @click="state.modal = false" />
-        </div>
-        <div>
-          <DSubmitBtn
-            :loading="state.loading"
-            class="q-mx-sm"
-            @click="state.loading = true"
-          />
-        </div>
+      <template #actions>
+        <DCancelBtn class="q-mx-sm" @click="state.triggerOpen = false" label="Annuler" />
+        <DSubmitBtn
+          :loading="state.loading"
+          class="q-mx-sm"
+          @click="state.loading = true"
+          label="Valider"
+        />
       </template>
-    </DModal>
+    </DDialog>
   </div>
 </template>
 

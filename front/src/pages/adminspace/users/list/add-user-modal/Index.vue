@@ -1,14 +1,13 @@
 <template>
-  <DModal
+  <DDialog
     :title="`Create user`"
-    :minWidth="'50vw'"
+    :width="'50vw'"
     :maxHeight="'45rem'"
-    :triggerOpen="props.triggerOpen"
-    @update:triggerOpen="$emit('update:triggerOpen', $event)"
-    v-model:triggerClose="state.triggerClose"
+    :model-value="props.triggerOpen"
+    @update:model-value="$emit('update:triggerOpen', $event)"
   >
     <div class="col">
-      <div class="fit q-pa-sm row justify-center">
+      <div class="fit row justify-center">
         <DForm
           ref="formRef"
           class="col-12 col-md-8 col-lg-6 column q-gutter-y-sm"
@@ -34,19 +33,16 @@
         </DForm>
       </div>
     </div>
-    <template v-slot:layout-buttons>
-      <div>
-        <DCancelBtn class="q-mx-sm" @click="state.triggerClose = true" />
-      </div>
-      <div>
-        <DSubmitBtn
-          :loading="state.loading"
-          class="q-mx-sm"
-          @click="methods.submit"
-        />
-      </div>
+    <template #actions>
+      <DCancelBtn class="q-mx-sm" @click="$emit('update:triggerOpen', false)" label="Annuler" />
+      <DSubmitBtn
+        :loading="state.loading"
+        class="q-mx-sm"
+        @click="methods.submit"
+        label="Créer"
+      />
     </template>
-  </DModal>
+  </DDialog>
 </template>
 
 <script lang="ts">
@@ -55,9 +51,10 @@ import { useRules } from '@lib-improba/composables/use-rules';
 import { useI18n } from 'vue-i18n';
 import { adminUserService } from '@services/users/admin/admin-user.service';
 import { date } from 'quasar';
+import { DDialog, DForm, DFormInput, DCancelBtn, DSubmitBtn } from '@lib-improba/components';
 
 export default defineComponent({
-  components: {},
+  components: { DDialog, DForm, DFormInput, DCancelBtn, DSubmitBtn },
   props: {
     triggerOpen: { type: Boolean, default: false },
   },
@@ -101,7 +98,7 @@ export default defineComponent({
             password: state.form.password,
           });
 
-          state.triggerClose = true;
+          context.emit('update:triggerOpen', false);
           state.loading = false;
           context.emit('refresh');
         } catch (err: any) {

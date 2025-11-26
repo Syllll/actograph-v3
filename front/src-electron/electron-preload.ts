@@ -18,6 +18,11 @@ const validChannels = [
   'read-file',
   'read-file-binary',
   'get-file-stats',
+  'get-actograph-folder',
+  'get-autosave-folder',
+  'list-autosave-files',
+  'delete-autosave-file',
+  'cleanup-old-autosave',
 ];
 
 // Expose protected methods that allow the renderer process to use
@@ -109,6 +114,53 @@ contextBridge.exposeInMainWorld('api', {
       size?: number;
       isFile?: boolean;
       exists?: boolean;
+      error?: string;
+    }>;
+  },
+  getActographFolder: (): Promise<string> => {
+    return ipcRenderer.invoke('get-actograph-folder') as Promise<string>;
+  },
+  getAutosaveFolder: (): Promise<string> => {
+    return ipcRenderer.invoke('get-autosave-folder') as Promise<string>;
+  },
+  listAutosaveFiles: (): Promise<{
+    success: boolean;
+    files?: Array<{
+      name: string;
+      path: string;
+      size: number;
+      modified: string;
+    }>;
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke('list-autosave-files') as Promise<{
+      success: boolean;
+      files?: Array<{
+        name: string;
+        path: string;
+        size: number;
+        modified: string;
+      }>;
+      error?: string;
+    }>;
+  },
+  deleteAutosaveFile: (filePath: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke('delete-autosave-file', filePath) as Promise<{
+      success: boolean;
+      error?: string;
+    }>;
+  },
+  cleanupOldAutosave: (maxAgeDays?: number): Promise<{
+    success: boolean;
+    deleted: number;
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke('cleanup-old-autosave', maxAgeDays) as Promise<{
+      success: boolean;
+      deleted: number;
       error?: string;
     }>;
   },

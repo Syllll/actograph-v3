@@ -1,15 +1,10 @@
 <template>
-  <DModal
-    :trigger-open="modelValue"
-    @update:trigger-open="$emit('update:modelValue', $event)"
+  <DDialog
+    :model-value="modelValue"
+    @update:model-value="$emit('update:modelValue', $event)"
     :title="'Supprimer la catégorie'"
-    button1Label="components.DModal.cancel"
-    button2Label="components.DModal.delete"
-    @cancelled="$emit('update:modelValue', false)"
-    @submitted="removeCategory"
-    persistent
   >
-    <div class="q-pa-md">
+    <div>
       <div v-if="state.error" class="text-negative q-mb-md">
         {{ state.error }}
       </div>
@@ -22,7 +17,18 @@
         les observables associés à cette catégorie.
       </p>
     </div>
-  </DModal>
+    <template #actions>
+      <DCancelBtn
+        @click="$emit('update:modelValue', false)"
+        label="Annuler"
+      />
+      <DSubmitBtn
+        @click="removeCategory"
+        label="Supprimer"
+        color="negative"
+      />
+    </template>
+  </DDialog>
 </template>
 
 <script lang="ts">
@@ -31,8 +37,19 @@ import { useQuasar } from 'quasar';
 import { ProtocolItem } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 
+import {
+  DDialog,
+  DCancelBtn,
+  DSubmitBtn,
+} from '@lib-improba/components';
+
 export default defineComponent({
   name: 'RemoveCategoryModal',
+  components: {
+    DDialog,
+    DCancelBtn,
+    DSubmitBtn,
+  },
 
   props: {
     modelValue: {
@@ -78,12 +95,21 @@ export default defineComponent({
         state.error = '';
 
         // Use the protocol composable directly
-        await protocol.methods.removeItem(props.category.id);
+        const result = await protocol.methods.removeItem(props.category.id);
 
         $q.notify({
           type: 'positive',
           message: 'Catégorie supprimée avec succès',
         });
+
+        // If a default template was created, show an informative message
+        if (result && result.defaultTemplateCreated) {
+          $q.notify({
+            type: 'info',
+            message: 'Un template par défaut a été créé automatiquement (1 catégorie + 1 observable)',
+            timeout: 5000,
+          });
+        }
 
         emit('category-removed');
         emit('update:modelValue', false);

@@ -57,7 +57,72 @@ export const useProtocol = (options: { sharedStateFromObservation: any }) => {
     },
     
     /**
+     * Checks if the protocol is empty (no categories or observables)
+     * 
+     * @param protocol - The protocol to check
+     * @returns true if the protocol is empty
+     */
+    isProtocolEmpty: (protocol: IProtocol | null): boolean => {
+      if (!protocol || !protocol._items || !Array.isArray(protocol._items)) {
+        return true;
+      }
+      
+      // Check if there are any categories
+      const hasCategories = protocol._items.some(
+        (item) => item.type === 'category'
+      );
+      
+      if (!hasCategories) {
+        return true;
+      }
+      
+      // Check if there are any observables in any category
+      const hasObservables = protocol._items.some((item) => {
+        if (item.type === 'category' && item.children) {
+          return item.children.some((child) => child.type === 'observable');
+        }
+        return false;
+      });
+      
+      return !hasObservables;
+    },
+
+    /**
+     * Creates a default template for the protocol (1 category + 1 observable)
+     * 
+     * @returns Promise that resolves when the template is created
+     */
+    createDefaultTemplate: async (): Promise<void> => {
+      if (!sharedState.currentProtocol?.id) {
+        throw new Error('Current protocol ID is not available');
+      }
+
+      // Create default category
+      const category = await protocolService.addCategory({
+        protocolId: sharedState.currentProtocol.id,
+        name: 'Catégorie 1',
+        description: '',
+        order: 0,
+      });
+
+      // Create default observable in the category
+      await protocolService.addObservable({
+        protocolId: sharedState.currentProtocol.id,
+        categoryId: category.id,
+        name: 'Observable 1',
+        description: '',
+        order: 0,
+      });
+
+      // Reload the protocol to reflect changes
+      await methods.loadProtocol(
+        options.sharedStateFromObservation.currentObservation
+      );
+    },
+
+    /**
      * Removes an item from the current protocol
+     * After removal, checks if the protocol is empty and creates a default template if needed
      * 
      * @param itemId - ID of the item to remove
      */
@@ -70,10 +135,23 @@ export const useProtocol = (options: { sharedStateFromObservation: any }) => {
         itemId,
         sharedState.currentProtocol.id
       );
+      
       // Reload the protocol to reflect changes
       await methods.loadProtocol(
         options.sharedStateFromObservation.currentObservation
       );
+
+      // Check if protocol is now empty and create default template if needed
+      const reloadedProtocol = sharedState.currentProtocol;
+      if (methods.isProtocolEmpty(reloadedProtocol)) {
+        await methods.createDefaultTemplate();
+        
+        // Return a flag to indicate that a default template was created
+        // This can be used by the UI to show a notification
+        return { defaultTemplateCreated: true };
+      }
+
+      return { defaultTemplateCreated: false };
     },
     
     /**

@@ -100,6 +100,9 @@ import { useI18n } from 'vue-i18n';
 
 export default defineComponent({
   name: 'Modal',
+  /**
+   * @deprecated Use DDialog instead
+   */
   props: {
     triggerOpen: { default: () => false },
     button1Label: { type: String, default: 'components.DModal.cancel' },

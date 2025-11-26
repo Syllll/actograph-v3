@@ -97,6 +97,11 @@ async function createWindow() {
   // Wait for the window to be loaded before checking for updates
   await loadPromise;
 
+  // Configure autoUpdater BEFORE setting up event listeners
+  // Disable auto-download - user must approve first
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
   // Auto-Update Event Listeners
   autoUpdater.on('update-available', (info) => {
     log.info('Update available:', info.version);
@@ -135,10 +140,28 @@ async function createWindow() {
 
   autoUpdater.on('error', (err) => {
     log.error('Update error:', err);
+    log.error('Update error details:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name,
+    });
 
     if (mainWindow) {
-      mainWindow.webContents.send('update-error', err);
+      mainWindow.webContents.send('update-error', {
+        message: err.message,
+        name: err.name,
+        stack: err.stack,
+      });
     }
+  });
+
+  // Add check-for-updates event listener
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for updates...');
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    log.info('Update not available:', info.version);
   });
 }
 
@@ -301,25 +324,181 @@ ipcMain.handle('minimize', (event, arg) => {
   mainWindow?.minimize();
 });
 
-ipcMain.handle('ready-to-check-updates', (event, arg) => {
+ipcMain.handle('ready-to-check-updates', async (event, arg) => {
   // This just checks for updates but doesn't download automatically
-  autoUpdater.checkForUpdates();
+  try {
+    log.info('Checking for updates...');
+    const result = await autoUpdater.checkForUpdates();
+    log.info('Update check result:', {
+      updateInfo: result?.updateInfo,
+      downloadPromise: result?.downloadPromise ? 'exists' : 'none',
+    });
+    return result;
+  } catch (error) {
+    log.error('Error checking for updates:', error);
+    throw error;
+  }
 });
 
 // Add these new IPC handlers
-ipcMain.handle('download-update', (event, arg) => {
+ipcMain.handle('download-update', async (event, arg) => {
   // Manually trigger the download when user approves
-  autoUpdater.downloadUpdate();
+  try {
+    log.info('Starting update download...');
+    const result = await autoUpdater.downloadUpdate();
+    log.info('Update download started:', result);
+    return result;
+  } catch (error) {
+    log.error('Error downloading update:', error);
+    throw error;
+  }
 });
 
 ipcMain.handle('install-update', (event, arg) => {
   // Manually trigger the installation
-  autoUpdater.quitAndInstall(false, true);
+  try {
+    log.info('Installing update and quitting...');
+    // quitAndInstall(restart, isSilent)
+    // restart: if true, restart the app after installation
+    // isSilent: if true, run installer in silent mode
+    autoUpdater.quitAndInstall(false, true);
+  } catch (error) {
+    log.error('Error installing update:', error);
+    throw error;
+  }
 });
 
 ipcMain.on('open-external', (event, url: string) => {
   // Open external links in the user's default browser
   shell.openExternal(url);
+});
+
+ipcMain.handle('get-actograph-folder', async (event) => {
+  // Get the Documents directory path
+  const documentsPath = app.getPath('documents');
+  const actographFolder = path.join(documentsPath, 'Actograph');
+  
+  // Create the folder if it doesn't exist
+  if (!fs.existsSync(actographFolder)) {
+    try {
+      fs.mkdirSync(actographFolder, { recursive: true });
+      log.info('Created Actograph folder:', actographFolder);
+    } catch (error) {
+      log.error('Error creating Actograph folder:', error);
+      throw error;
+    }
+  }
+  
+  return actographFolder;
+});
+
+ipcMain.handle('get-autosave-folder', async (event) => {
+  // Get the userData directory path (Electron app data folder)
+  const userDataPath = app.getPath('userData');
+  const autosaveFolder = path.join(userDataPath, 'autosave');
+  
+  // Create the folder if it doesn't exist
+  if (!fs.existsSync(autosaveFolder)) {
+    try {
+      fs.mkdirSync(autosaveFolder, { recursive: true });
+      log.info('Created autosave folder:', autosaveFolder);
+    } catch (error) {
+      log.error('Error creating autosave folder:', error);
+      throw error;
+    }
+  }
+  
+  return autosaveFolder;
+});
+
+ipcMain.handle('list-autosave-files', async (event) => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const autosaveFolder = path.join(userDataPath, 'autosave');
+    
+    if (!fs.existsSync(autosaveFolder)) {
+      return { success: true, files: [] };
+    }
+    
+    const files = fs.readdirSync(autosaveFolder)
+      .filter(file => file.endsWith('.jchronic'))
+      .map(file => {
+        const filePath = path.join(autosaveFolder, file);
+        const stats = fs.statSync(filePath);
+        return {
+          name: file,
+          path: filePath,
+          size: stats.size,
+          modified: stats.mtime.toISOString(),
+        };
+      })
+      .sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime()); // Most recent first
+    
+    return { success: true, files };
+  } catch (error) {
+    log.error('Error listing autosave files:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      files: [] 
+    };
+  }
+});
+
+ipcMain.handle('delete-autosave-file', async (event, filePath: string) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      log.info('Deleted autosave file:', filePath);
+      return { success: true };
+    }
+    return { success: false, error: 'File not found' };
+  } catch (error) {
+    log.error('Error deleting autosave file:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+});
+
+ipcMain.handle('cleanup-old-autosave', async (event, maxAgeDays: number = 7) => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const autosaveFolder = path.join(userDataPath, 'autosave');
+    
+    if (!fs.existsSync(autosaveFolder)) {
+      return { success: true, deleted: 0 };
+    }
+    
+    const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    let deletedCount = 0;
+    
+    const files = fs.readdirSync(autosaveFolder);
+    for (const file of files) {
+      if (file.endsWith('.jchronic')) {
+        const filePath = path.join(autosaveFolder, file);
+        const stats = fs.statSync(filePath);
+        const age = now - stats.mtime.getTime();
+        
+        if (age > maxAgeMs) {
+          fs.unlinkSync(filePath);
+          deletedCount++;
+          log.info('Deleted old autosave file:', filePath);
+        }
+      }
+    }
+    
+    return { success: true, deleted: deletedCount };
+  } catch (error) {
+    log.error('Error cleaning up old autosave files:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      deleted: 0 
+    };
+  }
 });
 
 ipcMain.handle('show-save-dialog', async (event, options: {
@@ -330,11 +509,32 @@ ipcMain.handle('show-save-dialog', async (event, options: {
     return { canceled: true };
   }
 
-  // Get the Documents directory path
-  const documentsPath = app.getPath('documents');
+  // Get the Actograph folder path (will be created if it doesn't exist)
+  let defaultFolder: string;
+  try {
+    const documentsPath = app.getPath('documents');
+    defaultFolder = path.join(documentsPath, 'Actograph');
+    
+    // Create the folder if it doesn't exist
+    if (!fs.existsSync(defaultFolder)) {
+      fs.mkdirSync(defaultFolder, { recursive: true });
+      log.info('Created Actograph folder:', defaultFolder);
+    }
+  } catch (error) {
+    // Fallback to Documents if Actograph folder creation fails
+    log.warn('Failed to get/create Actograph folder, using Documents:', error);
+    defaultFolder = app.getPath('documents');
+  }
+  
+  // Use the provided defaultPath or construct one in the Actograph folder
+  const defaultPath = options.defaultPath 
+    ? path.isAbsolute(options.defaultPath) 
+      ? options.defaultPath 
+      : path.join(defaultFolder, options.defaultPath)
+    : path.join(defaultFolder, 'chronique.jchronic');
   
   const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: options.defaultPath || path.join(documentsPath, 'chronique.jchronic'),
+    defaultPath,
     filters: options.filters || [
       { name: 'Fichiers Chronique', extensions: ['jchronic'] },
       { name: 'Tous les fichiers', extensions: ['*'] },
@@ -422,8 +622,5 @@ ipcMain.handle('get-file-stats', async (event, filePath: string) => {
     };
   }
 });
-
-// Optional: Disable auto-download
-autoUpdater.autoDownload = false;
 
 // ************

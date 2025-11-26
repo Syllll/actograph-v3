@@ -1,15 +1,10 @@
 <template>
-  <DModal
-    :trigger-open="modelValue"
-    @update:trigger-open="$emit('update:modelValue', $event)"
+  <DDialog
+    :model-value="modelValue"
+    @update:model-value="$emit('update:modelValue', $event)"
     :title="'Ajouter une catégorie'"
-    button1Label="components.DModal.cancel"
-    button2Label="components.DModal.add"
-    @cancelled="$emit('update:modelValue', false)"
-    @submitted="addCategory"
-    persistent
   >
-    <div class="q-pa-md">
+    <div>
       <div v-if="state.error" class="text-negative q-mb-md">
         {{ state.error }}
       </div>
@@ -55,7 +50,17 @@
         />
       </q-form>
     </div>
-  </DModal>
+    <template #actions>
+      <DCancelBtn
+        @click="$emit('update:modelValue', false)"
+        label="Annuler"
+      />
+      <DSubmitBtn
+        @click="addCategory"
+        label="Ajouter"
+      />
+    </template>
+  </DDialog>
 </template>
 
 <script lang="ts">
@@ -67,8 +72,19 @@ import {
 } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 
+import {
+  DDialog,
+  DCancelBtn,
+  DSubmitBtn,
+} from '@lib-improba/components';
+
 export default defineComponent({
   name: 'AddCategoryModal',
+  components: {
+    DDialog,
+    DCancelBtn,
+    DSubmitBtn,
+  },
 
   props: {
     modelValue: {

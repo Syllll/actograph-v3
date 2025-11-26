@@ -21,6 +21,9 @@ export class PixiApp {
   /** Application PixiJS principale utilisée pour le rendu WebGL */
   private app: Application;
   
+  /** Conteneur viewport pour le zoom et le pan */
+  private viewport!: Container;
+  
   /** Conteneur principal regroupant tous les éléments du graphique */
   private plot!: Container;
   
@@ -32,6 +35,18 @@ export class PixiApp {
   
   /** Zone centrale affichant les données (readings) */
   private dataArea!: DataArea;
+
+  /** État du zoom et pan */
+  private zoomState = {
+    scale: 1,
+    minScale: 0.1,
+    maxScale: 5,
+    x: 0,
+    y: 0,
+    isPanning: false,
+    panStartX: 0,
+    panStartY: 0,
+  };
 
   constructor() {
     // Création d'une nouvelle application PixiJS
@@ -72,6 +87,12 @@ export class PixiApp {
     this.xAxis = new xAxis(this.app, this.yAxis); // Dépend de yAxis pour connaître sa position
     this.dataArea = new DataArea(this.app, this.yAxis, this.xAxis); // Dépend des deux axes
 
+    // Création du conteneur viewport pour le zoom et pan
+    this.viewport = new Container();
+    this.viewport.x = 0;
+    this.viewport.y = 0;
+    this.viewport.scale.set(1);
+
     // Création du conteneur principal qui regroupe tous les éléments
     // Ce conteneur permet de manipuler l'ensemble du graphique comme un seul objet
     this.plot = new Container();
@@ -79,15 +100,21 @@ export class PixiApp {
     this.plot.addChild(this.yAxis);
     this.plot.addChild(this.dataArea);
 
-    // Ajout du conteneur principal à la scène PixiJS
+    // Ajout du plot au viewport
+    this.viewport.addChild(this.plot);
+
+    // Ajout du viewport à la scène PixiJS
     // La scène est le conteneur racine de tous les éléments affichés
-    this.app.stage.addChild(this.plot);
+    this.app.stage.addChild(this.viewport);
 
     // Initialisation de chaque composant
     // Cette étape permet aux composants de configurer leurs événements, etc.
     this.yAxis.init();
     this.xAxis.init();
     this.dataArea.init();
+
+    // Setup zoom and pan handlers
+    this.setupZoomAndPan();
   }
 
   /**
@@ -152,12 +179,248 @@ export class PixiApp {
   }
 
   /**
+   * Configure les gestionnaires d'événements pour le zoom et le pan
+   */
+  private setupZoomAndPan() {
+    // Enable interaction on the canvas
+    this.app.canvas.style.cursor = 'default';
+
+    // Store event handlers for cleanup
+    const wheelHandler = (evt: WheelEvent) => {
+      evt.preventDefault();
+      
+      // Get mouse position in world coordinates
+      const rect = this.app.canvas.getBoundingClientRect();
+      const mouseX = evt.clientX - rect.left;
+      const mouseY = evt.clientY - rect.top;
+
+      // Convert to viewport coordinates
+      const worldPos = this.viewport.toLocal({ x: mouseX, y: mouseY } as any);
+
+      // Calculate zoom factor
+      const zoomFactor = evt.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = Math.max(
+        this.zoomState.minScale,
+        Math.min(this.zoomState.maxScale, this.zoomState.scale * zoomFactor)
+      );
+
+      // Apply zoom centered on mouse position
+      const scaleChange = newScale / this.zoomState.scale;
+      this.zoomState.scale = newScale;
+
+      // Adjust viewport position to zoom towards mouse
+      this.viewport.x = mouseX - worldPos.x * scaleChange;
+      this.viewport.y = mouseY - worldPos.y * scaleChange;
+
+      this.viewport.scale.set(this.zoomState.scale);
+      this.zoomState.x = this.viewport.x;
+      this.zoomState.y = this.viewport.y;
+
+      // Update time scale based on zoom
+      this.updateTimeScale();
+    };
+
+    const mouseDownHandler = (evt: MouseEvent) => {
+      // Only start panning with left mouse button and if not clicking on interactive elements
+      if (evt.button === 0 && !this.zoomState.isPanning) {
+        const rect = this.app.canvas.getBoundingClientRect();
+        const x = evt.clientX - rect.left;
+        const y = evt.clientY - rect.top;
+        
+        // Convert screen coordinates to world coordinates for hit testing
+        const worldPos = this.viewport.toLocal({ x, y } as any);
+        
+        // Check if we're clicking on an interactive element using PixiJS hit testing
+        // If Shift key is held, always allow pan (force pan mode)
+        let shouldPan = evt.shiftKey;
+        
+        if (!shouldPan) {
+          // Use PixiJS interaction manager to check if we hit an interactive element
+          const hitTestResult = this.app.renderer.plugins.interaction.hitTest(
+            { x: evt.clientX, y: evt.clientY },
+            this.app.stage
+          );
+          
+          // Only allow pan if we didn't hit an interactive element
+          // Interactive elements include: data graphics, labels, etc.
+          // The background graphic is interactive but we want to allow pan on it
+          if (!hitTestResult) {
+            // No element hit, allow pan
+            shouldPan = true;
+          } else {
+          // Check if the hit element is interactive
+          // Allow pan if clicking on non-interactive elements or background
+          const hitElement = hitTestResult as any;
+          
+          // Check if the element has event handlers that would conflict with pan
+          // Elements with 'static' eventMode are interactive and should block pan
+          // Elements with 'passive' or 'auto' eventMode can allow pan
+          if (hitElement.eventMode === 'passive' || hitElement.eventMode === 'auto' || !hitElement.eventMode) {
+            shouldPan = true;
+          } else if (hitElement.eventMode === 'static') {
+            // For static elements, check if they're part of the dataArea
+            // The dataArea background is static but we want to allow pan on it
+            // We check by traversing up the parent chain
+            let current: any = hitElement;
+            let isDataAreaChild = false;
+            while (current && current !== this.app.stage) {
+              if (current === this.dataArea) {
+                isDataAreaChild = true;
+                break;
+              }
+              current = current.parent;
+            }
+            
+            // Allow pan on dataArea background (for pointermove events)
+            // but block pan on other interactive elements
+            if (isDataAreaChild) {
+              // Check if it's specifically the background graphic
+              // The background graphic allows pan for navigation
+              shouldPan = true;
+            } else {
+              // Interactive element outside dataArea, don't allow pan
+              shouldPan = false;
+            }
+          }
+          }
+        }
+        
+        if (shouldPan) {
+          this.zoomState.isPanning = true;
+          this.zoomState.panStartX = evt.clientX - this.zoomState.x;
+          this.zoomState.panStartY = evt.clientY - this.zoomState.y;
+          this.app.canvas.style.cursor = 'grabbing';
+        }
+      }
+    };
+
+    const mouseMoveHandler = (evt: MouseEvent) => {
+      if (this.zoomState.isPanning) {
+        this.viewport.x = evt.clientX - this.zoomState.panStartX;
+        this.viewport.y = evt.clientY - this.zoomState.panStartY;
+        this.zoomState.x = this.viewport.x;
+        this.zoomState.y = this.viewport.y;
+      }
+    };
+
+    const mouseUpHandler = (evt: MouseEvent) => {
+      if (evt.button === 0) {
+        this.zoomState.isPanning = false;
+        this.app.canvas.style.cursor = 'default';
+      }
+    };
+
+    const mouseLeaveHandler = () => {
+      this.zoomState.isPanning = false;
+      this.app.canvas.style.cursor = 'default';
+    };
+
+    // Add event listeners
+    this.app.canvas.addEventListener('wheel', wheelHandler, { passive: false });
+    this.app.canvas.addEventListener('mousedown', mouseDownHandler);
+    this.app.canvas.addEventListener('mousemove', mouseMoveHandler);
+    this.app.canvas.addEventListener('mouseup', mouseUpHandler);
+    this.app.canvas.addEventListener('mouseleave', mouseLeaveHandler);
+
+    // Store handlers for cleanup
+    (this.app.canvas as any)._zoomPanHandlers = {
+      wheel: wheelHandler,
+      mousedown: mouseDownHandler,
+      mousemove: mouseMoveHandler,
+      mouseup: mouseUpHandler,
+      mouseleave: mouseLeaveHandler,
+    };
+  }
+
+  /**
+   * Met à jour l'échelle de temps selon le niveau de zoom
+   */
+  private updateTimeScale() {
+    // Notify xAxis about zoom change so it can adjust time scale
+    if (this.xAxis && typeof (this.xAxis as any).setZoomScale === 'function') {
+      (this.xAxis as any).setZoomScale(this.zoomState.scale);
+    }
+  }
+
+  /**
+   * Zoom in
+   */
+  public zoomIn() {
+    const centerX = this.app.canvas.width / 2;
+    const centerY = this.app.canvas.height / 2;
+    const worldPos = this.viewport.toLocal({ x: centerX, y: centerY } as any);
+
+    const newScale = Math.min(this.zoomState.maxScale, this.zoomState.scale * 1.2);
+    const scaleChange = newScale / this.zoomState.scale;
+    this.zoomState.scale = newScale;
+
+    this.viewport.x = centerX - worldPos.x * scaleChange;
+    this.viewport.y = centerY - worldPos.y * scaleChange;
+    this.viewport.scale.set(this.zoomState.scale);
+    this.zoomState.x = this.viewport.x;
+    this.zoomState.y = this.viewport.y;
+
+    this.updateTimeScale();
+  }
+
+  /**
+   * Zoom out
+   */
+  public zoomOut() {
+    const centerX = this.app.canvas.width / 2;
+    const centerY = this.app.canvas.height / 2;
+    const worldPos = this.viewport.toLocal({ x: centerX, y: centerY } as any);
+
+    const newScale = Math.max(this.zoomState.minScale, this.zoomState.scale * 0.8);
+    const scaleChange = newScale / this.zoomState.scale;
+    this.zoomState.scale = newScale;
+
+    this.viewport.x = centerX - worldPos.x * scaleChange;
+    this.viewport.y = centerY - worldPos.y * scaleChange;
+    this.viewport.scale.set(this.zoomState.scale);
+    this.zoomState.x = this.viewport.x;
+    this.zoomState.y = this.viewport.y;
+
+    this.updateTimeScale();
+  }
+
+  /**
+   * Reset view to default (zoom 1x, centered)
+   */
+  public resetView() {
+    this.zoomState.scale = 1;
+    this.zoomState.x = 0;
+    this.zoomState.y = 0;
+    this.viewport.scale.set(1);
+    this.viewport.x = 0;
+    this.viewport.y = 0;
+
+    this.updateTimeScale();
+  }
+
+  /**
+   * Get current zoom level
+   */
+  public getZoomLevel(): number {
+    return this.zoomState.scale;
+  }
+
+  /**
    * Détruit l'application PixiJS et libère toutes les ressources.
    * 
    * Cette méthode doit être appelée lors du démontage du composant pour éviter
    * les fuites mémoire. Elle détruit l'application PixiJS et tous ses éléments.
    */
   public destroy() {
+    // Remove event listeners
+    if (this.app.canvas && (this.app.canvas as any)._zoomPanHandlers) {
+      const handlers = (this.app.canvas as any)._zoomPanHandlers;
+      this.app.canvas.removeEventListener('wheel', handlers.wheel);
+      this.app.canvas.removeEventListener('mousedown', handlers.mousedown);
+      this.app.canvas.removeEventListener('mousemove', handlers.mousemove);
+      this.app.canvas.removeEventListener('mouseup', handlers.mouseup);
+      this.app.canvas.removeEventListener('mouseleave', handlers.mouseleave);
+    }
     this.app.destroy();
   }
 }

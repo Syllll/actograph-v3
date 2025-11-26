@@ -57,7 +57,24 @@
               clickable
               :active="menuItem.isActive()"
               v-ripple
-              @click="menuItem.action()"
+              @click="() => {
+                const isDisabled = menuItem.disabled ? menuItem.disabled(observation) : false;
+                if (isDisabled) {
+                  // Show warning notification if item is disabled
+                  const tooltip = menuItem.tooltip ? menuItem.tooltip(observation) : '';
+                  if (tooltip) {
+                    if (menuItem.label === 'Graphe') {
+                      notifications.methods.showGraphWarning();
+                    } else if (menuItem.label === 'Statistiques') {
+                      notifications.methods.showStatsWarning();
+                    } else {
+                      notifications.methods.warning(tooltip);
+                    }
+                  }
+                } else {
+                  menuItem.action();
+                }
+              }"
               active-class="active"
               :disable="
                 menuItem.disabled ? menuItem.disabled(observation) : false
@@ -125,6 +142,7 @@ import ThemeToggler from '@lib-improba/components/layouts/theme-toggler/ThemeTog
 import CreateObservationDialog from '@pages/userspace/home/_components/active-chronicle/CreateObservationDialog.vue';
 import { exportService } from '@services/observations/export.service';
 import { importService } from '@services/observations/import.service';
+import { useNotifications } from 'src/composables/use-notifications';
 
 export default defineComponent({
   props: {
@@ -145,6 +163,7 @@ export default defineComponent({
     const auth = useAuth(router);
     const i18n = useI18n();
     const $q = useQuasar();
+    const notifications = useNotifications();
 
     const computedState = {
       menuList: computed(() => menu(router)),

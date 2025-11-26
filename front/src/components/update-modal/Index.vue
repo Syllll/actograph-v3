@@ -1,12 +1,11 @@
 <template>
-  <DModal
+  <DDialog
     title="Mise à jour disponible"
-    :minWidth="'50vw'"
-    :maxHeight="'30rem'"
+    :width="'50vw'"
     persistent
-    :triggerOpen="$props.triggerOpen"
-    @update:triggerOpen="$emit('update:triggerOpen', $event)"
-    v-model:triggerClose="state.triggerClose"
+    :useInnerPadding="false"
+    :model-value="$props.triggerOpen"
+    @update:model-value="$emit('update:triggerOpen', $event)"
   >
     <DScrollArea class="fit q-pa-sm">
       <div v-if="!state.updateDownloaded" class="column items-center">
@@ -34,29 +33,24 @@
       </div>
     </DScrollArea>
 
-    <template v-slot:layout-buttons>
-      <div>
-        <!--<DCancelBtn
-          label="Annuler"
-          class="q-mx-sm"
-          @click="state.triggerClose = true"
-        />-->
-        <DSubmitBtn
-          label="Redémarrer et installer"
-          :disabled="!state.updateDownloaded"
-          class="q-mx-sm"
-          @click="methods.submit"
-        />
-      </div>
+    <template #actions>
+      <DSubmitBtn
+        label="Redémarrer et installer"
+        :disabled="!state.updateDownloaded"
+        class="q-mx-sm"
+        @click="methods.submit"
+      />
     </template>
-  </DModal>
+  </DDialog>
 </template>
 
 <script lang="ts">
 import { defineComponent, reactive, onMounted, watch } from 'vue';
 import systemService from '@services/system/index.service';
+import { DDialog, DSubmitBtn, DScrollArea, DProgressBar } from '@lib-improba/components';
 
 export default defineComponent({
+  components: { DDialog, DSubmitBtn, DScrollArea, DProgressBar },
   props: {
     triggerOpen: {
       type: Boolean,

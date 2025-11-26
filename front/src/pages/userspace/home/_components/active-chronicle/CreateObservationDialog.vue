@@ -100,9 +100,9 @@
         </div>
       </DCardSection>
 
-      <DCardSection>
+      <DCardSection class="q-mt-md">
         <div class="row items-center justify-end full-width q-gutter-md">
-          <DCancelBtn @click="onCancelClick" />
+          <DCancelBtn @click="onCancelClick" label="Annuler" />
           <DSubmitBtn
             label="Créer"
             @click="onOKClick"
