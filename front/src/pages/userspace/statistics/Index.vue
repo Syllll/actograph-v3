@@ -24,7 +24,7 @@
 
       <q-separator />
 
-      <q-tab-panels v-model="state.activeTab" animated class="fit">
+      <q-tab-panels v-model="state.activeTab" animated class="col">
         <!-- Vue globale -->
         <q-tab-panel name="general" class="q-pa-md">
           <GeneralStatisticsView />

@@ -9,6 +9,12 @@ export class CategoryStatisticsDto {
 
   @Expose()
   observables!: ObservableStatisticsDto[];
+
+  @Expose()
+  pauseDuration?: number; // Total pause duration in milliseconds for this observation
+
+  @Expose()
+  totalCategoryDuration?: number; // Total duration of all observables in this category (milliseconds)
 }
 
 export class ObservableStatisticsDto {

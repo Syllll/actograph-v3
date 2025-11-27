@@ -27,9 +27,9 @@ import { StatisticsService } from './services/statistics.service';
     ]),
   ],
   controllers: [
+    ReadingController, // Must be before ObservationController to avoid route conflict (/observations/readings vs /observations/:id)
     ObservationController,
     ProtocolController,
-    ReadingController,
     ActivityGraphController,
     StatisticsController,
   ],

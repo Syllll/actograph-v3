@@ -79,8 +79,14 @@ export const useGraph = (options?: {
 
       // Récupération des readings et du protocole depuis les états partagés
       // Ces données sont nécessaires pour construire le graphique
-      const readings = observation.readings.sharedState.currentReadings;
-      const protocol = observation.protocol.sharedState.currentProtocol;
+      const readings = observation.readings?.sharedState?.currentReadings ?? [];
+      const protocol = observation.protocol?.sharedState?.currentProtocol ?? null;
+      
+      // Vérification que le protocole est disponible
+      if (!protocol) {
+        console.warn('No protocol found, cannot draw graph');
+        return;
+      }
       
       // Enrichissement de l'observation avec les readings et le protocole
       // (ces données peuvent ne pas être directement dans l'observation)
@@ -108,5 +114,8 @@ export const useGraph = (options?: {
       sharedState.pixiApp = null;
     });
   }
-  
+
+  return {
+    sharedState,
+  };
 }

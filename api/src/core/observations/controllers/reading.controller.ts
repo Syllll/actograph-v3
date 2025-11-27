@@ -19,6 +19,7 @@ import {
   BadRequestException,
   ParseIntPipe,
   Delete,
+  ValidationPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@users/guards/jwt-auth.guard';
 import { allMainUsers, UserRoleEnum } from '@users/utils/user-role.enum';
@@ -92,7 +93,7 @@ class UpdateReadingDto {
 
   @IsDateString()
   @IsNotEmpty()
-  dateTime!: Date;
+  dateTime!: string; // Changed from Date to string since @IsDateString() expects a string
 }
 
 
@@ -210,10 +211,14 @@ export class ReadingController extends BaseController {
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)
   async updateMany(
-    @Body() body: UpdateReadingsDto,
+    @Body(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) body: UpdateReadingsDto,
     @Req() req: any,
   ) {
     const user = req.user;
+
+    // Debug: log the received body BEFORE validation
+    console.log('[ReadingController] Received updateMany request (raw):', JSON.stringify(req.body, null, 2));
+    console.log('[ReadingController] Received updateMany request (validated):', JSON.stringify(body, null, 2));
 
     // Check if user can access observation
     await this.observationService.check.canUserAccessObservation({
@@ -228,14 +233,28 @@ export class ReadingController extends BaseController {
     if (!observation || !observation.readings) {
       throw new NotFoundException('Observation not found');
     }
-    const readings = observation.readings.filter((reading) => body.readings.some((r) => r.id === reading.id));
-    if (readings.length !== body.readings.length) {
+    
+    // Filter readings that have an id (persisted readings)
+    const readingsWithId = body.readings.filter((r) => r.id);
+    if (readingsWithId.length === 0) {
+      // No readings to update (all are new readings without id)
+      return [];
+    }
+    
+    const readings = observation.readings.filter((reading) => 
+      readingsWithId.some((r) => r.id === reading.id)
+    );
+    if (readings.length !== readingsWithId.length) {
       throw new NotFoundException('Some readings were not found');
     }
 
     // Update the readings
-    return this.readingService.updateMany(body.readings.map((reading) => ({
+    // Only update readings that have an id (persisted readings)
+    // Convert dateTime strings to Date objects for the service
+    return this.readingService.updateMany(readingsWithId.map((reading) => ({
         ...reading,
+        // dateTime is already a string from the DTO (@IsDateString()), convert to Date
+        dateTime: new Date(reading.dateTime),
       })),
       body.observationId,
     );

@@ -328,6 +328,7 @@ export class MyService extends BaseService<MyEntity, MyRepository> {
 - Injecter les services dans le constructeur
 - Pour la pagination, utiliser le décorateur `@PaginationQueries()` qui retourne un objet `IPaginationOptions`
 - NestJS gère automatiquement les erreurs et les exceptions HTTP
+- **IMPORTANT - Ordre d'enregistrement des controllers** : NestJS matche les routes dans l'ordre d'enregistrement des controllers dans le module. Les controllers avec des routes spécifiques (ex: `@Controller('observations/readings')`) doivent être enregistrés AVANT les controllers avec des routes génériques (ex: `@Controller('observations')` avec `@Patch(':id')`). Sinon, une route générique peut intercepter une route spécifique (ex: `/observations/readings` peut être interprétée comme `/observations/:id` avec `id = "readings"`), causant des erreurs de validation (propriétés rejetées par le ValidationPipe). Toujours vérifier l'ordre dans le tableau `controllers` du module.
 
 Exemple :
 ```typescript

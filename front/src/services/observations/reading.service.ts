@@ -36,12 +36,21 @@ export const readingService = {
         name: string;
         description?: string;
         type: ReadingTypeEnum;
-        dateTime: Date;
+        dateTime: Date | string;
       }[],
     }
   ) {
+    // Convert Date objects to ISO strings for backend validation (@IsDateString())
+    const readings = options.readings.map((reading) => ({
+      ...reading,
+      dateTime: reading.dateTime instanceof Date 
+        ? reading.dateTime.toISOString() 
+        : reading.dateTime,
+    }));
+
     const response = await api().post(`${apiUrl}/observations/readings`, {
-      ...options,
+      observationId: options.observationId,
+      readings,
     });
 
     return response.data;
@@ -55,13 +64,31 @@ export const readingService = {
         name: string;
         description?: string;
         type: ReadingTypeEnum;
-        dateTime: Date;
+        dateTime: Date | string;
+        tempId?: string | null;
       }[],
     }
   ) {
-    const response = await api().patch(`${apiUrl}/observations/readings`, {
-      ...options,
-    });
+    // Convert Date objects to ISO strings for backend validation (@IsDateString())
+    const readings = options.readings.map((reading) => ({
+      id: reading.id,
+      name: reading.name,
+      description: reading.description,
+      type: reading.type,
+      dateTime: reading.dateTime instanceof Date 
+        ? reading.dateTime.toISOString() 
+        : reading.dateTime,
+      ...(reading.tempId !== undefined && reading.tempId !== null ? { tempId: reading.tempId } : {}),
+    }));
+
+    const payload = {
+      observationId: options.observationId,
+      readings,
+    };
+
+    console.debug('[readingService.updateMany] Sending payload:', JSON.stringify(payload, null, 2));
+
+    const response = await api().patch(`${apiUrl}/observations/readings`, payload);
 
     return response.data;
   },

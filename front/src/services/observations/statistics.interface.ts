@@ -18,13 +18,15 @@ export interface ICategoryStatistics {
   categoryId: string;
   categoryName: string;
   observables: IObservableStatistics[];
+  pauseDuration?: number; // Total pause duration in milliseconds for this observation
+  totalCategoryDuration?: number; // Total duration of all observables in this category (milliseconds)
 }
 
 export interface IObservableStatistics {
   observableId: string;
   observableName: string;
   onDuration: number; // Duration in milliseconds when observable was "on"
-  onPercentage: number; // Percentage of total observation duration (0-100)
+  onPercentage: number; // Percentage within the category (0-100)
   onCount: number; // Number of times the observable was turned "on"
 }
 

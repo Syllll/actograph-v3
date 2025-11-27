@@ -62,7 +62,14 @@ export const useReadings = (options: {
         updatedAt: reading.updatedAt instanceof Date ? reading.updatedAt : new Date(reading.updatedAt),
       }));
       
-      stateless.initialReadings = readingsWithDates;
+      // Deep copy to ensure initialReadings is independent from currentReadings
+      // This prevents modifications to currentReadings from affecting initialReadings
+      stateless.initialReadings = readingsWithDates.map((r) => ({
+        ...r,
+        dateTime: new Date(r.dateTime),
+        createdAt: r.createdAt ? new Date(r.createdAt) : undefined,
+        updatedAt: r.updatedAt ? new Date(r.updatedAt) : undefined,
+      }));
       sharedState.currentReadings = readingsWithDates;
     },
     
@@ -135,11 +142,15 @@ export const useReadings = (options: {
           return false;
         }
         // Compare properties to detect changes
+        // For dateTime, compare timestamps (getTime()) instead of object references
+        const currentDateTime = current.dateTime instanceof Date ? current.dateTime.getTime() : new Date(current.dateTime).getTime();
+        const initialDateTime = initialReading.dateTime instanceof Date ? initialReading.dateTime.getTime() : new Date(initialReading.dateTime).getTime();
+        
         const hasChanged = (
           current.name !== initialReading.name ||
           current.description !== initialReading.description ||
           current.type !== initialReading.type ||
-          current.dateTime !== initialReading.dateTime
+          currentDateTime !== initialDateTime
         );
         if (hasChanged) {
           console.log('Updated reading:', current);
@@ -224,13 +235,15 @@ export const useReadings = (options: {
       }
 
       // Update existing readings with retry logic
-      if (updatedReadings.length > 0) {
+      // Only update readings that have an id (persisted readings)
+      const readingsToUpdate = updatedReadings.filter((reading) => reading.id);
+      if (readingsToUpdate.length > 0) {
         const obsId = options.sharedStateFromObservation.currentObservation.id;
         await executeWithRetry(
           () => readingService.updateMany({
             observationId: obsId,
-            readings: updatedReadings.map((reading) => ({
-              id: reading.id,
+            readings: readingsToUpdate.map((reading) => ({
+              id: reading.id!,
               name: reading.name,
               description: reading.description,
               type: reading.type,
@@ -256,7 +269,13 @@ export const useReadings = (options: {
       }
 
       // Update the initialReadings to match the current state after successful synchronization
-      stateless.initialReadings = [...sharedState.currentReadings];
+      // Deep copy to ensure initialReadings is independent from currentReadings
+      stateless.initialReadings = sharedState.currentReadings.map((r) => ({
+        ...r,
+        dateTime: new Date(r.dateTime),
+        createdAt: r.createdAt ? new Date(r.createdAt) : undefined,
+        updatedAt: r.updatedAt ? new Date(r.updatedAt) : undefined,
+      }));
       } finally {
         isSyncInFlight = false;
       }

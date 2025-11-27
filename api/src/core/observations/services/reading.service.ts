@@ -183,10 +183,37 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
     const readingsToSave = [];
     for (const reading of readings) {
       if (reading.id) {
-        readingsToSave.push(reading);
+        // Find the existing reading and update its properties
+        const existingReading = await this.readingRepository.findOne({
+          where: { id: reading.id, observation: { id: observationId } },
+        });
+        if (!existingReading) {
+          throw new NotFoundException(`Reading with id ${reading.id} not found`);
+        }
+        
+        // Update properties
+        if (reading.name !== undefined) {
+          existingReading.name = reading.name;
+        }
+        if (reading.description !== undefined) {
+          existingReading.description = reading.description;
+        }
+        if (reading.type !== undefined) {
+          existingReading.type = reading.type;
+        }
+        if (reading.dateTime !== undefined) {
+          existingReading.dateTime = reading.dateTime instanceof Date 
+            ? reading.dateTime 
+            : new Date(reading.dateTime);
+        }
+        if (reading.tempId !== undefined) {
+          existingReading.tempId = reading.tempId;
+        }
+        
+        readingsToSave.push(existingReading);
       } else {
         if (!reading.tempId) {
-          throw new BadRequestException('Temp ID is required');
+          throw new BadRequestException('Temp ID is required for readings without id');
         }
         const existingReading = await this.readingRepository.findOne({
           where: { tempId: reading.tempId, observation: { id: observationId } },
@@ -195,10 +222,27 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
           throw new NotFoundException('Reading not found with temp ID ' + reading.tempId);
         }
 
+        // Update properties
+        if (reading.name !== undefined) {
+          existingReading.name = reading.name;
+        }
+        if (reading.description !== undefined) {
+          existingReading.description = reading.description;
+        }
+        if (reading.type !== undefined) {
+          existingReading.type = reading.type;
+        }
+        if (reading.dateTime !== undefined) {
+          existingReading.dateTime = reading.dateTime instanceof Date 
+            ? reading.dateTime 
+            : new Date(reading.dateTime);
+        }
+
         readingsToSave.push(existingReading);
       }
     }
     
     await this.readingRepository.save(readingsToSave);
+    return readingsToSave;
   }
 }
