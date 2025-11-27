@@ -79,7 +79,12 @@ function generateObservationHash(
 
   // Hash protocol - include id, updatedAt, and a hash of items content
   // This detects protocol changes even if updatedAt doesn't change
-  let protocolHash = null;
+  let protocolHash: {
+    id: number;
+    updatedAt: string;
+    itemsHash: string;
+    itemsLength: number;
+  } | null = null;
   if (currentProtocol) {
     // Use items from _items if available (parsed), otherwise use items string
     const itemsToHash = currentProtocol._items || currentProtocol.items;

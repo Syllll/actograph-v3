@@ -5,26 +5,18 @@
       style="min-width: 500px; max-width: 700px"
       bgColor="background"
       innerHeader
-      title="Sélectionner un fichier à restaurer"
+      title="Restauration automatique"
     >
       <DCardSection>
-        <div v-if="state.loading" class="row justify-center q-pa-lg">
-          <q-spinner color="primary" size="3em" />
+        <div class="text-body2 q-mb-md">
+          Des sauvegardes automatiques récentes ont été trouvées. Sélectionnez celle que vous souhaitez restaurer :
         </div>
 
-        <div v-else-if="state.error" class="text-negative q-mb-md">
-          {{ state.error }}
+        <div v-if="state.files.length === 0" class="text-body1 text-grey-7 q-pa-md">
+          Aucun fichier disponible.
         </div>
 
-        <div v-else-if="state.files.length === 0" class="text-body1 text-grey-7 q-pa-md">
-          Aucun fichier de sauvegarde automatique disponible.
-        </div>
-
-        <div v-else class="column q-gutter-sm">
-          <div class="text-body2 text-grey-7 q-mb-sm">
-            Sélectionnez le fichier que vous souhaitez restaurer :
-          </div>
-
+        <div v-else>
           <q-list separator>
             <q-item
               v-for="(file, index) in state.files"
@@ -36,10 +28,10 @@
               @click="state.selectedFileIndex = index"
             >
               <q-item-section>
-                <q-item-label>{{ getObservationName(file.name) }}</q-item-label>
+                <q-item-label>{{ methods.getObservationName(file.name) }}</q-item-label>
                 <q-item-label caption>
-                  Sauvegardé le {{ formatDate(file.modified) }}
-                  <span v-if="file.size"> • {{ formatFileSize(file.size) }}</span>
+                  Sauvegardé le {{ methods.formatDate(file.modified) }}
+                  <span v-if="file.size"> • {{ methods.formatFileSize(file.size) }}</span>
                 </q-item-label>
               </q-item-section>
               <q-item-section side>
@@ -52,11 +44,16 @@
 
       <DCardSection>
         <div class="row items-center justify-end full-width q-gutter-md">
-          <DCancelBtn @click="onCancelClick" />
+          <q-btn
+            flat
+            no-caps
+            label="Ignorer"
+            @click="methods.onCancelClick"
+          />
           <DSubmitBtn
             label="Restaurer"
-            @click="onOKClick"
-            :disable="state.selectedFileIndex === null || state.loading"
+            @click="methods.onOKClick"
+            :disable="state.selectedFileIndex === null"
           />
         </div>
       </DCardSection>
@@ -65,10 +62,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, onMounted } from 'vue';
+import { defineComponent, reactive, PropType } from 'vue';
 import { useDialogPluginComponent } from 'quasar';
 import { DCard, DCardSection, DCancelBtn, DSubmitBtn } from '@lib-improba/components';
-import { autosaveService } from '@services/observations/autosave.service';
 
 export default defineComponent({
   name: 'AutosaveFilePicker',
@@ -78,44 +74,28 @@ export default defineComponent({
     DCancelBtn,
     DSubmitBtn,
   },
-  emits: [...useDialogPluginComponent.emits],
-  setup() {
-    const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
-      useDialogPluginComponent();
-
-    const state = reactive({
-      files: [] as Array<{
+  props: {
+    files: {
+      type: Array as PropType<Array<{
         name: string;
         path: string;
         size: number;
         modified: string;
-      }>,
-      selectedFileIndex: null as number | null,
-      loading: true,
-      error: null as string | null,
+      }>>,
+      required: true,
+    },
+  },
+  emits: [...useDialogPluginComponent.emits],
+  setup(props) {
+    const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
+      useDialogPluginComponent();
+
+    const state = reactive({
+      files: props.files,
+      selectedFileIndex: props.files.length > 0 ? 0 : null as number | null, // Auto-select first file if available
     });
 
     const methods = {
-      loadFiles: async () => {
-        state.loading = true;
-        state.error = null;
-        try {
-          const files = await autosaveService.listAutosaveFiles();
-          // Sort by modification date (most recent first)
-          state.files = files.sort(
-            (a, b) =>
-              new Date(b.modified).getTime() - new Date(a.modified).getTime()
-          );
-        } catch (error) {
-          state.error =
-            error instanceof Error
-              ? error.message
-              : 'Erreur lors du chargement des fichiers';
-        } finally {
-          state.loading = false;
-        }
-      },
-
       getObservationName: (fileName: string): string => {
         // Extract observation name from filename
         // Format: autosave_{id}_{name}_{timestamp}.jchronic
@@ -158,10 +138,6 @@ export default defineComponent({
         onDialogCancel();
       },
     };
-
-    onMounted(() => {
-      methods.loadFiles();
-    });
 
     return {
       dialogRef,

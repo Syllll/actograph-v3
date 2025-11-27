@@ -108,7 +108,7 @@ export const useProtocol = (options: { sharedStateFromObservation: any }) => {
       // Create default observable in the category
       await protocolService.addObservable({
         protocolId: sharedState.currentProtocol.id,
-        categoryId: category.id,
+        parentId: category.id,
         name: 'Observable 1',
         description: '',
         order: 0,

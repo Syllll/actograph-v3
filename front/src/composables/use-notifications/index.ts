@@ -5,7 +5,7 @@
 
 import { useQuasar } from 'quasar';
 
-export type NotificationType = 'info' | 'warning' | 'error' | 'success';
+export type NotificationType = 'info' | 'warning' | 'error' | 'success' | 'negative' | 'positive';
 
 export interface NotificationOptions {
   type?: NotificationType;

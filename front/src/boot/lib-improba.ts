@@ -39,6 +39,27 @@ declare global {
         exists?: boolean;
         error?: string;
       }>;
+      getActographFolder: () => Promise<string>;
+      getAutosaveFolder: () => Promise<string>;
+      listAutosaveFiles: () => Promise<{
+        success: boolean;
+        files?: Array<{
+          name: string;
+          path: string;
+          size: number;
+          modified: string;
+        }>;
+        error?: string;
+      }>;
+      deleteAutosaveFile: (filePath: string) => Promise<{
+        success: boolean;
+        error?: string;
+      }>;
+      cleanupOldAutosave: (maxAgeDays?: number) => Promise<{
+        success: boolean;
+        deleted: number;
+        error?: string;
+      }>;
     };
   }
 }

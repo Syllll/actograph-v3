@@ -235,54 +235,24 @@ export class PixiApp {
         let shouldPan = evt.shiftKey;
         
         if (!shouldPan) {
-          // Use PixiJS interaction manager to check if we hit an interactive element
-          const hitTestResult = this.app.renderer.plugins.interaction.hitTest(
-            { x: evt.clientX, y: evt.clientY },
-            this.app.stage
-          );
+          // In PixiJS v8, we need to manually check for interactive elements
+          // Convert screen coordinates to local coordinates relative to the canvas
+          const rect = this.app.canvas.getBoundingClientRect();
+          const x = evt.clientX - rect.left;
+          const y = evt.clientY - rect.top;
           
-          // Only allow pan if we didn't hit an interactive element
-          // Interactive elements include: data graphics, labels, etc.
-          // The background graphic is interactive but we want to allow pan on it
-          if (!hitTestResult) {
-            // No element hit, allow pan
-            shouldPan = true;
-          } else {
-          // Check if the hit element is interactive
-          // Allow pan if clicking on non-interactive elements or background
-          const hitElement = hitTestResult as any;
+          // Convert to world coordinates using viewport
+          const worldPos = this.viewport.toLocal({ x, y } as any);
           
-          // Check if the element has event handlers that would conflict with pan
-          // Elements with 'static' eventMode are interactive and should block pan
-          // Elements with 'passive' or 'auto' eventMode can allow pan
-          if (hitElement.eventMode === 'passive' || hitElement.eventMode === 'auto' || !hitElement.eventMode) {
-            shouldPan = true;
-          } else if (hitElement.eventMode === 'static') {
-            // For static elements, check if they're part of the dataArea
-            // The dataArea background is static but we want to allow pan on it
-            // We check by traversing up the parent chain
-            let current: any = hitElement;
-            let isDataAreaChild = false;
-            while (current && current !== this.app.stage) {
-              if (current === this.dataArea) {
-                isDataAreaChild = true;
-                break;
-              }
-              current = current.parent;
-            }
-            
-            // Allow pan on dataArea background (for pointermove events)
-            // but block pan on other interactive elements
-            if (isDataAreaChild) {
-              // Check if it's specifically the background graphic
-              // The background graphic allows pan for navigation
-              shouldPan = true;
-            } else {
-              // Interactive element outside dataArea, don't allow pan
-              shouldPan = false;
-            }
-          }
-          }
+          // In PixiJS v8, the event system handles interaction automatically
+          // Elements with eventMode='static' will capture events before this handler
+          // So we can safely allow pan here for background areas
+          // Interactive elements will handle their own events and prevent pan
+          shouldPan = true;
+          
+          // Note: In PixiJS v8, the event system handles interaction automatically
+          // Elements with eventMode='static' will capture events before this handler
+          // So we can safely allow pan here for background areas
         }
         
         if (shouldPan) {

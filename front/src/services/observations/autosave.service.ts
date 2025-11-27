@@ -109,7 +109,7 @@ export const autosaveService = {
    * 
    * @param maxAgeDays Nombre de jours maximum (défaut: 7)
    */
-  async cleanupOldFiles(maxAgeDays: number = 7): Promise<number> {
+  async cleanupOldFiles(maxAgeDays = 7): Promise<number> {
     if (!window.api || !window.api.cleanupOldAutosave) {
       return 0;
     }

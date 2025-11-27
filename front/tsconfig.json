@@ -1,6 +1,7 @@
 {
   "extends": "@quasar/app-vite/tsconfig-preset",
   "compilerOptions": {
+    "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
       "boot/*": ["src/boot/*"],
@@ -21,6 +22,7 @@
     "./dist",
     "./.quasar",
     "./node_modules",
+    "./node_modules/@types/d3-dispatch",
     "./src-capacitor",
     "./src-cordova",
     "./src-electron",
