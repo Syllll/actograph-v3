@@ -1,6 +1,7 @@
 # Feature #28 - Redesign de la page d'accueil
 
-**Type** : UX/UI Design - Refactoring
+**Type** : UX/UI Design - Refactoring  
+**Statut** : ⏳ **En cours**
 
 ## Description
 
@@ -10,6 +11,8 @@ Redesign complet de la page d'accueil pour une disposition plus simple et intuit
 2. **Intégrer les menus du drawer** : Intégrer Protocole, Observation, Graphe et Statistiques directement dans la zone "Chronique active"
 3. **Fusionner les zones d'aide** : Fusionner "Centre d'aide" et "En savoir plus" en une seule zone "Aide & Informations"
 4. **Simplifier le drawer** : Adapter le drawer pour éviter la redondance sur la page d'accueil
+
+---
 
 ## État actuel du projet
 
@@ -46,6 +49,8 @@ Redesign complet de la page d'accueil pour une disposition plus simple et intuit
 ❌ **Composant HelpAndInfo** : Fusion de FirstSteps et Advertisement
 ❌ **Adaptation du drawer** : Simplification sur la page d'accueil pour éviter la redondance
 ❌ **Réorganisation du composant ActiveChronicle** : Structure en 3 sections distinctes
+
+---
 
 ## Plan d'implémentation
 
@@ -150,6 +155,8 @@ Redesign complet de la page d'accueil pour une disposition plus simple et intuit
 - [ ] Tester sur différentes tailles d'écran
 - [ ] Vérifier le comportement du drawer sur toutes les pages
 
+---
+
 ## Structure des fichiers à créer/modifier
 
 ### Nouveaux fichiers
@@ -180,6 +187,8 @@ front/src/pages/userspace/home/_components/
     └── Index.vue                # Code intégré dans HelpAndInfo
 ```
 
+---
+
 ## Priorités
 
 ### Priorité haute (MVP)
@@ -200,6 +209,8 @@ front/src/pages/userspace/home/_components/
 4. **Phase 4** : Nettoyage
    - Suppression des composants obsolètes
    - Optimisations supplémentaires
+
+---
 
 ## Notes techniques
 
@@ -226,6 +237,8 @@ front/src/pages/userspace/home/_components/
 - ⚠️ **États disabled** : Maintenir la cohérence avec le drawer (même logique, mêmes tooltips)
 - ⚠️ **Navigation** : S'assurer que les boutons de la zone chronique active utilisent les mêmes routes que le drawer
 
+---
+
 ## Tests à effectuer
 
 ### Tests fonctionnels
@@ -248,12 +261,4 @@ front/src/pages/userspace/home/_components/
 - [ ] Import/Export fonctionnent depuis les deux emplacements (drawer et zone chronique active)
 - [ ] Création de chronique fonctionne depuis les deux emplacements
 - [ ] Chargement d'exemple fonctionne depuis HelpAndInfo
-
-## Références
-
-- Page d'accueil actuelle : `front/src/pages/userspace/home/Index.vue`
-- Composant ActiveChronicle : `front/src/pages/userspace/home/_components/active-chronicle/Index.vue`
-- Drawer : `front/src/pages/userspace/_components/drawer/Index.vue`
-- Menu du drawer : `front/src/pages/userspace/_components/drawer/menu.ts`
-- Documentation du processus : `docs/auto-implement.md`
 

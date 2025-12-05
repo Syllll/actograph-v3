@@ -17,18 +17,27 @@ Lorsqu'une commande du type "implémente la feature de ce lien {lien GitHub}" es
 
 ### 1. Création de la structure de documentation
 
-**Format du dossier** : `docs/features/{issue-number}-{feature-name}/`
+**Format du dossier** : `docs/features/{date}-phase-{number}-{name}/{issue-number}-{feature-name}.md`
 
-**Format du fichier principal** : `{issue-number}-{feature-name}.md`
+**Format du fichier** : Un seul fichier `{issue-number}-{feature-name}.md` qui contient à la fois le plan d'implémentation et l'avancement avec des checkboxes.
+
+**Organisation par phases** :
+- Les features sont organisées par phases dans des dossiers `{date}-phase-{number}-{name}/`
+- Exemple : `docs/features/2025-01-phase-1-fondations/4-page-accueil.md`
+- Chaque feature = un seul fichier markdown qui combine plan + avancement
 
 **Exemple** :
 - Issue #4 sur la page d'accueil
-- Dossier : `docs/features/4-page-accueil/`
-- Fichier : `docs/features/4-page-accueil/4-page-accueil.md`
+- Phase : Phase 1 - Fondations
+- Fichier : `docs/features/2025-01-phase-1-fondations/4-page-accueil.md`
 
 **Commandes** :
 ```bash
-mkdir -p docs/features/{issue-number}-{feature-name}
+# Créer le dossier de phase si nécessaire
+mkdir -p docs/features/{date}-phase-{number}-{name}
+
+# Créer le fichier de la feature
+touch docs/features/{date}-phase-{number}-{name}/{issue-number}-{feature-name}.md
 ```
 
 ---
@@ -193,85 +202,44 @@ structure/des/fichiers
 
 ---
 
-### 7. Documentation post-implémentation
+### 7. Mise à jour du plan d'implémentation
 
-**Après avoir implémenté la feature**, créer un fichier : `docs/features/{issue-number}-{feature-name}/{issue-number}-done.md`
+**IMPORTANT** : Le fichier de plan d'implémentation (`{issue-number}-{feature-name}.md`) doit être **mis à jour au fur et à mesure** que l'implémentation avance.
 
-**Contenu à inclure** :
+**Mise à jour des checkboxes** :
+- Cocher les tâches au fur et à mesure qu'elles sont complétées : `- [x]`
+- Les tâches non complétées restent : `- [ ]`
+- Ajouter des sections "Problèmes rencontrés" et "Initiatives prises" au fur et à mesure
 
-```markdown
-# Feature #{number} - Implémentation terminée
-
-## Ce qui a été fait
-
-### Fichiers créés
-- Liste des nouveaux fichiers créés avec leur chemin complet
-- Description de leur rôle
-
-### Fichiers modifiés
-- Liste des fichiers modifiés
-- Description des modifications apportées
-
-### Fonctionnalités implémentées
-- Liste des fonctionnalités réalisées
-- Détails sur l'implémentation
-
-## Problèmes rencontrés
-
-### Problèmes techniques
-- Description des problèmes techniques rencontrés
-- Solutions apportées
-- Workarounds si applicable
-
-### Décisions prises
-- Décisions architecturales prises pendant l'implémentation
-- Raisons de ces décisions
-
-## Initiatives prises
-
-### Améliorations non prévues
-- Améliorations ou optimisations ajoutées en plus du plan initial
-- Refactorings effectués
-- Optimisations de performance
-
-### Patterns réutilisés
-- Patterns existants réutilisés
-- Composables/services existants utilisés
-
-## Tests effectués
-
-- Tests manuels réalisés
-- Scénarios testés
-- Bugs découverts et corrigés
-
-## Notes finales
-
-- Points d'attention pour la maintenance
-- Améliorations futures possibles
-- Documentation supplémentaire créée
-```
+**Structure du fichier unique** :
+Le fichier combine plan d'implémentation et avancement :
+- Section "Plan d'implémentation" avec checkboxes pour chaque tâche
+- Section "Fichiers créés/modifiés" mise à jour au fur et à mesure
+- Section "Problèmes rencontrés" ajoutée quand nécessaire
+- Section "Initiatives prises" pour documenter les améliorations non prévues
+- Section "Notes techniques" pour les détails importants
 
 **Objectif** :
-- Documenter ce qui a été réellement fait
-- Capturer les apprentissages et problèmes rencontrés
-- Faciliter la maintenance future
-- Servir de référence pour des features similaires
+- Un seul fichier à maintenir (pas de séparation plan/done)
+- Suivi de l'avancement en temps réel avec les checkboxes
+- Documentation complète de ce qui a été fait directement dans le plan
 
 ---
 
 ## Checklist du processus
 
-- [ ] Créer le dossier `docs/features/{issue-number}-{feature-name}/`
-- [ ] Créer le fichier `{issue-number}-{feature-name}.md`
+- [ ] Créer le dossier de phase si nécessaire : `docs/features/{date}-phase-{number}-{name}/`
+- [ ] Créer le fichier unique `{issue-number}-{feature-name}.md` dans le dossier de phase
 - [ ] Analyser l'issue GitHub (lire la description complète)
 - [ ] Rechercher dans le codebase les fonctionnalités existantes
 - [ ] Identifier ce qui existe déjà vs ce qui manque
-- [ ] Créer le plan d'implémentation structuré
+- [ ] Créer le plan d'implémentation structuré avec checkboxes
 - [ ] Demander validation à l'utilisateur
 - [ ] Ajuster le plan selon les retours
-- [ ] Créer le fichier `comment-github.md` avec le résumé
+- [ ] Créer le fichier `comment-github.md` avec le résumé (optionnel)
 - [ ] Proposer de publier le commentaire sur GitHub (si possible)
-- [ ] Après implémentation : Créer le fichier `{issue-number}-done.md` avec la documentation post-implémentation
+- [ ] **Pendant l'implémentation** : Mettre à jour les checkboxes au fur et à mesure
+- [ ] **Pendant l'implémentation** : Ajouter les sections "Problèmes rencontrés" et "Initiatives prises" si nécessaire
 
 ---
 
@@ -281,14 +249,17 @@ Quand l'utilisateur dit : "implémente la feature de ce lien https://github.com/
 
 **Processus à suivre** :
 1. Extraire le numéro d'issue (4) et le titre depuis l'URL
-2. Créer `docs/features/4-page-accueil/4-page-accueil.md`
-3. Lire l'issue GitHub pour comprendre les besoins
-4. Rechercher dans le codebase ce qui existe déjà
-5. Créer le plan d'implémentation détaillé
-6. Présenter le plan et demander validation
-7. Ajuster selon les retours
-8. Créer le commentaire GitHub formaté
-9. **Après implémentation** : Créer `docs/features/4-page-accueil/4-done.md` avec la documentation post-implémentation
+2. Déterminer la phase appropriée (ex: Phase 1 - Fondations)
+3. Créer le dossier de phase si nécessaire : `docs/features/2025-01-phase-1-fondations/`
+4. Créer `docs/features/2025-01-phase-1-fondations/4-page-accueil.md`
+5. Lire l'issue GitHub pour comprendre les besoins
+6. Rechercher dans le codebase ce qui existe déjà
+7. Créer le plan d'implémentation détaillé avec checkboxes
+8. Présenter le plan et demander validation
+9. Ajuster selon les retours
+10. Créer le commentaire GitHub formaté (optionnel)
+11. **Pendant l'implémentation** : Mettre à jour les checkboxes au fur et à mesure dans le même fichier
+12. **Pendant l'implémentation** : Ajouter les sections "Problèmes rencontrés" et "Initiatives prises" si nécessaire
 
 ---
 
@@ -310,10 +281,10 @@ Quand l'utilisateur dit : "implémente la feature de ce lien https://github.com/
 - Utiliser ❌ pour ce qui doit être créé
 - Utiliser ⚠️ pour les notes importantes
 
-✅ **Documenter après l'implémentation**
-- Créer le fichier `{issue-number}-done.md` après avoir terminé l'implémentation
-- Documenter les problèmes rencontrés et les solutions
-- Noter les initiatives prises et améliorations apportées
+✅ **Mettre à jour le plan au fur et à mesure**
+- Cocher les tâches au fur et à mesure qu'elles sont complétées
+- Ajouter les sections "Problèmes rencontrés" et "Initiatives prises" directement dans le fichier de plan
+- Un seul fichier à maintenir (pas de séparation plan/done)
 
 ### Ce qu'il faut éviter
 
@@ -337,13 +308,15 @@ Pour utiliser ce processus automatiquement, ajouter dans `.cursorrules` :
 
 Quand l'utilisateur demande d'implémenter une feature depuis un lien GitHub, suivre le processus décrit dans `docs/auto-implement.md` :
 
-1. Créer la structure de documentation dans `docs/features/{issue-number}-{feature-name}/`
-2. Analyser l'issue GitHub et le code existant
-3. Créer un plan d'implémentation détaillé dans `{issue-number}-{feature-name}.md`
-4. Demander validation à l'utilisateur
-5. Ajuster le plan selon les retours
-6. Créer un commentaire GitHub formaté dans `comment-github.md`
-7. **Après implémentation** : Créer `{issue-number}-done.md` avec la documentation post-implémentation
+1. Créer la structure de documentation dans `docs/features/{date}-phase-{number}-{name}/`
+2. Créer un seul fichier `{issue-number}-{feature-name}.md` qui combine plan + avancement
+3. Analyser l'issue GitHub et le code existant
+4. Créer un plan d'implémentation détaillé avec checkboxes dans le fichier unique
+5. Demander validation à l'utilisateur
+6. Ajuster le plan selon les retours
+7. Créer un commentaire GitHub formaté dans `comment-github.md` (optionnel)
+8. **Pendant l'implémentation** : Mettre à jour les checkboxes au fur et à mesure dans le même fichier
+9. **Pendant l'implémentation** : Ajouter les sections "Problèmes rencontrés" et "Initiatives prises" si nécessaire
 
 Voir `docs/auto-implement.md` pour le processus détaillé.
 ```
@@ -352,7 +325,7 @@ Voir `docs/auto-implement.md` pour le processus détaillé.
 
 ## Références
 
-- Exemple de plan créé : `docs/features/4-page-accueil/4-page-accueil.md`
-- Exemple de commentaire GitHub : `docs/features/4-page-accueil/comment-github.md`
-- Exemple de documentation post-implémentation : `docs/features/{issue-number}-{feature-name}/{issue-number}-done.md` (à créer après implémentation)
+- Exemple de plan créé : `docs/features/2025-01-phase-1-fondations/4-page-accueil.md`
+- Exemple de commentaire GitHub : `docs/features/2025-01-phase-1-fondations/comment-github.md` (optionnel)
+- Structure par phases : Les features sont organisées dans `docs/features/{date}-phase-{number}-{name}/`
 

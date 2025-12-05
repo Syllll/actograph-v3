@@ -693,21 +693,27 @@ export interface IMyEntity {
 
 Quand l'utilisateur demande d'implémenter une feature depuis un lien GitHub (ex: "implémente la feature de ce lien {lien}"), suivre le processus décrit dans `docs/auto-implement.md` :
 
-1. **Créer la structure de documentation** dans `docs/features/{issue-number}-{feature-name}/`
-2. **Analyser l'issue GitHub** pour comprendre les besoins fonctionnels
-3. **Analyser le code existant** pour identifier ce qui est déjà implémenté
-4. **Créer un plan d'implémentation détaillé** dans `{issue-number}-{feature-name}.md`
-5. **Demander validation** à l'utilisateur avant de commencer l'implémentation
-6. **Ajuster le plan** selon les retours de l'utilisateur
-7. **Créer un commentaire GitHub formaté** dans `comment-github.md`
-8. **Après implémentation** : Créer `{issue-number}-done.md` avec la documentation post-implémentation (ce qui a été fait, problèmes rencontrés, initiatives prises)
+1. **Créer la structure de documentation** dans `docs/features/{date}-phase-{number}-{name}/`
+   - Les features sont organisées par phases dans des dossiers `{date}-phase-{number}-{name}/`
+   - Exemple : `docs/features/2025-01-phase-1-fondations/`
+2. **Créer un seul fichier** `{issue-number}-{feature-name}.md` qui combine plan + avancement
+   - Un seul fichier à maintenir (pas de séparation plan/done)
+   - Utiliser des checkboxes `- [ ]` pour les tâches non complétées et `- [x]` pour les tâches complétées
+3. **Analyser l'issue GitHub** pour comprendre les besoins fonctionnels
+4. **Analyser le code existant** pour identifier ce qui est déjà implémenté
+5. **Créer un plan d'implémentation détaillé** avec checkboxes dans le fichier unique
+6. **Demander validation** à l'utilisateur avant de commencer l'implémentation
+7. **Ajuster le plan** selon les retours de l'utilisateur
+8. **Créer un commentaire GitHub formaté** dans `comment-github.md` (optionnel)
+9. **Pendant l'implémentation** : Mettre à jour les checkboxes au fur et à mesure dans le même fichier
+10. **Pendant l'implémentation** : Ajouter les sections "Problèmes rencontrés" et "Initiatives prises" directement dans le fichier de plan
 
 **Points importants** :
 - ✅ Toujours analyser le code existant AVANT de proposer un plan
 - ✅ Marquer clairement ce qui existe déjà (✅) vs ce qui doit être créé (❌)
 - ✅ Ne pas proposer d'implémenter ce qui existe déjà
 - ✅ Demander validation avant de commencer à coder
-- ✅ Documenter après l'implémentation dans `{issue-number}-done.md`
+- ✅ **Mettre à jour le plan au fur et à mesure** : cocher les tâches et ajouter les sections nécessaires directement dans le fichier unique
 - ❌ Ne pas inclure d'estimations de temps sauf si explicitement demandé
 
 Voir `docs/auto-implement.md` pour le processus détaillé et des exemples.
