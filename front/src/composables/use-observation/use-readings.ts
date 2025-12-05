@@ -236,14 +236,14 @@ export const useReadings = (options: {
 
       // Update existing readings with retry logic
       // Only update readings that have an id (persisted readings)
-      const readingsToUpdate = updatedReadings.filter((reading) => reading.id);
+      const readingsToUpdate = updatedReadings.filter((reading): reading is IReading & { id: number } => !!reading.id);
       if (readingsToUpdate.length > 0) {
         const obsId = options.sharedStateFromObservation.currentObservation.id;
         await executeWithRetry(
           () => readingService.updateMany({
             observationId: obsId,
             readings: readingsToUpdate.map((reading) => ({
-              id: reading.id!,
+              id: reading.id,
               name: reading.name,
               description: reading.description,
               type: reading.type,
