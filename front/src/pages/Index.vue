@@ -4,7 +4,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, reactive } from 'vue';
+import { defineComponent, onMounted, reactive, provide, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import UpdateModal from '@components/update-modal/Index.vue';
 import AutosaveFilePicker from '@components/autosave-file-picker/Index.vue';
@@ -38,8 +38,50 @@ export default defineComponent({
       // Cleanup old autosave files on startup
       await autosave.methods.cleanupOnStartup();
 
-      // Check for autosave files to restore
-      await checkAndRestoreAutosave();
+      // Check if app crashed (brutal exit)
+      // We use a timestamp approach: if the app was started recently (< 2 minutes ago)
+      // and there's no normal exit flag, it means the app crashed
+      const lastStartTime = localStorage.getItem('actograph_last_start');
+      const normalExitFlag = localStorage.getItem('actograph_normal_exit');
+      const now = Date.now();
+      
+      // Set current start time FIRST (before checking)
+      localStorage.setItem('actograph_last_start', now.toString());
+      
+      // Clear normal exit flag (will be set again on normal exit)
+      if (normalExitFlag) {
+        localStorage.removeItem('actograph_normal_exit');
+      }
+      
+      // Only check for autosave restoration if:
+      // 1. There was a previous start (not first launch)
+      // 2. The previous start was very recent (< 2 minutes ago) - indicates crash
+      // 3. There was no normal exit flag (meaning crash)
+      let wasCrash = false;
+      if (lastStartTime) {
+        const startAge = now - parseInt(lastStartTime, 10);
+        // Only consider it a crash if the previous start was very recent (< 2 minutes)
+        // and there was no normal exit flag
+        if (startAge < 2 * 60 * 1000 && !normalExitFlag) {
+          wasCrash = true;
+        }
+        // Clean up old start time (> 1 hour old) to avoid false positives
+        if (startAge > 60 * 60 * 1000) {
+          localStorage.removeItem('actograph_last_start');
+        }
+      }
+
+      // DISABLED: Automatic autosave restoration on startup
+      // The detection of crashes is unreliable and causes false positives
+      // Users can manually restore autosave from the menu (top right > "Restaurer autosave")
+      // 
+      // If you want to re-enable automatic restoration on crash, uncomment below:
+      // 
+      // // Only check for autosave restoration if app crashed (brutal exit)
+      // // NEVER show automatically on first launch or normal startup
+      // if (wasCrash) {
+      //   // ... restoration logic ...
+      // }
 
       // Setup update checking
       systemService.onUpdateAvailable(async () => {
@@ -61,8 +103,21 @@ export default defineComponent({
       systemService.readyToCheckUpdates();
     });
 
+    // Set flag on normal exit (beforeunload is called when window closes normally)
+    const handleBeforeUnload = () => {
+      localStorage.setItem('actograph_normal_exit', 'true');
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Cleanup listener on unmount
+    onUnmounted(() => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    });
+
     /**
      * Check for autosave files and propose restoration if needed
+     * Can be called manually from menu or automatically on crash
      */
     const checkAndRestoreAutosave = async () => {
       try {
@@ -177,9 +232,20 @@ export default defineComponent({
       }
     };
 
+    // Expose method for manual restoration from menu
+    const methods = {
+      showAutosaveRestore: async () => {
+        await checkAndRestoreAutosave();
+      },
+    };
+
+    // Provide the function for child components to use
+    provide('autosaveRestore', methods.showAutosaveRestore);
+
     return {
       state,
       observation,
+      methods,
     };
   },
 });

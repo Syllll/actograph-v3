@@ -37,12 +37,16 @@
                 :key="item.label"
                 :to="item.route"
                 class="row justify-center"
+                @click="methods.handleMenuItemClick(item)"
               >
                 <template v-if="item.name === 'quit'">
                   <DSubmitBtn :label="item.label" @click="methods.logout" />
                 </template>
                 <template v-else-if="item.name === 'theme'">
                   <theme-toggler :label="item.label" />
+                </template>
+                <template v-else-if="item.name === 'autosave'">
+                  <d-item-section>{{ item.label }}</d-item-section>
                 </template>
                 <template v-else>
                   <d-item-section>{{ item.label }}</d-item-section>
@@ -137,6 +141,16 @@ export default defineComponent({
       async init() {},
       logout() {
         auth.methods.logout();
+      },
+      async handleMenuItemClick(item: any) {
+        // Handle autosave restore action
+        if (item.name === 'autosave' && item.action) {
+          try {
+            await item.action();
+          } catch (error) {
+            console.error('Error in autosave restore:', error);
+          }
+        }
       },
     };
 

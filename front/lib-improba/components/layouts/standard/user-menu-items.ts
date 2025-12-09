@@ -1,4 +1,4 @@
-export const userMenuItems = (i18n: any, auth: any) => {
+export const userMenuItems = (i18n: any, router: any, onAutosaveRestore?: () => void | Promise<void>) => {
   return [
     {
       name: 'theme',
@@ -16,6 +16,11 @@ export const userMenuItems = (i18n: any, auth: any) => {
       label: 'Licence',
       route: { name: 'user_license' },
     },
+    ...(onAutosaveRestore ? [{
+      name: 'autosave',
+      label: 'Sauvegardes automatiques',
+      action: onAutosaveRestore,
+    }] : []),
     /*{
     label: i18n.t('layout.dropDownMenu.profile'),
     disable: true,
@@ -34,9 +39,7 @@ export const userMenuItems = (i18n: any, auth: any) => {
       name: 'quit',
       label: 'Quitter',
       clickable: false,
-      action: () => {
-        auth.methods.logout();
-      },
+      action: undefined, // Will be handled in ToolbarContent
     },
   ];
 };

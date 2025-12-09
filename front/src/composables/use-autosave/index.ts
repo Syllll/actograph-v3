@@ -8,8 +8,8 @@ import { useObservation } from 'src/composables/use-observation';
 import { autosaveService } from '@services/observations/autosave.service';
 import { IObservation, IReading, IProtocol } from '@services/observations/interface';
 
-const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_AUTOSAVE_FILES = 5; // Keep only the 5 most recent autosave files
+const AUTOSAVE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const MAX_AUTOSAVE_FILES = 20; // Keep only the 20 most recent autosave files
 
 // Shared state for autosave
 const sharedState = {
