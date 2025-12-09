@@ -60,21 +60,38 @@ export default defineComponent({
         })
       );
 
-      // Create Y axis (categories)
-      const yAxis = chart.yAxes.push(
+      /**
+       * CONFIGURATION DES AXES POUR BARRES VERTICALES
+       * ===============================================
+       * 
+       * L'histogramme a été modifié pour afficher des barres verticales au lieu d'horizontales :
+       * 
+       * - X axis (horizontal) : CategoryAxis avec les labels des observables
+       * - Y axis (vertical) : ValueAxis avec les valeurs (nombre d'occurrences)
+       * 
+       * Cette orientation verticale est plus intuitive pour visualiser les occurrences
+       * et correspond mieux aux conventions d'affichage des histogrammes.
+       * 
+       * Configuration de la série :
+       * - valueYField: 'value' → valeurs sur l'axe Y (vertical)
+       * - categoryXField: 'label' → catégories sur l'axe X (horizontal)
+       */
+      
+      // Create X axis (categories) - pour barres verticales
+      const xAxis = chart.xAxes.push(
         am5xy.CategoryAxis.new(root, {
           categoryField: 'label',
-          renderer: am5xy.AxisRendererY.new(root, {
+          renderer: am5xy.AxisRendererX.new(root, {
             cellStartLocation: 0.1,
             cellEndLocation: 0.9,
           }),
         })
       );
 
-      // Create X axis (values)
-      const xAxis = chart.xAxes.push(
+      // Create Y axis (values) - pour barres verticales
+      const yAxis = chart.yAxes.push(
         am5xy.ValueAxis.new(root, {
-          renderer: am5xy.AxisRendererX.new(root, {}),
+          renderer: am5xy.AxisRendererY.new(root, {}),
         })
       );
 
@@ -84,8 +101,8 @@ export default defineComponent({
           name: 'Duration',
           xAxis: xAxis,
           yAxis: yAxis,
-          valueXField: 'value',
-          categoryYField: 'label',
+          valueYField: 'value',
+          categoryXField: 'label',
           fill: am5.color(props.colors),
           stroke: am5.color(props.colors),
         })
@@ -93,11 +110,11 @@ export default defineComponent({
 
       // Set data
       if (props.data && props.data.length > 0 && props.data.some((d) => d.value > 0)) {
-        yAxis.data.setAll(props.data);
+        xAxis.data.setAll(props.data);
         series.data.setAll(props.data);
       } else {
         // Show empty state
-        yAxis.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
+        xAxis.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
         series.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
       }
 
@@ -115,12 +132,27 @@ export default defineComponent({
         return text;
       });
 
+      /**
+       * CONFIGURATION DES BARRES VERTICALES
+       * ====================================
+       * 
+       * Les barres verticales sont configurées avec :
+       * - cornerRadiusTL et cornerRadiusBL : coins arrondis en haut (top-left et bottom-left)
+       *   car les barres partent du bas et montent vers le haut
+       * 
+       * Les labels sont positionnés en haut des barres :
+       * - locationY: 1 → position au sommet de la barre
+       * - centerY: am5.p100 → alignement vertical en haut
+       * - centerX: am5.p50 → centrage horizontal
+       * - textAlign: 'center' → texte centré
+       */
+      
       // Configure columns appearance
       series.columns.template.setAll({
         tooltipY: 0,
         strokeOpacity: 0,
         cornerRadiusTL: 4,
-        cornerRadiusTR: 4,
+        cornerRadiusBL: 4,
       });
 
       // Enable and configure labels on bars using bullets
@@ -128,11 +160,11 @@ export default defineComponent({
         const label = am5.Label.new(root, {
           text: '{formattedValue}',
           fill: am5.color('#000'),
-          centerX: am5.p100,
-          centerY: am5.p50,
+          centerX: am5.p50,
+          centerY: am5.p100,
           fontSize: 12,
-          textAlign: 'right',
-          paddingRight: 5,
+          textAlign: 'center',
+          paddingBottom: 5,
         });
 
         // Configure adapter for formattedValue
@@ -150,7 +182,7 @@ export default defineComponent({
         });
 
         return am5.Bullet.new(root, {
-          locationX: 1,
+          locationY: 1,
           sprite: label,
         });
       });
@@ -162,15 +194,15 @@ export default defineComponent({
         return;
       }
 
-      const yAxis = chart.yAxes.getIndex(0) as am5xy.CategoryAxis<am5xy.AxisRendererY> | undefined;
+      const xAxis = chart.xAxes.getIndex(0) as am5xy.CategoryAxis<am5xy.AxisRendererX> | undefined;
       const series = chart.series.getIndex(0) as am5xy.ColumnSeries | undefined;
 
-      if (yAxis && series) {
+      if (xAxis && series) {
         if (props.data && props.data.length > 0 && props.data.some((d) => d.value > 0)) {
-          yAxis.data.setAll(props.data);
+          xAxis.data.setAll(props.data);
           series.data.setAll(props.data);
         } else {
-          yAxis.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
+          xAxis.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
           series.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
         }
       }

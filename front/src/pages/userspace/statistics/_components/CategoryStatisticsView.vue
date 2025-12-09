@@ -28,8 +28,26 @@
             Statistiques : {{ statistics.sharedState.categoryStatistics.categoryName }}
           </div>
 
-          <!-- Pie Chart (Percentage) -->
-          <div class="q-mb-lg">
+          <!-- 
+            AFFICHAGE CONDITIONNEL SELON LE TYPE DE CATÉGORIE
+            ==================================================
+            
+            Les statistiques s'adaptent au type de catégorie :
+            
+            - Catégories continues :
+              → Pie chart (camembert) : pourcentage de temps "on" pour chaque observable
+              → Histogramme : nombre d'occurrences pour chaque observable
+            
+            - Catégories discrètes (ponctuelles) :
+              → Pas de pie chart (pas de notion de durée/ pourcentage)
+              → Uniquement histogramme : nombre d'occurrences pour chaque observable
+            
+            Cette différenciation permet d'afficher les métriques pertinentes
+            selon la nature de la catégorie (continue avec durée vs discrète avec occurrences).
+          -->
+          
+          <!-- Pie Chart (Percentage) - Uniquement pour les catégories continues -->
+          <div v-if="isContinuousCategory" class="q-mb-lg">
             <div class="row items-center justify-between q-mb-sm">
               <div class="text-subtitle2">
                 Pourcentage de temps "on" au sein de la catégorie
@@ -47,11 +65,24 @@
             />
           </div>
 
-          <!-- Bar Chart (Duration) -->
+          <!-- 
+            HISTOGRAMME DES OCCURRENCES
+            ============================
+            
+            Cet histogramme affiche le nombre d'occurrences (onCount) pour chaque observable,
+            indépendamment du type de catégorie (continue ou discrète).
+            
+            Pour les catégories continues : complète le pie chart en montrant combien de fois
+            chaque observable a été activé.
+            
+            Pour les catégories discrètes : c'est la seule visualisation pertinente car
+            ces catégories n'ont pas de notion de durée, seulement des occurrences ponctuelles.
+          -->
+          <!-- Bar Chart (Occurrences) -->
           <div>
-            <div class="text-subtitle2 q-mb-sm">Durée d'état "on"</div>
+            <div class="text-subtitle2 q-mb-sm">Nombre d'occurrences</div>
             <AmChartsBarChart
-              :data="barChartData"
+              :data="occurrencesBarChartData"
               :colors="barChartColors"
               :height="400"
             />
@@ -67,6 +98,10 @@ import { defineComponent, reactive, computed, watch } from 'vue';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useObservation } from 'src/composables/use-observation';
 import { DCard, DCardSection } from '@lib-improba/components';
+import {
+  ProtocolItemActionEnum,
+  protocolService,
+} from '@services/observations/protocol.service';
 import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
 
@@ -235,18 +270,84 @@ export default defineComponent({
       return baseColors;
     });
 
-    const barChartData = computed(() => {
+    /**
+     * DÉTECTION DU TYPE DE CATÉGORIE (CONTINUE VS DISCRÈTE)
+     * =======================================================
+     * 
+     * Cette fonction détermine si la catégorie sélectionnée est continue ou discrète
+     * en analysant son action dans le protocole :
+     * 
+     * - Continue : action === 'continuous' ou action non défini (par défaut)
+     * - Discrète : action === 'discrete'
+     * 
+     * Cette information est utilisée pour adapter l'affichage des statistiques :
+     * - Continues : pie chart + histogramme
+     * - Discrètes : uniquement histogramme
+     */
+    const isContinuousCategory = computed(() => {
+      if (!state.selectedCategoryId || !observation.protocol?.sharedState?.currentProtocol) {
+        return true; // Par défaut, considérer comme continue
+      }
+      
+      const protocol = observation.protocol.sharedState.currentProtocol;
+      
+      // Parser les items du protocole
+      const items = protocolService.parseProtocolItems(protocol);
+      
+      // Trouver la catégorie sélectionnée dans le protocole
+      const findCategory = (items: any[]): any => {
+        for (const item of items) {
+          if (item.type === 'category' && item.id === state.selectedCategoryId) {
+            return item;
+          }
+          if (item.children) {
+            const found = findCategory(item.children);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const category = findCategory(items);
+      if (!category) {
+        return true; // Par défaut, considérer comme continue
+      }
+
+      // Une catégorie est continue si action n'est pas défini ou si action === 'continuous'
+      return !category.action || category.action === ProtocolItemActionEnum.Continuous;
+    });
+
+    /**
+     * HISTOGRAMME DES OCCURRENCES
+     * ============================
+     * 
+     * Prépare les données pour l'histogramme affichant le nombre d'occurrences
+     * (onCount) pour chaque observable de la catégorie.
+     * 
+     * Contrairement à l'ancien barChartData qui affichait la durée (onDuration),
+     * cet histogramme se concentre sur le nombre de fois où chaque observable
+     * a été activé, ce qui est pertinent pour les deux types de catégories :
+     * 
+     * - Continues : montre combien de fois chaque observable a été activé
+     * - Discrètes : seule métrique pertinente (pas de durée)
+     * 
+     * Format des données :
+     * - label : nom de l'observable
+     * - value : nombre d'occurrences (onCount)
+     * - formattedValue : texte formaté "X occurrence(s)"
+     */
+    const occurrencesBarChartData = computed(() => {
       const stats = statistics.sharedState.categoryStatistics;
       if (!stats || !stats.observables || stats.observables.length === 0) {
         return [];
       }
 
       const data = stats.observables
-        .filter((obs) => obs.onDuration > 0 || obs.onCount > 0)
+        .filter((obs) => obs.onCount > 0)
         .map((obs) => ({
           label: obs.observableName,
-          value: obs.onDuration || 0,
-          formattedValue: statistics.methods.formatDuration(obs.onDuration || 0),
+          value: obs.onCount || 0,
+          formattedValue: `${obs.onCount} occurrence${obs.onCount > 1 ? 's' : ''}`,
         }));
 
       return data.length > 0 ? data : [];
@@ -264,8 +365,9 @@ export default defineComponent({
       methods,
       pieChartData,
       pieChartColors,
-      barChartData,
+      occurrencesBarChartData,
       barChartColors,
+      isContinuousCategory,
     };
   },
 });

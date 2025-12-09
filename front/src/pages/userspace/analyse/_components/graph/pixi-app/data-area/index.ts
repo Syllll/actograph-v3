@@ -11,6 +11,7 @@ import { xAxis } from '../axis/x-axis';
 import {
   ProtocolItem,
   protocolService,
+  ProtocolItemActionEnum,
 } from '@services/observations/protocol.service';
 import { BaseGraphic } from '../lib/base-graphic';
 import { useDuration } from 'src/composables/use-duration';
@@ -19,14 +20,27 @@ import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
 /**
  * Classe représentant la zone de données du graphique d'activité.
  * 
- * Cette zone affiche les readings sous forme de segments de ligne :
- * - Les readings de type DATA sont visualisés comme des transitions entre observables
- * - Les readings sont groupés par catégorie du protocole
- * - Chaque catégorie a son propre graphique pour dessiner ses readings
+ * Cette zone affiche les readings sous forme de segments de ligne ou de points,
+ * selon le type de catégorie (continue ou discrète) :
+ * 
+ * - Catégories continues (action === 'continuous' ou non défini) :
+ *   → Readings visualisés comme des transitions entre observables (lignes step-line)
+ *   → Segments horizontaux (maintien sur le même observable) en vert épais
+ *   → Segments verticaux (transitions entre observables) en gris fin
+ *   → Visualise la durée pendant laquelle chaque observable est actif
+ * 
+ * - Catégories discrètes (action === 'discrete') :
+ *   → Readings visualisés comme des points individuels (cercles de 4px)
+ *   → Pas de lignes entre les points (chaque occurrence est isolée)
+ *   → Visualise les événements ponctuels sans notion de durée
+ * 
+ * Les readings sont groupés par catégorie du protocole et chaque catégorie
+ * a son propre graphique pour dessiner ses readings.
  * 
  * La zone gère également l'interaction avec la souris :
  * - Affichage de lignes en pointillés pour suivre le curseur
  * - Lignes de référence horizontale et verticale depuis l'origine
+ * - Label de temps affiché sous l'axe X à la position du curseur
  */
 export class DataArea extends BaseGroup {
   /** Référence à l'axe Y pour connaître les positions des observables */
@@ -420,13 +434,18 @@ export class DataArea extends BaseGroup {
   }
 
   /**
-   * Dessine les readings d'une catégorie sous forme de segments de ligne.
+   * Dessine les readings d'une catégorie sous forme de segments de ligne ou de points.
    * 
-   * Les readings sont visualisés comme une ligne qui :
-   * - Commence au premier reading sur son observable
-   * - Se déplace horizontalement vers la droite jusqu'à la date du reading suivant
-   * - Se déplace verticalement vers le nouvel observable (si changement)
-   * - Continue ainsi jusqu'au reading STOP
+   * Pour les catégories continues :
+   * - Les readings sont visualisés comme une ligne qui :
+   *   - Commence au premier reading sur son observable
+   *   - Se déplace horizontalement vers la droite jusqu'à la date du reading suivant
+   *   - Se déplace verticalement vers le nouvel observable (si changement)
+   *   - Continue ainsi jusqu'au reading STOP
+   * 
+   * Pour les catégories discrètes (ponctuelles) :
+   * - Chaque reading est affiché comme un point unique
+   * - Pas de lignes entre les points
    * 
    * Les segments horizontaux (maintenus sur le même observable) sont en vert épais.
    * Les segments verticaux (transitions entre observables) sont en gris fin.
@@ -466,66 +485,122 @@ export class DataArea extends BaseGroup {
 
     const graphic = graphicEntry.graphic;
 
-    // Récupération du premier reading pour initialiser la position de départ
-    const firstReading = readings[0];
-    if (!firstReading) {
-      throw new Error('No readings found');
-    }
+    /**
+     * DIFFÉRENCIATION CATÉGORIES CONTINUES / DISCRÈTES (PONCTUELLES)
+     * 
+     * Le graphique d'activité affiche différemment les catégories selon leur type :
+     * 
+     * - Catégories continues (action === 'continuous' ou non défini) :
+     *   → Affichage en lignes step-line (segments horizontaux et verticaux)
+     *   → Chaque reading maintient l'état jusqu'au suivant
+     *   → Visualise la durée pendant laquelle un observable est actif
+     * 
+     * - Catégories discrètes (action === 'discrete') :
+     *   → Affichage en points individuels (cercles de 4px)
+     *   → Chaque reading est un événement ponctuel indépendant
+     *   → Pas de lignes entre les points (chaque occurrence est isolée)
+     * 
+     * Cette différenciation permet de distinguer visuellement les catégories
+     * qui ont une durée (continues) de celles qui sont des événements ponctuels (discrètes).
+     */
+    const isDiscrete = category.action === ProtocolItemActionEnum.Discrete;
 
-    // Position de départ : début de l'axe Y (horizontalement) et position de l'observable (verticalement)
-    const start = {
-      x: this.yAxis?.getAxisStart()?.x ?? 0,
-      y: this.yAxis.getPosFromLabel(firstReading.name),
-    };
+    // Nettoyer le graphique avant de dessiner pour éviter l'accumulation
+    graphic.clear();
 
-    // Positionnement du "stylo" graphique au point de départ
-    graphic.moveTo(start.x, start.y);
-    const last = {
-      x: start.x,
-      y: start.y,
-    };
-
-    // Parcours de tous les readings suivants pour dessiner les segments
-    for (let i = 1; i < readings.length; i++) {
-      const reading = readings[i];
-      if (!reading) {
-        throw new Error('No reading found');
+    if (isDiscrete) {
+      /**
+       * MODE DISCRET (PONCTUEL) : Affichage en points
+       * 
+       * Pour les catégories discrètes, chaque reading DATA est représenté
+       * comme un point unique sur le graphique, sans connexion avec les autres.
+       * Cela reflète la nature ponctuelle de ces catégories où chaque relevé
+       * est un événement indépendant, sans notion de durée ou de continuité.
+       */
+      for (const reading of readings) {
+        if (reading.type === ReadingTypeEnum.DATA) {
+          const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
+          const yPos = this.yAxis.getPosFromLabel(reading.name);
+          
+          // Dessiner un cercle (point) à la position du reading
+          graphic.circle(xPos, yPos, 4); // Rayon de 4 pixels
+          graphic.setFillStyle({ color: 'green' });
+          graphic.fill();
+        }
+        // On ignore les readings STOP pour les catégories discrètes
+        // (pas de notion de fin pour un événement ponctuel)
+      }
+    } else {
+      /**
+       * MODE CONTINU : Affichage en lignes step-line
+       * 
+       * Pour les catégories continues, les readings sont connectés par des lignes
+       * qui maintiennent l'état actuel jusqu'au reading suivant. Cela permet de
+       * visualiser la durée pendant laquelle chaque observable est actif.
+       */
+      // Pour les catégories continues : comportement actuel (lignes)
+      // Récupération du premier reading pour initialiser la position de départ
+      const firstReading = readings[0];
+      if (!firstReading) {
+        // Si pas de readings, on ne dessine rien
+        return;
       }
 
-      // Calcul de la position Y :
-      // - Si c'est un reading STOP, on utilise -1 (hors écran) pour fermer le segment
-      // - Sinon, on récupère la position de l'observable correspondant
-      const yPos =
-        reading.type === ReadingTypeEnum.STOP
-          ? -1
-          : this.yAxis.getPosFromLabel(reading.name);
-      
-      // Calcul de la position X à partir de la date/heure du reading
-      const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
-      
-      // Dessin d'un segment horizontal vers la droite jusqu'à la date du reading
-      // Ce segment maintient la position Y actuelle (même observable)
-      graphic.lineTo(xPos, last.y);
-      graphic.setStrokeStyle({
-        color: 'green', // Vert pour les segments horizontaux (maintien sur l'observable)
-        width: 2,
-      });
-      graphic.stroke();
+      // Position de départ : début de l'axe Y (horizontalement) et position de l'observable (verticalement)
+      const start = {
+        x: this.yAxis?.getAxisStart()?.x ?? 0,
+        y: this.yAxis.getPosFromLabel(firstReading.name),
+      };
 
-      // Dessin d'un segment vertical si nécessaire (changement d'observable)
-      // Ce segment n'est dessiné que si la position Y est valide (pas de STOP)
-      if (yPos >= 0) {
-        graphic.lineTo(xPos, yPos);
+      // Positionnement du "stylo" graphique au point de départ
+      graphic.moveTo(start.x, start.y);
+      const last = {
+        x: start.x,
+        y: start.y,
+      };
+
+      // Parcours de tous les readings suivants pour dessiner les segments
+      for (let i = 1; i < readings.length; i++) {
+        const reading = readings[i];
+        if (!reading) {
+          throw new Error('No reading found');
+        }
+
+        // Calcul de la position Y :
+        // - Si c'est un reading STOP, on utilise -1 (hors écran) pour fermer le segment
+        // - Sinon, on récupère la position de l'observable correspondant
+        const yPos =
+          reading.type === ReadingTypeEnum.STOP
+            ? -1
+            : this.yAxis.getPosFromLabel(reading.name);
+        
+        // Calcul de la position X à partir de la date/heure du reading
+        const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
+        
+        // Dessin d'un segment horizontal vers la droite jusqu'à la date du reading
+        // Ce segment maintient la position Y actuelle (même observable)
+        graphic.lineTo(xPos, last.y);
         graphic.setStrokeStyle({
-          color: 'grey', // Gris pour les segments verticaux (transitions)
-          width: 1,
+          color: 'green', // Vert pour les segments horizontaux (maintien sur l'observable)
+          width: 2,
         });
         graphic.stroke();
-      }
 
-      // Mise à jour de la position actuelle pour le prochain segment
-      last.x = xPos;
-      last.y = yPos;
+        // Dessin d'un segment vertical si nécessaire (changement d'observable)
+        // Ce segment n'est dessiné que si la position Y est valide (pas de STOP)
+        if (yPos >= 0) {
+          graphic.lineTo(xPos, yPos);
+          graphic.setStrokeStyle({
+            color: 'grey', // Gris pour les segments verticaux (transitions)
+            width: 1,
+          });
+          graphic.stroke();
+        }
+
+        // Mise à jour de la position actuelle pour le prochain segment
+        last.x = xPos;
+        last.y = yPos;
+      }
     }
   }
 }
