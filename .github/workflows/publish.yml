@@ -144,7 +144,8 @@ jobs:
           API_URL=http://localhost:3044
           APP_NAME=actograph-v3
           # Modes = dark|light
-          DEFAULT_COLOR_MODE=light" > front/.env
+          DEFAULT_COLOR_MODE=light
+          AMCHART5_LICENCE_KEY=${{ secrets.AMCHART5_LICENCE_KEY }}" > front/.env
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -233,6 +234,8 @@ jobs:
           ELECTRON_CACHE: ~/.cache/electron
           # Skip Electron binary download during yarn install - electron-builder will handle it
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          # AmCharts license key for build-time
+          AMCHART5_LICENCE_KEY: ${{ secrets.AMCHART5_LICENCE_KEY }}
 
       # Clean up certificate for Windows only
       - name: Clean up certificate

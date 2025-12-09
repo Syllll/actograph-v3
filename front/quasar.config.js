@@ -28,7 +28,7 @@ module.exports = configure(function (/* ctx */) {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['lib-improba'],
+    boot: ['amcharts', 'lib-improba'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -134,6 +134,7 @@ module.exports = configure(function (/* ctx */) {
         APP_NAME: appname,
         VUE_ROUTER_MODE: process.env.VUE_ROUTER_MODE || 'hash',
         DEFAULT_COLOR_MODE: process.env.DEFAULT_COLOR_MODE || 'light',
+        AMCHART5_LICENCE_KEY: process.env.AMCHART5_LICENCE_KEY,
       },
       beforeBuild: (ctx) => {
         if (ctx.dev) {
