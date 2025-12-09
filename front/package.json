@@ -1,6 +1,6 @@
 {
   "name": "actograph",
-  "version": "0.0.76",
+  "version": "0.0.77",
   "description": "A Quasar Project",
   "productName": "actograph",
   "author": "Sylvain Meylan <sylvain@ateliom.fr>",
@@ -12,7 +12,8 @@
     "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev",
     "build": "quasar build",
-    "docker:dev": "sh docker/compose.sh console"
+    "docker:dev": "sh docker/compose.sh console",
+    "postinstall": "node scripts/fix-d3-dispatch-types.js"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.4",
