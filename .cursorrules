@@ -1,5 +1,24 @@
 # ActoGraph v3 - Cursor Rules
 
+## Knowledge Base Improba
+
+Ce projet utilise les conventions et recettes de la **Knowledge Base Improba** accessible via le lien symbolique `.knowledge-base/`.
+
+**⚠️ IMPORTANT - Différences spécifiques à ActoGraph v3** :
+- Ce projet utilise **TypeORM** (pas MikroORM) - Voir les sections Backend ci-dessous pour les conventions TypeORM spécifiques
+- Ce projet utilise **`defineComponent` avec `setup()`** pour Vue (pas `<script setup>`) - Voir la section Frontend ci-dessous
+- Ce projet utilise des **couleurs CSS custom** définies dans `front/src/css/_colors.scss` (pas Anubis UI par défaut)
+
+**Recettes pertinentes de la Knowledge Base** :
+- `.knowledge-base/recipes/glutamat/creer-module-nestjs.md` - Structure de base (⚠️ adapter pour TypeORM)
+- `.knowledge-base/recipes/glutamat/creer-module-quasar.md` - Structure frontend (⚠️ adapter pour `defineComponent`)
+- `.knowledge-base/best-practices/code-quality/conventions-vue-quasar.md` - Conventions Vue/Quasar (⚠️ adapter pour `defineComponent`)
+- `.knowledge-base/best-practices/code-quality/conventions-code.md` - Conventions générales de code
+- `.knowledge-base/best-practices/code-quality/conventions-nommage.md` - Conventions de nommage
+- `.knowledge-base/procedures/development/workflow-docker.md` - Workflow Docker
+
+**Consulter la Knowledge Base** : Toujours vérifier `.knowledge-base/` pour les recettes et conventions générales, puis adapter selon les spécificités d'ActoGraph v3 décrites ci-dessous.
+
 ## Architecture du projet
 
 Ce projet est composé de deux parties principales :
@@ -262,6 +281,8 @@ export class CoreModule {}
 
 ### Conventions de code Backend
 
+**Référence Knowledge Base** : Voir `.knowledge-base/recipes/glutamat/creer-module-nestjs.md` pour la structure générale, mais **adapter pour TypeORM** (ce projet n'utilise pas MikroORM).
+
 #### Entités TypeORM
 - Toutes les entités doivent étendre `BaseEntity` de `@utils/entities/base.entity`
 - Utiliser les décorateurs TypeORM : `@Entity()`, `@Column()`, `@ManyToOne()`, `@OneToMany()`, `@OneToOne()`, `@JoinColumn()`
@@ -444,6 +465,8 @@ export class CreateMyDto {
 - **Styles** : `front/src/css/` et `front/lib-improba/css/`
 
 ### Conventions de code Frontend
+
+**Référence Knowledge Base** : Voir `.knowledge-base/recipes/glutamat/creer-module-quasar.md` et `.knowledge-base/best-practices/code-quality/conventions-vue-quasar.md` pour les conventions générales, mais **adapter pour `defineComponent`** (ce projet n'utilise pas `<script setup>`).
 
 #### Composants Vue.js
 - **IMPORTANT** : Utiliser `defineComponent` avec la fonction `setup()`, **PAS** `<script setup>`
@@ -720,26 +743,58 @@ Voir `docs/auto-implement.md` pour le processus détaillé et des exemples.
 
 ## Règles générales
 
+**Référence Knowledge Base** : Voir `.knowledge-base/best-practices/code-quality/conventions-code.md` pour les principes généraux de qualité de code.
+
 1. **Toujours utiliser Docker** pour les commandes de développement (yarn, migrations, etc.)
+   - Voir `.knowledge-base/procedures/development/workflow-docker.md` pour les workflows Docker généraux
 2. **Respecter la structure** des dossiers existants
 3. **Utiliser TypeScript** partout (backend et frontend)
+   - Voir `.knowledge-base/best-practices/code-quality/conventions-code.md` pour les conventions TypeScript strictes
 4. **Suivre les conventions** de nommage existantes
+   - Voir `.knowledge-base/best-practices/code-quality/conventions-nommage.md` pour les conventions générales
 5. **Étendre les classes de base** quand disponibles (BaseEntity, BaseService, BaseController)
 6. **Utiliser yarn** pour la gestion des dépendances (pas npm)
 7. **Tester les migrations** avant de les commiter
+   - ⚠️ Ce projet utilise **TypeORM** (pas MikroORM) - Voir la section Migrations TypeORM ci-dessus
 8. **Respecter les patterns** existants dans le code
 
 ## Notes importantes
+
+### Différences avec la Knowledge Base standard
+
+**⚠️ IMPORTANT** : Ce projet a des spécificités par rapport aux recettes standard de la Knowledge Base :
+
+1. **ORM** : Ce projet utilise **TypeORM** (pas MikroORM)
+   - Les recettes de la KB mentionnent MikroORM, mais ici on utilise TypeORM
+   - Voir les sections Backend ci-dessus pour les conventions TypeORM spécifiques
+
+2. **Vue.js** : Ce projet utilise **`defineComponent` avec `setup()`** (pas `<script setup>`)
+   - Les recettes de la KB montrent `<script setup>`, mais ici on utilise `defineComponent`
+   - Voir la section Frontend ci-dessus pour les conventions spécifiques
+
+3. **Couleurs CSS** : Ce projet utilise des **couleurs CSS custom** (pas Anubis UI par défaut)
+   - Les couleurs sont définies dans `front/src/css/_colors.scss`
+   - Utiliser `var(--primary)`, `var(--accent)`, `var(--secondary)` dans les styles SCSS
+   - Voir la section "Couleurs CSS" ci-dessus
+
+### Règles générales
 
 - Les migrations TypeORM doivent toujours être exécutées dans le conteneur Docker API
 - Les commandes yarn doivent être exécutées dans le conteneur approprié (API ou Frontend)
 - Le frontend utilise Vue.js 3 avec `defineComponent` et `setup()`, **PAS** `<script setup>`
 - Le backend utilise NestJS avec TypeORM et des entités qui étendent `BaseEntity`
-- Tous les fichiers doivent respecter les conventions TypeScript strictes
+- Tous les fichiers doivent respecter les conventions TypeScript strictes (voir `.knowledge-base/best-practices/code-quality/conventions-code.md`)
 - Le backend utilise un `ValidationPipe` global qui transforme et valide automatiquement les DTOs
 - Les erreurs de validation sont automatiquement renvoyées par NestJS avec un format standardisé
 - NestJS gère automatiquement les exceptions HTTP (NotFoundException, BadRequestException, etc.)
 - Les relations many-to-many sont gérées automatiquement par `BaseRepository.save()`
 - Les groupes de sérialisation (`GROUP_USER`, `GROUP_ADMIN`) permettent de contrôler quels champs sont exposés selon le rôle
 - Les services frontend doivent utiliser `api()` depuis `lib-improba/boot/axios` qui gère automatiquement l'authentification JWT
+
+### Consultation de la Knowledge Base
+
+Quand vous consultez la Knowledge Base (`.knowledge-base/`), **toujours vérifier** :
+1. Les recettes générales dans `.knowledge-base/recipes/glutamat/`
+2. Les conventions dans `.knowledge-base/best-practices/code-quality/`
+3. **Puis adapter** selon les spécificités d'ActoGraph v3 décrites dans ce fichier `.cursorrules`
 

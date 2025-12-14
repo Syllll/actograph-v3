@@ -8,6 +8,9 @@ export const menu = (router: Router) => [
     action: () => router.push({ name: 'user_home' }),
     isActive: () => router.currentRoute.value.name === 'user_home',
   },
+];
+
+export const chronicleSubMenu = (router: Router) => [
   {
     label: 'Protocole',
     icon: 'mdi-flask-outline',
@@ -60,6 +63,20 @@ export const menu = (router: Router) => [
       }
       if (observation.readings.sharedState.currentReadings.length === 0) {
         return 'Aucun relevé disponible. Veuillez d\'abord enregistrer des observations.';
+      }
+      return '';
+    },
+  },
+  {
+    label: 'Exporter la chronique',
+    icon: 'mdi-download',
+    separator: false,
+    action: null, // Sera géré dans le template
+    isActive: () => false,
+    disabled: (observation: any) => !observation.sharedState.currentObservation,
+    tooltip: (observation: any) => {
+      if (!observation.sharedState.currentObservation) {
+        return 'Aucune chronique chargée';
       }
       return '';
     },

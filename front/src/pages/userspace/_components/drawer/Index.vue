@@ -30,17 +30,10 @@
               @click="methods.startObservation"
             />
             <d-action-btn
-              icon="mdi-new-box"
+              icon="mdi-file-import"
               tooltip="Importer une chronique"
-              label="Importer"
+              label="Importer depuis un fichier"
               @click="methods.importObservation"
-            />
-            <d-action-btn
-              icon="mdi-new-box"
-              tooltip="Exporter une chronique"
-              label="Exporter"
-              :disabled="!observation.sharedState.currentObservation"
-              @click="methods.exportObservation"
             />
           </div>
         </div>
@@ -49,6 +42,7 @@
 
         <!-- Menu -->
         <q-list>
+          <!-- Accueil -->
           <template
             v-for="(menuItem, index) in computedState.menuList.value"
             :key="index"
@@ -57,71 +51,98 @@
               clickable
               :active="menuItem.isActive()"
               v-ripple
-              @click="() => {
-                const isDisabled = menuItem.disabled ? menuItem.disabled(observation) : false;
-                if (isDisabled) {
-                  // Show warning notification if item is disabled
-                  const tooltip = menuItem.tooltip ? menuItem.tooltip(observation) : '';
-                  if (tooltip) {
-                    if (menuItem.label === 'Graphe') {
-                      notifications.methods.showGraphWarning();
-                    } else if (menuItem.label === 'Statistiques') {
-                      notifications.methods.showStatsWarning();
-                    } else {
-                      notifications.methods.warning(tooltip);
-                    }
-                  }
-                } else {
-                  menuItem.action();
-                }
-              }"
+              @click="menuItem.action()"
               active-class="active"
-              :disable="
-                menuItem.disabled ? menuItem.disabled(observation) : false
-              "
             >
               <q-item-section avatar>
                 <q-icon :name="menuItem.icon" />
               </q-item-section>
               <q-item-section>
                 {{ menuItem.label }}
-                <q-tooltip v-if="menuItem.tooltip && menuItem.tooltip(observation)">
-                  {{ menuItem.tooltip(observation) }}
-                </q-tooltip>
               </q-item-section>
             </q-item>
             <q-separator :key="'sep' + index" v-if="menuItem.separator" />
           </template>
 
-          
+          <!-- Chronique active avec sous-menus -->
+          <template v-if="observation.sharedState.currentObservation">
+            <q-expansion-item
+              :default-opened="true"
+            >
+              <template v-slot:header>
+                <q-item-section avatar>
+                  <q-icon name="mdi-book-open-variant" />
+                </q-item-section>
+                <q-item-section>
+                  <div class="row items-center">
+                    <q-tooltip>
+                      {{ observation.sharedState.currentObservation.name }}
+                    </q-tooltip>
+                    <span 
+                      class="text-truncate" 
+                      style="max-width: 150px"
+                    >
+                      {{ computedState.chronicleDisplayName.value ?? '' }}
+                    </span>
+                  </div>
+                </q-item-section>
+              </template>
+
+              <!-- Sous-menus -->
+              <q-list>
+                <template
+                  v-for="(subMenuItem, subIndex) in computedState.chronicleSubMenu.value"
+                  :key="subIndex"
+                >
+                  <q-item
+                    clickable
+                    :active="subMenuItem.isActive()"
+                    v-ripple
+                    @click="() => {
+                      const isDisabled = subMenuItem.disabled ? subMenuItem.disabled(observation) : false;
+                      if (isDisabled) {
+                        const tooltip = subMenuItem.tooltip ? subMenuItem.tooltip(observation) : '';
+                        if (tooltip) {
+                          if (subMenuItem.label === 'Graphe') {
+                            notifications.methods.showGraphWarning();
+                          } else if (subMenuItem.label === 'Statistiques') {
+                            notifications.methods.showStatsWarning();
+                          } else {
+                            notifications.methods.warning(tooltip);
+                          }
+                        }
+                      } else {
+                        if (subMenuItem.label === 'Exporter la chronique') {
+                          methods.exportObservation();
+                        } else if (subMenuItem.action) {
+                          subMenuItem.action();
+                        }
+                      }
+                    }"
+                    active-class="active"
+                    :disable="
+                      subMenuItem.disabled ? subMenuItem.disabled(observation) : false
+                    "
+                    class="q-pl-lg"
+                  >
+                    <q-item-section avatar>
+                      <q-icon :name="subMenuItem.icon" />
+                    </q-item-section>
+                    <q-item-section>
+                      {{ subMenuItem.label }}
+                      <q-tooltip v-if="subMenuItem.tooltip && subMenuItem.tooltip(observation)">
+                        {{ subMenuItem.tooltip(observation) }}
+                      </q-tooltip>
+                    </q-item-section>
+                  </q-item>
+                  <q-separator :key="'sub-sep' + subIndex" v-if="subMenuItem.separator" />
+                </template>
+              </q-list>
+            </q-expansion-item>
+          </template>
         </q-list>
 
         <q-space />
-        
-          <div><q-separator /></div>
-
-          <!-- Current observation card -->
-        <DCard class="q-mx-sm q-ml-md" bgColor="primary">
-        <div class="column text-text-invert">
-          <div class="text-h4 text-weight-bold text-center q-mb-md">
-            Votre chronique
-          </div>
-          <div class="text-center">
-            {{
-              observation.sharedState.currentObservation?.name ??
-              "Aucune chronique n'est chargée"
-            }}
-          </div>
-
-          <div
-            v-if="observation.sharedState.currentObservation?.name && observation.readings.sharedState.currentReadings"
-            class="row q-mt-sm"
-          >
-            Relevés : {{ observation.readings.sharedState.currentReadings.length }}
-          </div>
-        </div>
-      </DCard>
-        
       </div>
     </div>
   </q-drawer>
@@ -129,7 +150,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive, computed, nextTick } from 'vue';
-import { menu } from './menu';
+import { menu, chronicleSubMenu } from './menu';
 import { useDrawer } from './use-drawer';
 import { useRouter } from 'vue-router';
 import { useObservation } from 'src/composables/use-observation';
@@ -167,6 +188,22 @@ export default defineComponent({
 
     const computedState = {
       menuList: computed(() => menu(router)),
+      chronicleSubMenu: computed(() => chronicleSubMenu(router)),
+      chronicleDisplayName: computed(() => {
+        const name = observation.sharedState.currentObservation?.name;
+        if (!name) return '';
+        // Tronquer le nom si trop long (max 20 caractères)
+        console.log('name', name);
+        const trimmedName = name.trim();
+        return trimmedName.length > 20 ? trimmedName.substring(0, 20) + '...' : trimmedName;
+      }),
+      isChronicleActive: computed(() => {
+        const routeName = router.currentRoute.value.name;
+        return routeName === 'user_protocol' || 
+               routeName === 'user_observation' || 
+               routeName === 'user_analyse' || 
+               routeName === 'user_statistics';
+      }),
       userName: computed(() => {
         const user = auth.sharedState?.user;
         let userName =
@@ -347,6 +384,7 @@ export default defineComponent({
       drawer,
       observation,
       auth,
+      notifications,
     };
   },
 });

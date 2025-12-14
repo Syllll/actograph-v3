@@ -67,8 +67,8 @@ export const useReadings = (options: {
       stateless.initialReadings = readingsWithDates.map((r) => ({
         ...r,
         dateTime: new Date(r.dateTime),
-        createdAt: r.createdAt ? new Date(r.createdAt) : undefined,
-        updatedAt: r.updatedAt ? new Date(r.updatedAt) : undefined,
+        createdAt: r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt),
+        updatedAt: r.updatedAt instanceof Date ? r.updatedAt : new Date(r.updatedAt),
       }));
       sharedState.currentReadings = readingsWithDates;
     },
@@ -273,8 +273,8 @@ export const useReadings = (options: {
       stateless.initialReadings = sharedState.currentReadings.map((r) => ({
         ...r,
         dateTime: new Date(r.dateTime),
-        createdAt: r.createdAt ? new Date(r.createdAt) : undefined,
-        updatedAt: r.updatedAt ? new Date(r.updatedAt) : undefined,
+        createdAt: r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt),
+        updatedAt: r.updatedAt instanceof Date ? r.updatedAt : new Date(r.updatedAt),
       }));
       } finally {
         isSyncInFlight = false;
