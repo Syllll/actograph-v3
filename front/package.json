@@ -12,8 +12,7 @@
     "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev",
     "build": "quasar build",
-    "docker:dev": "sh docker/compose.sh console",
-    "postinstall": "node scripts/fix-d3-dispatch-types.js"
+    "docker:dev": "sh docker/compose.sh console"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.4",

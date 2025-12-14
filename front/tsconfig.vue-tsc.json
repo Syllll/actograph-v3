@@ -6,7 +6,6 @@
   },
   "exclude": [
     "lib-improba/components/**",
-    "src-electron/**",
-    "node_modules/@types/d3-dispatch/**"
+    "src-electron/**"
   ]
 }

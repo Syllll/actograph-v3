@@ -22,7 +22,6 @@
     "dist",
     ".quasar",
     "node_modules",
-    "node_modules/@types/d3-dispatch",
     "src-capacitor",
     "src-cordova",
     "src-electron",
