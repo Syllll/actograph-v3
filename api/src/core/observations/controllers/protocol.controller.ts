@@ -15,8 +15,6 @@ import {
   NotFoundException,
   InternalServerErrorException,
   UnauthorizedException,
-  forwardRef,
-  Inject,
   ParseIntPipe,
   BadRequestException,
 } from '@nestjs/common';
@@ -24,7 +22,6 @@ import { JwtAuthGuard } from '@users/guards/jwt-auth.guard';
 import { allMainUsers, UserRoleEnum } from '@users/utils/user-role.enum';
 import { Roles } from '@users/utils/roles.decorator';
 import { BaseController } from '@utils/controllers/base.controller';
-import { UserService } from 'src/core/users/services/user.service';
 import { getMode } from 'config/mode';
 import { ObservationService } from '../services/observation/index.service';
 import { ProtocolService } from '../services/protocol/index.service';
@@ -39,8 +36,10 @@ import {
   ProtocolItem,
   ProtocolItemActionEnum,
   ProtocolItemTypeEnum,
+  IGraphPreferences,
 } from '../entities/protocol.entity';
 import { IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
+import { UpdateProtocolItemGraphPreferencesDto } from '../dtos/protocol-item-graph-preferences.dto';
 class AddProtocolItemDto {
   @IsNotEmpty()
   @IsString()
@@ -112,8 +111,6 @@ class EditProtocolItemDto {
 @Controller('observations/protocols')
 export class ProtocolController extends BaseController {
   constructor(
-    @Inject(forwardRef(() => UserService))
-    private readonly userService: UserService,
     private readonly observationService: ObservationService,
     private readonly protocolService: ProtocolService,
     private readonly readingService: ReadingService,
@@ -211,6 +208,87 @@ export class ProtocolController extends BaseController {
     }
 
     return output;
+  }
+
+  @Patch('item/:protocolId/:itemId/graph-preferences')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async updateItemGraphPreferences(
+    @Param('protocolId', ParseIntPipe) protocolId: number,
+    @Param('itemId') itemId: string,
+    @Body() body: UpdateProtocolItemGraphPreferencesDto,
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    const protocol = await this.protocolService.findOne(protocolId, {
+      relations: ['observation'],
+    });
+    if (!protocol?.observation) {
+      throw new NotFoundException('Protocol not found');
+    }
+    // Can the user access the protocol?
+    await this.observationService.check.canUserAccessObservation({
+      observationId: protocol.observation.id,
+      userId: user.id,
+    });
+
+    return await this.protocolService.items.updateItemGraphPreferences({
+      protocolId: protocolId,
+      itemId,
+      preferences: body,
+    });
+  }
+
+  @Get('item/:protocolId/:itemId/graph-preferences')
+  @UseGuards(JwtAuthGuard)
+  async getItemGraphPreferences(
+    @Param('protocolId', ParseIntPipe) protocolId: number,
+    @Param('itemId') itemId: string,
+    @Req() req: any,
+  ): Promise<IGraphPreferences | null> {
+    const user = req.user;
+    const protocol = await this.protocolService.findOne(protocolId, {
+      relations: ['observation'],
+    });
+    if (!protocol?.observation) {
+      throw new NotFoundException('Protocol not found');
+    }
+    // Can the user access the protocol?
+    await this.observationService.check.canUserAccessObservation({
+      observationId: protocol.observation.id,
+      userId: user.id,
+    });
+
+    return await this.protocolService.items.getItemGraphPreferences({
+      protocolId: protocolId,
+      itemId,
+    });
+  }
+
+  @Get('observable/:protocolId/:observableId/graph-preferences-with-inheritance')
+  @UseGuards(JwtAuthGuard)
+  async getObservableGraphPreferencesWithInheritance(
+    @Param('protocolId', ParseIntPipe) protocolId: number,
+    @Param('observableId') observableId: string,
+    @Req() req: any,
+  ): Promise<IGraphPreferences | null> {
+    const user = req.user;
+    const protocol = await this.protocolService.findOne(protocolId, {
+      relations: ['observation'],
+    });
+    if (!protocol?.observation) {
+      throw new NotFoundException('Protocol not found');
+    }
+    // Can the user access the protocol?
+    await this.observationService.check.canUserAccessObservation({
+      observationId: protocol.observation.id,
+      userId: user.id,
+    });
+
+    return await this.protocolService.items.getObservableGraphPreferencesWithInheritance({
+      protocolId: protocolId,
+      observableId,
+    });
   }
 
   // Post to add a new protocol item

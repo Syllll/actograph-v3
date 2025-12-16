@@ -1,8 +1,9 @@
-import { Application, Assets, Container, Sprite } from 'pixi.js';
+import { Application, Container } from 'pixi.js';
 import { xAxis } from './axis/x-axis';
-import { IObservation, IReading } from '@services/observations/interface';
+import { IObservation, IProtocol, IGraphPreferences } from '@services/observations/interface';
 import { yAxis } from './axis/y-axis';
 import { DataArea } from './data-area';
+import { getObservableGraphPreferences } from '@services/observations/protocol-graph-preferences.utils';
 
 /**
  * Classe principale gérant l'application PixiJS pour le graphique d'activité.
@@ -36,6 +37,9 @@ export class PixiApp {
   /** Zone centrale affichant les données (readings) */
   private dataArea!: DataArea;
 
+  /** Protocole contenant les préférences graphiques */
+  private protocol: IProtocol | null = null;
+
   /** État du zoom et pan */
   private zoomState = {
     scale: 1,
@@ -67,8 +71,6 @@ export class PixiApp {
    * @param options.view - Référence au canvas HTML qui sera utilisé pour le rendu
    */
   async init(options: { view: HTMLCanvasElement }) {
-    console.log('options.view', options.view);
-
     // Initialisation de l'application PixiJS
     // - background: Fond blanc pour le graphique
     // - view: Canvas HTML fourni (sera utilisé pour le rendu WebGL)
@@ -137,6 +139,10 @@ export class PixiApp {
       throw new Error('Observation must have protocol');
     }
 
+    // Stocker le protocole pour accéder aux préférences
+    this.protocol = observation.protocol;
+    this.dataArea.setProtocol(observation.protocol);
+
     // Transmission des données à chaque composant
     // Chaque composant va préparer ses données internes (calculs de positions, etc.)
     this.yAxis.setData(observation);
@@ -153,6 +159,93 @@ export class PixiApp {
   }
 
   /**
+   * Définit le protocole pour accéder aux préférences graphiques.
+   * 
+   * Cette méthode synchronise le protocole dans tous les composants :
+   * - yAxis : pour recalculer les catégories visibles (mode Normal/Frieze)
+   * - dataArea : pour les préférences de dessin
+   * 
+   * @param protocol - Protocole contenant les items avec leurs préférences
+   */
+  public setProtocol(protocol: IProtocol) {
+    // S'assurer que _items est parsé si nécessaire (seulement si pas déjà parsé)
+    if (protocol && protocol.items && (!protocol._items || protocol._items.length === 0)) {
+      try {
+        protocol._items = JSON.parse(protocol.items);
+      } catch (e) {
+        console.error('Failed to parse protocol items:', e);
+        protocol._items = [];
+      }
+    }
+    
+    this.protocol = protocol;
+    
+    // Synchroniser le protocole dans tous les composants
+    if (this.yAxis) {
+      this.yAxis.setProtocol(protocol);
+    }
+    if (this.dataArea) {
+      this.dataArea.setProtocol(protocol);
+    }
+  }
+
+  /**
+   * Récupère les préférences graphiques d'un observable avec héritage.
+   * 
+   * @param observableId - ID de l'observable
+   * @returns Préférences graphiques avec héritage appliqué, ou null si aucune préférence
+   */
+  public getObservablePreferences(observableId: string): IGraphPreferences | null {
+    if (!this.protocol) {
+      return null;
+    }
+    return getObservableGraphPreferences(observableId, this.protocol);
+  }
+
+  /**
+   * Met à jour les préférences d'un observable et redessine le graphe.
+   * 
+   * NOTE: Cette méthode ne devrait PAS muter le protocole directement.
+   * Le protocole est muté par le drawer, et cette méthode ne fait que redessiner.
+   * Cependant, pour maintenir la compatibilité avec le code existant qui appelle
+   * cette méthode depuis le drawer, on met à jour aussi le protocole localement.
+   * 
+   * @param observableId - ID de l'observable
+   * @param preference - Préférences partielles à mettre à jour
+   */
+  public updateObservablePreference(
+    observableId: string,
+    preference: Partial<IGraphPreferences>
+  ) {
+    if (!this.protocol) {
+      return;
+    }
+
+    // Le protocole est une référence partagée avec le drawer
+    // Le drawer a déjà mis à jour le protocole, donc on peut juste redessiner
+    // Cependant, pour être sûr que le protocole est à jour, on le met à jour aussi
+    // (c'est une duplication mais garantit la cohérence)
+    for (const category of this.protocol._items || []) {
+      if (category.children) {
+        const observable = category.children.find((o) => o.id === observableId);
+        if (observable) {
+          // Mettre à jour les préférences (le drawer l'a déjà fait, mais on le fait aussi pour être sûr)
+          if (!observable.graphPreferences) {
+            observable.graphPreferences = {};
+          }
+          Object.assign(observable.graphPreferences, preference);
+          
+          // Redessiner uniquement cet observable
+          if (this.dataArea) {
+            this.dataArea.redrawObservable(observableId);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  /**
    * Dessine tous les éléments du graphique.
    * 
    * Cette méthode appelle la méthode draw() de chaque composant dans l'ordre :
@@ -161,9 +254,23 @@ export class PixiApp {
    * 3. DataArea (dessine les données en utilisant les positions des axes)
    */
   public async draw() {
+    // Réinitialiser les positions de tous les conteneurs pour garantir un état propre
+    // Le plot doit toujours être à (0,0) sans transformation
+    this.plot.x = 0;
+    this.plot.y = 0;
+    this.plot.scale.set(1);
+    this.plot.rotation = 0;
+    
     this.yAxis.draw();
     this.xAxis.draw();
     this.dataArea.draw();
+    
+    // Forcer PixiJS à détecter les changements en déclenchant une mise à jour du viewport
+    // Cela simule ce qui se passe lors d'un zoom et force le re-render des nouveaux éléments
+    // On fait une modification infinitésimale puis on la restaure pour ne pas affecter l'affichage
+    const currentScale = this.viewport.scale.x;
+    this.viewport.scale.set(currentScale + 0.0001);
+    this.viewport.scale.set(currentScale);
   }
 
   /**
@@ -187,32 +294,40 @@ export class PixiApp {
 
     // Store event handlers for cleanup
     const wheelHandler = (evt: WheelEvent) => {
+      // Ignorer les événements qui viennent du splitter ou d'autres éléments interactifs
+      const target = evt.target as HTMLElement;
+      if (target && target.closest('.q-splitter__separator, .q-avatar')) {
+        return;
+      }
+      
       evt.preventDefault();
       
-      // Get mouse position in world coordinates
+      // Get mouse position relative to canvas
       const rect = this.app.canvas.getBoundingClientRect();
       const mouseX = evt.clientX - rect.left;
       const mouseY = evt.clientY - rect.top;
 
-      // Convert to viewport coordinates
+      // Convert screen position to world position (before zoom)
+      // worldPos = (screenPos - viewportPos) / currentScale
       const worldPos = this.viewport.toLocal({ x: mouseX, y: mouseY } as any);
 
-      // Calculate zoom factor
+      // Calculate new zoom scale
       const zoomFactor = evt.deltaY > 0 ? 0.9 : 1.1;
       const newScale = Math.max(
         this.zoomState.minScale,
         Math.min(this.zoomState.maxScale, this.zoomState.scale * zoomFactor)
       );
 
-      // Apply zoom centered on mouse position
-      const scaleChange = newScale / this.zoomState.scale;
+      // Update scale state
       this.zoomState.scale = newScale;
 
-      // Adjust viewport position to zoom towards mouse
-      this.viewport.x = mouseX - worldPos.x * scaleChange;
-      this.viewport.y = mouseY - worldPos.y * scaleChange;
+      // Calculate new viewport position to keep the point under cursor fixed
+      // Formula: newViewportPos = screenPos - worldPos * newScale
+      this.viewport.x = mouseX - worldPos.x * newScale;
+      this.viewport.y = mouseY - worldPos.y * newScale;
 
-      this.viewport.scale.set(this.zoomState.scale);
+      // Apply the new scale
+      this.viewport.scale.set(newScale);
       this.zoomState.x = this.viewport.x;
       this.zoomState.y = this.viewport.y;
 
@@ -221,50 +336,28 @@ export class PixiApp {
     };
 
     const mouseDownHandler = (evt: MouseEvent) => {
-      // Only start panning with left mouse button and if not clicking on interactive elements
-      if (evt.button === 0 && !this.zoomState.isPanning) {
-        const rect = this.app.canvas.getBoundingClientRect();
-        const x = evt.clientX - rect.left;
-        const y = evt.clientY - rect.top;
-        
-        // Convert screen coordinates to world coordinates for hit testing
-        const worldPos = this.viewport.toLocal({ x, y } as any);
-        
-        // Check if we're clicking on an interactive element using PixiJS hit testing
-        // If Shift key is held, always allow pan (force pan mode)
-        let shouldPan = evt.shiftKey;
-        
-        if (!shouldPan) {
-          // In PixiJS v8, we need to manually check for interactive elements
-          // Convert screen coordinates to local coordinates relative to the canvas
-          const rect = this.app.canvas.getBoundingClientRect();
-          const x = evt.clientX - rect.left;
-          const y = evt.clientY - rect.top;
-          
-          // Convert to world coordinates using viewport
-          const worldPos = this.viewport.toLocal({ x, y } as any);
-          
-          // In PixiJS v8, the event system handles interaction automatically
-          // Elements with eventMode='static' will capture events before this handler
-          // So we can safely allow pan here for background areas
-          // Interactive elements will handle their own events and prevent pan
-          shouldPan = true;
-          
-          // Note: In PixiJS v8, the event system handles interaction automatically
-          // Elements with eventMode='static' will capture events before this handler
-          // So we can safely allow pan here for background areas
-        }
-        
-        if (shouldPan) {
-          this.zoomState.isPanning = true;
-          this.zoomState.panStartX = evt.clientX - this.zoomState.x;
-          this.zoomState.panStartY = evt.clientY - this.zoomState.y;
-          this.app.canvas.style.cursor = 'grabbing';
-        }
+      // Ignorer les événements qui viennent du splitter ou d'autres éléments interactifs
+      const target = evt.target as HTMLElement;
+      if (target && target.closest('.q-splitter__separator, .q-avatar')) {
+        return;
       }
+      
+      // Le pan (déplacement du graph) est désactivé
+      // On ne permet plus de déplacer le graph en cliquant et en maintenant le clic
     };
 
     const mouseMoveHandler = (evt: MouseEvent) => {
+      // Ignorer les événements qui viennent du splitter ou d'autres éléments interactifs
+      const target = evt.target as HTMLElement;
+      if (target && target.closest('.q-splitter__separator, .q-avatar')) {
+        // Si on était en train de pan, arrêter le pan
+        if (this.zoomState.isPanning) {
+          this.zoomState.isPanning = false;
+          this.app.canvas.style.cursor = 'default';
+        }
+        return;
+      }
+      
       if (this.zoomState.isPanning) {
         this.viewport.x = evt.clientX - this.zoomState.panStartX;
         this.viewport.y = evt.clientY - this.zoomState.panStartY;
@@ -303,17 +396,18 @@ export class PixiApp {
   }
 
   /**
-   * Met à jour l'échelle de temps selon le niveau de zoom
+   * Met à jour l'échelle de temps selon le niveau de zoom.
+   * 
+   * Note: Cette méthode est actuellement un placeholder pour une future implémentation
+   * d'ajustement dynamique des graduations de l'axe X selon le niveau de zoom.
    */
   private updateTimeScale() {
-    // Notify xAxis about zoom change so it can adjust time scale
-    if (this.xAxis && typeof (this.xAxis as any).setZoomScale === 'function') {
-      (this.xAxis as any).setZoomScale(this.zoomState.scale);
-    }
+    // Future: implémenter l'ajustement dynamique des graduations de l'axe X
+    // selon le niveau de zoom pour améliorer la lisibilité
   }
 
   /**
-   * Zoom in
+   * Zoom in (centré sur le milieu du canvas)
    */
   public zoomIn() {
     const centerX = this.app.canvas.width / 2;
@@ -321,12 +415,12 @@ export class PixiApp {
     const worldPos = this.viewport.toLocal({ x: centerX, y: centerY } as any);
 
     const newScale = Math.min(this.zoomState.maxScale, this.zoomState.scale * 1.2);
-    const scaleChange = newScale / this.zoomState.scale;
     this.zoomState.scale = newScale;
 
-    this.viewport.x = centerX - worldPos.x * scaleChange;
-    this.viewport.y = centerY - worldPos.y * scaleChange;
-    this.viewport.scale.set(this.zoomState.scale);
+    // Formule : newViewportPos = screenPos - worldPos * newScale
+    this.viewport.x = centerX - worldPos.x * newScale;
+    this.viewport.y = centerY - worldPos.y * newScale;
+    this.viewport.scale.set(newScale);
     this.zoomState.x = this.viewport.x;
     this.zoomState.y = this.viewport.y;
 
@@ -334,7 +428,7 @@ export class PixiApp {
   }
 
   /**
-   * Zoom out
+   * Zoom out (centré sur le milieu du canvas)
    */
   public zoomOut() {
     const centerX = this.app.canvas.width / 2;
@@ -342,12 +436,12 @@ export class PixiApp {
     const worldPos = this.viewport.toLocal({ x: centerX, y: centerY } as any);
 
     const newScale = Math.max(this.zoomState.minScale, this.zoomState.scale * 0.8);
-    const scaleChange = newScale / this.zoomState.scale;
     this.zoomState.scale = newScale;
 
-    this.viewport.x = centerX - worldPos.x * scaleChange;
-    this.viewport.y = centerY - worldPos.y * scaleChange;
-    this.viewport.scale.set(this.zoomState.scale);
+    // Formule : newViewportPos = screenPos - worldPos * newScale
+    this.viewport.x = centerX - worldPos.x * newScale;
+    this.viewport.y = centerY - worldPos.y * newScale;
+    this.viewport.scale.set(newScale);
     this.zoomState.x = this.viewport.x;
     this.zoomState.y = this.viewport.y;
 
@@ -358,14 +452,23 @@ export class PixiApp {
    * Reset view to default (zoom 1x, centered)
    */
   public resetView() {
+    // Réinitialiser le zoom à 1x
     this.zoomState.scale = 1;
-    this.zoomState.x = 0;
-    this.zoomState.y = 0;
     this.viewport.scale.set(1);
+    
+    // Réinitialiser la position du viewport à (0, 0)
+    // Cela remet le graphique à sa position d'origine
     this.viewport.x = 0;
     this.viewport.y = 0;
+    this.zoomState.x = 0;
+    this.zoomState.y = 0;
 
+    // Mettre à jour l'échelle de temps
     this.updateTimeScale();
+    
+    // Redessiner le graphique pour s'assurer que les changements sont visibles
+    // Cela garantit que tous les éléments sont correctement positionnés après le reset
+    this.draw();
   }
 
   /**

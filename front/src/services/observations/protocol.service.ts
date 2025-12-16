@@ -5,7 +5,7 @@ import {
   PaginationResponse,
 } from '@lib-improba/utils/pagination.utils';
 import { IUser } from '@services/users/user.interface';
-import { IProtocol } from './interface';
+import { IProtocol, IGraphPreferences } from './interface';
 
 const apiUrl = httpUtils.apiUrl();
 
@@ -28,6 +28,7 @@ export interface ProtocolItem {
   type: ProtocolItemTypeEnum;
   action?: ProtocolItemActionEnum;
   meta?: Record<string, any>;
+  graphPreferences?: IGraphPreferences;
   children?: ProtocolItem[];
 }
 
@@ -186,5 +187,46 @@ export const protocolService = {
       console.error('Failed to parse protocol items:', e);
       return [];
     }
+  },
+
+  /**
+   * Met à jour les préférences graphiques d'un item (catégorie ou observable)
+   */
+  async updateItemGraphPreferences(
+    protocolId: number,
+    itemId: string,
+    preferences: Partial<IGraphPreferences>
+  ): Promise<void> {
+    const response = await api().patch(
+      `${apiUrl}/observations/protocols/item/${protocolId}/${itemId}/graph-preferences`,
+      preferences
+    );
+    return response.data;
+  },
+
+  /**
+   * Récupère les préférences graphiques d'un item (sans héritage)
+   */
+  async getItemGraphPreferences(
+    protocolId: number,
+    itemId: string
+  ): Promise<IGraphPreferences | null> {
+    const response = await api().get(
+      `${apiUrl}/observations/protocols/item/${protocolId}/${itemId}/graph-preferences`
+    );
+    return response.data;
+  },
+
+  /**
+   * Récupère les préférences graphiques d'un observable avec héritage depuis sa catégorie parente
+   */
+  async getObservableGraphPreferencesWithInheritance(
+    protocolId: number,
+    observableId: string
+  ): Promise<IGraphPreferences | null> {
+    const response = await api().get(
+      `${apiUrl}/observations/protocols/observable/${protocolId}/${observableId}/graph-preferences-with-inheritance`
+    );
+    return response.data;
   },
 };

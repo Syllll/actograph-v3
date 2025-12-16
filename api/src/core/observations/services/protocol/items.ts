@@ -9,8 +9,10 @@ import {
   ProtocolItem,
   ProtocolItemActionEnum,
   ProtocolItemTypeEnum,
+  IGraphPreferences,
 } from '@core/observations/entities/protocol.entity';
 import { randomUUID } from 'node:crypto';
+import { UpdateProtocolItemGraphPreferencesDto } from '../../dtos/protocol-item-graph-preferences.dto';
 
 export class Items {
   constructor(
@@ -447,5 +449,203 @@ export class Items {
 
     // Return the updated observable
     return category.children[newObservableIndex];
+  }
+
+  /**
+   * Met à jour les préférences graphiques d'un item (catégorie ou observable)
+   */
+  public async updateItemGraphPreferences(options: {
+    protocolId: number;
+    itemId: string;
+    preferences: UpdateProtocolItemGraphPreferencesDto;
+  }): Promise<ProtocolItem> {
+    // Find the protocol
+    const protocol = await this.protocolService.findOne(options.protocolId, {
+      relations: [],
+    });
+    if (!protocol) {
+      throw new NotFoundException('Protocol was not found');
+    }
+
+    // Get the array of items
+    const items = this.getItemsAsJson(protocol.items);
+
+    // Helper function to find and update an item recursively
+    const findAndUpdateItem = (
+      items: ProtocolItem[],
+      itemId: string,
+      preferences: UpdateProtocolItemGraphPreferencesDto,
+    ): boolean => {
+      for (const item of items) {
+        if (item.id === itemId) {
+          // Update or create graphPreferences
+          if (!item.graphPreferences) {
+            item.graphPreferences = {};
+          }
+          // Merge preferences (only update provided fields)
+          if (preferences.color !== undefined) {
+            item.graphPreferences.color = preferences.color;
+          }
+          if (preferences.strokeWidth !== undefined) {
+            item.graphPreferences.strokeWidth = preferences.strokeWidth;
+          }
+          if (preferences.backgroundPattern !== undefined) {
+            item.graphPreferences.backgroundPattern =
+              preferences.backgroundPattern;
+          }
+          if (preferences.displayMode !== undefined) {
+            item.graphPreferences.displayMode = preferences.displayMode;
+          }
+          if (preferences.supportCategoryId !== undefined) {
+            item.graphPreferences.supportCategoryId = preferences.supportCategoryId;
+          }
+          return true;
+        }
+
+        // Check children if it's a category
+        if (item.children) {
+          if (findAndUpdateItem(item.children, itemId, preferences)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    const found = findAndUpdateItem(items, options.itemId, options.preferences);
+    if (!found) {
+      throw new NotFoundException('Item was not found');
+    }
+
+    // Update the protocol with the new items
+    protocol.items = JSON.stringify(items);
+
+    // Save the protocol
+    await this.protocolRepository.save(protocol);
+
+    // Find and return the updated item
+    const findItem = (items: ProtocolItem[], itemId: string): ProtocolItem | null => {
+      for (const item of items) {
+        if (item.id === itemId) {
+          return item;
+        }
+        if (item.children) {
+          const found = findItem(item.children, itemId);
+          if (found) {
+            return found;
+          }
+        }
+      }
+      return null;
+    };
+
+    const updatedItem = findItem(items, options.itemId);
+    if (!updatedItem) {
+      throw new NotFoundException('Item was not found after update');
+    }
+
+    return updatedItem;
+  }
+
+  /**
+   * Récupère les préférences graphiques d'un item (sans héritage)
+   */
+  public async getItemGraphPreferences(options: {
+    protocolId: number;
+    itemId: string;
+  }): Promise<IGraphPreferences | null> {
+    // Find the protocol
+    const protocol = await this.protocolService.findOne(options.protocolId, {
+      relations: [],
+    });
+    if (!protocol) {
+      throw new NotFoundException('Protocol was not found');
+    }
+
+    // Get the array of items
+    const items = this.getItemsAsJson(protocol.items);
+
+    // Helper function to find an item recursively
+    const findItem = (
+      items: ProtocolItem[],
+      itemId: string,
+    ): ProtocolItem | null => {
+      for (const item of items) {
+        if (item.id === itemId) {
+          return item;
+        }
+        if (item.children) {
+          const found = findItem(item.children, itemId);
+          if (found) {
+            return found;
+          }
+        }
+      }
+      return null;
+    };
+
+    const item = findItem(items, options.itemId);
+    if (!item) {
+      throw new NotFoundException('Item was not found');
+    }
+
+    return item.graphPreferences || null;
+  }
+
+  /**
+   * Récupère les préférences graphiques d'un observable avec héritage depuis sa catégorie parente
+   */
+  public async getObservableGraphPreferencesWithInheritance(options: {
+    protocolId: number;
+    observableId: string;
+  }): Promise<IGraphPreferences | null> {
+    // Find the protocol
+    const protocol = await this.protocolService.findOne(options.protocolId, {
+      relations: [],
+    });
+    if (!protocol) {
+      throw new NotFoundException('Protocol was not found');
+    }
+
+    // Get the array of items
+    const items = this.getItemsAsJson(protocol.items);
+
+    // Helper function to find an observable and its parent category
+    const findObservableAndCategory = (
+      items: ProtocolItem[],
+      observableId: string,
+    ): { observable: ProtocolItem | null; category: ProtocolItem | null } => {
+      for (const category of items) {
+        if (category.children) {
+          for (const observable of category.children) {
+            if (observable.id === observableId) {
+              return { observable, category };
+            }
+          }
+        }
+      }
+      return { observable: null, category: null };
+    };
+
+    const { observable, category } = findObservableAndCategory(
+      items,
+      options.observableId,
+    );
+
+    if (!observable) {
+      throw new NotFoundException('Observable was not found');
+    }
+
+    // If observable has preferences, return them
+    if (observable.graphPreferences) {
+      return observable.graphPreferences;
+    }
+
+    // Otherwise, return category preferences (or null if category has none)
+    if (category && category.graphPreferences) {
+      return category.graphPreferences;
+    }
+
+    return null;
   }
 }

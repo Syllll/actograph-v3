@@ -387,11 +387,21 @@ export class xAxis extends BaseGroup {
    * le début de l'axe Y.
    */
   public draw(): void {
-    // Nettoyage du graphique avant de redessiner
+    // Nettoyage du graphique et des labels avant de redessiner
     this.graphic.clear();
+    this.graphic.x = 0;
+    this.graphic.y = 0;
+    this.labelsContainer.removeChildren();
+    this.labelsContainer.x = 0;
+    this.labelsContainer.y = 0;
+    
+    // Réinitialiser la position du xAxis pour garantir un positionnement correct
+    this.x = 0;
+    this.y = 0;
+    this.scale.set(1);
+    this.rotation = 0;
 
     const width = this.app.screen.width;
-    const height = this.app.screen.height;
 
     // L'axe X commence à la position de départ de l'axe Y (alignement)
     // Cette position est le point d'origine du graphique (coin inférieur gauche)
@@ -436,6 +446,13 @@ export class xAxis extends BaseGroup {
     // On réserve 20px à droite pour la flèche (10% de la largeur de l'axe)
     const axisLengthInPixels = (xAxisEnd.x - xAxisStart.x) - 20;
     const startReading = this.readings[0];
+    
+    // Vérification que les ticks ont été générés
+    if (this.ticks.length === 0) {
+      console.warn('No ticks generated for X axis');
+      return;
+    }
+    
     const endTickTimeInMsecs = new Date(this.ticks[this.ticks.length - 1].dateTime).getTime();
     
     // La plage temporelle commence au premier reading et se termine au dernier tick
@@ -488,7 +505,16 @@ export class xAxis extends BaseGroup {
       label.anchor.set(-0.05, 0);
       // Rotation de 45° pour éviter le chevauchement des labels
       label.angle = 45;
+      // Forcer la visibilité et la mise à jour du label
+      label.visible = true;
+      label.alpha = 1;
       this.labelsContainer.addChild(label);
     }
+    
+    // Forcer la mise à jour de la visibilité des conteneurs après avoir ajouté tous les labels
+    this.labelsContainer.visible = true;
+    this.labelsContainer.alpha = 1;
+    this.visible = true;
+    this.alpha = 1;
   }
 }

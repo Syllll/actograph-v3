@@ -14,6 +14,38 @@ export enum ProtocolItemActionEnum {
   Discrete = 'discrete',
 }
 
+export enum BackgroundPatternEnum {
+  /** Aucun motif - couleur unie */
+  Solid = 'solid',
+  /** Lignes horizontales */
+  Horizontal = 'horizontal',
+  /** Lignes verticales */
+  Vertical = 'vertical',
+  /** Lignes diagonales (/) */
+  Diagonal = 'diagonal',
+  /** Grille (horizontal + vertical) */
+  Grid = 'grid',
+  /** Pointillés */
+  Dots = 'dots',
+}
+
+export enum DisplayModeEnum {
+  /** Mode normal : traits horizontaux (step-lines) */
+  Normal = 'normal',
+  /** Mode arrière-plan : zones colorées sur le fond du graphique (catégorie retirée de l'axe Y) */
+  Background = 'background',
+  /** Mode frise : bandeau horizontal découpé en zones colorées (catégorie visible sur l'axe Y) */
+  Frieze = 'frieze',
+}
+
+export interface IGraphPreferences {
+  color?: string;
+  strokeWidth?: number;
+  backgroundPattern?: BackgroundPatternEnum;
+  displayMode?: DisplayModeEnum;
+  supportCategoryId?: string | null;
+}
+
 export interface ProtocolItem {
   type: ProtocolItemTypeEnum;
   id: string;
@@ -21,6 +53,7 @@ export interface ProtocolItem {
   description?: string | null;
   action?: ProtocolItemActionEnum;
   meta?: Record<string, any> | null;
+  graphPreferences?: IGraphPreferences;
   children?: ProtocolItem[];
 }
 

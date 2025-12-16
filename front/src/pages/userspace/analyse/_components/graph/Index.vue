@@ -4,40 +4,42 @@
     Utilise la classe "fit" pour occuper tout l'espace disponible.
   -->
   <div class="fit column">
-    <!-- Contrôles de zoom -->
-    <div class="row items-center q-pa-sm q-gutter-sm" style="position: absolute; top: 0; right: 0; z-index: 10;">
-      <q-btn
-        flat
-        round
-        dense
-        icon="add"
-        @click="methods.zoomIn"
-        :disable="state.zoomLevel >= 5"
-      >
-        <q-tooltip>Zoom avant</q-tooltip>
-      </q-btn>
-      <q-btn
-        flat
-        round
-        dense
-        icon="remove"
-        @click="methods.zoomOut"
-        :disable="state.zoomLevel <= 0.1"
-      >
-        <q-tooltip>Zoom arrière</q-tooltip>
-      </q-btn>
-      <q-btn
-        flat
-        round
-        dense
-        icon="refresh"
-        @click="methods.resetView"
-      >
-        <q-tooltip>Réinitialiser la vue</q-tooltip>
-      </q-btn>
-      <q-separator vertical />
-      <div class="text-caption text-grey-7">
-        {{ Math.round(state.zoomLevel * 100) }}%
+    <!-- Header avec contrôles de zoom -->
+    <div class="graph-header row items-center justify-end q-pa-sm">
+      <div class="zoom-controls row items-center q-gutter-sm">
+        <q-btn
+          flat
+          round
+          dense
+          icon="add"
+          color="grey-8"
+          @click="methods.zoomIn"
+          :disable="state.zoomLevel >= 5"
+        >
+          <q-tooltip>Zoom avant</q-tooltip>
+        </q-btn>
+        <q-btn
+          flat
+          round
+          dense
+          icon="remove"
+          color="grey-8"
+          @click="methods.zoomOut"
+          :disable="state.zoomLevel <= 0.1"
+        >
+          <q-tooltip>Zoom arrière</q-tooltip>
+        </q-btn>
+        <q-separator v-if="showSeparatorBeforeReset" vertical />
+        <q-btn
+          flat
+          round
+          dense
+          icon="restart_alt"
+          color="grey-8"
+          @click="methods.resetView"
+        >
+          <q-tooltip>Réinitialiser la vue</q-tooltip>
+        </q-btn>
       </div>
     </div>
 
@@ -45,13 +47,16 @@
       Composant canvas personnalisé qui sera utilisé par PixiJS pour le rendu.
       Le canvas est référencé pour être passé à PixiApp lors de l'initialisation.
     -->
-    <d-canvas class="fit" ref="canvasRef" />
+    <div class="canvas-container fit">
+      <d-canvas class="fit" ref="canvasRef" />
+    </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, watch } from 'vue';
+import { defineComponent, ref, reactive, watch, computed } from 'vue';
 import { useGraph } from './use-graph';
+import { useGraphCustomization } from '../graph-customization-drawer/use-graph-customization';
 
 /**
  * Composant principal du graphique d'activité.
@@ -66,7 +71,17 @@ import { useGraph } from './use-graph';
  * l'initialisation et le cycle de vie de l'application PixiJS.
  */
 export default defineComponent({
-  setup() {
+  props: {
+    drawerWidthPx: {
+      type: Number,
+      default: 0,
+    },
+    showDrawer: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  setup(props) {
     // Référence au canvas HTML qui sera utilisé par PixiJS pour le rendu WebGL
     const canvasRef = ref<HTMLCanvasElement | null>(null);
 
@@ -82,22 +97,28 @@ export default defineComponent({
       },
     });
 
+    // Initialisation du composable de personnalisation du graphe
+    const customization = useGraphCustomization();
+
     const methods = {
       zoomIn: () => {
         if (graph.sharedState.pixiApp) {
           graph.sharedState.pixiApp.zoomIn();
+          // Mettre à jour le zoom level immédiatement après l'action
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
       },
       zoomOut: () => {
         if (graph.sharedState.pixiApp) {
           graph.sharedState.pixiApp.zoomOut();
+          // Mettre à jour le zoom level immédiatement après l'action
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
       },
       resetView: () => {
         if (graph.sharedState.pixiApp) {
           graph.sharedState.pixiApp.resetView();
+          // Mettre à jour le zoom level immédiatement après l'action
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
       },
@@ -121,12 +142,47 @@ export default defineComponent({
       { immediate: true }
     );
 
+    // Computed property pour déterminer si le séparateur avant le reset est nécessaire
+    const showSeparatorBeforeReset = computed(() => {
+      // Le séparateur est nécessaire seulement s'il y a des boutons de zoom avant le reset
+      return true; // Toujours vrai car il y a toujours les boutons zoom in/out avant
+    });
+
     return {
       graph,
       canvasRef,
       state,
       methods,
+      customization,
+      props,
+      showSeparatorBeforeReset,
     };
   },
 });
 </script>
+
+<style scoped lang="scss">
+.graph-header {
+  flex-shrink: 0;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.canvas-container {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.zoom-controls {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 4px;
+  
+  :deep(.q-separator--vertical) {
+    height: 24px;
+    margin: 0 4px;
+  }
+}
+</style>

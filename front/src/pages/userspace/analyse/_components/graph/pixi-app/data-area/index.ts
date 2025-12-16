@@ -1,10 +1,14 @@
-import { Application, Rectangle, Text, Container, Graphics } from 'pixi.js';
+import { Application, Text, Container, Graphics } from 'pixi.js';
 import { BaseGroup } from '../lib/base-group';
 import {
   IReading,
   IObservation,
   ReadingTypeEnum,
   ObservationModeEnum,
+  IProtocol,
+  IGraphPreferences,
+  BackgroundPatternEnum,
+  DisplayModeEnum,
 } from '@services/observations/interface';
 import { yAxis } from '../axis/y-axis';
 import { xAxis } from '../axis/x-axis';
@@ -16,6 +20,7 @@ import {
 import { BaseGraphic } from '../lib/base-graphic';
 import { useDuration } from 'src/composables/use-duration';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
+import { createPatternTexture } from '../lib/pattern-textures';
 
 /**
  * Classe représentant la zone de données du graphique d'activité.
@@ -98,6 +103,12 @@ export class DataArea extends BaseGroup {
 
   /** Instance du composable useDuration pour formater les durées en mode chronomètre */
   private duration = useDuration();
+
+  /** Protocole contenant les préférences graphiques */
+  private protocol: IProtocol | null = null;
+
+  /** Observation courante pour accéder au protocole */
+  protected observation: IObservation | null = null;
 
   constructor(app: Application, yAxis: yAxis, xAxis: xAxis) {
     super(app);
@@ -293,6 +304,41 @@ export class DataArea extends BaseGroup {
   }
 
   /**
+   * Définit le protocole pour accéder aux préférences graphiques.
+   * 
+   * Cette méthode synchronise aussi les références de catégories dans readingsPerCategory
+   * pour que les préférences graphiques mises à jour soient utilisées lors du dessin.
+   * 
+   * @param protocol - Protocole contenant les items avec leurs préférences
+   */
+  public setProtocol(protocol: IProtocol) {
+    // S'assurer que _items est parsé si nécessaire (seulement si pas déjà parsé)
+    if (protocol && protocol.items && (!protocol._items || protocol._items.length === 0)) {
+      try {
+        protocol._items = JSON.parse(protocol.items);
+      } catch (e) {
+        console.error('Failed to parse protocol items:', e);
+        protocol._items = [];
+      }
+    }
+    
+    this.protocol = protocol;
+
+    // Synchroniser les références de catégories dans readingsPerCategory
+    // pour que les préférences graphiques mises à jour soient utilisées
+    if (protocol._items && this.readingsPerCategory.length > 0) {
+      for (const entry of this.readingsPerCategory) {
+        const updatedCategory = protocol._items.find(
+          (cat) => cat.id === entry.category.id
+        );
+        if (updatedCategory) {
+          entry.category = updatedCategory;
+        }
+      }
+    }
+  }
+
+  /**
    * Configure les données de l'observation dans la zone de données.
    * 
    * Cette méthode :
@@ -309,6 +355,7 @@ export class DataArea extends BaseGroup {
    */
   public setData(observation: IObservation) {
     super.setData(observation);
+    this.observation = observation;
 
     // Récupération et parsing du protocole
     const protocol = observation.protocol;
@@ -372,7 +419,7 @@ export class DataArea extends BaseGroup {
    * - Les lignes en pointillés du curseur
    * - Le label de temps
    * - Les readings groupés par catégorie
-   * - Tous les graphiques des catégories
+   * - Tous les graphiques des catégories (supprimés et recréés si nécessaire)
    */
   public clear() {
     super.clear();
@@ -389,10 +436,12 @@ export class DataArea extends BaseGroup {
     // Réinitialisation des données
     this.readingsPerCategory = [];
 
-    // Nettoyage de tous les graphiques des catégories
+    // Suppression de tous les graphiques des catégories du conteneur et nettoyage
     for (const graphicEntry of this.graphicPerCategory) {
       graphicEntry.graphic.clear();
+      this.removeChild(graphicEntry.graphic);
     }
+    this.graphicPerCategory = [];
   }
 
   /**
@@ -400,11 +449,17 @@ export class DataArea extends BaseGroup {
    * 
    * Cette méthode :
    * 1. Dessine un rectangle transparent pour la zone interactive (fond)
-   * 2. Dessine les readings pour chaque catégorie
+   * 2. Dessine les readings pour chaque catégorie selon son mode d'affichage :
+   *    - D'abord les catégories en mode "arrière plan" (zones sur le fond)
+   *    - Ensuite les catégories en mode "frise" (bandeaux horizontaux)
+   *    - Enfin les catégories en mode "normal" (step-lines)
    * 
    * Le rectangle de fond sert de zone de détection pour les événements souris.
    */
   public draw(): void {
+    // Nettoyer le graphique de fond avant de redessiner
+    this.graphicForBackground.clear();
+    
     // Calcul des coins du rectangle de fond
     // Coin inférieur gauche : début de l'axe Y (origine du graphique)
     const bottomLeft = this.yAxis.getAxisStart() as {x: number, y: number};
@@ -427,14 +482,72 @@ export class DataArea extends BaseGroup {
       color: 'transparent',
     });
 
-    // Dessin des readings pour chaque catégorie
+    // Trier les catégories selon leur mode d'affichage
+    const backgroundCategories: typeof this.readingsPerCategory = [];
+    const friezeCategories: typeof this.readingsPerCategory = [];
+    const normalCategories: typeof this.readingsPerCategory = [];
+
     for (const categoryEntry of this.readingsPerCategory) {
-      this.drawCategory(categoryEntry);
+      const displayMode = categoryEntry.category.graphPreferences?.displayMode ?? DisplayModeEnum.Normal;
+      if (displayMode === DisplayModeEnum.Background) {
+        backgroundCategories.push(categoryEntry);
+      } else if (displayMode === DisplayModeEnum.Frieze) {
+        friezeCategories.push(categoryEntry);
+      } else {
+        normalCategories.push(categoryEntry);
+      }
+    }
+
+    // 1. Dessiner d'abord les catégories en mode arrière plan (en fond du graphique)
+    // Trier pour que les catégories sans support (arrière-plan global) soient dessinées en premier
+    backgroundCategories.sort((a, b) => {
+      const aHasSupport = a.category.graphPreferences?.supportCategoryId ? 1 : 0;
+      const bHasSupport = b.category.graphPreferences?.supportCategoryId ? 1 : 0;
+      return aHasSupport - bHasSupport;
+    });
+    for (const categoryEntry of backgroundCategories) {
+      this.drawCategoryBackground(categoryEntry);
+    }
+
+    // 2. Dessiner ensuite les catégories en mode frise (bandeaux)
+    for (const categoryEntry of friezeCategories) {
+      this.drawCategoryFrieze(categoryEntry);
+    }
+
+    // 3. Dessiner enfin les catégories en mode normal (step-lines)
+    for (const categoryEntry of normalCategories) {
+      this.drawCategoryNormal(categoryEntry);
     }
   }
 
   /**
-   * Dessine les readings d'une catégorie sous forme de segments de ligne ou de points.
+   * Récupère ou crée le graphique pour une catégorie.
+   * @param category - La catégorie
+   * @returns Le graphique associé
+   */
+  private getOrCreateGraphicForCategory(category: ProtocolItem): BaseGraphic {
+    let graphicEntry = this.graphicPerCategory.find(
+      (g) => g.category.id === category.id
+    );
+    if (!graphicEntry) {
+      const graphic = new BaseGraphic(this.app);
+      this.addChild(graphic);
+      this.graphicPerCategory.push({
+        category,
+        graphic,
+      });
+      graphicEntry = this.graphicPerCategory.find(
+        (g) => g.category.id === category.id
+      );
+    }
+    if (!graphicEntry) {
+      throw new Error('Graphic not found for category');
+    }
+    return graphicEntry.graphic;
+  }
+
+  /**
+   * Dessine une catégorie en mode Normal (step-lines).
    * 
    * Pour les catégories continues :
    * - Les readings sont visualisés comme une ligne qui :
@@ -446,161 +559,367 @@ export class DataArea extends BaseGroup {
    * Pour les catégories discrètes (ponctuelles) :
    * - Chaque reading est affiché comme un point unique
    * - Pas de lignes entre les points
-   * 
-   * Les segments horizontaux (maintenus sur le même observable) sont en vert épais.
-   * Les segments verticaux (transitions entre observables) sont en gris fin.
-   * 
-   * @param categoryEntry - Entrée contenant la catégorie et ses readings
    */
-  private drawCategory(categoryEntry: {
+  private drawCategoryNormal(categoryEntry: {
     category: ProtocolItem;
     readings: IReading[];
   }) {
     const category = categoryEntry.category;
     const readings = categoryEntry.readings;
-
-    // Recherche ou création du graphique pour cette catégorie
-    // Chaque catégorie a son propre graphique pour faciliter la gestion
-    let graphicEntry = this.graphicPerCategory.find(
-      (g) => g.category.id === category.id
-    );
-    if (!graphicEntry) {
-      // Création d'un nouveau graphique pour cette catégorie
-      const graphic = new BaseGraphic(this.app);
-      this.addChild(graphic);
-      (<any>graphic).__catId = category.id; // Stockage de l'ID pour référence
-      this.graphicPerCategory.push({
-        category,
-        graphic,
-      });
-    }
-    
-    // Vérification que le graphique existe bien
-    graphicEntry = this.graphicPerCategory.find(
-      (g) => g.category.id === category.id
-    );
-    if (!graphicEntry) {
-      throw new Error('Graphic not found for category');
-    }
-
-    const graphic = graphicEntry.graphic;
-
-    /**
-     * DIFFÉRENCIATION CATÉGORIES CONTINUES / DISCRÈTES (PONCTUELLES)
-     * 
-     * Le graphique d'activité affiche différemment les catégories selon leur type :
-     * 
-     * - Catégories continues (action === 'continuous' ou non défini) :
-     *   → Affichage en lignes step-line (segments horizontaux et verticaux)
-     *   → Chaque reading maintient l'état jusqu'au suivant
-     *   → Visualise la durée pendant laquelle un observable est actif
-     * 
-     * - Catégories discrètes (action === 'discrete') :
-     *   → Affichage en points individuels (cercles de 4px)
-     *   → Chaque reading est un événement ponctuel indépendant
-     *   → Pas de lignes entre les points (chaque occurrence est isolée)
-     * 
-     * Cette différenciation permet de distinguer visuellement les catégories
-     * qui ont une durée (continues) de celles qui sont des événements ponctuels (discrètes).
-     */
-    const isDiscrete = category.action === ProtocolItemActionEnum.Discrete;
-
-    // Nettoyer le graphique avant de dessiner pour éviter l'accumulation
+    const graphic = this.getOrCreateGraphicForCategory(category);
     graphic.clear();
 
+    const isDiscrete = category.action === ProtocolItemActionEnum.Discrete;
+
     if (isDiscrete) {
-      /**
-       * MODE DISCRET (PONCTUEL) : Affichage en points
-       * 
-       * Pour les catégories discrètes, chaque reading DATA est représenté
-       * comme un point unique sur le graphique, sans connexion avec les autres.
-       * Cela reflète la nature ponctuelle de ces catégories où chaque relevé
-       * est un événement indépendant, sans notion de durée ou de continuité.
-       */
+      // MODE DISCRET : Affichage en points
       for (const reading of readings) {
         if (reading.type === ReadingTypeEnum.DATA) {
           const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
           const yPos = this.yAxis.getPosFromLabel(reading.name);
+          if (yPos < 0) continue; // Skip si la position n'est pas trouvée
           
-          // Dessiner un cercle (point) à la position du reading
-          graphic.circle(xPos, yPos, 4); // Rayon de 4 pixels
-          graphic.setFillStyle({ color: 'green' });
+          const prefs = this.getObservablePreferencesForReading(reading.name);
+          const color = prefs?.color ?? 'green';
+          const strokeWidth = prefs?.strokeWidth ?? 4;
+          
+          graphic.circle(xPos, yPos, strokeWidth / 2);
+          graphic.setFillStyle({ color });
           graphic.fill();
         }
-        // On ignore les readings STOP pour les catégories discrètes
-        // (pas de notion de fin pour un événement ponctuel)
       }
     } else {
-      /**
-       * MODE CONTINU : Affichage en lignes step-line
-       * 
-       * Pour les catégories continues, les readings sont connectés par des lignes
-       * qui maintiennent l'état actuel jusqu'au reading suivant. Cela permet de
-       * visualiser la durée pendant laquelle chaque observable est actif.
-       */
-      // Pour les catégories continues : comportement actuel (lignes)
-      // Récupération du premier reading pour initialiser la position de départ
+      // MODE CONTINU : Affichage en lignes step-line
       const firstReading = readings[0];
-      if (!firstReading) {
-        // Si pas de readings, on ne dessine rien
-        return;
-      }
+      if (!firstReading) return;
 
-      // Position de départ : début de l'axe Y (horizontalement) et position de l'observable (verticalement)
+      const startY = this.yAxis.getPosFromLabel(firstReading.name);
+      if (startY < 0) return; // Skip si catégorie en mode Background
+
       const start = {
         x: this.yAxis?.getAxisStart()?.x ?? 0,
-        y: this.yAxis.getPosFromLabel(firstReading.name),
+        y: startY,
       };
 
-      // Positionnement du "stylo" graphique au point de départ
-      graphic.moveTo(start.x, start.y);
-      const last = {
-        x: start.x,
-        y: start.y,
-      };
+      const last = { x: start.x, y: start.y };
 
-      // Parcours de tous les readings suivants pour dessiner les segments
       for (let i = 1; i < readings.length; i++) {
         const reading = readings[i];
-        if (!reading) {
-          throw new Error('No reading found');
-        }
+        if (!reading) throw new Error('No reading found');
 
-        // Calcul de la position Y :
-        // - Si c'est un reading STOP, on utilise -1 (hors écran) pour fermer le segment
-        // - Sinon, on récupère la position de l'observable correspondant
         const yPos =
           reading.type === ReadingTypeEnum.STOP
             ? -1
             : this.yAxis.getPosFromLabel(reading.name);
         
-        // Calcul de la position X à partir de la date/heure du reading
         const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
         
-        // Dessin d'un segment horizontal vers la droite jusqu'à la date du reading
-        // Ce segment maintient la position Y actuelle (même observable)
+        const horizontalPrefs = this.getObservablePreferencesForReading(
+          readings[i - 1]?.name || firstReading.name
+        );
+        const horizontalColor = horizontalPrefs?.color ?? 'green';
+        const horizontalStrokeWidth = horizontalPrefs?.strokeWidth ?? 2;
+        
+        // Segment horizontal (du point précédent vers la position X du reading actuel)
+        graphic.moveTo(last.x, last.y);
         graphic.lineTo(xPos, last.y);
         graphic.setStrokeStyle({
-          color: 'green', // Vert pour les segments horizontaux (maintien sur l'observable)
-          width: 2,
+          color: horizontalColor,
+          width: horizontalStrokeWidth,
         });
         graphic.stroke();
 
-        // Dessin d'un segment vertical si nécessaire (changement d'observable)
-        // Ce segment n'est dessiné que si la position Y est valide (pas de STOP)
+        // Segment vertical si changement d'observable (et si position Y valide)
         if (yPos >= 0) {
+          graphic.moveTo(xPos, last.y);
           graphic.lineTo(xPos, yPos);
           graphic.setStrokeStyle({
-            color: 'grey', // Gris pour les segments verticaux (transitions)
+            color: 'grey',
             width: 1,
           });
           graphic.stroke();
         }
 
-        // Mise à jour de la position actuelle pour le prochain segment
         last.x = xPos;
         last.y = yPos;
       }
+    }
+  }
+
+  /**
+   * Dessine une catégorie en mode Background (zones sur le fond du graphique).
+   * 
+   * Pour chaque observable de la catégorie, on dessine une zone colorée/motif
+   * sur TOUTE la hauteur de la zone centrale du graphique pendant que
+   * l'observable est "actif" (entre le moment où il est sélectionné et le moment
+   * où un autre observable de la même catégorie est sélectionné).
+   */
+  private drawCategoryBackground(categoryEntry: {
+    category: ProtocolItem;
+    readings: IReading[];
+  }) {
+    const category = categoryEntry.category;
+    const readings = categoryEntry.readings;
+    const graphic = this.getOrCreateGraphicForCategory(category);
+    graphic.clear();
+
+    // Les catégories discrètes n'ont pas de mode Background cohérent
+    // (pas de notion de "zone active")
+    if (category.action === ProtocolItemActionEnum.Discrete) {
+      return;
+    }
+
+    if (readings.length === 0) return;
+
+    // Récupérer les limites de la zone de données
+    const bottomLeft = this.yAxis.getAxisStart() as {x: number, y: number};
+    const topRight = {
+      x: this.xAxis.getAxisEnd().x,
+      y: this.yAxis.getAxisEnd().y,
+    } as {x: number, y: number};
+    
+    const zoneHeight = Math.abs(topRight.y - bottomLeft.y);
+    const zoneTopY = topRight.y;
+
+    // Parcourir les readings pour trouver les zones actives de chaque observable
+    for (let i = 0; i < readings.length; i++) {
+      const reading = readings[i];
+      if (!reading || reading.type !== ReadingTypeEnum.DATA) continue;
+
+      // Trouver le reading suivant pour déterminer la fin de la zone
+      const nextReading = readings[i + 1];
+      if (!nextReading) continue;
+
+      const startX = this.xAxis.getPosFromDateTime(reading.dateTime);
+      const endX = this.xAxis.getPosFromDateTime(nextReading.dateTime);
+      const zoneWidth = endX - startX;
+
+      if (zoneWidth <= 0) continue;
+
+      // Récupérer les préférences de l'observable
+      const prefs = this.getObservablePreferencesForReading(reading.name);
+      const color = prefs?.color ?? category.graphPreferences?.color ?? 'green';
+      const pattern = prefs?.backgroundPattern ?? category.graphPreferences?.backgroundPattern ?? BackgroundPatternEnum.Solid;
+
+      if (pattern === BackgroundPatternEnum.Solid) {
+        // Couleur unie avec transparence
+        graphic
+          .rect(startX, zoneTopY, zoneWidth, zoneHeight)
+          .fill({ color, alpha: 0.2 });
+      } else {
+        // Motif
+        const patternTexture = createPatternTexture(this.app, pattern, color);
+        if (patternTexture) {
+          graphic
+            .rect(startX, zoneTopY, zoneWidth, zoneHeight)
+            .fill({
+              texture: patternTexture,
+              color: 0xffffff,
+            });
+        }
+      }
+    }
+  }
+
+  /**
+   * Dessine une catégorie en mode Frise (bandeau horizontal).
+   * 
+   * Le bandeau a la hauteur allouée à la catégorie sur l'axe Y et est découpé
+   * en zones colorées selon l'observable actif à chaque moment.
+   */
+  private drawCategoryFrieze(categoryEntry: {
+    category: ProtocolItem;
+    readings: IReading[];
+  }) {
+    const category = categoryEntry.category;
+    const readings = categoryEntry.readings;
+    const graphic = this.getOrCreateGraphicForCategory(category);
+    graphic.clear();
+
+    // Les catégories discrètes en mode Frieze affichent les points
+    // sur un bandeau coloré
+    if (category.action === ProtocolItemActionEnum.Discrete) {
+      // Pour le mode discret en frise, on dessine juste les points
+      // sur le bandeau
+      const friezeInfo = this.yAxis.getFriezeInfo(category.id);
+      if (!friezeInfo) return;
+
+      for (const reading of readings) {
+        if (reading.type === ReadingTypeEnum.DATA) {
+          const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
+          const yPos = friezeInfo.centerY;
+          
+          const prefs = this.getObservablePreferencesForReading(reading.name);
+          const color = prefs?.color ?? 'green';
+          const strokeWidth = prefs?.strokeWidth ?? 4;
+          
+          graphic.circle(xPos, yPos, strokeWidth / 2);
+          graphic.setFillStyle({ color });
+          graphic.fill();
+        }
+      }
+      return;
+    }
+
+    if (readings.length === 0) return;
+
+    // Récupérer les informations de frieze depuis l'axe Y
+    const friezeInfo = this.yAxis.getFriezeInfo(category.id);
+    if (!friezeInfo) {
+      console.warn(`Frieze info not found for category ${category.id}`);
+      return;
+    }
+
+    // friezeInfo.endY est le haut du bandeau (Y plus petit dans le système de coordonnées)
+    // friezeInfo.startY est le bas du bandeau (Y plus grand)
+    const friezeTopY = friezeInfo.endY;
+    const friezeHeight = friezeInfo.height;
+
+    // Parcourir les readings pour dessiner les zones du bandeau
+    // Chaque zone va de la date du reading actuel jusqu'à la date du reading suivant
+    for (let i = 0; i < readings.length; i++) {
+      const reading = readings[i];
+      if (!reading || reading.type !== ReadingTypeEnum.DATA) continue;
+
+      // Position X de début = date/heure du reading actuel
+      const segmentStartX = this.xAxis.getPosFromDateTime(reading.dateTime);
+
+      // Trouver le reading suivant pour déterminer la fin de la zone
+      const nextReading = readings[i + 1];
+      if (!nextReading) continue; // Pas de segment pour le dernier reading
+
+      const segmentEndX = this.xAxis.getPosFromDateTime(nextReading.dateTime);
+      const segmentWidth = segmentEndX - segmentStartX;
+
+      if (segmentWidth <= 0) continue;
+
+      // Récupérer les préférences de l'observable
+      const prefs = this.getObservablePreferencesForReading(reading.name);
+      const color = prefs?.color ?? category.graphPreferences?.color ?? 'green';
+      const pattern = prefs?.backgroundPattern ?? category.graphPreferences?.backgroundPattern ?? BackgroundPatternEnum.Solid;
+
+      if (pattern === BackgroundPatternEnum.Solid) {
+        // Couleur unie
+        graphic
+          .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
+          .fill({ color, alpha: 0.6 });
+        
+        // Bordure pour délimiter les zones
+        graphic
+          .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
+          .stroke({ color: color, width: 1 });
+      } else {
+        // Motif
+        const patternTexture = createPatternTexture(this.app, pattern, color);
+        if (patternTexture) {
+          graphic
+            .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
+            .fill({
+              texture: patternTexture,
+              color: 0xffffff,
+            });
+        }
+        // Bordure
+        graphic
+          .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
+          .stroke({ color: color, width: 1 });
+      }
+    }
+  }
+
+  /**
+   * Récupère les préférences graphiques d'un observable avec héritage depuis sa catégorie parente.
+   * 
+   * @param observableName - Nom de l'observable (utilisé pour trouver l'observable dans le protocole)
+   * @returns Préférences graphiques avec héritage appliqué, ou null si aucune préférence
+   */
+  private getObservablePreferencesForReading(observableName: string): IGraphPreferences | null {
+    if (!this.protocol || !this.protocol._items) {
+      return null;
+    }
+
+    // Parcourir les catégories pour trouver l'observable
+    for (const category of this.protocol._items) {
+      if (category.type !== 'category' || !category.children) {
+        continue;
+      }
+
+      // Chercher l'observable par son nom
+      const observable = category.children.find(
+        (obs) => obs.name === observableName && obs.type === 'observable'
+      );
+
+      if (observable) {
+        // Si l'observable a des préférences, les retourner
+        if (observable.graphPreferences) {
+          return observable.graphPreferences;
+        }
+
+        // Sinon, retourner les préférences de la catégorie parente
+        if (category.graphPreferences) {
+          return category.graphPreferences;
+        }
+
+        // Aucune préférence trouvée
+        return null;
+      }
+    }
+
+    // Observable non trouvé
+    return null;
+  }
+
+  /**
+   * Redessine une catégorie entière selon son mode d'affichage.
+   * 
+   * @param observableId - ID de l'observable qui a changé
+   */
+  public redrawObservable(observableId: string) {
+    if (!this.protocol || !this.protocol._items) {
+      return;
+    }
+
+    // Trouver l'observable dans le protocole
+    let targetCategory: ProtocolItem | null = null;
+
+    for (const category of this.protocol._items) {
+      if (category.children) {
+        const observable = category.children.find((o) => o.id === observableId);
+        if (observable) {
+          targetCategory = category;
+          break;
+        }
+      }
+    }
+
+    if (!targetCategory) {
+      return;
+    }
+
+    const category = targetCategory;
+
+    // Trouver la catégorie dans readingsPerCategory
+    const categoryEntry = this.readingsPerCategory.find(
+      (r) => r.category.id === category.id
+    );
+
+    if (!categoryEntry) {
+      return;
+    }
+
+    // Redessiner la catégorie selon son mode d'affichage
+    const displayMode = category.graphPreferences?.displayMode ?? DisplayModeEnum.Normal;
+
+    switch (displayMode) {
+      case DisplayModeEnum.Background:
+        this.drawCategoryBackground(categoryEntry);
+        break;
+      case DisplayModeEnum.Frieze:
+        this.drawCategoryFrieze(categoryEntry);
+        break;
+      default:
+        this.drawCategoryNormal(categoryEntry);
+        break;
     }
   }
 }
