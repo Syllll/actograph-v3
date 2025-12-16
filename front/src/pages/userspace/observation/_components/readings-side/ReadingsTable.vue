@@ -1,20 +1,21 @@
 <template>
-  <div class="fit column" style="min-height: 0">
-    <q-table
-      class="fit col" dense
-      :rows="readings"
-      :columns="columns"
-      :row-key="getRowKey"
-      :selected="selectedInternal"
-      selection="single"
-      binary-state-sort
-      virtual-scroll
-      :virtual-scroll-sticky-size-start="48"
-      :rows-per-page-options="[0]"
-      hide-pagination
-      hide-bottom
-      @request:selected="handleRequestSelected"
-    >
+  <q-table
+    class="readings-table"
+    dense
+    :rows="readings"
+    :columns="columns"
+    :row-key="getRowKey"
+    :selected="selectedInternal"
+    selection="single"
+    binary-state-sort
+    virtual-scroll
+    :virtual-scroll-sticky-size-start="48"
+    table-style="max-height: 100%;"
+    :rows-per-page-options="[0]"
+    hide-pagination
+    hide-bottom
+    @request:selected="handleRequestSelected"
+  >
       <template v-slot:header="props">
         <q-tr :props="props">
           <q-th v-for="col in props.cols" :key="col.name" :props="props">
@@ -213,7 +214,6 @@
         </q-tr>
       </template>
     </q-table>
-  </div>
 </template>
 
 <script lang="ts">
@@ -590,5 +590,25 @@ tr.selected-row td {
 
 .editable-cell:active {
   background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Table container for virtual scroll */
+.readings-table {
+  position: absolute;
+  inset: 0;
+  
+  &:deep() {
+    .q-table__container {
+      height: 100%;
+    }
+    
+    /* Sticky header */
+    thead tr th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background-color: white;
+    }
+  }
 }
 </style> 

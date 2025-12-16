@@ -1,25 +1,27 @@
 <template>
-  <div class="readings-side-container q-pa-sm column">
-    <!-- Toolbar with search, add, and remove buttons -->
-    <readings-toolbar
-      class="col-auto"
-      v-model:search="search"
-      :has-selected="hasSelectedReading"
-      :is-add-disabled="false"
-      :can-activate-chronometer-mode="canActivateChronometerMode"
-      :current-mode="currentObservationMode || undefined"
-      @add-reading="handleAddReading"
-      @remove-reading="handleRemoveReading"
-      @remove-all-readings="handleRemoveAllReadings"
-      @activate-chronometer-mode="handleActivateChronometerMode"
-      @auto-correct-readings="handleAutoCorrectReadings"
-    />
-
-    <div class="col" style="min-height: 0; overflow: hidden">
-      <readings-table
-        :readings="filteredReadings"
-        v-model:selected="selectedReading"
+  <div class="readings-side-container">
+    <div class="readings-side-content q-pa-sm column">
+      <!-- Toolbar with search, add, and remove buttons -->
+      <readings-toolbar
+        class="col-auto"
+        v-model:search="search"
+        :has-selected="hasSelectedReading"
+        :is-add-disabled="false"
+        :can-activate-chronometer-mode="canActivateChronometerMode"
+        :current-mode="currentObservationMode || undefined"
+        @add-reading="handleAddReading"
+        @remove-reading="handleRemoveReading"
+        @remove-all-readings="handleRemoveAllReadings"
+        @activate-chronometer-mode="handleActivateChronometerMode"
+        @auto-correct-readings="handleAutoCorrectReadings"
       />
+
+      <div class="col table-wrapper">
+        <readings-table
+          :readings="filteredReadings"
+          v-model:selected="selectedReading"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -303,16 +305,23 @@ export default defineComponent({
 
 <style scoped>
 .readings-side-container {
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
-.readings-side-container > .col {
+.readings-side-content {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.table-wrapper {
+  flex: 1 1 0;
   min-height: 0;
+  overflow: hidden;
+  position: relative;
 }
 </style>
