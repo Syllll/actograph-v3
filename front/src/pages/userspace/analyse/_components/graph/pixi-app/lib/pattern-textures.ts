@@ -1,4 +1,4 @@
-import { Texture } from 'pixi.js';
+import { Texture, TilingSprite } from 'pixi.js';
 import { BackgroundPatternEnum } from '@services/observations/interface';
 
 /**
@@ -9,10 +9,10 @@ const textureCache = new Map<string, Texture>();
 
 /**
  * Taille de la texture de motif (en pixels).
- * Les motifs seront répétés (tiled) pour remplir les zones.
- * Augmenté pour avoir des lignes plus fines visuellement.
+ * Cette taille est FIXE et ne change pas selon la surface à couvrir.
+ * Le motif sera répété (tiled) pour remplir les zones.
  */
-const PATTERN_SIZE = 32;
+const PATTERN_SIZE = 16;
 
 /**
  * Épaisseur des lignes des motifs.
@@ -22,7 +22,7 @@ const LINE_WIDTH = 1;
 
 /**
  * Espacement entre les lignes/points.
- * Augmenté pour avoir un motif plus espacé et des lignes plus fines visuellement.
+ * Cet espacement est FIXE - le motif se répète pour couvrir la surface.
  */
 const LINE_SPACING = 8;
 
@@ -256,4 +256,53 @@ export function clearPatternTextureCache(): void {
     texture.destroy(true);
   }
   textureCache.clear();
+}
+
+/**
+ * Crée un TilingSprite qui répète le motif avec une échelle constante.
+ * 
+ * Cette fonction crée un sprite qui répète la texture de motif pour couvrir
+ * une zone donnée. Le motif garde TOUJOURS la même taille (tiling pattern),
+ * quelle que soit la taille de la zone à couvrir.
+ * 
+ * @param pattern - Type de motif à créer
+ * @param color - Couleur du motif
+ * @param x - Position X du rectangle
+ * @param y - Position Y du rectangle
+ * @param width - Largeur du rectangle à couvrir
+ * @param height - Hauteur du rectangle à couvrir
+ * @returns TilingSprite configuré, ou null si pattern est Solid
+ */
+export function createTilingPatternSprite(
+  pattern: BackgroundPatternEnum,
+  color: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): TilingSprite | null {
+  // Pour solid, pas de motif
+  if (pattern === BackgroundPatternEnum.Solid) {
+    return null;
+  }
+
+  // Récupérer ou créer la texture
+  const texture = createPatternTexture(null, pattern, color);
+  if (!texture) {
+    return null;
+  }
+
+  // Créer un TilingSprite qui répète la texture
+  // La texture est répétée avec une échelle de 1:1 (pas d'étirement)
+  const tilingSprite = new TilingSprite({
+    texture,
+    width,
+    height,
+  });
+  
+  // Positionner le sprite
+  tilingSprite.x = x;
+  tilingSprite.y = y;
+
+  return tilingSprite;
 }

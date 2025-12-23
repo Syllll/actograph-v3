@@ -235,10 +235,11 @@ export class PixiApp {
           }
           Object.assign(observable.graphPreferences, preference);
           
-          // Redessiner uniquement cet observable
-          if (this.dataArea) {
-            this.dataArea.redrawObservable(observableId);
-          }
+          // Redessiner tout le graphique pour garantir que les TilingSprites
+          // et autres éléments sont correctement positionnés.
+          // Un redraw partiel (redrawObservable) ne recalcule pas les coordonnées
+          // correctement quand le viewport a été zoomé/pané.
+          this.draw();
           break;
         }
       }

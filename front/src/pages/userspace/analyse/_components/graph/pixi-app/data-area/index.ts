@@ -1,4 +1,4 @@
-import { Application, Text, Container, Graphics } from 'pixi.js';
+import { Application, Text, Container, Graphics, TilingSprite } from 'pixi.js';
 import { BaseGroup } from '../lib/base-group';
 import {
   IReading,
@@ -20,7 +20,7 @@ import {
 import { BaseGraphic } from '../lib/base-graphic';
 import { useDuration } from 'src/composables/use-duration';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
-import { createPatternTexture } from '../lib/pattern-textures';
+import { createTilingPatternSprite } from '../lib/pattern-textures';
 
 /**
  * Classe représentant la zone de données du graphique d'activité.
@@ -70,6 +70,16 @@ export class DataArea extends BaseGroup {
   private graphicPerCategory: {
     category: ProtocolItem;
     graphic: BaseGraphic;
+  }[] = [];
+
+  /**
+   * TilingSprites pour les motifs de fond par catégorie.
+   * Ces sprites sont utilisés pour dessiner les patterns avec tiling (répétition constante).
+   * Ils sont stockés séparément des graphics car ils doivent être gérés différemment.
+   */
+  private tilingSpritesPerCategory: {
+    category: ProtocolItem;
+    sprites: TilingSprite[];
   }[] = [];
 
   /** Graphique pour le fond de la zone de données (zone interactive) */
@@ -442,6 +452,15 @@ export class DataArea extends BaseGroup {
       this.removeChild(graphicEntry.graphic);
     }
     this.graphicPerCategory = [];
+
+    // Suppression de tous les TilingSprites de motifs
+    for (const spriteEntry of this.tilingSpritesPerCategory) {
+      for (const sprite of spriteEntry.sprites) {
+        this.removeChild(sprite);
+        sprite.destroy();
+      }
+    }
+    this.tilingSpritesPerCategory = [];
   }
 
   /**
@@ -653,6 +672,9 @@ export class DataArea extends BaseGroup {
    * sur TOUTE la hauteur de la zone centrale du graphique pendant que
    * l'observable est "actif" (entre le moment où il est sélectionné et le moment
    * où un autre observable de la même catégorie est sélectionné).
+   * 
+   * Les motifs utilisent un TilingSprite pour garantir que l'échelle du motif
+   * reste CONSTANTE (comportement de texture répétée/tiled).
    */
   private drawCategoryBackground(categoryEntry: {
     category: ProtocolItem;
@@ -662,6 +684,9 @@ export class DataArea extends BaseGroup {
     const readings = categoryEntry.readings;
     const graphic = this.getOrCreateGraphicForCategory(category);
     graphic.clear();
+
+    // Nettoyer les anciens TilingSprites de cette catégorie
+    this.clearTilingSpritesForCategory(category);
 
     // Les catégories discrètes n'ont pas de mode Background cohérent
     // (pas de notion de "zone active")
@@ -707,18 +732,53 @@ export class DataArea extends BaseGroup {
           .rect(startX, zoneTopY, zoneWidth, zoneHeight)
           .fill({ color, alpha: 0.2 });
       } else {
-        // Motif
-        const patternTexture = createPatternTexture(this.app, pattern, color);
-        if (patternTexture) {
-          graphic
-            .rect(startX, zoneTopY, zoneWidth, zoneHeight)
-            .fill({
-              texture: patternTexture,
-              color: 0xffffff,
-            });
+        // Motif avec TilingSprite pour une échelle constante (tiled pattern)
+        const tilingSprite = createTilingPatternSprite(
+          pattern,
+          color,
+          startX,
+          zoneTopY,
+          zoneWidth,
+          zoneHeight,
+        );
+        if (tilingSprite) {
+          // Ajouter le sprite au conteneur (avant les autres éléments pour qu'il soit en fond)
+          this.addChildAt(tilingSprite, 0);
+          // Stocker le sprite pour pouvoir le nettoyer plus tard
+          this.addTilingSpriteForCategory(category, tilingSprite);
         }
       }
     }
+  }
+
+  /**
+   * Nettoie les TilingSprites d'une catégorie spécifique.
+   */
+  private clearTilingSpritesForCategory(category: ProtocolItem): void {
+    const spriteEntry = this.tilingSpritesPerCategory.find(
+      (s) => s.category.id === category.id
+    );
+    if (spriteEntry) {
+      for (const sprite of spriteEntry.sprites) {
+        this.removeChild(sprite);
+        sprite.destroy();
+      }
+      spriteEntry.sprites = [];
+    }
+  }
+
+  /**
+   * Ajoute un TilingSprite pour une catégorie.
+   */
+  private addTilingSpriteForCategory(category: ProtocolItem, sprite: TilingSprite): void {
+    let spriteEntry = this.tilingSpritesPerCategory.find(
+      (s) => s.category.id === category.id
+    );
+    if (!spriteEntry) {
+      spriteEntry = { category, sprites: [] };
+      this.tilingSpritesPerCategory.push(spriteEntry);
+    }
+    spriteEntry.sprites.push(sprite);
   }
 
   /**
@@ -726,6 +786,9 @@ export class DataArea extends BaseGroup {
    * 
    * Le bandeau a la hauteur allouée à la catégorie sur l'axe Y et est découpé
    * en zones colorées selon l'observable actif à chaque moment.
+   * 
+   * Les motifs utilisent un TilingSprite pour garantir que l'échelle du motif
+   * reste CONSTANTE (comportement de texture répétée/tiled).
    */
   private drawCategoryFrieze(categoryEntry: {
     category: ProtocolItem;
@@ -735,6 +798,9 @@ export class DataArea extends BaseGroup {
     const readings = categoryEntry.readings;
     const graphic = this.getOrCreateGraphicForCategory(category);
     graphic.clear();
+
+    // Nettoyer les anciens TilingSprites de cette catégorie
+    this.clearTilingSpritesForCategory(category);
 
     // Les catégories discrètes en mode Frieze affichent les points
     // sur un bandeau coloré
@@ -809,15 +875,20 @@ export class DataArea extends BaseGroup {
           .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
           .stroke({ color: color, width: 1 });
       } else {
-        // Motif
-        const patternTexture = createPatternTexture(this.app, pattern, color);
-        if (patternTexture) {
-          graphic
-            .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
-            .fill({
-              texture: patternTexture,
-              color: 0xffffff,
-            });
+        // Motif avec TilingSprite pour une échelle constante (tiled pattern)
+        const tilingSprite = createTilingPatternSprite(
+          pattern,
+          color,
+          segmentStartX,
+          friezeTopY,
+          segmentWidth,
+          friezeHeight,
+        );
+        if (tilingSprite) {
+          // Ajouter le sprite au conteneur (avant les autres éléments pour qu'il soit en fond)
+          this.addChildAt(tilingSprite, 0);
+          // Stocker le sprite pour pouvoir le nettoyer plus tard
+          this.addTilingSpriteForCategory(category, tilingSprite);
         }
         // Bordure
         graphic
