@@ -538,3 +538,5 @@ Les phases 3 et 4 peuvent être parallélisées si plusieurs développeurs sont 
 
 
 
+
+
