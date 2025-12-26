@@ -20,13 +20,27 @@
 
 ## 📊 Analyse de l'existant
 
+### Distinction importante : DTOs vs Interfaces
+
+**DTOs NestJS** (resteront dans le backend) :
+- Contiennent des décorateurs NestJS (`@Expose`, `@IsString`, `@IsEnum`, etc.)
+- Utilisés pour la validation et la sérialisation HTTP
+- Exemples : `GeneralStatisticsDto`, `CategoryStatisticsDto`, `ConditionalStatisticsRequestDto`
+
+**Interfaces TypeScript** (seront dans `@actograph/core`) :
+- Types purs sans décorateurs
+- Réutilisables partout (backend, frontend, mobile)
+- Exemples : `IGeneralStatistics`, `ICategoryStatistics`, `IConditionalStatisticsRequest`
+
+**Stratégie** : Les DTOs NestJS utiliseront les interfaces du core comme structure interne, mais garderont leurs décorateurs pour la validation/sérialisation.
+
 ### Logique extractible (PURE - sans I/O)
 
 | Module | Complexité | Lignes | Priorité |
 |--------|------------|--------|----------|
 | Statistiques générales | Haute | ~150 | P1 |
 | Statistiques catégorie | Haute | ~200 | P1 |
-| Statistiques conditionnelles | Haute | ~250 | P1 |
+| Statistiques conditionnelles | Haute | ~300 | P1 |
 | Calcul périodes/pauses | Moyenne | ~150 | P1 |
 | Parser Chronic v1 | Haute | ~500 | P2 |
 | Convertisseurs Chronic v1 | Moyenne | ~200 | P2 |
@@ -170,6 +184,9 @@ actograph-v3/
   - [ ] `packages/core/src/enums/observation.enum.ts`
     - Extraire `ObservationType` depuis `api/src/core/observations/entities/observation.entity.ts`
     - Extraire `ObservationModeEnum`
+  - [ ] `packages/core/src/enums/statistics.enum.ts`
+    - Extraire `ConditionOperatorEnum` depuis `api/src/core/observations/dtos/statistics-conditional.dto.ts`
+    - Extraire `ObservableStateEnum` depuis `api/src/core/observations/dtos/statistics-conditional.dto.ts`
   - [ ] `packages/core/src/enums/index.ts` - Barrel export
 
 - [ ] **2.2** Créer les interfaces partagées
@@ -185,13 +202,24 @@ actograph-v3/
     - Interface `IPeriod`
     - Interface `IObservableStatistics`
     - Interface `ICategoryStatistics`
+    - Interface `ICategoryStatisticsSummary`
     - Interface `IGeneralStatistics`
+    - Interface `IObservableCondition`
+    - Interface `ITimeRangeCondition`
+    - Interface `IConditionGroup`
+    - Interface `IConditionalStatisticsRequest`
     - Interface `IConditionalStatistics`
   - [ ] `packages/core/src/types/index.ts` - Barrel export
+  
+  **Note importante** : Ces interfaces sont des types TypeScript purs (sans décorateurs NestJS). Les DTOs NestJS (`*Dto`) restent dans le backend et utilisent ces interfaces comme base de structure interne.
 
 - [ ] **2.3** Mettre à jour le backend pour utiliser les types du core
   - [ ] Modifier les entités pour importer les enums depuis `@actograph/core`
+  - [ ] Modifier les DTOs pour importer les enums depuis `@actograph/core`
+    - `statistics-conditional.dto.ts` : Importer `ConditionOperatorEnum` et `ObservableStateEnum` depuis core
   - [ ] Garder les décorateurs TypeORM dans les entités
+  - [ ] Garder les décorateurs NestJS (@Expose, @IsString, etc.) dans les DTOs
+  - [ ] Les DTOs peuvent utiliser les interfaces du core comme types internes si nécessaire
   - [ ] Vérifier que la compilation fonctionne
   - [ ] Vérifier que les migrations fonctionnent toujours
 
@@ -430,7 +458,8 @@ packages/
         │   ├── index.ts
         │   ├── reading-type.enum.ts
         │   ├── protocol-item.enum.ts
-        │   └── observation.enum.ts
+        │   ├── observation.enum.ts
+        │   └── statistics.enum.ts
         ├── types/
         │   ├── index.ts
         │   ├── reading.types.ts
@@ -465,6 +494,7 @@ api/tsconfig.json              # Configurer paths
 api/src/core/observations/entities/reading.entity.ts      # Importer enum depuis core
 api/src/core/observations/entities/protocol.entity.ts     # Importer enums depuis core
 api/src/core/observations/entities/observation.entity.ts  # Importer enums depuis core
+api/src/core/observations/dtos/statistics-conditional.dto.ts  # Importer enums depuis core
 api/src/core/observations/services/statistics.service.ts  # Utiliser fonctions du core
 api/src/core/observations/services/observation/import/    # Utiliser parsers du core
 ```
@@ -534,6 +564,7 @@ Les phases 3 et 4 peuvent être parallélisées si plusieurs développeurs sont 
 - [ ] Import de fichiers .chronic et .jchronic sur mobile
 - [ ] Statistiques identiques entre web et mobile
 - [ ] Documentation complète du package core
+
 
 
 
