@@ -170,15 +170,16 @@ jobs:
         id: yarn-lock-hash
         shell: bash
         run: |
-          if [ -f api/yarn.lock ] && [ -f front/yarn.lock ]; then
+          # Note: Only api/, front/, and packages/* are included. mobile/ is excluded from CI/CD pipelines.
+          if [ -f api/yarn.lock ] && [ -f front/yarn.lock ] && [ -f packages/core/yarn.lock ] && [ -f packages/graph/yarn.lock ]; then
             # Utiliser shasum sur macOS, sha256sum sur Linux
             if command -v sha256sum > /dev/null 2>&1; then
-              HASH=$(cat api/yarn.lock front/yarn.lock | sha256sum | cut -d' ' -f1)
+              HASH=$(cat api/yarn.lock front/yarn.lock packages/core/yarn.lock packages/graph/yarn.lock | sha256sum | cut -d' ' -f1)
             elif command -v shasum > /dev/null 2>&1; then
-              HASH=$(cat api/yarn.lock front/yarn.lock | shasum -a 256 | cut -d' ' -f1)
+              HASH=$(cat api/yarn.lock front/yarn.lock packages/core/yarn.lock packages/graph/yarn.lock | shasum -a 256 | cut -d' ' -f1)
             else
               # Fallback: utiliser openssl si disponible
-              HASH=$(cat api/yarn.lock front/yarn.lock | openssl dgst -sha256 | cut -d' ' -f2)
+              HASH=$(cat api/yarn.lock front/yarn.lock packages/core/yarn.lock packages/graph/yarn.lock | openssl dgst -sha256 | cut -d' ' -f2)
             fi
             echo "hash=$HASH" >> $GITHUB_OUTPUT
           else
@@ -189,8 +190,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
+            # Note: mobile/node_modules is intentionally excluded
             front/node_modules
             api/node_modules
+            packages/core/node_modules
+            packages/graph/node_modules
             ${{ steps.yarn-cache-dir-path.outputs.dir }}
           # Isolate cache by OS and architecture (important for macOS x64 vs arm64)
           key: ${{ runner.os }}-${{ matrix.electron_arch || 'default' }}-yarn-${{ steps.yarn-lock-hash.outputs.hash }}

@@ -31,6 +31,22 @@ yarn build
 echo "packages/core built successfully"
 
 # ==========================================
+# 1b. Build packages/graph (dependency of Frontend)
+# ==========================================
+echo "=========================================="
+echo "Building packages/graph..."
+echo "=========================================="
+cd ../graph
+if [ -d "./node_modules" ] && [ -n "$(ls -A ./node_modules 2>/dev/null)" ]; then
+  echo "Using cached node_modules for packages/graph"
+else
+  echo "Installing dependencies for packages/graph"
+  yarn install
+fi
+yarn build
+echo "packages/graph built successfully"
+
+# ==========================================
 # 2. Clean and prepare API (only dist, keep node_modules if cached)
 # ==========================================
 echo "=========================================="
