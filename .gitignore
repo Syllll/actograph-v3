@@ -2,3 +2,5 @@
 **organisation**
 uploads
 .knowledge-base
+node_modules
+.env

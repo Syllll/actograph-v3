@@ -1,7 +1,8 @@
 import { onMounted, onUnmounted, reactive, ref } from 'vue';
-import { PixiApp } from './pixi-app';
+import { PixiApp } from '@actograph/graph';
 import { useObservation } from 'src/composables/use-observation';
 import { IObservation, IProtocol, IReading } from '@services/observations/interface';
+import type { IObservation as ICoreObservation } from '@actograph/core';
 
 /**
  * État partagé du graphique.
@@ -95,7 +96,7 @@ export const useGraph = (options?: {
 
       // Configuration des données dans PixiApp
       // Cette méthode prépare les données pour le rendu (calcul des positions, etc.)
-      pixiApp.setData(obs);
+      pixiApp.setData(obs as ICoreObservation);
 
       // Rendu du graphique
       // Cette méthode dessine tous les éléments : axes, données, labels, etc.

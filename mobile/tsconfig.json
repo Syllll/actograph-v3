@@ -1,0 +1,48 @@
+{
+  /**
+   * TypeScript configuration for ActoGraph Mobile (Quasar/Capacitor)
+   * 
+   * Path aliases for shared packages (@actograph/*) point to src/ for:
+   * - Hot-reload during development
+   * - Immediate TypeScript error feedback
+   * - No need to rebuild packages during development
+   * 
+   * In production builds, Vite resolves via package.json (main/types → dist/)
+   * See quasar.config.js for the Vite alias configuration.
+   */
+  "extends": "@quasar/app-vite/tsconfig-preset",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      // Local aliases
+      "@boot/*": ["src/boot/*"],
+      "@assets/*": ["src/assets/*"],
+      "@components": ["src/components"],
+      "@components/*": ["src/components/*"],
+      "@css/*": ["src/css/*"],
+      "@i18n/*": ["src/i18n/*"],
+      "@layouts/*": ["src/layouts/*"],
+      "@pages/*": ["src/pages/*"],
+      "@router/*": ["src/router/*"],
+      "@services/*": ["src/services/*"],
+      "@utils/*": ["src/utils/*"],
+      "@database/*": ["src/database/*"],
+      "@composables": ["src/composables"],
+      "@composables/*": ["src/composables/*"],
+      // Shared packages - resolve to src/ for hot-reload
+      "@actograph/core": ["../packages/core/src/index"],
+      "@actograph/core/*": ["../packages/core/src/*"],
+      "@actograph/graph": ["../packages/graph/src/index"],
+      "@actograph/graph/*": ["../packages/graph/src/*"]
+    }
+  },
+  "exclude": [
+    "dist",
+    ".quasar",
+    "node_modules",
+    "src-capacitor",
+    "quasar.config.*.temporary.compiled*"
+  ]
+}
+

@@ -627,7 +627,8 @@ export default defineComponent({
         observation.readings.methods.autoCorrectReadings(true);
       },
 
-      handleVolumeChange: (value: number) => {
+      handleVolumeChange: (value: number | null) => {
+        if (value === null) return;
         if (videoRef.value) {
           videoRef.value.volume = value / 100;
         }

@@ -63,7 +63,8 @@ export default defineComponent({
     });
 
     const methods = {
-      updateStrokeWidth: (value: number) => {
+      updateStrokeWidth: (value: number | null) => {
+        if (value === null) return;
         const preference: Partial<IGraphPreferences> = {
           strokeWidth: value,
         };

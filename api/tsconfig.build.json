@@ -1,4 +1,14 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    /**
+     * outDir explicite pour éviter que TypeScript/NestJS compile depuis la racine
+     * du monorepo à cause du workspace Yarn.
+     * 
+     * Le chemin relatif "./dist" devrait être résolu depuis le dossier où se trouve
+     * ce tsconfig.build.json (c'est-à-dire api/), pas depuis la racine.
+     */
+    "outDir": "./dist"
+  },
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
 }

@@ -1,0 +1,15 @@
+{
+  /**
+   * TypeScript build configuration for @actograph/core
+   * 
+   * Extends the base config and excludes test files from compilation.
+   * Run with: yarn build
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/__tests__/**", "**/*.test.ts"]
+}
+

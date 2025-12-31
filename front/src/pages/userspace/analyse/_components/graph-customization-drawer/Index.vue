@@ -99,7 +99,7 @@
                   :step="1"
                   dense
                   :label-value="`${category.graphPreferences?.strokeWidth ?? 2}px`"
-                  @update:model-value="(val) => methods.updateCategoryPreference(category.id, { strokeWidth: val })"
+                  @update:model-value="(val) => methods.updateCategoryPreference(category.id, { strokeWidth: val ?? undefined })"
                 />
               </div>
 
@@ -199,7 +199,7 @@
                     :step="1"
                     dense
                     :label-value="`${methods.getObservableStrokeWidth(observable.id, category.id) ?? 2}px`"
-                    @update:model-value="(val) => methods.updateObservablePreference(observable.id, { strokeWidth: val })"
+                    @update:model-value="(val) => methods.updateObservablePreference(observable.id, { strokeWidth: val ?? undefined })"
                   />
                 </div>
 
@@ -319,7 +319,7 @@ export default defineComponent({
       showColorDialog: false,
       selectedColor: '#10b981',
       currentColorPicker: {
-        type: '' as 'category' | 'observable',
+        type: '' as '' | 'category' | 'observable',
         id: '',
       },
     });
@@ -661,7 +661,7 @@ export default defineComponent({
         const currentProtocol = protocol.sharedState.currentProtocol;
         if (!currentProtocol?._items) return [];
 
-        const options = [
+        const options: { label: string; value: string | null }[] = [
           { label: 'Arrière plan du graph', value: null },
         ];
 

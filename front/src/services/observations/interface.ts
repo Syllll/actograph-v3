@@ -1,5 +1,6 @@
 import { IEntity } from '@services/utils/entity.interface';
 import { IUser } from '@services/users/user.interface';
+import { ObservationType } from '@actograph/core';
 
 export interface IActivityGraph extends IEntity {
   name: string;
@@ -78,7 +79,11 @@ export enum ReadingTypeEnum {
   DATA = 'data',
 }
 
-export interface IReading extends IEntity {
+export interface IReading extends Partial<IEntity> {
+  id?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+  deletedAt?: Date;
   name: string;
   description?: string;
   observation?: IObservation;
@@ -95,6 +100,7 @@ export enum ObservationModeEnum {
 export interface IObservation extends IEntity {
   name: string;
   description?: string;
+  type: ObservationType;
   videoPath?: string | null;
   mode?: ObservationModeEnum | null;
   user: IUser;

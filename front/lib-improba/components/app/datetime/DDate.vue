@@ -30,7 +30,7 @@
               years-in-month-view
               :navigation-min-year-month="props.minDate"
               :navigation-max-year-month="props.maxDate"
-              locale="fr-FR"
+              :locale="undefined"
             >
               <div class="row items-center justify-end">
                 <q-btn v-close-popup label="Terminé" />

@@ -102,7 +102,7 @@ import { UserService } from '@services/users/user.service';
 import AuthService from '@services/users/auth.service';
 import { useRules } from 'src/../lib-improba/composables/use-rules';
 import { useI18n } from 'vue-i18n';
-import { createDialog } from '@utils/dialog.utils';
+import { createDialog } from '@lib-improba/utils/dialog.utils';
 
 export default defineComponent({
   props: {},

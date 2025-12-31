@@ -54,7 +54,9 @@ function generateObservationHash(
     id: reading.id,
     updatedAt: reading.updatedAt instanceof Date 
       ? reading.updatedAt.toISOString() 
-      : new Date(reading.updatedAt).toISOString(),
+      : reading.updatedAt 
+        ? new Date(reading.updatedAt).toISOString()
+        : null,
     dateTime: reading.dateTime instanceof Date 
       ? reading.dateTime.toISOString() 
       : new Date(reading.dateTime).toISOString(),

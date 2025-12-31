@@ -16,7 +16,8 @@ const queryParamName = 'filterUserRole';
 export default defineComponent({
   props: {
     modelValue: {
-      type: String,
+      type: [String, null] as unknown as () => string | null,
+      default: null,
     },
   },
   emits: ['update:modelValue'],

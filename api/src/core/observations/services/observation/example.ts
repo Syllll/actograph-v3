@@ -1,13 +1,12 @@
 import {
   Observation,
-  ObservationType,
 } from '@core/observations/entities/observation.entity';
 import { ObservationRepository } from '@core/observations/repositories/obsavation.repository';
 import { ActivityGraphService } from '../activity-graph.service';
 import { ProtocolService } from '../protocol/index.service';
 import { ReadingService } from '../reading.service';
 import { ObservationService } from './index.service';
-import { ReadingTypeEnum } from '@core/observations/entities/reading.entity';
+import { ObservationType, ReadingTypeEnum } from '@actograph/core';
 import { NotFoundException } from '@nestjs/common';
 
 export class Example {

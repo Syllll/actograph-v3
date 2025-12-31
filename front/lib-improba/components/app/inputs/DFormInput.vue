@@ -56,7 +56,7 @@
             </template>
             <DInput
               v-else
-              :type="props.type === 'array' ? 'text' : props.type"
+              :type="props.type === 'array' ? 'text' : (props.type as any)"
               :rows="props.rows"
               :rules="props.rules"
               :hint="props.hint ? props.hint : undefined"
@@ -70,13 +70,7 @@
               :outlined="props.outlined"
               :rounded="props.rounded"
               :debounce="props.debounce"
-              :modelValue="
-                props.type === 'select'
-                  ? null
-                  : props.type === 'array'
-                  ? JSON.stringify(props.modelValue)
-                  : props.modelValue
-              "
+              :modelValue="methods.getInputModelValue()"
               @update:model-value="methods.emitValue"
             >
               <template v-slot:prepend>
@@ -234,6 +228,16 @@ export default defineComponent({
   emits: ['update:modelValue'],
   setup(props, { emit }) {
     const methods = {
+      getInputModelValue() {
+        const type = props.type as any;
+        if (type === 'select' || type === 'options') {
+          return null;
+        } else if (type === 'array') {
+          return JSON.stringify(props.modelValue);
+        } else {
+          return props.modelValue;
+        }
+      },
       emitValue($event: any) {
         if (props.type === 'number') {
           const value =

@@ -36,7 +36,8 @@ import { UserRolesGuard } from '@users/guards/user-roles.guard';
 import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
 import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
 import { Observation } from '../entities/observation.entity';
-import { Reading, ReadingTypeEnum } from '../entities/reading.entity';
+import { Reading } from '../entities/reading.entity';
+import { ReadingTypeEnum } from '@actograph/core';
 import { IsArray, IsNotEmpty, IsNumber, ValidateNested, IsDate, IsEnum, IsString, IsOptional, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 

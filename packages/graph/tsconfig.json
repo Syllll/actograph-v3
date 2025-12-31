@@ -1,0 +1,34 @@
+{
+  /**
+   * TypeScript configuration for @actograph/graph
+   * 
+   * This config is used by the IDE for development (hot-reload, intellisense).
+   * It resolves @actograph/core to src/ for better DX.
+   * 
+   * For compilation, see tsconfig.build.json which uses dist/ instead.
+   */
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // ES2021 required for Intl.DateTimeFormat fractionalSecondDigits
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    // Development path: resolve to source for hot-reload
+    "paths": {
+      "@actograph/core": ["../core/src"],
+      "@actograph/core/*": ["../core/src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+

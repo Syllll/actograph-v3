@@ -1,0 +1,28 @@
+{
+  "name": "@actograph/graph",
+  "version": "0.0.80",
+  "description": "Activity graph component using PixiJS",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "dev": "tsc --watch --project tsconfig.build.json",
+    "lint": "eslint \"src/**/*.ts\" --fix"
+  },
+  "dependencies": {
+    "pixi.js": "^8.12.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.4.0",
+    "@actograph/core": "^0.0.80"
+  },
+  "devDependencies": {
+    "@actograph/core": "file:../core",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}
+

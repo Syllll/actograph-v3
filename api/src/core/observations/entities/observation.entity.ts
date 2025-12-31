@@ -1,4 +1,3 @@
-import { InternalServerErrorException } from '@nestjs/common';
 import { User } from '@users/entities/user.entity';
 import { BaseEntity } from '@utils/entities/base.entity';
 import {
@@ -13,16 +12,7 @@ import {
 import { ActivityGraph } from './activity-graph.entity';
 import { Protocol } from './protocol.entity';
 import { Reading } from './reading.entity';
-
-export enum ObservationType {
-  Example = 'example',
-  Normal = 'normal',
-}
-
-export enum ObservationModeEnum {
-  Calendar = 'calendar',
-  Chronometer = 'chronometer',
-}
+import { ObservationType, ObservationModeEnum } from '@actograph/core';
 
 @Entity('observations')
 export class Observation extends BaseEntity {
@@ -30,7 +20,13 @@ export class Observation extends BaseEntity {
   @Index('IDX_observations_name')
   name!: string;
 
-  @Column({ enum: ObservationType, default: ObservationType.Normal })
+  /**
+   * Type d'observation (Example ou Normal)
+   * 
+   * Note: `type: 'text'` est requis pour la compatibilité SQLite.
+   * SQLite ne supporte pas les enums natifs.
+   */
+  @Column({ type: 'text', enum: ObservationType, default: ObservationType.Normal })
   type!: ObservationType;
 
   @Column({ type: 'text', nullable: true })
@@ -39,7 +35,13 @@ export class Observation extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   videoPath?: string | null;
 
-  @Column({ type: 'varchar', enum: ObservationModeEnum, nullable: true })
+  /**
+   * Mode d'observation (Calendar ou Chronometer)
+   * 
+   * Note: `type: 'text'` est requis pour la compatibilité SQLite.
+   * SQLite ne supporte pas les enums natifs.
+   */
+  @Column({ type: 'text', enum: ObservationModeEnum, nullable: true })
   mode?: ObservationModeEnum | null;
 
   @OneToOne(() => ActivityGraph, (activityGraph) => activityGraph.observation)

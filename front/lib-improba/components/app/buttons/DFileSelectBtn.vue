@@ -34,6 +34,7 @@ export default defineComponent({
   components: {},
   emits: ['fileSelected'],
   setup(props, context) {
+    const { t } = useI18n();
     const fileInputRef = ref(null);
 
     const state = reactive({
@@ -61,7 +62,7 @@ export default defineComponent({
     );
 
     return {
-      i18n,
+      i18n: { t },
       props,
       emit: context.emit,
       state,

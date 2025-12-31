@@ -12,10 +12,12 @@
 
 <script lang="ts">
 import { defineComponent, reactive, watch, onMounted } from 'vue';
-import { i18n, setLang } from '@boot/i18n';
+import { useI18n } from 'vue-i18n';
 
 export default defineComponent({
   setup() {
+    const { locale } = useI18n();
+    
     const stateless = {
       languages: [
         {
@@ -35,11 +37,10 @@ export default defineComponent({
 
     const methods = {
       init() {
-        const locale = i18n.locale;
-        state.lang = <string>locale;
+        state.lang = locale.value as string;
       },
       setLang(value: string) {
-        setLang(value);
+        locale.value = value;
       },
     };
 
@@ -50,12 +51,13 @@ export default defineComponent({
     watch(
       () => state.lang,
       (val, prevg) => {
-        methods.setLang(<string>val);
+        if (val) {
+          methods.setLang(val);
+        }
       }
     );
 
     return {
-      i18n,
       state,
       stateless,
     };

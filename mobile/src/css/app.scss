@@ -1,0 +1,188 @@
+// ActoGraph Mobile - Main styles
+// Colors aligned with front/src/css/_colors.scss
+
+// *****************
+// Color variables (aligned with front/)
+// *****************
+$white: #fff;
+$black: #000;
+
+// Primary orange (accent)
+$orange: #f97316;
+
+// Complementary blue
+$blue: #3b82f6;
+
+// Supporting colors
+$slate: #64748b;
+$green: #10b981;
+$purple: #8b5cf6;
+$red: #ef4444;
+$amber: #f59e0b;
+$modernDarkGrey: #1f2937;
+
+// CSS Custom Properties
+:root {
+  --primary: #{$modernDarkGrey};
+  --secondary: #{$slate};
+  --accent: #{$orange};
+  --positive: #{$green};
+  --negative: #{$red};
+  --warning: #{$amber};
+  --info: #{$blue};
+  --text: #{$black};
+  --text-invert: #{$white};
+  --background: #{$white};
+  --background-dark: #{$modernDarkGrey};
+}
+
+// Dark mode overrides
+body.body--dark {
+  --text: #{$white};
+  --text-invert: #{$black};
+  --background: #{$modernDarkGrey};
+}
+
+// Global styles
+body {
+  font-family: 'Roboto', '-apple-system', 'Helvetica Neue', Helvetica, Arial,
+    sans-serif;
+}
+
+// Mobile-specific styles
+.q-page {
+  // Safe area for notched devices
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+// Custom scrollbar
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+// Card styles
+.q-card {
+  border-radius: 12px;
+}
+
+// Button styles
+.q-btn {
+  border-radius: 8px;
+}
+
+// Input styles
+.q-field--outlined .q-field__control {
+  border-radius: 8px;
+}
+
+// Dialog styles
+.q-dialog__inner--minimized > div {
+  border-radius: 12px;
+}
+
+// Timer display
+.timer-display {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 2rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+// Category card styles
+.category-card {
+  border-radius: 12px;
+  border-left: 4px solid var(--accent);
+  
+  &.continuous {
+    border-left-color: var(--info);
+  }
+  
+  &.discrete {
+    border-left-color: var(--positive);
+  }
+}
+
+// Observable button styles
+.observable-btn {
+  min-width: 80px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+  
+  &.active {
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+    transform: scale(1.02);
+  }
+}
+
+// Chronicle card on home
+.chronicle-card {
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+// Info card styles
+.info-card {
+  background: linear-gradient(135deg, rgba(31, 41, 55, 0.08) 0%, rgba(31, 41, 55, 0.05) 100%);
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+}
+
+// Empty state
+.empty-state {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+// Animations
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(20px);
+  opacity: 0;
+}
+
+// Footer tabs styling
+.q-footer {
+  .q-tabs {
+    .q-tab {
+      &.disabled {
+        opacity: 0.4;
+      }
+    }
+  }
+}
+
+// Graph timeline
+.timeline-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}

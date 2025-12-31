@@ -1,12 +1,14 @@
 <template>
   <q-table
+    v-bind="$attrs"
     :class="`${props.maxHeight ? 'my-fixedHeaderTable' : ''}`"
     :table-header-class="props.tableHeaderClass"
     :style="`${props.maxHeight ? 'max-height: ' + props.maxHeight : ''}`"
-    row-key="id"
+    :row-key="props.rowKey || 'id'"
     :pagination="props.pagination ? props.pagination : state.pagination"
     :selected="props.selected"
     :selection="<any>props.selection"
+    :rows="props.rows"
     binary-state-sort
     @update:selected="methods.emitSelected"
     @update:pagination="
@@ -152,7 +154,16 @@ import DExpandableLineBtn from 'src/../lib-improba/components/app/buttons/DExpan
 import type { QTablePagination } from 'src/../lib-improba/utils/q-table-types.utils';
 
 export default defineComponent({
+  inheritAttrs: false,
   props: {
+    rows: {
+      type: Array as any,
+      default: undefined,
+    },
+    rowKey: {
+      type: String,
+      default: 'id',
+    },
     selection: {
       type: String, // single, multiple
       default: undefined,
@@ -191,10 +202,10 @@ export default defineComponent({
     });
 
     const methods = {
-      emitSelected: (event: any[]) => {
+      emitSelected: (event: readonly any[]) => {
         context.emit(
           'update:selected',
-          event.filter((row: any) => row._selectable !== false)
+          [...event].filter((row: any) => row._selectable !== false)
         );
       },
       filteredChips: (chips: any[], value: any) => {

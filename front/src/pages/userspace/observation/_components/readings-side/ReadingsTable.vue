@@ -173,7 +173,13 @@
           </q-td>
           <q-td key="name" :props="props">
             <div class="editable-cell">
-              {{ props.row.name }}
+              <span 
+                :class="{ 
+                  'comment-reading': props.row.name?.startsWith('#')
+                }"
+              >
+                {{ props.row.name }}
+              </span>
               <q-popup-edit 
                 v-model="props.row.name" 
                 title="Editer le libellé" 
@@ -438,7 +444,8 @@ export default defineComponent({
     };
 
     // Update time part in scope value from time picker (without ms)
-    const updateTimePartFromPicker = (scope: any, timeVal: string) => {
+    const updateTimePartFromPicker = (scope: any, timeVal: string | null) => {
+      if (timeVal === null) return;
       const datePart = getDatePart(scope.value || '');
       const currentTimePart = getTimePart(scope.value || '');
       // Preserve milliseconds if they exist, otherwise add .000
@@ -590,6 +597,12 @@ tr.selected-row td {
 
 .editable-cell:active {
   background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Style for comment readings (name starting with "#") */
+.comment-reading {
+  color: #3b82f6; /* Blue color */
+  font-weight: 500;
 }
 
 /* Table container for virtual scroll */

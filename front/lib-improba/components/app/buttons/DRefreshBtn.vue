@@ -16,8 +16,9 @@ export default defineComponent({
     DBtn,
   },
   setup(props) {
+    const { t } = useI18n();
     return {
-      i18n,
+      i18n: { t },
       props,
     };
   },

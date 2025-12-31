@@ -1,4 +1,4 @@
-import { ReadingTypeEnum } from '../../../../../entities/reading.entity';
+import { ReadingTypeEnum } from '@actograph/core';
 import { IReadingEntryV1 } from '../types/chronic-v1.types';
 import { BadRequestException } from '@nestjs/common';
 

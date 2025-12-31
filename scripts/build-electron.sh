@@ -14,8 +14,29 @@ scriptFolderPath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 cd "$scriptFolderPath"
 
-# Clean and prepare API (only dist, keep node_modules if cached)
-cd ../api
+# ==========================================
+# 1. Build packages/core first (dependency of API)
+# ==========================================
+echo "=========================================="
+echo "Building packages/core..."
+echo "=========================================="
+cd ../packages/core
+if [ -d "./node_modules" ] && [ -n "$(ls -A ./node_modules 2>/dev/null)" ]; then
+  echo "Using cached node_modules for packages/core"
+else
+  echo "Installing dependencies for packages/core"
+  yarn install
+fi
+yarn build
+echo "packages/core built successfully"
+
+# ==========================================
+# 2. Clean and prepare API (only dist, keep node_modules if cached)
+# ==========================================
+echo "=========================================="
+echo "Preparing API..."
+echo "=========================================="
+cd ../../api
 rm -rf ./dist
 # Only remove node_modules if not using cache (check if directory exists and has content)
 if [ -d "./node_modules" ] && [ -n "$(ls -A ./node_modules 2>/dev/null)" ]; then
@@ -25,7 +46,12 @@ else
   rm -rf ./node_modules
 fi
 
-# Build the electron app
+# ==========================================
+# 3. Build the electron app
+# ==========================================
+echo "=========================================="
+echo "Building Electron app..."
+echo "=========================================="
 cd ../front
 rm -rf ./quasar
 # Only remove node_modules if not using cache
@@ -63,14 +89,8 @@ else
 fi
 
 # List the content of the dist folder
+echo "=========================================="
+echo "Build complete! Output:"
+echo "=========================================="
 ls -la dist/electron
 ls -la dist/electron/Packaged
-
-#cd ../api;
-#rm -rf ./node_modules;
-#rm -rf ./dist;
-#cd ../front;
-#rm -rf ./node_modules;
-#rm -rf ./quasar;
-
-

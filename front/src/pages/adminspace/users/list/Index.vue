@@ -58,7 +58,7 @@ export default defineComponent({
       loading: false,
       reload: false,
       search: '',
-      userRoleFilter: null,
+      userRoleFilter: null as string | null,
       triggerOpenModal: false,
     });
 

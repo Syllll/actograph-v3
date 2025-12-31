@@ -84,6 +84,11 @@ module.exports = configure(function (/* ctx */) {
           '@components': path.resolve(__dirname, './src/components'),
           '@utils': path.resolve(__dirname, './src/utils'),
           '@lib-improba': path.resolve(__dirname, './lib-improba'),
+          // Packages partagés : importer depuis src/ (pas dist/) pour le développement
+          // Avantages : hot-reload, erreurs TS immédiates, pas de rebuild nécessaire
+          // En production, le bundler utilise automatiquement dist/ via package.json (main/types)
+          '@actograph/core': path.resolve(__dirname, '../packages/core/src'),
+          '@actograph/graph': path.resolve(__dirname, '../packages/graph/src'),
         });
       },
 

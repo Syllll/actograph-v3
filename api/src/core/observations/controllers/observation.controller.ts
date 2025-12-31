@@ -39,7 +39,7 @@ import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
 import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
 import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 import { IChronicExport } from '../services/observation/export';
-import { ObservationModeEnum } from '../entities/observation.entity';
+import { ObservationModeEnum } from '@actograph/core';
 
 export class ICreateObservationDto {
   @IsString()

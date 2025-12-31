@@ -1,4 +1,5 @@
 // ormconfig-migrations.ts
+import 'reflect-metadata';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { typeOrmConfig } from './typeorm.config';
 

@@ -140,8 +140,8 @@ export default defineComponent({
 
   setup(props, { emit }) {
     // Handle search input changes
-    const onSearchInput = (value: string) => {
-      emit('update:search', value);
+    const onSearchInput = (value: string | number | null) => {
+      emit('update:search', String(value ?? ''));
     };
     
     // Handle clear button click

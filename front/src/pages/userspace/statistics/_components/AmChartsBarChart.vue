@@ -156,8 +156,10 @@ export default defineComponent({
       });
 
       // Enable and configure labels on bars using bullets
+      // Capture root in a local variable for TypeScript (root is guaranteed to be set at this point)
+      const currentRoot = root as am5.Root;
       series.bullets.push(() => {
-        const label = am5.Label.new(root, {
+        const label = am5.Label.new(currentRoot, {
           text: '{formattedValue}',
           fill: am5.color('#000'),
           centerX: am5.p50,
@@ -168,7 +170,7 @@ export default defineComponent({
         });
 
         // Configure adapter for formattedValue
-        label.adapters.add('text', (text: string, target: any) => {
+        label.adapters.add('text', (text: string | undefined, target: any) => {
           const dataItem = target.dataItem;
           if (dataItem && dataItem.dataContext) {
             const context = dataItem.dataContext as any;
@@ -181,7 +183,7 @@ export default defineComponent({
           return text;
         });
 
-        return am5.Bullet.new(root, {
+        return am5.Bullet.new(currentRoot, {
           locationY: 1,
           sprite: label,
         });

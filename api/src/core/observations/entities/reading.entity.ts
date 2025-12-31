@@ -1,4 +1,3 @@
-import { InternalServerErrorException } from '@nestjs/common';
 import { User } from '@users/entities/user.entity';
 import { BaseEntity } from '@utils/entities/base.entity';
 import {
@@ -10,14 +9,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Observation } from './observation.entity';
-
-export enum ReadingTypeEnum {
-  START = 'start',
-  STOP = 'stop',
-  PAUSE_START = 'pause_start',
-  PAUSE_END = 'pause_end',
-  DATA = 'data',
-}
+import { ReadingTypeEnum } from '@actograph/core';
 
 @Entity('readings')
 export class Reading extends BaseEntity {
@@ -32,7 +24,15 @@ export class Reading extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   description?: string | null;
 
+  /**
+   * Type de reading (START, STOP, PAUSE_START, PAUSE_END, DATA)
+   * 
+   * Note: `type: 'text'` est requis pour la compatibilité SQLite.
+   * SQLite ne supporte pas les enums natifs, donc on stocke la valeur
+   * comme texte tout en gardant la validation TypeScript via l'enum.
+   */
   @Column({
+    type: 'text',
     enum: ReadingTypeEnum,
     default: ReadingTypeEnum.DATA,
     nullable: false,

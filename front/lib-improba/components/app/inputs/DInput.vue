@@ -26,6 +26,7 @@ export default defineComponent({
   components: {},
   props: {
     modelValue: {
+      type: [String, Number, FileList, null] as any,
       required: true,
     },
     removable: {

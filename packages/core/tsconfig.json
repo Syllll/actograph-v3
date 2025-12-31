@@ -1,0 +1,37 @@
+{
+  /**
+   * TypeScript configuration for @actograph/core
+   * 
+   * This package contains pure TypeScript logic shared between:
+   * - api/ (NestJS backend)
+   * - front/ (Quasar web app)
+   * - mobile/ (Capacitor mobile app)
+   * 
+   * It has NO framework dependencies (no NestJS, Vue, etc.).
+   * Output is CommonJS for maximum compatibility with all consumers.
+   */
+  "compilerOptions": {
+    "target": "ES2020",
+    // CommonJS for compatibility with NestJS backend
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/__tests__/**"]
+}
+

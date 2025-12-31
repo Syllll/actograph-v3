@@ -7,10 +7,9 @@ import {
 } from '@nestjs/common';
 import {
   ProtocolItem,
-  ProtocolItemActionEnum,
-  ProtocolItemTypeEnum,
   IGraphPreferences,
 } from '@core/observations/entities/protocol.entity';
+import { ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@actograph/core';
 import { randomUUID } from 'node:crypto';
 import { UpdateProtocolItemGraphPreferencesDto } from '../../dtos/protocol-item-graph-preferences.dto';
 

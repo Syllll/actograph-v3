@@ -1,5 +1,7 @@
 <template>
   <q-select
+    v-bind="$attrs"
+    :model-value="props.modelValue"
     color="accent-medium"
     popup-content-class="popup-labels-de-emphasize"
     dense
@@ -19,7 +21,12 @@
 import { defineComponent, reactive } from 'vue';
 
 export default defineComponent({
+  inheritAttrs: false,
   props: {
+    modelValue: {
+      type: [String, Number, Array, Object, null] as any,
+      default: undefined,
+    },
     minWidth: {
       type: String,
       default: '8rem',
@@ -30,14 +37,8 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const state = reactive({});
-
-    const methods = {};
-
     return {
       props,
-      state,
-      methods,
     };
   },
 });

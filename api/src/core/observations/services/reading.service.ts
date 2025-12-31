@@ -10,7 +10,8 @@ import { BaseService } from '@utils/services/base.service';
 import { Observation } from '../entities/observation.entity';
 import { ObservationRepository } from '../repositories/obsavation.repository';
 import { ReadingRepository } from '../repositories/reading.repository';
-import { Reading, ReadingTypeEnum } from '../entities/reading.entity';
+import { Reading } from '../entities/reading.entity';
+import { ReadingTypeEnum } from '@actograph/core';
 import {
   IPaginationOptions,
   IConditions,

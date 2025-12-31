@@ -1,4 +1,12 @@
 {
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src"
+  "sourceRoot": "src",
+  "entryFile": "src/main",
+  "compilerOptions": {
+    "webpack": false,
+    "tsConfigPath": "tsconfig.build.json",
+    "assets": [],
+    "watchAssets": true
+  },
+  "root": "."
 }

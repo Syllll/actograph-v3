@@ -16,13 +16,26 @@ export enum DateModeEnum {
 
 @Entity('licenses')
 export class License extends BaseEntity {
+  /**
+   * Type de licence (Student, Ultimate, Support)
+   * 
+   * Note: `type: 'text'` est requis pour la compatibilité SQLite.
+   * SQLite ne supporte pas les enums natifs.
+   */
   @Column({
+    type: 'text',
     enum: LicenseTypeEnum,
     nullable: false,
   })
   type!: LicenseTypeEnum;
 
+  /**
+   * Mode de calcul de la date d'expiration (Duration ou Date)
+   * 
+   * Note: `type: 'text'` est requis pour la compatibilité SQLite.
+   */
   @Column({
+    type: 'text',
     enum: DateModeEnum,
     nullable: false,
   })
@@ -37,13 +50,13 @@ export class License extends BaseEntity {
   @Column({ type: 'integer', nullable: true })
   duration?: number | null;
 
-  @Column({ nullable: false, default: true })
+  @Column({ type: 'boolean', nullable: false, default: true })
   hasTimeLimit!: boolean;
 
   @Column({ type: 'boolean', nullable: true })
   renewable?: boolean | null;
 
-  @Column({ nullable: false })
+  @Column({ type: 'integer', nullable: false })
   actographWebsiteId!: number;
 
   /*
@@ -72,7 +85,7 @@ export class License extends BaseEntity {
   /**
    * If the license is enabled, it means that the license is valid and the user can use the application
    */
-  @Column({ nullable: false, default: false })
+  @Column({ type: 'boolean', nullable: false, default: false })
   enabled!: boolean;
 
   /**

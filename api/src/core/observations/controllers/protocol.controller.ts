@@ -32,10 +32,12 @@ import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
 import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
 import { IPaginationOutput } from '@utils/repositories/base.repositories';
 import {
-  Protocol,
-  ProtocolItem,
   ProtocolItemActionEnum,
   ProtocolItemTypeEnum,
+} from '@actograph/core';
+import {
+  Protocol,
+  ProtocolItem,
   IGraphPreferences,
 } from '../entities/protocol.entity';
 import { IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';

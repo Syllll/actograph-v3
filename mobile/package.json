@@ -1,0 +1,60 @@
+{
+  "name": "actograph-mobile",
+  "version": "0.0.80",
+  "description": "ActoGraph Mobile - Application mobile offline pour observations comportementales",
+  "productName": "ActoGraph Mobile",
+  "author": "Sylvain Meylan <sylvain@ateliom.fr>",
+  "private": true,
+  "scripts": {
+    "lint": "eslint --ext .js,.ts,.vue ./",
+    "format": "prettier --write \"**/*.{js,ts,vue,scss,html,md,json}\" --ignore-path .gitignore",
+    "test": "echo \"No test specified\" && exit 0",
+    "dev": "quasar dev -m capacitor -T android",
+    "dev:ios": "quasar dev -m capacitor -T ios",
+    "build": "quasar build -m capacitor -T android",
+    "build:ios": "quasar build -m capacitor -T ios"
+  },
+  "dependencies": {
+    "@actograph/core": "file:../packages/core",
+    "@actograph/graph": "file:../packages/graph",
+    "@capacitor-community/sqlite": "^6.0.0",
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/filesystem": "^6.0.0",
+    "@capacitor/haptics": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@capacitor/keyboard": "^6.0.0",
+    "@capacitor/splash-screen": "^6.0.0",
+    "@capacitor/status-bar": "^6.0.0",
+    "@quasar/extras": "^1.16.4",
+    "pixi.js": "^8.12.0",
+    "quasar": "^2.8.0",
+    "vue": "^3.4.18",
+    "vue-i18n": "^9.2.2",
+    "vue-router": "^4.0.12"
+  },
+  "devDependencies": {
+    "@intlify/vite-plugin-vue-i18n": "^3.3.1",
+    "@quasar/app-vite": "^1.8.0",
+    "@types/node": "^12.20.21",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "autoprefixer": "^10.4.2",
+    "eslint": "^8.11.0",
+    "eslint-config-prettier": "^8.1.0",
+    "eslint-plugin-vue": "^9.0.0",
+    "petite-vue-i18n": "^11.2.7",
+    "prettier": "^2.5.1",
+    "sass": "^1.77.0",
+    "typescript": "^5.3.3",
+    "vite-plugin-checker": "^0.8.0",
+    "vue-tsc": "^2.0.0"
+  },
+  "engines": {
+    "node": "^20 || ^18",
+    "npm": ">= 6.13.4",
+    "yarn": ">= 1.21.1"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}

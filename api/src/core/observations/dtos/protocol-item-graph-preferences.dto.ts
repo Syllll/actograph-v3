@@ -6,7 +6,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { BackgroundPatternEnum, DisplayModeEnum } from '../entities/protocol.entity';
+import { BackgroundPatternEnum, DisplayModeEnum } from '@actograph/core';
 
 export class UpdateProtocolItemGraphPreferencesDto {
   @IsString()

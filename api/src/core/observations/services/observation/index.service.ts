@@ -12,9 +12,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { BaseService } from '@utils/services/base.service';
 import {
   Observation,
-  ObservationType,
-  ObservationModeEnum,
 } from '../../entities/observation.entity';
+import { ObservationType, ObservationModeEnum } from '@actograph/core';
 import { ObservationRepository } from '../../repositories/obsavation.repository';
 import {
   IConditions,
@@ -31,8 +30,7 @@ import { ReadingService } from '../reading.service';
 import { Example } from './example';
 import { Export } from './export';
 import { Import } from './import';
-import { ProtocolItemTypeEnum } from '@core/observations/entities/protocol.entity';
-import { ReadingTypeEnum } from '@core/observations/entities/reading.entity';
+import { ProtocolItemTypeEnum, ReadingTypeEnum } from '@actograph/core';
 
 @Injectable()
 export class ObservationService extends BaseService<
@@ -69,11 +67,7 @@ export class ObservationService extends BaseService<
       this.protocolService,
       this.readingService,
     );
-    this.import = new Import(
-      this,
-      this.protocolService,
-      this.readingService,
-    );
+    this.import = new Import(this);
   }
 
   public async update(id: number, updateData: Partial<Observation>): Promise<Observation> {

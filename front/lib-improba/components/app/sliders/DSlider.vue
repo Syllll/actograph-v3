@@ -1,5 +1,5 @@
 <template>
-  <q-slider color="accent-medium">
+  <q-slider v-bind="$attrs" :model-value="props.modelValue" color="accent-medium">
     <slot></slot>
   </q-slider>
 </template>
@@ -8,7 +8,17 @@
 import { defineComponent } from 'vue';
 
 export default defineComponent({
-  props: {},
-  setup() {},
+  inheritAttrs: false,
+  props: {
+    modelValue: {
+      type: [Number, Array] as any,
+      default: undefined,
+    },
+  },
+  setup(props) {
+    return {
+      props,
+    };
+  },
 });
 </script>

@@ -1,6 +1,13 @@
 {
   "compilerOptions": {
     "skipLibCheck": true,
+    /**
+     * Limite la recherche de types au node_modules local.
+     * On inclut explicitement les types nécessaires pour éviter les
+     * conflits avec les types frontend (d3) qui utilisent TS 5.0+.
+     */
+    "typeRoots": ["./node_modules/@types"],
+    "types": ["node", "jest", "express", "multer"],
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
@@ -78,6 +85,12 @@
       ],
       "@filesystem/*": [
         "src/core/filesystem/*"
+      ],
+      "@actograph/core": [
+        "../packages/core/dist"
+      ],
+      "@actograph/core/*": [
+        "../packages/core/dist/*"
       ]
     }
   },

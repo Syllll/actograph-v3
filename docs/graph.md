@@ -73,7 +73,7 @@ Le graphique est composé de trois éléments principaux :
 3. **Data Area** : Zone centrale affichant les données
 
 ```typescript
-this.yAxis = new yAxis(this.app);
+this.yAxis = new YAxis(this.app);
 this.xAxis = new xAxis(this.app, this.yAxis);
 this.dataArea = new DataArea(this.app, this.yAxis, this.xAxis);
 
@@ -148,23 +148,76 @@ if (!observation.protocol) {
 
 ### Structure
 
-L'axe Y affiche les observables du protocole :
+L'axe Y (`YAxis`) affiche les observables du protocole :
 - Chaque observable est une ligne horizontale (tick)
 - Les observables sont organisés selon la structure du protocole
 - L'ordre respecte la hiérarchie (catégories puis observables)
 - L'axe est dessiné de bas en haut avec une flèche en haut
 
+**Modes d'affichage supportés** :
+- **Normal** : un tick par observable (comportement par défaut)
+- **Frieze** : un bandeau unique pour toute la catégorie
+- **Background** : catégorie non visible sur l'axe Y (rendu en arrière-plan)
+
+### Architecture interne
+
+La classe `YAxis` utilise des constantes configurables pour une meilleure maintenabilité :
+
+```typescript
+// Configuration de l'axe
+const AXIS_CONFIG = {
+  OFFSET_X: 150,      // Offset X depuis la gauche (espace pour labels)
+  OFFSET_Y: 20,       // Offset Y depuis le haut (marge supérieure)
+  LINE_WIDTH: 2,      // Épaisseur de la ligne d'axe
+  COLOR: 'black',     // Couleur de l'axe
+};
+
+// Configuration des ticks
+const TICK_CONFIG = {
+  OBSERVABLE_HEIGHT: 30,    // Hauteur par observable en mode Normal
+  FRIEZE_HEIGHT: 40,        // Hauteur du bandeau en mode Frieze
+  CATEGORY_SPACING: 15,     // Espacement entre catégories
+  TICK_LENGTH: 10,          // Longueur du tick (de chaque côté)
+  FRIEZE_TICK_LENGTH: 5,    // Longueur du tick mode Frieze
+  TICK_WIDTH: 1,            // Épaisseur du tick
+  COLOR: 'black',           // Couleur du tick
+};
+
+// Configuration des labels
+const LABEL_CONFIG = {
+  OFFSET: 12,               // Offset du label par rapport à l'axe
+  FONT_SIZE: 12,            // Taille de police
+  FONT_FAMILY: 'Arial',     // Police
+  COLOR: 'black',           // Couleur
+};
+```
+
+**Interface `ITick`** : Représente un marqueur sur l'axe Y :
+```typescript
+interface ITick {
+  label: string;              // Nom affiché
+  pos?: number;               // Position Y (relative puis absolue après draw())
+  category: ProtocolItem;     // Catégorie parente
+  observable: ProtocolItem;   // Observable représenté
+  isFrieze?: boolean;         // Si mode bandeau
+  friezeHeight?: number;      // Hauteur du bandeau
+  friezeStartY?: number;      // Position Y du BAS du bandeau
+  friezeEndY?: number;        // Position Y du HAUT du bandeau
+}
+```
+
 ### Positionnement
 
-L'axe Y est positionné avec un décalage fixe :
+L'axe Y est positionné avec un décalage fixe (configuré via `AXIS_CONFIG`) :
 - **X** : 150px depuis la gauche (espace pour les labels)
 - **Y début** : Calculé dynamiquement selon le nombre d'observables
 - **Y fin** : 20px depuis le haut (marge supérieure)
 
 ### Calcul de la hauteur
 
-La hauteur de l'axe Y est calculée dynamiquement selon :
-- **30px par observable** : Espace pour chaque observable
+La hauteur de l'axe Y est calculée dynamiquement selon (configuré via `TICK_CONFIG`) :
+- **30px par observable** : Espace pour chaque observable en mode Normal
+- **40px par catégorie** : Espace pour un bandeau en mode Frieze
 - **15px entre catégories** : Espacement entre les groupes d'observables
 - **20px de marge supérieure** : Marge en haut de l'axe
 - **20px de marge supplémentaire** : Marge de confort visuel
@@ -179,10 +232,25 @@ if (requiredHeight > canvas.height) {
 
 ### Calcul des ticks
 
-La méthode `computeAxisLengthAndTicks()` parcourt toutes les catégories et leurs observables :
-1. Pour chaque observable : ajoute 30px à la longueur totale et crée un tick
-2. Entre chaque catégorie : ajoute 15px d'espacement
-3. Retourne la longueur totale et la liste des ticks avec leurs positions relatives
+La méthode privée `computeAxisLengthAndTicks()` parcourt toutes les catégories et leurs observables :
+
+**Mode Normal** (par défaut) :
+1. Pour chaque observable : ajoute `TICK_CONFIG.OBSERVABLE_HEIGHT` (30px) et crée un tick
+2. Entre chaque catégorie : ajoute `TICK_CONFIG.CATEGORY_SPACING` (15px)
+3. Retourne la longueur totale et la liste des `ITick` avec leurs positions relatives
+
+**Mode Frieze** :
+1. Pour la catégorie entière : ajoute `TICK_CONFIG.FRIEZE_HEIGHT` (40px)
+2. Crée un seul tick au centre du bandeau avec `isFrieze: true`
+3. Les propriétés `friezeStartY`, `friezeEndY` et `friezeHeight` sont définies
+
+**Mode Background** :
+- Les catégories sont ignorées (pas d'espace alloué sur l'axe Y)
+- Le rendu est géré par `DataArea`
+
+**Conversion des positions** :
+- La méthode `convertTicksToAbsolutePositions()` transforme les positions relatives en positions absolues après calcul de l'axe
+- Cela garantit que `getPosFromLabel()` retourne toujours des positions absolues correctes
 
 ### Affichage
 
@@ -195,10 +263,22 @@ La méthode `computeAxisLengthAndTicks()` parcourt toutes les catégories et leu
 
 ### Méthodes publiques
 
-- `getPosFromLabel(label: string)`: Retourne la position Y d'un observable à partir de son nom
-- `getAxisStart()`: Retourne la position de départ de l'axe (en bas)
-- `getAxisEnd()`: Retourne la position de fin de l'axe (en haut)
-- `getRequiredHeight()`: Calcule la hauteur minimale requise pour le canvas
+**Getters** :
+- `getPosFromLabel(label: string): number` : Retourne la position Y d'un observable (-1 si mode Background)
+- `getAxisStart(): IPosition | null` : Retourne la position de départ de l'axe (en bas)
+- `getAxisEnd(): IPosition | null` : Retourne la position de fin de l'axe (en haut)
+- `getRequiredHeight(): number` : Calcule la hauteur minimale requise pour le canvas
+- `getFriezeInfo(categoryId: string)` : Retourne les infos de bandeau pour une catégorie Frieze
+- `isCategoryBackground(categoryId: string): boolean` : Vérifie si une catégorie est en mode Background
+- `isCategoryFrieze(categoryId: string): boolean` : Vérifie si une catégorie est en mode Frieze
+
+**Setters** :
+- `setData(observation: IObservation)` : Configure les données de l'observation
+- `setProtocol(protocol)` : Met à jour le protocole (pour changements de préférences graphiques)
+
+**Actions** :
+- `draw()` : Dessine l'axe Y complet (ligne, flèche, ticks, labels)
+- `clear()` : Efface tous les éléments de l'axe Y
 
 ## Axe X (Temps)
 
@@ -536,7 +616,7 @@ Classe abstraite étendant `Container` de PixiJS pour tous les groupes d'éléme
 - Méthode `init()` pour l'initialisation (peut être surchargée)
 - Méthode abstraite `draw()` à implémenter par les classes filles
 
-**Classes filles** : `yAxis`, `xAxis`, `DataArea`
+**Classes filles** : `YAxis`, `xAxis`, `DataArea`
 
 ### BaseGraphic
 

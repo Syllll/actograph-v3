@@ -29,6 +29,7 @@ import {
 import Content_ from './Content.vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
+import { useAuth } from 'src/../lib-improba/composables/use-auth';
 
 export default defineComponent({
   components: {
@@ -36,6 +37,10 @@ export default defineComponent({
   },
   props: {
     menuItems: {
+      type: Array as any,
+      default: () => [],
+    },
+    userMenuItems: {
       type: Array as any,
       default: () => [],
     },
@@ -57,6 +62,7 @@ export default defineComponent({
   setup(props) {
     const router = useRouter();
     const quasar = useQuasar();
+    const auth = useAuth(router);
 
     const state = reactive({});
 
@@ -67,7 +73,7 @@ export default defineComponent({
         return process.env.APP_VERSION;
       }),
       userName: computed(() => {
-        const user = store.state?.auth?.user;
+        const user = auth.sharedState?.user;
         const userName =
           user?.firstname ??
           user?.userAuth?.username ??

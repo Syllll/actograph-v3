@@ -3,7 +3,6 @@
     <DBtn color="blue" @click="state.triggerOpen = true"
       >Afficher la modale</DBtn
     >
-    <p class="text-white">state.modal = {{ state.modal }}</p>
     <DDialog
       title="Titre"
       v-model="state.triggerOpen"

@@ -77,7 +77,7 @@ export default defineComponent({
 
         systemService.onUpdateDownloadProgress((data) => {
           const percent = data.percent.toFixed(2);
-          state.progress = percent / 100;
+          state.progress = parseFloat(percent) / 100;
           state.progressPercentage = `${percent}%`;
           console.info(state.progress, state.progressPercentage);
         });

@@ -21,7 +21,7 @@
                 <DItemSection v-if="item.children">
                   <DList dense>
                     <DItem
-                      v-for="child of item_.children"
+                      v-for="child of (item.children as any)"
                       :key="child.name"
                       :to="!child.children ? child.route : undefined"
                     >

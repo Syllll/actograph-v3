@@ -8,5 +8,25 @@
     "statusBarItem.remoteBackground": "#6ab2ec",
     "statusBarItem.remoteForeground": "#15202b"
   },
-  "peacock.color": "#6ab2ec"
+  "peacock.color": "#6ab2ec",
+  /**
+   * Désactive le watch mode TypeScript pour l'API et le package core.
+   * Ces projets ont leur propre système de build (NestJS pour l'API, tsc pour core).
+   */
+  "typescript.tsserver.watchOptions": {
+    "excludeDirectories": [
+      "**/api/**",
+      "**/packages/core/**",
+      "**/node_modules/**"
+    ]
+  },
+  /**
+   * Exclut les dossiers dist de l'API et du core du watch de fichiers.
+   * Ces dossiers sont générés par les builds respectifs.
+   */
+  "files.watcherExclude": {
+    "**/api/dist/**": true,
+    "**/packages/core/dist/**": true,
+    "**/node_modules/**": true
+  }
 }

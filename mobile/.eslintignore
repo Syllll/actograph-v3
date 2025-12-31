@@ -1,0 +1,13 @@
+# Build outputs
+dist/
+src-capacitor/android/
+src-capacitor/ios/
+src-capacitor/www/
+
+# Node modules
+node_modules/
+
+# Cache
+.quasar/
+.q-cache/
+

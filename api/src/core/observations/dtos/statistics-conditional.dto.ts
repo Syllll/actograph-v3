@@ -2,16 +2,7 @@ import { IsString, IsEnum, IsOptional, IsArray, ValidateNested, IsNotEmpty } fro
 import { Type } from 'class-transformer';
 import { Expose } from 'class-transformer';
 import { CategoryStatisticsDto } from './statistics-category.dto';
-
-export enum ConditionOperatorEnum {
-  AND = 'and',
-  OR = 'or',
-}
-
-export enum ObservableStateEnum {
-  ON = 'on',
-  OFF = 'off',
-}
+import { ConditionOperatorEnum, ObservableStateEnum } from '@actograph/core';
 
 export class ObservableConditionDto {
   @IsString()

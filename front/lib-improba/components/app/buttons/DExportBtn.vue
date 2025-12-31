@@ -21,8 +21,9 @@ export default defineComponent({
     DBtn,
   },
   setup() {
+    const { t } = useI18n();
     return {
-      i18n,
+      i18n: { t },
     };
   },
 });

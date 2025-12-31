@@ -1,0 +1,22 @@
+{
+  /**
+   * Configuration TypeScript à la racine du monorepo (sans workspaces).
+   * 
+   * Ce fichier sert uniquement à éviter que l'IDE ne compile automatiquement
+   * les projets qui ont leur propre système de build.
+   * 
+   * Les projets individuels (api/, packages/core/, front/, mobile/) ont leurs propres
+   * tsconfig.json et gèrent leur propre compilation.
+   */
+  "compilerOptions": {
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "api/**/*",
+    "packages/core/**/*",
+    "front/**/*",
+    "mobile/**/*",
+    "node_modules/**/*"
+  ]
+}
+

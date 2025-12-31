@@ -30,10 +30,11 @@ export default defineComponent({
       type: String,
     },
     modelValue: {
-      type: Object,
+      type: [Array, Object, FileList, File, null] as any,
+      default: null,
     },
   },
-  emits: ['udpate:modelValue'],
+  emits: ['update:modelValue'],
   setup(props, { emit }) {
     return {
       props,

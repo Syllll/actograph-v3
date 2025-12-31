@@ -1,42 +1,13 @@
-import { InternalServerErrorException } from '@nestjs/common';
 import { User } from '@users/entities/user.entity';
 import { BaseEntity } from '@utils/entities/base.entity';
 import { Column, Entity, JoinColumn, ManyToOne, OneToOne } from 'typeorm';
 import { Observation } from './observation.entity';
-
-export enum ProtocolItemTypeEnum {
-  Category = 'category',
-  Observable = 'observable',
-}
-
-export enum ProtocolItemActionEnum {
-  Continuous = 'continuous',
-  Discrete = 'discrete',
-}
-
-export enum BackgroundPatternEnum {
-  /** Aucun motif - couleur unie */
-  Solid = 'solid',
-  /** Lignes horizontales */
-  Horizontal = 'horizontal',
-  /** Lignes verticales */
-  Vertical = 'vertical',
-  /** Lignes diagonales (/) */
-  Diagonal = 'diagonal',
-  /** Grille (horizontal + vertical) */
-  Grid = 'grid',
-  /** Pointillés */
-  Dots = 'dots',
-}
-
-export enum DisplayModeEnum {
-  /** Mode normal : traits horizontaux (step-lines) */
-  Normal = 'normal',
-  /** Mode arrière-plan : zones colorées sur le fond du graphique (catégorie retirée de l'axe Y) */
-  Background = 'background',
-  /** Mode frise : bandeau horizontal découpé en zones colorées (catégorie visible sur l'axe Y) */
-  Frieze = 'frieze',
-}
+import {
+  ProtocolItemTypeEnum,
+  ProtocolItemActionEnum,
+  BackgroundPatternEnum,
+  DisplayModeEnum,
+} from '@actograph/core';
 
 export interface IGraphPreferences {
   color?: string;

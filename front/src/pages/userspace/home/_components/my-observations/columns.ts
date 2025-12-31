@@ -4,7 +4,7 @@ import { relativeDay } from '@lib-improba/utils/date-format.utils';
 export const columns = [
   {
     name: 'name',
-    align: 'left',
+    align: 'left' as const,
     label: 'Nom',
     sortable: true,
     field: (row: IObservation) => row.name,
@@ -12,7 +12,7 @@ export const columns = [
   },
   {
     name: 'updatedAt',
-    align: 'left',
+    align: 'left' as const,
     label: 'Date de dernière modification',
     sortable: true,
     field: (row: IObservation) => row.updatedAt,

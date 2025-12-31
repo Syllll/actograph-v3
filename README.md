@@ -69,15 +69,92 @@ actograph-v3/
 │   │   └── utils/         # Utilitaires partagés
 │   ├── migrations/        # Migrations TypeORM
 │   └── docker/            # Configuration Docker
-├── front/                 # Frontend Quasar/Vue.js
+├── front/                 # Frontend Quasar/Vue.js (Web + Electron)
 │   ├── src/
 │   │   ├── pages/        # Pages de l'application
 │   │   ├── components/   # Composants Vue
 │   │   ├── services/     # Services API
 │   │   └── composables/  # Composables Vue
 │   └── lib-improba/      # Bibliothèque partagée
+├── mobile/                # Application mobile Capacitor
+│   ├── src/              # Code source mobile
+│   └── src-capacitor/    # Configuration Capacitor (Android/iOS)
+├── packages/              # Packages partagés (monorepo)
+│   ├── core/             # @actograph/core - Logique métier pure
+│   └── graph/            # @actograph/graph - Composant graphique PixiJS
 └── docs/                  # Documentation détaillée
 ```
+
+## Packages partagés
+
+Le projet utilise des packages internes partagés entre les différentes applications :
+
+### @actograph/core
+
+Logique métier pure TypeScript, sans dépendance framework. Utilisé par :
+- `api/` - Backend NestJS
+- `front/` - Frontend web
+- `mobile/` - Application mobile
+
+Contient : enums, types, statistiques, parsers de fichiers, validation.
+
+```bash
+# Build
+cd packages/core && yarn build
+```
+
+### @actograph/graph
+
+Composant de visualisation de graphiques utilisant PixiJS. Utilisé par :
+- `front/` - Frontend web
+- `mobile/` - Application mobile
+
+Contient : rendu PixiJS, axes, affichage des readings.
+
+```bash
+# Build (nécessite @actograph/core buildé)
+cd packages/graph && yarn build
+```
+
+### Configuration des packages
+
+Les packages sont liés via `file:` dans les `package.json` :
+
+```json
+{
+  "dependencies": {
+    "@actograph/core": "file:../packages/core",
+    "@actograph/graph": "file:../packages/graph"
+  }
+}
+```
+
+#### Faut-il builder les packages ?
+
+**En développement : NON** ✅
+
+Les alias TypeScript et Vite pointent directement vers `src/`, donc :
+- Hot-reload automatique quand vous modifiez le code des packages
+- Pas besoin de rebuilder après chaque modification
+- Erreurs TypeScript visibles immédiatement
+
+**En production : OUI** 🔨
+
+Les builds utilisent `dist/` via les champs `main`/`types` des package.json.
+
+```bash
+# Builder tous les packages (nécessaire avant un build prod)
+yarn build:packages
+
+# Ou individuellement
+yarn build:core
+yarn build:graph
+```
+
+**Cas où il faut builder les packages :**
+1. Avant un build de production (`yarn build:front`, `yarn build:mobile`)
+2. Si vous utilisez les packages depuis un autre projet externe
+3. Si les types ne se résolvent pas correctement dans l'IDE (rare)
 
 ## Concepts principaux
 

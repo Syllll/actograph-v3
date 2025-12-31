@@ -45,7 +45,7 @@ export const init = async (auth: { methods: any; sharedState: any }) => {
   const axiosInstance = api();
 
   axiosInstance.interceptors.request.use(
-    async (request) => {
+    async (request: any) => {
       // IMPORTANT: Always ensure token is in headers before each request
       // This handles cases where the token exists in localStorage but wasn't
       // properly set in axios headers (e.g., after page reload, navigation, etc.)
@@ -76,18 +76,18 @@ export const init = async (auth: { methods: any; sharedState: any }) => {
 
       return request;
     },
-    (error) => {
+    (error: any) => {
       return Promise.reject(error);
     }
   );
 
   axiosInstance.interceptors.response.use(
-    (response) => {
+    (response: any) => {
       // console.log(store.state.auth.user)
       // console.log(response)
       return response;
     },
-    (error) => {
+    (error: any) => {
       const triggerLogout = !isInsideUrls(
         error.request.responseURL,
         urlsThatDoNotTriggerLogoutWhenError

@@ -106,7 +106,6 @@ export default defineComponent({
       stateless,
       computedState,
       methods,
-      store,
     };
   },
 });

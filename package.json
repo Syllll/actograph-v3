@@ -1,0 +1,22 @@
+{
+  "name": "actograph-v3",
+  "version": "0.0.80",
+  "private": true,
+  "description": "ActoGraph v3 - Monorepo (sans workspaces)",
+  "scripts": {
+    "build:packages": "cd packages/core && yarn build && cd ../graph && yarn build",
+    "build:core": "cd packages/core && yarn build",
+    "build:graph": "cd packages/graph && yarn build",
+    "build:api": "cd api && yarn build",
+    "build:front": "cd front && yarn build",
+    "build:mobile": "cd mobile && yarn build",
+    "dev:core": "cd packages/core && yarn dev",
+    "dev:graph": "cd packages/graph && yarn dev",
+    "dev:api": "cd api && yarn start:dev",
+    "dev:front": "cd front && yarn dev",
+    "dev:mobile": "cd mobile && yarn dev",
+    "install:all": "cd packages/core && yarn install && cd ../graph && yarn install && cd ../../api && yarn install && cd ../front && yarn install && cd ../mobile && yarn install"
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}
+

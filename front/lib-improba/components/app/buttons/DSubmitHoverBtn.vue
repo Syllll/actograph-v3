@@ -36,8 +36,10 @@ export default defineComponent({
     },
   },
   setup(props) {
+    const { t } = useI18n();
     return {
       props,
+      i18n: { t },
     };
   },
 });

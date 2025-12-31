@@ -1,5 +1,5 @@
 <template>
-  <q-toggle color="accent-medium">
+  <q-toggle v-bind="$attrs" :model-value="props.modelValue" color="accent-medium">
     <slot></slot>
   </q-toggle>
 </template>
@@ -8,7 +8,13 @@
 import { defineComponent } from 'vue';
 
 export default defineComponent({
-  props: {},
+  inheritAttrs: false,
+  props: {
+    modelValue: {
+      type: [Boolean, String, Number] as any,
+      default: undefined,
+    },
+  },
   emits: [],
   setup(props, context) {
     return {
