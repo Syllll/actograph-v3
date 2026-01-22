@@ -2,6 +2,30 @@
   <div class="advertisement fit column">
     <q-scroll-area class="col">
       <div class="column">
+        <!-- Cloud ActoGraph -->
+        <div class="cloud-card q-pa-md q-mb-md">
+          <div class="text-subtitle2 text-weight-bold text-primary q-mb-sm">
+            <q-icon name="mdi-cloud" class="q-mr-xs" />
+            Cloud ActoGraph
+          </div>
+          <div class="text-body2 text-grey-8 q-mb-md">
+            Synchronisez vos chroniques entre vos appareils via le cloud actograph.io.
+          </div>
+          <div class="row items-center q-gutter-sm">
+            <q-btn
+              color="primary"
+              :icon="cloud.sharedState.isAuthenticated ? 'mdi-cloud-sync' : 'mdi-cloud-upload'"
+              :label="cloud.sharedState.isAuthenticated ? 'Gérer le cloud' : 'Se connecter'"
+              @click="methods.openCloud"
+              no-caps
+              outline
+            />
+            <span v-if="cloud.sharedState.isAuthenticated" class="text-caption text-grey-7">
+              {{ cloud.sharedState.currentEmail }}
+            </span>
+          </div>
+        </div>
+
         <!-- Version du logiciel -->
         <div class="version-card q-pa-md q-mb-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-sm">
@@ -45,14 +69,20 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed } from 'vue';
+import { defineComponent, computed, onMounted } from 'vue';
+import { useQuasar } from 'quasar';
 import { useLicense } from 'src/composables/use-license';
+import { useCloud } from 'src/composables/use-cloud';
 import { LicenseTypeEnum } from '@services/security/interface';
+import CloudLoginDialog from '../cloud/CloudLoginDialog.vue';
+import CloudSyncDialog from '../cloud/CloudSyncDialog.vue';
 
 export default defineComponent({
   name: 'Advertisement',
   setup() {
+    const $q = useQuasar();
     const license = useLicense();
+    const cloud = useCloud();
 
     const stateless = {
       appVersion: process.env.APP_VERSION,
@@ -92,11 +122,50 @@ export default defineComponent({
       }
     });
 
+    const methods = {
+      openCloud: async () => {
+        // Initialiser le cloud si nécessaire
+        await cloud.methods.init();
+
+        if (!cloud.sharedState.isAuthenticated) {
+          // Ouvrir le dialog de login
+          $q.dialog({
+            component: CloudLoginDialog,
+          }).onOk(() => {
+            // Connexion réussie, ouvrir le dialog de sync
+            methods.openCloudSyncDialog();
+          });
+        } else {
+          // Déjà connecté, ouvrir directement le dialog de sync
+          methods.openCloudSyncDialog();
+        }
+      },
+
+      openCloudSyncDialog: () => {
+        $q.dialog({
+          component: CloudSyncDialog,
+        }).onOk((result: { action: string; observationId?: number }) => {
+          if (result.action === 'logout') {
+            // Utilisateur déconnecté, réouvrir le login
+            methods.openCloud();
+          }
+          // Si result.action === 'downloaded', l'observation a été chargée dans le dialog
+        });
+      },
+    };
+
+    // Initialiser le cloud au montage pour afficher l'état de connexion
+    onMounted(async () => {
+      await cloud.methods.init();
+    });
+
     return {
       stateless,
       license,
       licenseName,
       licenseDescription,
+      cloud,
+      methods,
     };
   },
 });
@@ -104,6 +173,12 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .advertisement {
+  .cloud-card {
+    background-color: rgba(31, 41, 55, 0.03); // primary color with 3% opacity
+    border-left: 3px solid var(--primary);
+    border-radius: 0.5rem;
+  }
+
   .version-card {
     background-color: rgba(31, 41, 55, 0.03); // primary color with 3% opacity
     border-left: 3px solid var(--primary);
