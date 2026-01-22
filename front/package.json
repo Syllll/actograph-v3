@@ -15,8 +15,6 @@
     "docker:dev": "sh docker/compose.sh console"
   },
   "dependencies": {
-    "@actograph/core": "file:../packages/core",
-    "@actograph/graph": "file:../packages/graph",
     "@quasar/extras": "^1.16.4",
     "@types/file-saver": "^2.0.7",
     "axios": "^1.2.1",
@@ -36,6 +34,8 @@
     "vue3-keypress": "^4.0.1"
   },
   "devDependencies": {
+    "@actograph/core": "file:../packages/core",
+    "@actograph/graph": "file:../packages/graph",
     "@intlify/vite-plugin-vue-i18n": "^3.3.1",
     "@quasar/app-vite": "^1.8.0",
     "@types/node": "^12.20.21",
