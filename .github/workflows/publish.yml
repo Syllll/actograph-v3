@@ -12,7 +12,7 @@ jobs:
         include:
           - os: ubuntu-latest
           - os: windows-latest
-          - os: macos-13 # Intel x64 runner
+          - os: macos-15-intel # Intel x64 runner
             electron_arch: "x64"
           - os: macos-14 # Apple Silicon arm64 runner
             electron_arch: "arm64"
@@ -308,13 +308,13 @@ jobs:
               fi
             done
           fi
-          # Handle macos-13 (x64)
-          if [ -d "artifacts/electron-artifacts-macos-13" ]; then
-            if [ -f "artifacts/electron-artifacts-macos-13/latest-mac.yml" ]; then
-              mv artifacts/electron-artifacts-macos-13/latest-mac.yml artifacts/electron-artifacts-macos-13/latest-mac-x64.yml
+          # Handle macos-15-intel (x64)
+          if [ -d "artifacts/electron-artifacts-macos-15-intel" ]; then
+            if [ -f "artifacts/electron-artifacts-macos-15-intel/latest-mac.yml" ]; then
+              mv artifacts/electron-artifacts-macos-15-intel/latest-mac.yml artifacts/electron-artifacts-macos-15-intel/latest-mac-x64.yml
             fi
             # Also handle any other YAML files that might be generated
-            for file in artifacts/electron-artifacts-macos-13/latest-mac*.yml artifacts/electron-artifacts-macos-13/latest-mac*.yaml; do
+            for file in artifacts/electron-artifacts-macos-15-intel/latest-mac*.yml artifacts/electron-artifacts-macos-15-intel/latest-mac*.yaml; do
               if [ -f "$file" ] && [[ ! "$file" =~ (arm64|x64) ]]; then
                 mv "$file" "${file%.*}-x64.yml"
               fi
@@ -326,24 +326,24 @@ jobs:
         run: |
           set -e
           mkdir -p artifacts/release
-          # macOS x64 from macos-13
-          if compgen -G "artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg" > /dev/null; then
-            cp -f artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg artifacts/release/
+          # macOS x64 from macos-15-intel
+          if compgen -G "artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.dmg" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.dmg artifacts/release/
           fi
-          if compgen -G "artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg.blockmap" > /dev/null; then
-            cp -f artifacts/electron-artifacts-macos-13/ActoGraph-v3-x64.dmg.blockmap artifacts/release/
+          if compgen -G "artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.dmg.blockmap" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.dmg.blockmap artifacts/release/
           fi
           # Include macOS x64 ZIP files if they exist (Electron Builder may generate ZIP files)
-          if compgen -G "artifacts/electron-artifacts-macos-13/*mac*.zip" > /dev/null; then
+          if compgen -G "artifacts/electron-artifacts-macos-15-intel/*mac*.zip" > /dev/null; then
             # Copy ZIP files, renaming if needed to include architecture
-            for zipfile in artifacts/electron-artifacts-macos-13/*mac*.zip; do
+            for zipfile in artifacts/electron-artifacts-macos-15-intel/*mac*.zip; do
               if [[ "$zipfile" =~ x64 ]] || [[ ! "$zipfile" =~ (arm64|x64) ]]; then
                 cp -f "$zipfile" artifacts/release/
               fi
             done
           fi
-          if compgen -G "artifacts/electron-artifacts-macos-13/latest-mac-x64.yml" > /dev/null; then
-            cp -f artifacts/electron-artifacts-macos-13/latest-mac-x64.yml artifacts/release/
+          if compgen -G "artifacts/electron-artifacts-macos-15-intel/latest-mac-x64.yml" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-15-intel/latest-mac-x64.yml artifacts/release/
           fi
           # macOS arm64 from macos-14
           if compgen -G "artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg" > /dev/null; then
