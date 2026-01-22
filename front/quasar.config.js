@@ -222,6 +222,17 @@ module.exports = configure(function (/* ctx */) {
                 );
               }
 
+              // Copy packages/core to temp dir to satisfy file: dependency
+              // The api/package.json references "@actograph/core": "file:../packages/core"
+              // which resolves relative to the temp directory, so we need to provide it
+              const tempPackagesDir = path.join(prodInstallDir, '..', 'packages');
+              await fs.ensureDir(tempPackagesDir);
+              await fs.copy(
+                '../packages/core',
+                path.join(tempPackagesDir, 'core'),
+                { filter: (src) => !src.includes('node_modules') }
+              );
+
               // Install only production dependencies in the temp directory
               await new Promise((resolve, reject) => {
                 spawn('yarn', ['install', '--production=true'], {
@@ -247,8 +258,9 @@ module.exports = configure(function (/* ctx */) {
                 );
               }
 
-              // Cleanup temporary install directory
+              // Cleanup temporary install directories
               await fs.remove(prodInstallDir);
+              await fs.remove(tempPackagesDir);
 
               resolve();
             } catch (error) {
