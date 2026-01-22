@@ -93,7 +93,9 @@ class ImportService {
           const categoryItem = await protocolRepository.addCategory(
             protocol.id,
             category.name,
-            i
+            i,
+            'continuous',
+            category.meta
           );
           categoriesCount++;
 

@@ -16,7 +16,53 @@
         <div class="text-caption text-white text-center col">
           {{ state.categories.length }} catégorie(s)
         </div>
-        <div style="width: 40px"></div>
+        <!-- Bouton mode édition -->
+        <q-btn
+          v-if="!editMode.sharedState.isEditing && canEnterEditMode"
+          flat
+          dense
+          icon="mdi-pencil"
+          color="white"
+          size="sm"
+          @click="methods.enterEditMode"
+        >
+          <q-tooltip>Éditer les positions</q-tooltip>
+        </q-btn>
+        <!-- Boutons en mode édition -->
+        <template v-if="editMode.sharedState.isEditing">
+          <q-btn
+            flat
+            dense
+            icon="mdi-close"
+            color="negative"
+            size="sm"
+            @click="methods.cancelEditMode"
+          >
+            <q-tooltip>Annuler les changements</q-tooltip>
+          </q-btn>
+          <q-btn
+            flat
+            dense
+            icon="mdi-refresh"
+            color="white"
+            size="sm"
+            @click="methods.resetCategoryPositions"
+          >
+            <q-tooltip>Réinitialiser les positions</q-tooltip>
+          </q-btn>
+          <q-btn
+            flat
+            dense
+            icon="mdi-check"
+            color="positive"
+            size="sm"
+            :loading="editMode.sharedState.isSaving"
+            @click="methods.exitEditMode"
+          >
+            <q-tooltip>Terminer l'édition</q-tooltip>
+          </q-btn>
+        </template>
+        <div v-if="!editMode.sharedState.isEditing && !canEnterEditMode" style="width: 40px"></div>
       </div>
 
       <div class="row items-center justify-center">
@@ -66,88 +112,58 @@
 
     <!-- Zone scrollable des catégories -->
     <div class="categories-container">
-      <q-scroll-area class="categories-scroll">
-        <div class="q-pa-md">
-          <!-- Categories grid -->
-          <div class="categories-grid">
-            <q-card
-              v-for="category in state.categories"
-              :key="category.id"
-              class="category-card"
-              :class="{ 'continuous': category.action === 'continuous' }"
-            >
-              <q-card-section class="category-header q-py-sm">
-                <div class="text-subtitle1 text-weight-medium">{{ category.name }}</div>
-              </q-card-section>
+      <!-- Empty state -->
+      <div v-if="state.categories.length === 0" class="empty-state text-center q-pa-xl">
+        <q-icon name="mdi-alert-circle-outline" size="48px" color="grey-5" />
+        <div class="text-body1 text-grey q-mt-md">
+          Aucune catégorie définie
+        </div>
+        <div class="text-caption text-grey q-mb-md">
+          Ajoutez des catégories et observables pour commencer
+        </div>
+        <q-btn
+          color="primary"
+          label="Ajouter une catégorie"
+          icon="mdi-plus"
+          @click="state.showAddCategoryDialog = true"
+        />
+      </div>
 
-              <q-card-section class="category-content q-pt-sm">
-                <!-- Empty category message -->
-                <div v-if="!category.children || category.children.length === 0" class="text-center q-pa-sm">
-                  <div class="text-caption text-grey">Aucun observable</div>
-                  <q-btn
-                    flat
-                    dense
-                    size="sm"
-                    color="primary"
-                    label="Ajouter"
-                    icon="mdi-plus"
-                    @click="methods.openAddObservableForCategory(category)"
-                  />
-                </div>
-
-                <!-- Continuous category: Switch buttons (toggle) -->
-                <div v-else-if="category.action === 'continuous'" class="observables-container row wrap q-gutter-sm">
-                  <q-btn
-                    v-for="observable in category.children"
-                    :key="observable.id"
-                    :label="observable.name"
-                    :color="state.activeObservableByCategory[category.id] === observable.name ? 'accent' : 'grey-4'"
-                    :text-color="state.activeObservableByCategory[category.id] === observable.name ? 'white' : 'dark'"
-                    :outline="state.activeObservableByCategory[category.id] !== observable.name"
-                    :disable="!state.isRecording || chronicle.sharedState.isPaused"
-                    rounded
-                    unelevated
-                    no-caps
-                    class="observable-btn switch-btn"
-                    @click="methods.toggleObservable(category, observable)"
-                  />
-                </div>
-
-                <!-- Discrete category: Press buttons (event) -->
-                <div v-else class="observables-container column q-gutter-sm">
-                  <q-btn
-                    v-for="observable in category.children"
-                    :key="observable.id"
-                    :label="observable.name"
-                    color="primary"
-                    :disable="!state.isRecording || chronicle.sharedState.isPaused"
-                    rounded
-                    unelevated
-                    no-caps
-                    class="observable-btn press-btn"
-                    @click="methods.pressObservable(observable)"
-                  />
-                </div>
-              </q-card-section>
-            </q-card>
+      <!-- Conteneur avec positions absolues (mode normal ET édition) -->
+      <q-scroll-area 
+        v-else
+        class="categories-scroll"
+      >
+        <div 
+          ref="editContainerRef"
+          class="positioned-container"
+          :style="{ minHeight: editMode.methods.getMinContainerHeight() + 'px' }"
+        >
+          <!-- Message d'aide en mode édition -->
+          <div v-if="editMode.sharedState.isEditing" class="edit-hint q-pa-sm text-center text-caption text-grey-6">
+            <q-icon name="mdi-gesture-swipe" class="q-mr-xs" />
+            Glissez les catégories pour les repositionner
           </div>
 
-          <!-- Empty state -->
-          <div v-if="state.categories.length === 0" class="empty-state text-center q-pa-xl">
-            <q-icon name="mdi-alert-circle-outline" size="48px" color="grey-5" />
-            <div class="text-body1 text-grey q-mt-md">
-              Aucune catégorie définie
-            </div>
-            <div class="text-caption text-grey q-mb-md">
-              Ajoutez des catégories et observables pour commencer
-            </div>
-            <q-btn
-              color="primary"
-              label="Ajouter une catégorie"
-              icon="mdi-plus"
-              @click="state.showAddCategoryDialog = true"
-            />
-          </div>
+          <!-- Catégories : même composant pour les deux modes -->
+          <DraggableCategory
+            v-for="category in state.categories"
+            :key="category.id"
+            :category="category"
+            :position="editMode.sharedState.categoryPositions[category.id] || { x: 0, y: 0 }"
+            :container-bounds="containerBounds"
+            :active-observable-by-category="state.activeObservableByCategory"
+            :draggable="editMode.sharedState.isEditing"
+            :observables-disabled="editMode.sharedState.isEditing || !state.isRecording || chronicle.sharedState.isPaused"
+            :on-toggle-observable="editMode.sharedState.isEditing ? undefined : methods.toggleObservable"
+            :on-press-observable="editMode.sharedState.isEditing ? undefined : methods.pressObservable"
+            :style="editMode.sharedState.isEditing 
+              ? editMode.methods.getCategoryStyle(category.id)
+              : methods.getCategoryPositionStyle(category.id)"
+            @drag-start="editMode.methods.startDrag"
+            @drag-move="methods.handleDragMove"
+            @drag-end="editMode.methods.endDrag"
+          />
         </div>
       </q-scroll-area>
     </div>
@@ -554,12 +570,13 @@
 
 <script lang="ts">
 /* eslint-disable vue/multi-word-component-names */
-import { defineComponent, reactive, onMounted, watch } from 'vue';
+import { defineComponent, reactive, onMounted, onBeforeUnmount, watch, ref, computed, nextTick } from 'vue';
 import { useQuasar } from 'quasar';
 import { useChronicle } from '@composables/use-chronicle';
+import { useEditMode } from '@composables';
 import { protocolService } from '@services/protocol.service';
 import { observationService } from '@services/observation.service';
-import { DPage } from '@components';
+import { DPage, DraggableCategory } from '@components';
 import type { IReadingEntity, ReadingType } from '@database/repositories/reading.repository';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
 
@@ -567,10 +584,12 @@ export default defineComponent({
   name: 'ObservationPage',
   components: {
     DPage,
+    DraggableCategory,
   },
   setup() {
     const $q = useQuasar();
     const chronicle = useChronicle();
+    const editMode = useEditMode();
 
     const state = reactive({
       categories: [] as IProtocolItemWithChildren[],
@@ -606,10 +625,29 @@ export default defineComponent({
       },
     });
 
+    // Edit mode container ref for bounds calculation
+    const editContainerRef = ref<HTMLElement | null>(null);
+
+    // Container bounds for drag constraints (reactive)
+    const containerBounds = ref({ width: 350, height: 600 });
+    
+    // Update bounds when container ref changes
+    const updateContainerBounds = () => {
+      if (editContainerRef.value) {
+        const rect = editContainerRef.value.getBoundingClientRect();
+        containerBounds.value = { width: rect.width, height: rect.height };
+      }
+    };
+
+    // Computed: can enter edit mode (not recording)
+    const canEnterEditMode = computed(() => 
+      !state.isRecording && !chronicle.sharedState.isPaused
+    );
+
     const methods = {
       loadProtocol: () => {
         // Filter and normalize categories - more lenient check
-        state.categories = chronicle.sharedState.currentProtocol
+        const filteredCategories = chronicle.sharedState.currentProtocol
           .filter((cat) => {
             if (!cat) return false;
             // More lenient check - just ensure id exists and can be converted to number
@@ -632,6 +670,25 @@ export default defineComponent({
             id: Number(cat.id), // Convert to number here
             children: Array.isArray(cat.children) ? cat.children : [],
           }));
+        
+        // Initialize positions when categories change, but only if NOT in edit mode
+        // (to avoid overwriting positions being edited)
+        if (filteredCategories.length > 0 && !editMode.sharedState.isEditing) {
+          editMode.methods.initializePositions(filteredCategories);
+        }
+        
+        // Sort categories by their position (row first, then column)
+        // This ensures the grid view reflects the order defined in edit mode
+        state.categories = filteredCategories.sort((a, b) => {
+          const posA = editMode.sharedState.categoryPositions[a.id] || { x: 0, y: 0 };
+          const posB = editMode.sharedState.categoryPositions[b.id] || { x: 0, y: 0 };
+          
+          // Sort by Y (row) first, then by X (column)
+          if (posA.y !== posB.y) {
+            return posA.y - posB.y;
+          }
+          return posA.x - posB.x;
+        });
       },
 
       loadRecentReadings: () => {
@@ -784,7 +841,7 @@ export default defineComponent({
         }
 
         try {
-          await protocolService.addCategory(
+          const newCategory = await protocolService.addCategory(
             chronicle.sharedState.currentChronicle.id,
             trimmedName,
             state.newCategory.action
@@ -795,6 +852,19 @@ export default defineComponent({
           state.newCategory.action = 'continuous';
           await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
           methods.loadProtocol();
+          
+          // If in edit mode, add a position for the new category
+          if (editMode.sharedState.isEditing && newCategory) {
+            // Wait for categories to be updated
+            await nextTick();
+            const allCategories = state.categories;
+            // Find the new category in the list (it should have the same name)
+            const addedCategory = allCategories.find(c => c.name === trimmedName);
+            if (addedCategory) {
+              editMode.methods.addCategoryPosition(addedCategory.id, allCategories);
+            }
+          }
+          
           $q.notify({
             type: 'positive',
             message: `Catégorie "${trimmedName}" ajoutée`,
@@ -889,7 +959,14 @@ export default defineComponent({
 
         try {
           const categoryName = category.name;
-          await protocolService.deleteItem(category.id);
+          const categoryId = category.id;
+          
+          // Remove position immediately if in edit mode
+          if (editMode.sharedState.isEditing) {
+            editMode.methods.removeCategoryPosition(categoryId);
+          }
+          
+          await protocolService.deleteItem(categoryId);
           await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
           methods.loadProtocol();
           $q.notify({
@@ -1017,6 +1094,81 @@ export default defineComponent({
           });
         }
       },
+
+      // Edit mode methods
+      enterEditMode: () => {
+        if (canEnterEditMode.value) {
+          editMode.methods.enterEditMode();
+        }
+      },
+
+      exitEditMode: async () => {
+        // Vérification de sécurité
+        if (!chronicle.sharedState.currentChronicle) {
+          console.warn('Cannot exit edit mode: no current chronicle');
+          editMode.methods.cancelEditMode();
+          return;
+        }
+
+        try {
+          const chronicleId = chronicle.sharedState.currentChronicle.id;
+          
+          // Pass valid category IDs to prevent saving positions for deleted categories
+          const validCategoryIds = new Set(state.categories.map(cat => cat.id));
+          await editMode.methods.exitEditMode(validCategoryIds);
+          
+          // Attendre que la DB soit à jour, puis recharger
+          await nextTick();
+          await chronicle.methods.loadChronicle(chronicleId);
+          await nextTick(); // Attendre que currentProtocol soit mis à jour
+          
+          // loadProtocol() va automatiquement réinitialiser les positions
+          // car on n'est plus en mode édition
+          methods.loadProtocol();
+        } catch (error) {
+          console.error('Failed to exit edit mode:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de la sauvegarde des positions',
+            position: 'top',
+          });
+          // Garder le mode édition ouvert pour permettre retry
+          // Ne pas appeler exitEditMode() pour ne pas réinitialiser l'état
+        }
+      },
+
+      cancelEditMode: () => {
+        editMode.methods.cancelEditMode();
+        // Réinitialiser les positions depuis les données actuelles
+        editMode.methods.initializePositions(state.categories);
+      },
+
+      handleDragMove: ({ categoryId, position }: { categoryId: number; position: { x: number; y: number } }) => {
+        editMode.methods.updateCategoryPosition(categoryId, position);
+      },
+
+      resetCategoryPositions: () => {
+        editMode.methods.resetPositions(state.categories);
+      },
+
+      /**
+       * Get CSS position style for a category in normal mode
+       * Uses the same positions as edit mode but without drag effects
+       */
+      getCategoryPositionStyle: (categoryId: number): Record<string, string | number> => {
+        const position = editMode.sharedState.categoryPositions[categoryId] || { x: 0, y: 0 };
+        const { cardWidth } = editMode.GRID_CONFIG;
+
+        return {
+          position: 'absolute',
+          left: `${position.x}px`,
+          top: `${position.y}px`,
+          width: `${cardWidth}px`,
+          transition: 'all 0.3s ease',
+        };
+      },
+      
+      updateContainerBounds,
     };
 
     onMounted(() => {
@@ -1027,6 +1179,21 @@ export default defineComponent({
       // Resume timer if recording is active and not paused
       if (state.isRecording && !chronicle.sharedState.isPaused) {
         chronicle.methods.startTimer();
+      }
+
+      // Update container bounds after DOM is ready
+      nextTick(() => {
+        setTimeout(() => {
+          updateContainerBounds();
+        }, 100);
+      });
+    });
+
+    // Clean up edit mode when component unmounts
+    onBeforeUnmount(() => {
+      // Cancel edit mode if active to prevent state leakage
+      if (editMode.sharedState.isEditing) {
+        editMode.methods.cancelEditMode();
       }
     });
 
@@ -1045,10 +1212,32 @@ export default defineComponent({
       { deep: true }
     );
 
+    // Watch orientation changes to recalculate bounds
+    watch(() => $q.screen.width, () => {
+      if (editContainerRef.value) {
+        updateContainerBounds();
+      }
+    });
+    
+    // Watch edit mode to update bounds when entering
+    watch(() => editMode.sharedState.isEditing, (isEditing) => {
+      if (isEditing) {
+        nextTick(() => {
+          updateContainerBounds();
+        });
+      }
+      // Note: Cleanup is handled by onBeforeUnmount, no need for watch cleanup
+      // to avoid double-cancel after exitEditMode()
+    });
+
     return {
       chronicle,
       state,
       methods,
+      editMode,
+      editContainerRef,
+      containerBounds,
+      canEnterEditMode,
     };
   },
 });
@@ -1086,6 +1275,53 @@ export default defineComponent({
 .categories-scroll {
   position: absolute;
   inset: 0;
+}
+
+.positioned-container {
+  position: relative;
+  padding: 8px;
+  min-height: 100%;
+}
+
+.positioned-category {
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  &.continuous {
+    .category-header {
+      background: var(--accent);
+    }
+  }
+
+  .category-header {
+    background: var(--primary);
+    color: white;
+    min-height: 28px;
+  }
+
+  .category-content {
+    min-height: 50px;
+  }
+}
+
+.observables-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.observable-btn-small {
+  font-size: 11px;
+  padding: 2px 8px;
+  min-height: 24px;
+}
+
+.edit-hint {
+  position: relative;
+  z-index: 0;
+  margin-bottom: 8px;
 }
 
 .categories-grid {
@@ -1183,5 +1419,23 @@ export default defineComponent({
 
 .observable-item {
   background: rgba(0, 0, 0, 0.02);
+}
+
+.edit-container {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  background: 
+    linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px),
+    linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.edit-hint {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
 }
 </style>

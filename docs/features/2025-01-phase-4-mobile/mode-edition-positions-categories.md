@@ -12,6 +12,33 @@ Implémenter un mode édition sur mobile permettant de repositionner les catégo
 
 ---
 
+## État d'avancement (Vérifié le 2025-01-XX)
+
+### ✅ Ce qui est déjà fait
+
+1. **Format jchronic** : Le format `IJchronicProtocolItem` supporte déjà le champ `meta` (voir `packages/core/src/import/types.ts` ligne 35)
+2. **Parser jchronic pour observables** : Le parser préserve `meta` pour les observables lors de la normalisation (voir `packages/core/src/import/jchronic-parser.ts` ligne 80)
+
+### ❌ Ce qui reste à faire
+
+**Toutes les tâches principales sont à implémenter :**
+
+1. **Migration SQLite (3.1)** : La colonne `meta` n'existe pas dans la table `protocol_items`
+2. **Repository (3.2)** : Aucun support de `meta` dans `IProtocolItemEntity`, `mapItem()`, `addCategory()`, `updateItem()`
+3. **Composable useEditMode (3.3)** : Le composable n'existe pas
+4. **Composant DraggableCategory (3.4)** : Le composant n'existe pas
+5. **Page Observation (3.5)** : Pas de mode édition intégré, seulement grille CSS statique
+6. **Import jchronic (3.6)** : `INormalizedCategory` n'a pas de champ `meta`, le parser ne préserve pas `meta` pour les catégories, le service d'import ne passe pas `meta` à `addCategory()`
+
+### 📝 Notes importantes
+
+- Le plan est complet et détaillé
+- L'ordre d'implémentation recommandé (section 6) est toujours valide
+- Tous les points d'attention (section 6) sont pertinents
+- Le format jchronic supporte déjà `meta`, mais il faut compléter la chaîne d'import pour le préserver
+
+---
+
 ## Table des matières
 
 1. [État actuel](#1-état-actuel)
@@ -1549,19 +1576,30 @@ describe('useEditMode', () => {
 
 ## 5. Checklist
 
+### État d'avancement (vérifié le 2025-01-XX)
+
+**✅ Déjà fait :**
+- Le format `IJchronicProtocolItem` supporte déjà `meta` (ligne 35 de `packages/core/src/import/types.ts`)
+- Le parser jchronic préserve `meta` pour les observables (ligne 80 de `packages/core/src/import/jchronic-parser.ts`)
+
+**❌ À faire :**
+- Toutes les autres tâches sont à implémenter
+
 ### Tâches de développement
 
 - [ ] **3.1** Migration SQLite : ajouter colonne `meta`
   - [ ] Créer `migration_002_add_meta_field()`
-  - [ ] Mettre à jour `runMigrations()`
+  - [ ] Mettre à jour `runMigrations()` (actuellement version 1, pas de migration 002)
   - [ ] Tester idempotence
+  - **État** : ❌ Non implémenté - La table `protocol_items` n'a pas de colonne `meta` (voir `mobile/src/database/sqlite.service.ts` ligne 129-144)
 
 - [ ] **3.2** Repository protocol : gérer `meta`
-  - [ ] Ajouter `meta` à `IProtocolItemEntity`
-  - [ ] Modifier `mapItem()` pour parser JSON
-  - [ ] Modifier `addCategory()` pour accepter `meta`
-  - [ ] Modifier `updateItem()` pour inclure `meta`
-  - [ ] Ajouter `updateCategoryPosition()`
+  - [ ] Ajouter `meta` à `IProtocolItemEntity` (actuellement ligne 8-18 de `protocol.repository.ts` n'a pas `meta`)
+  - [ ] Modifier `mapItem()` pour parser JSON (ligne 58-92, pas de parsing de `meta`)
+  - [ ] Modifier `addCategory()` pour accepter `meta` (ligne 130-147, pas de paramètre `meta`)
+  - [ ] Modifier `updateItem()` pour inclure `meta` (ligne 175-192, pas de support `meta`)
+  - [ ] Ajouter `updateCategoryPosition()` (méthode n'existe pas)
+  - **État** : ❌ Non implémenté - Aucun support de `meta` dans le repository
 
 - [ ] **3.3** Composable `useEditMode`
   - [ ] Créer le fichier `use-edit-mode/index.ts`
@@ -1572,7 +1610,8 @@ describe('useEditMode', () => {
   - [ ] Implémenter `resetPositions()`
   - [ ] Implémenter `getCategoryStyle()`
   - [ ] Implémenter drag handlers
-  - [ ] Exporter dans `composables/index.ts`
+  - [ ] Exporter dans `composables/index.ts` (actuellement ligne 1-4, pas d'export `useEditMode`)
+  - **État** : ❌ Non implémenté - Le composable n'existe pas
 
 - [ ] **3.4** Composant `DraggableCategory`
   - [ ] Créer le fichier `DraggableCategory.vue`
@@ -1580,19 +1619,22 @@ describe('useEditMode', () => {
   - [ ] Implémenter contraintes de position
   - [ ] Ajouter styles visuels
   - [ ] Exporter dans `components/index.ts`
+  - **État** : ❌ Non implémenté - Le composant n'existe pas
 
 - [ ] **3.5** Page Observation
   - [ ] Ajouter imports
   - [ ] Intégrer `useEditMode` dans setup
-  - [ ] Ajouter boutons mode édition
-  - [ ] Implémenter basculement grille/absolu
+  - [ ] Ajouter boutons mode édition (actuellement ligne 6-20 de `Index.vue`, pas de bouton édition)
+  - [ ] Implémenter basculement grille/absolu (actuellement ligne 68-72, seulement grille CSS)
   - [ ] Ajouter styles edit-container
   - [ ] Bloquer édition pendant enregistrement
+  - **État** : ❌ Non implémenté - La page n'a pas de mode édition
 
 - [ ] **3.6** Import jchronic
-  - [ ] Ajouter `meta` à `INormalizedCategory`
-  - [ ] Modifier parser pour préserver `meta`
-  - [ ] Modifier service import mobile
+  - [ ] Ajouter `meta` à `INormalizedCategory` (actuellement ligne 67-72 de `types.ts`, pas de champ `meta`)
+  - [ ] Modifier parser pour préserver `meta` (ligne 87-92 de `jchronic-parser.ts`, pas de `meta` dans `protocolCategories.push()`)
+  - [ ] Modifier service import mobile (ligne 93-97 de `import.service.ts`, pas de paramètre `meta` dans `addCategory()`)
+  - **État** : ❌ Partiellement implémenté - Le format supporte `meta` mais il n'est pas préservé lors de la normalisation
 
 ### Tests
 

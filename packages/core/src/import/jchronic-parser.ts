@@ -88,6 +88,7 @@ export function normalizeJchronicData(data: IJchronicImport): INormalizedImport 
           name: item.name,
           description: item.description,
           order: item.order,
+          meta: item.meta,
           observables: observables.length > 0 ? observables : undefined,
         });
       }

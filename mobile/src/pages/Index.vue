@@ -4,14 +4,27 @@
     <template v-if="chronicle.hasChronicle.value">
       <q-card class="chronicle-card q-mb-md">
         <q-card-section class="chronicle-header">
-          <div class="row items-center">
-            <q-avatar color="accent" text-color="white" icon="mdi-clipboard-text" size="48px" class="q-mr-md" />
-            <div>
-              <div class="text-h6">{{ chronicle.sharedState.currentChronicle?.name }}</div>
-              <div class="text-caption text-grey">
-                {{ chronicle.sharedState.currentChronicle?.description || 'Aucune description' }}
+          <div class="row items-center justify-between">
+            <div class="row items-center">
+              <q-avatar color="accent" text-color="white" icon="mdi-clipboard-text" size="48px" class="q-mr-md" />
+              <div>
+                <div class="text-h6">{{ chronicle.sharedState.currentChronicle?.name }}</div>
+                <div class="text-caption text-grey">
+                  {{ chronicle.sharedState.currentChronicle?.description || 'Aucune description' }}
+                </div>
               </div>
             </div>
+            <!-- Cloud button for loaded chronicle -->
+            <q-btn
+              round
+              flat
+              color="primary"
+              icon="mdi-cloud-upload"
+              @click="methods.uploadCurrentChronicle"
+              :loading="state.uploadingId === chronicle.sharedState.currentChronicle?.id"
+            >
+              <q-tooltip>Envoyer vers le cloud</q-tooltip>
+            </q-btn>
           </div>
         </q-card-section>
 
@@ -79,35 +92,60 @@
           Créez ou chargez une chronique pour commencer
         </div>
 
-        <q-btn
-          color="accent"
-          label="Nouvelle chronique"
-          icon="mdi-plus"
-          @click="state.showCreateDialog = true"
-          class="q-mb-md"
-          size="lg"
-          unelevated
-        />
+        <div class="row q-gutter-md justify-center">
+          <q-btn
+            color="accent"
+            label="Nouvelle chronique"
+            icon="mdi-plus"
+            @click="state.showCreateDialog = true"
+            size="lg"
+            unelevated
+          />
+          <q-btn
+            color="primary"
+            label="Cloud"
+            icon="mdi-cloud"
+            @click="methods.openCloud"
+            size="lg"
+            unelevated
+          >
+            <q-badge v-if="cloud.sharedState.isAuthenticated" color="positive" floating>
+              <q-icon name="mdi-check" size="12px" />
+            </q-badge>
+          </q-btn>
+        </div>
       </div>
 
       <!-- Liste des chroniques existantes -->
       <q-card v-if="state.chronicles.length > 0" class="chronicles-list q-mt-md">
         <q-card-section class="q-pb-none">
-          <div class="text-subtitle1 text-weight-medium">Chroniques sur l'appareil</div>
+          <div class="row items-center justify-between">
+            <div class="text-subtitle1 text-weight-medium">Chroniques sur l'appareil</div>
+            <q-btn
+              flat
+              dense
+              color="primary"
+              icon="mdi-cloud"
+              label="Cloud"
+              @click="methods.openCloud"
+            >
+              <q-badge v-if="cloud.sharedState.isAuthenticated" color="positive" floating rounded>
+                {{ cloud.chroniclesCount.value }}
+              </q-badge>
+            </q-btn>
+          </div>
         </q-card-section>
 
         <q-list separator>
           <q-item
             v-for="chr in state.chronicles"
             :key="chr.id"
-            clickable
-            @click="methods.loadChronicle(chr.id)"
             class="chronicle-item"
           >
-            <q-item-section avatar>
+            <q-item-section avatar @click="methods.loadChronicle(chr.id)" class="cursor-pointer">
               <q-avatar color="primary" text-color="white" icon="mdi-clipboard-text" />
             </q-item-section>
-            <q-item-section>
+            <q-item-section @click="methods.loadChronicle(chr.id)" class="cursor-pointer">
               <q-item-label class="text-weight-medium">{{ chr.name }}</q-item-label>
               <q-item-label caption>
                 <q-icon name="mdi-database" size="12px" class="q-mr-xs" />
@@ -115,7 +153,24 @@
               </q-item-label>
             </q-item-section>
             <q-item-section side>
-              <q-icon name="mdi-chevron-right" color="grey-5" />
+              <div class="row items-center q-gutter-xs">
+                <!-- Upload to cloud button -->
+                <q-btn
+                  round
+                  flat
+                  dense
+                  color="primary"
+                  icon="mdi-cloud-upload"
+                  @click.stop="methods.uploadChronicle(chr.id, chr.name)"
+                  :loading="state.uploadingId === chr.id"
+                  :disable="cloud.isCloudFull.value && cloud.sharedState.isAuthenticated"
+                >
+                  <q-tooltip>
+                    {{ cloud.isCloudFull.value ? 'Cloud plein (10/10)' : 'Envoyer vers le cloud' }}
+                  </q-tooltip>
+                </q-btn>
+                <q-icon name="mdi-chevron-right" color="grey-5" />
+              </div>
             </q-item-section>
           </q-item>
         </q-list>
@@ -125,6 +180,14 @@
       <div v-else class="text-center q-mt-xl text-grey">
         <q-icon name="mdi-clipboard-text-off-outline" size="48px" />
         <div class="q-mt-sm">Aucune chronique enregistrée</div>
+        <q-btn
+          flat
+          color="primary"
+          label="Télécharger depuis le cloud"
+          icon="mdi-cloud-download"
+          class="q-mt-md"
+          @click="methods.openCloud"
+        />
       </div>
     </template>
 
@@ -172,9 +235,13 @@
 
 <script lang="ts">
 import { defineComponent, reactive, onMounted } from 'vue';
+import { useQuasar } from 'quasar';
 import { useChronicle } from '@composables/use-chronicle';
+import { useCloud } from '@composables/use-cloud';
 import { observationService } from '@services/observation.service';
 import { DPage } from '@components';
+import CloudLoginDialog from '@components/CloudLoginDialog.vue';
+import CloudSyncDialog from '@components/CloudSyncDialog.vue';
 import type { IObservationWithCounts } from '@database/repositories/observation.repository';
 
 export default defineComponent({
@@ -183,7 +250,9 @@ export default defineComponent({
     DPage,
   },
   setup() {
+    const $q = useQuasar();
     const chronicle = useChronicle();
+    const cloud = useCloud();
 
     const state = reactive({
       chronicles: [] as IObservationWithCounts[],
@@ -193,6 +262,7 @@ export default defineComponent({
         name: '',
         description: '',
       },
+      uploadingId: null as number | null,
     });
 
     const methods = {
@@ -223,14 +293,108 @@ export default defineComponent({
           console.error('Failed to create chronicle:', error);
         }
       },
+
+      openCloud: async () => {
+        // Initialiser le cloud si nécessaire
+        await cloud.methods.init();
+
+        if (!cloud.sharedState.isAuthenticated) {
+          // Ouvrir le dialog de login
+          $q.dialog({
+            component: CloudLoginDialog,
+          }).onOk(() => {
+            // Connexion réussie, ouvrir le dialog de sync
+            methods.openCloudSyncDialog();
+          });
+        } else {
+          // Déjà connecté, ouvrir directement le dialog de sync
+          methods.openCloudSyncDialog();
+        }
+      },
+
+      openCloudSyncDialog: () => {
+        $q.dialog({
+          component: CloudSyncDialog,
+        }).onOk((result: { action: string; observationId?: number }) => {
+          if (result.action === 'logout') {
+            // Utilisateur déconnecté, réouvrir le login
+            methods.openCloud();
+          } else if (result.action === 'downloaded' && result.observationId) {
+            // Chronique téléchargée, recharger la liste et charger la chronique
+            methods.loadChronicles();
+            methods.loadChronicle(result.observationId);
+          }
+        });
+      },
+
+      uploadChronicle: async (id: number, name: string) => {
+        // Initialiser le cloud si nécessaire
+        await cloud.methods.init();
+
+        if (!cloud.sharedState.isAuthenticated) {
+          // Ouvrir le dialog de login d'abord
+          $q.dialog({
+            component: CloudLoginDialog,
+          }).onOk(() => {
+            // Connexion réussie, uploader
+            methods.doUpload(id, name);
+          });
+        } else {
+          await methods.doUpload(id, name);
+        }
+      },
+
+      doUpload: async (id: number, name: string) => {
+        // Vérifier si le cloud est plein
+        if (cloud.isCloudFull.value) {
+          $q.notify({
+            type: 'warning',
+            message: 'Cloud plein',
+            caption: `Limite de ${cloud.cloudLimit} fichiers atteinte. Supprimez des fichiers pour en ajouter.`,
+          });
+          return;
+        }
+
+        state.uploadingId = id;
+
+        try {
+          const result = await cloud.methods.uploadChronicle(id);
+
+          if (result.success) {
+            $q.notify({
+              type: 'positive',
+              message: 'Chronique uploadée !',
+              caption: `${name} a été envoyée vers le cloud.`,
+            });
+          } else {
+            $q.notify({
+              type: 'negative',
+              message: "Erreur d'upload",
+              caption: result.error,
+            });
+          }
+        } finally {
+          state.uploadingId = null;
+        }
+      },
+
+      uploadCurrentChronicle: async () => {
+        const current = chronicle.sharedState.currentChronicle;
+        if (current) {
+          await methods.uploadChronicle(current.id, current.name);
+        }
+      },
     };
 
-    onMounted(() => {
-      methods.loadChronicles();
+    onMounted(async () => {
+      await methods.loadChronicles();
+      // Initialiser le cloud en arrière-plan
+      await cloud.methods.init();
     });
 
     return {
       chronicle,
+      cloud,
       state,
       methods,
     };

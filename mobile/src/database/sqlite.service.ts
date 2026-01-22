@@ -94,7 +94,13 @@ class SQLiteService {
       await this.db.execute('PRAGMA user_version = 1');
     }
 
-    console.log('Database migrations completed. Current version: 1');
+    // Migration 2: Add meta column to protocol_items
+    if (currentVersion < 2) {
+      await this.migration_002_add_meta_field();
+      await this.db.execute('PRAGMA user_version = 2');
+    }
+
+    console.log('Database migrations completed. Current version: 2');
   }
 
   /**
@@ -166,6 +172,34 @@ class SQLiteService {
 
     await this.db.execute(schema);
     console.log('Migration 001: Initial schema created');
+  }
+
+  /**
+   * Migration 002: Add meta column to protocol_items
+   * 
+   * La colonne meta stocke un JSON avec des métadonnées diverses,
+   * notamment la position des catégories : { position: { x: number, y: number } }
+   */
+  private async migration_002_add_meta_field(): Promise<void> {
+    if (!this.db) return;
+
+    try {
+      // Vérifier si la colonne existe déjà (idempotence)
+      const tableInfo = await this.db.query('PRAGMA table_info(protocol_items)');
+      const hasMetaColumn = tableInfo.values?.some(
+        (row: unknown[]) => row[1] === 'meta'
+      );
+
+      if (!hasMetaColumn) {
+        await this.db.execute('ALTER TABLE protocol_items ADD COLUMN meta TEXT');
+        console.log('Migration 002: Added meta column to protocol_items');
+      } else {
+        console.log('Migration 002: meta column already exists, skipping');
+      }
+    } catch (error) {
+      console.error('Migration 002 failed:', error);
+      throw error;
+    }
   }
 
   /**

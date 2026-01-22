@@ -68,6 +68,7 @@ export interface INormalizedCategory {
   name: string;
   description?: string;
   order?: number;
+  meta?: Record<string, unknown>;
   observables?: INormalizedObservable[];
 }
 
