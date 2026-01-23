@@ -4,6 +4,16 @@
   "description": "Core business logic shared between backend and mobile",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./import/chronic-v1": {
+      "types": "./dist/import/chronic-v1/index.d.ts",
+      "default": "./dist/import/chronic-v1/index.js"
+    }
+  },
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

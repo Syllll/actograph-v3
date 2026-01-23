@@ -10,7 +10,7 @@ import {
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
-import { fork } from 'child_process';
+import { fork, execSync } from 'child_process';
 import {
   getPort,
   checkPort,
@@ -166,6 +166,69 @@ async function createWindow() {
 }
 
 /**
+ * Extracts the API node_modules ZIP if it exists and node_modules doesn't.
+ * On Windows, NSIS handles this during installation.
+ * On Mac/Linux, we extract on first launch for faster installation.
+ */
+async function extractApiModulesIfNeeded(): Promise<void> {
+  const apiBasePath = path.join(
+    process.resourcesPath,
+    'src-electron/extra-resources/api'
+  );
+  const zipPath = path.join(apiBasePath, 'api-node-modules.zip');
+  const nodeModulesPath = path.join(apiBasePath, 'dist', 'node_modules');
+
+  // Check if ZIP exists and node_modules doesn't
+  if (!fs.existsSync(zipPath)) {
+    log.info('No API ZIP found, node_modules should already be extracted');
+    return;
+  }
+
+  if (fs.existsSync(nodeModulesPath)) {
+    log.info('API node_modules already extracted, cleaning up ZIP');
+    // Clean up the ZIP file
+    try {
+      fs.unlinkSync(zipPath);
+    } catch (e) {
+      log.warn('Failed to delete ZIP file:', e);
+    }
+    return;
+  }
+
+  log.info('Extracting API node_modules from ZIP (first launch)...');
+  const destPath = path.join(apiBasePath, 'dist');
+
+  try {
+    // Use platform-specific extraction
+    if (platform === 'darwin' || platform === 'linux') {
+      // Use unzip command (available by default on Mac and most Linux distros)
+      execSync(`unzip -q "${zipPath}" -d "${destPath}"`, {
+        stdio: 'pipe',
+        timeout: 300000, // 5 minutes timeout
+      });
+    } else {
+      // Windows fallback (shouldn't happen as NSIS handles it)
+      execSync(
+        `powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destPath}' -Force"`,
+        {
+          stdio: 'pipe',
+          timeout: 600000, // 10 minutes timeout for Windows
+        }
+      );
+    }
+
+    log.info('API node_modules extracted successfully');
+
+    // Delete the ZIP file after successful extraction
+    fs.unlinkSync(zipPath);
+    log.info('ZIP file cleaned up');
+  } catch (error) {
+    log.error('Failed to extract API node_modules:', error);
+    throw error;
+  }
+}
+
+/**
  * Creates a background process that runs the server.
  * In electron, the server is run as a subprocess. The server is a nestjs instance using sqlite as database.
  * @param port The port to run the server on
@@ -251,13 +314,22 @@ function createBackgroundProcess(port: number) {
 
 app.whenReady().then(async () => {
   if (process.env.PROD) {
+    // Extract API node_modules if needed (first launch on Mac/Linux)
+    // On Windows, NSIS handles this during installation
+    try {
+      await extractApiModulesIfNeeded();
+    } catch (err) {
+      log.error('Failed to extract API modules:', err);
+      // Continue anyway, maybe node_modules was already extracted
+    }
+
     serverPort = await getPort();
 
-    // We tryc to start the backend several times, in case it does not work (windows...)
+    // We try to start the backend several times, in case it does not work (windows...)
     let backendStarted = false;
     let tryCount = 0;
     while (tryCount < 3 && backendStarted === false) {
-      tryCount ++;
+      tryCount++;
       try {
         await createBackgroundProcess(serverPort);
         backendStarted = true;
