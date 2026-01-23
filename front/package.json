@@ -15,6 +15,7 @@
     "docker:dev": "sh docker/compose.sh console"
   },
   "dependencies": {
+    "adm-zip": "^0.5.10",
     "@quasar/extras": "^1.16.4",
     "@types/file-saver": "^2.0.7",
     "axios": "^1.2.1",

@@ -470,11 +470,9 @@ module.exports = configure(function (/* ctx */) {
             : {}),
         },
         nsis: {
-          // Custom NSIS script to extract API node_modules ZIP using PowerShell
-          // This dramatically speeds up installation on Windows (from 20+ min to 2-5 min)
-          include: './installer-scripts/extract-api.nsh',
-          // Show installation details so user sees progress
-          installerSidebar: undefined, // Use default
+          // Note: We no longer use a custom NSIS script for extraction.
+          // The ZIP is extracted on first launch by Electron (see electron-main.ts)
+          // This is more reliable and shows a nice progress indicator to the user.
         },
         linux: {
           target: ['AppImage'],

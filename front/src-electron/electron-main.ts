@@ -166,11 +166,12 @@ async function createWindow() {
 }
 
 /**
- * Extracts the API node_modules ZIP if it exists and node_modules doesn't.
- * On Windows, NSIS handles this during installation.
- * On Mac/Linux, we extract on first launch for faster installation.
+ * Checks if API node_modules extraction is needed.
+ * Returns true if ZIP exists and node_modules doesn't.
  */
-async function extractApiModulesIfNeeded(): Promise<void> {
+function isApiExtractionNeeded(): boolean {
+  if (!process.env.PROD) return false;
+  
   const apiBasePath = path.join(
     process.resourcesPath,
     'src-electron/extra-resources/api'
@@ -178,43 +179,90 @@ async function extractApiModulesIfNeeded(): Promise<void> {
   const zipPath = path.join(apiBasePath, 'api-node-modules.zip');
   const nodeModulesPath = path.join(apiBasePath, 'dist', 'node_modules');
 
-  // Check if ZIP exists and node_modules doesn't
   if (!fs.existsSync(zipPath)) {
-    log.info('No API ZIP found, node_modules should already be extracted');
-    return;
+    return false;
   }
 
   if (fs.existsSync(nodeModulesPath)) {
-    log.info('API node_modules already extracted, cleaning up ZIP');
-    // Clean up the ZIP file
+    // Clean up the ZIP file since extraction is already done
     try {
       fs.unlinkSync(zipPath);
+      log.info('Cleaned up leftover ZIP file');
     } catch (e) {
       log.warn('Failed to delete ZIP file:', e);
     }
-    return;
+    return false;
   }
 
-  log.info('Extracting API node_modules from ZIP (first launch)...');
+  return true;
+}
+
+/**
+ * Extracts the API node_modules ZIP with progress reporting.
+ * Called on first launch when ZIP exists and node_modules doesn't.
+ * Sends progress updates to the renderer process.
+ */
+async function extractApiModules(): Promise<void> {
+  const AdmZip = require('adm-zip');
+  
+  const apiBasePath = path.join(
+    process.resourcesPath,
+    'src-electron/extra-resources/api'
+  );
+  const zipPath = path.join(apiBasePath, 'api-node-modules.zip');
   const destPath = path.join(apiBasePath, 'dist');
 
+  log.info('Extracting API node_modules from ZIP (first launch)...');
+  
+  // Notify renderer that extraction is starting
+  if (mainWindow) {
+    mainWindow.webContents.send('first-launch-extraction', {
+      status: 'extracting',
+      message: 'Préparation de l\'application...',
+      progress: 0,
+    });
+  }
+
   try {
-    // Use platform-specific extraction
-    if (platform === 'darwin' || platform === 'linux') {
-      // Use unzip command (available by default on Mac and most Linux distros)
-      execSync(`unzip -q "${zipPath}" -d "${destPath}"`, {
-        stdio: 'pipe',
-        timeout: 300000, // 5 minutes timeout
-      });
-    } else {
-      // Windows fallback (shouldn't happen as NSIS handles it)
-      execSync(
-        `powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destPath}' -Force"`,
-        {
-          stdio: 'pipe',
-          timeout: 600000, // 10 minutes timeout for Windows
+    // Use adm-zip for extraction with progress
+    const zip = new AdmZip(zipPath);
+    const zipEntries = zip.getEntries();
+    const totalEntries = zipEntries.length;
+    let extractedCount = 0;
+    let lastReportedPercent = 0;
+
+    log.info(`ZIP contains ${totalEntries} entries`);
+
+    // Extract entries one by one to report progress
+    for (const entry of zipEntries) {
+      if (!entry.isDirectory) {
+        const targetPath = path.join(destPath, entry.entryName);
+        const targetDir = path.dirname(targetPath);
+        
+        // Ensure target directory exists
+        if (!fs.existsSync(targetDir)) {
+          fs.mkdirSync(targetDir, { recursive: true });
         }
-      );
+        
+        // Extract file
+        fs.writeFileSync(targetPath, entry.getData());
+      }
+      
+      extractedCount++;
+      const percent = Math.round((extractedCount / totalEntries) * 100);
+      
+      // Report progress every 5% to avoid flooding IPC
+      if (percent >= lastReportedPercent + 5 || percent === 100) {
+        lastReportedPercent = percent;
+        
+        if (mainWindow) {
+          mainWindow.webContents.send('first-launch-extraction', {
+            status: 'extracting',
+            message: `Extraction en cours... ${percent}%`,
+            progress: percent,
+          });
+        }
+      }
     }
 
     log.info('API node_modules extracted successfully');
@@ -222,8 +270,27 @@ async function extractApiModulesIfNeeded(): Promise<void> {
     // Delete the ZIP file after successful extraction
     fs.unlinkSync(zipPath);
     log.info('ZIP file cleaned up');
+
+    // Notify renderer that extraction is complete
+    if (mainWindow) {
+      mainWindow.webContents.send('first-launch-extraction', {
+        status: 'completed',
+        message: 'Extraction terminée !',
+        progress: 100,
+      });
+    }
   } catch (error) {
     log.error('Failed to extract API node_modules:', error);
+    
+    // Notify renderer of failure
+    if (mainWindow) {
+      mainWindow.webContents.send('first-launch-extraction', {
+        status: 'error',
+        message: 'Erreur lors de la préparation de l\'application.',
+        progress: 0,
+      });
+    }
+    
     throw error;
   }
 }
@@ -313,17 +380,35 @@ function createBackgroundProcess(port: number) {
 }
 
 app.whenReady().then(async () => {
+  // Check if first-launch extraction is needed BEFORE creating window
+  const needsExtraction = isApiExtractionNeeded();
+  
   if (process.env.PROD) {
-    // Extract API node_modules if needed (first launch on Mac/Linux)
-    // On Windows, NSIS handles this during installation
-    try {
-      await extractApiModulesIfNeeded();
-    } catch (err) {
-      log.error('Failed to extract API modules:', err);
-      // Continue anyway, maybe node_modules was already extracted
+    serverPort = await getPort();
+  }
+
+  // Create window first (with extraction mode if needed)
+  // This allows us to show a loading indicator during extraction
+  await createWindow();
+
+  if (process.env.PROD) {
+    // If extraction is needed, do it now (window is ready to show progress)
+    if (needsExtraction) {
+      try {
+        await extractApiModules();
+      } catch (err) {
+        log.error('Failed to extract API modules:', err);
+        // Continue anyway, maybe we can still start
+      }
     }
 
-    serverPort = await getPort();
+    // Notify renderer that we're starting the server
+    if (mainWindow) {
+      mainWindow.webContents.send('first-launch-extraction', {
+        status: 'starting-server',
+        message: 'Démarrage du serveur...',
+      });
+    }
 
     // We try to start the backend several times, in case it does not work (windows...)
     let backendStarted = false;
@@ -338,9 +423,16 @@ app.whenReady().then(async () => {
         backendStarted = false;
       }
     }
-  }
 
-  createWindow();
+    // Notify renderer that app is ready
+    if (mainWindow) {
+      mainWindow.webContents.send('first-launch-extraction', {
+        status: 'ready',
+        message: 'Application prête !',
+        serverPort: serverPort,
+      });
+    }
+  }
 });
 
 app.on('window-all-closed', () => {
