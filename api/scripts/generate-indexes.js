@@ -2,8 +2,8 @@
  * Script to automatically generate entity and migration index files
  * 
  * This script scans the codebase and generates:
- * - src/database/all-entities.ts (from **/*.entity.ts files)
- * - src/database/all-migrations.ts (from migrations/*.ts files)
+ * - src/database/all-entities.ts (from all .entity.ts files)
+ * - src/database/all-migrations.ts (from migrations .ts files)
  * 
  * Run this script before building with esbuild to ensure all entities
  * and migrations are included in the bundle.
