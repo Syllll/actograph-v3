@@ -271,7 +271,35 @@ module.exports = configure(function (/* ctx */) {
                 );
               });
 
-              // Copy native node_modules
+              // Rebuild native modules for Electron BEFORE copying
+              // This is crucial: better-sqlite3 must be compiled for Electron's Node.js version
+              console.log('Rebuilding native modules for Electron...');
+              const electronVersion = require('./package.json').devDependencies.electron.replace(/[\^~]/g, '');
+              const electronRebuildBin = path.join(process.cwd(), 'node_modules', '.bin', 'electron-rebuild');
+              
+              // Use --module-dir to specify where native modules are located
+              // Keep cwd in front/ so electron-rebuild can find its own dependencies
+              await new Promise((resolve, reject) => {
+                spawn(
+                  electronRebuildBin,
+                  [
+                    '-f',                        // Force rebuild
+                    '-w', 'better-sqlite3',      // Only rebuild better-sqlite3
+                    '-v', electronVersion,       // Target Electron version
+                    '--module-dir', prodInstallDir  // Where to find native modules
+                  ],
+                  {
+                    stdio: 'inherit',
+                    shell: true,
+                    cwd: process.cwd(),  // Stay in front/ for electron-rebuild dependencies
+                  }
+                ).on('close', (code) =>
+                  code === 0 ? resolve() : reject(new Error(`electron-rebuild failed with code ${code}`))
+                );
+              });
+              console.log('Native modules rebuilt for Electron successfully!');
+
+              // Copy native node_modules (now rebuilt for Electron)
               await fs.copy(
                 path.join(prodInstallDir, 'node_modules'),
                 './src-electron/extra-resources/api/node_modules'
