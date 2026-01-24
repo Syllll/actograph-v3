@@ -146,7 +146,7 @@ module.exports = configure(function (/* ctx */) {
           return;
         }
 
-        console.log('Building API...');
+        console.log('Building API with esbuild bundling...');
         const promise = new Promise((resolve, reject) => {
           const buildApi = async () => {
             try {
@@ -164,10 +164,15 @@ module.exports = configure(function (/* ctx */) {
               });
 
               // Clean and build using local binaries (avoid npx on CI)
+              // Note: On Windows, .bin contains .cmd files which are resolved by shell automatically
               const binPath = path.join(process.cwd(), 'node_modules', '.bin');
+              
+              // Helper to get the correct binary path
+              // On Windows with shell: true, cmd.exe will resolve .cmd automatically
+              const getBinPath = (name) => path.join(binPath, name);
 
               await new Promise((resolve, reject) => {
-                spawn(path.join(binPath, 'rimraf'), ['dist'], {
+                spawn(getBinPath('rimraf'), ['dist'], {
                   stdio: 'inherit',
                   shell: true,
                 }).on('close', (code) =>
@@ -175,8 +180,32 @@ module.exports = configure(function (/* ctx */) {
                 );
               });
 
+              // Step 1: Generate entity and migration indexes (auto-discovery)
+              console.log('Step 1/4: Generating entity and migration indexes...');
               await new Promise((resolve, reject) => {
-                spawn(path.join(binPath, 'nest'), ['build'], {
+                spawn('node', ['scripts/generate-indexes.js'], {
+                  stdio: 'inherit',
+                  shell: true,
+                }).on('close', (code) =>
+                  code === 0 ? resolve() : reject(code)
+                );
+              });
+
+              // Step 2: Build with NestJS (TypeScript → JavaScript)
+              console.log('Step 2/4: Building with NestJS...');
+              await new Promise((resolve, reject) => {
+                spawn(getBinPath('nest'), ['build'], {
+                  stdio: 'inherit',
+                  shell: true,
+                }).on('close', (code) =>
+                  code === 0 ? resolve() : reject(code)
+                );
+              });
+
+              // Step 3: Bundle with esbuild (many JS files → single bundle)
+              console.log('Step 3/4: Bundling with esbuild...');
+              await new Promise((resolve, reject) => {
+                spawn('node', ['esbuild.config.js'], {
                   stdio: 'inherit',
                   shell: true,
                 }).on('close', (code) =>
@@ -190,50 +219,48 @@ module.exports = configure(function (/* ctx */) {
               // Clean destination directory where the API will be embedded in the Electron app
               await fs.remove('./src-electron/extra-resources/api');
 
-              // Create destination and copy the compiled API (dist)
+              // Create destination directory
               await fs.ensureDir('./src-electron/extra-resources/api');
+
+              // Step 4: Copy only the bundle and native modules
+              console.log('Step 4/4: Copying bundle and native modules...');
+              
+              // Copy the bundled API (single file!)
               await fs.copy(
-                '../api/dist',
-                './src-electron/extra-resources/api/dist'
+                '../api/dist/api.bundle.js',
+                './src-electron/extra-resources/api/api.bundle.js'
               );
 
-              // Two-phase dependency install:
-              // 1) We already installed dev+prod deps above to build the API.
-              // 2) For runtime, we only need production dependencies next to dist/.
-              //    To ensure a clean prod-only tree, install into a temporary folder
-              //    and copy its node_modules alongside the compiled dist.
+              // Copy only the native modules (better-sqlite3) with their prebuilds
+              // These cannot be bundled and must be provided separately
+              const nativeModules = ['better-sqlite3'];
               const os = require('os');
               const prodInstallDir = path.join(
                 os.tmpdir(),
-                'actograph-api-prod-deps'
+                'actograph-api-native-deps'
               );
 
-              // Prepare a minimal project (package.json + yarn.lock) in temp dir
+              // Prepare a minimal package.json with only native dependencies
               await fs.remove(prodInstallDir);
               await fs.ensureDir(prodInstallDir);
-              await fs.copy(
-                '../api/package.json',
-                path.join(prodInstallDir, 'package.json')
-              );
-              if (await fs.pathExists('../api/yarn.lock')) {
-                await fs.copy(
-                  '../api/yarn.lock',
-                  path.join(prodInstallDir, 'yarn.lock')
-                );
+              
+              const nativePackageJson = {
+                name: 'actograph-native-deps',
+                version: '1.0.0',
+                dependencies: {}
+              };
+              
+              // Read the original package.json to get exact versions
+              const apiPackageJson = require('../api/package.json');
+              for (const mod of nativeModules) {
+                if (apiPackageJson.dependencies[mod]) {
+                  nativePackageJson.dependencies[mod] = apiPackageJson.dependencies[mod];
+                }
               }
+              
+              await fs.writeJson(path.join(prodInstallDir, 'package.json'), nativePackageJson);
 
-              // Copy packages/core to temp dir to satisfy file: dependency
-              // The api/package.json references "@actograph/core": "file:../packages/core"
-              // which resolves relative to the temp directory, so we need to provide it
-              const tempPackagesDir = path.join(prodInstallDir, '..', 'packages');
-              await fs.ensureDir(tempPackagesDir);
-              await fs.copy(
-                '../packages/core',
-                path.join(tempPackagesDir, 'core'),
-                { filter: (src) => !src.includes('node_modules') }
-              );
-
-              // Install only production dependencies in the temp directory
+              // Install only native dependencies
               await new Promise((resolve, reject) => {
                 spawn('yarn', ['install', '--production=true'], {
                   stdio: 'inherit',
@@ -244,34 +271,11 @@ module.exports = configure(function (/* ctx */) {
                 );
               });
 
-              // Create a ZIP of node_modules instead of copying thousands of files
-              // This dramatically speeds up Windows installation (NSIS extracts 1 file instead of ~50k)
-              // The ZIP will be extracted by a custom NSIS script during installation
-              const archiver = require('archiver');
-              const nodeModulesPath = path.join(prodInstallDir, 'node_modules');
-              const zipPath = './src-electron/extra-resources/api/api-node-modules.zip';
-              
-              console.log('Creating ZIP archive of API node_modules...');
-              await new Promise((resolve, reject) => {
-                const output = require('fs').createWriteStream(zipPath);
-                const archive = archiver('zip', {
-                  zlib: { level: 1 } // Level 1 = fast compression, good balance of speed vs size
-                });
-                
-                output.on('close', () => {
-                  console.log(`API node_modules ZIP created: ${(archive.pointer() / 1024 / 1024).toFixed(2)} MB`);
-                  resolve();
-                });
-                
-                archive.on('error', (err) => {
-                  reject(err);
-                });
-                
-                archive.pipe(output);
-                // Archive node_modules directory, it will be extracted to 'node_modules' folder
-                archive.directory(nodeModulesPath, 'node_modules');
-                archive.finalize();
-              });
+              // Copy native node_modules
+              await fs.copy(
+                path.join(prodInstallDir, 'node_modules'),
+                './src-electron/extra-resources/api/node_modules'
+              );
 
               // Copy environment file if present
               if (await fs.pathExists('../api/.env')) {
@@ -281,9 +285,14 @@ module.exports = configure(function (/* ctx */) {
                 );
               }
 
-              // Cleanup temporary install directories
+              // Cleanup temporary install directory
               await fs.remove(prodInstallDir);
-              await fs.remove(tempPackagesDir);
+
+              // Log the result
+              const bundleStats = require('fs').statSync('./src-electron/extra-resources/api/api.bundle.js');
+              console.log(`\n✅ API build complete!`);
+              console.log(`   Bundle size: ${(bundleStats.size / 1024 / 1024).toFixed(2)} MB`);
+              console.log(`   Native modules: ${nativeModules.join(', ')}`);
 
               resolve();
             } catch (error) {
@@ -470,9 +479,10 @@ module.exports = configure(function (/* ctx */) {
             : {}),
         },
         nsis: {
-          // Note: We no longer use a custom NSIS script for extraction.
-          // The ZIP is extracted on first launch by Electron (see electron-main.ts)
-          // This is more reliable and shows a nice progress indicator to the user.
+          // Note: With the bundled API approach, no extraction is needed at all.
+          // The API is bundled into a single file (api.bundle.js) with only
+          // native modules (better-sqlite3) as separate node_modules.
+          // This results in instant startup without any first-launch extraction.
         },
         linux: {
           target: ['AppImage'],

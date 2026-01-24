@@ -118,8 +118,8 @@ jobs:
           # Name of the app, used in e-mails and in the frontend
           APP_NAME=actograph-v3-api
 
-          # LOCAL DB
-          DB_TYPE=sqlite #postgres
+          # LOCAL DB (better-sqlite3 for faster installation and startup)
+          DB_TYPE=better-sqlite3 #postgres
           DB_HOST=localhost #actograph-v3-api-dev-db
           DB_PORT=5432
           DB_USERNAME=${{ vars.DB_USERNAME }}

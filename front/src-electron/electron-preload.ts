@@ -23,7 +23,7 @@ const validChannels = [
   'list-autosave-files',
   'delete-autosave-file',
   'cleanup-old-autosave',
-  'first-launch-extraction', // For showing progress during first-launch extraction
+  'server-status', // For showing server startup status
 ];
 
 // Expose protected methods that allow the renderer process to use

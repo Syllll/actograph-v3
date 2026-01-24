@@ -75,7 +75,7 @@ export default defineComponent({
     // Listen for first-launch extraction events from Electron
     const setupExtractionListener = () => {
       if (process.env.MODE === 'electron' && window.api) {
-        window.api.on('first-launch-extraction', (data: {
+        window.api.on('server-status', (data: {
           status: string;
           message: string;
           progress?: number;

@@ -21,7 +21,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { v4 as uuidv4 } from 'uuid';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import * as sgMail from '@sendgrid/mail';
 
 import { UserJwt, UserJwtCreateDto } from '../entities/user-jwt.entity';
