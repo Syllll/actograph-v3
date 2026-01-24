@@ -1,8 +1,8 @@
 /**
  * Explicit entity imports for bundling compatibility
- * 
- * When the API is bundled with esbuild, glob patterns like '**/*.entity.ts'
- * don't work. This file explicitly imports all entities for TypeORM.
+ *
+ * When the API is bundled with esbuild, glob patterns do not work.
+ * This file explicitly imports all entities for TypeORM.
  */
 
 // Core entities

@@ -519,7 +519,9 @@ export default defineComponent({
           // Mettre à jour le protocole dans le pixiApp APRÈS nextTick
           // Cela garantit que les données sont à jour avant le redessinage
           if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
-            graph.sharedState.pixiApp.setProtocol(protocol.sharedState.currentProtocol);
+            // Type assertion: le frontend utilise items?: string et _items?: IProtocolItem[]
+            // mais setProtocol gère les deux formats en interne
+            graph.sharedState.pixiApp.setProtocol(protocol.sharedState.currentProtocol as any);
           }
 
           // Si on change le mode d'affichage ou le support, redessiner tout
@@ -620,7 +622,9 @@ export default defineComponent({
 
           // Mettre à jour le protocole dans le pixiApp et redessiner
           if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
-            graph.sharedState.pixiApp.setProtocol(protocol.sharedState.currentProtocol);
+            // Type assertion: le frontend utilise items?: string et _items?: IProtocolItem[]
+            // mais setProtocol gère les deux formats en interne
+            graph.sharedState.pixiApp.setProtocol(protocol.sharedState.currentProtocol as any);
             graph.sharedState.pixiApp.updateObservablePreference(
               observableId,
               preference

@@ -318,7 +318,7 @@ module.exports = configure(function (/* ctx */) {
 
               // Log the result
               const bundleStats = require('fs').statSync('./src-electron/extra-resources/api/api.bundle.js');
-              console.log(`\n✅ API build complete!`);
+              console.log('\n✅ API build complete!');
               console.log(`   Bundle size: ${(bundleStats.size / 1024 / 1024).toFixed(2)} MB`);
               console.log(`   Native modules: ${nativeModules.join(', ')}`);
 

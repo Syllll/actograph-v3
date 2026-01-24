@@ -6,7 +6,7 @@ import { useImprobaInit } from 'src/../lib-improba/composables/use-improba-init'
 
 declare global {
   interface Window {
-    api: {
+    api?: {
       send: (channel: string, data: any) => void;
       invoke: (channel: string, data?: unknown) => Promise<unknown>;
       on: (channel: string, func: any) => void;

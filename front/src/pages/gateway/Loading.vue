@@ -48,14 +48,7 @@ import { useAuth } from '@lib-improba/composables/use-auth';
 import securityService from '@services/security/index.service';
 import { useStartupLoading } from 'src/composables/use-startup-loading';
 
-// Type for the window.api object in Electron
-declare global {
-  interface Window {
-    api?: {
-      on: (channel: string, callback: (...args: any[]) => void) => void;
-    };
-  }
-}
+// window.api type is already declared in lib-improba/boot/lib-improba.ts
 
 export default defineComponent({
   components: { EmptyLayout },

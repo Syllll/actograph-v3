@@ -1,9 +1,9 @@
 /**
  * Explicit migration imports for bundling compatibility
- * 
- * When the API is bundled with esbuild, glob patterns like '**/*.ts'
- * don't work. This file explicitly imports all migrations for TypeORM.
- * 
+ *
+ * When the API is bundled with esbuild, glob patterns do not work.
+ * This file explicitly imports all migrations for TypeORM.
+ *
  * IMPORTANT: Migrations must be listed in chronological order!
  */
 

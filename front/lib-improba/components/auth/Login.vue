@@ -112,9 +112,9 @@ import { useRules } from 'src/../lib-improba/composables/use-rules';
 import { createDialog } from 'src/../lib-improba/utils/dialog.utils';
 
 export default defineComponent({
-  props: {},
+  name: 'AuthLoginForm',
   components: {},
-  setup(props, { emit }) {
+  setup() {
     const formRef = ref(null);
     const $q = useQuasar();
     // const screen = $q.screen;

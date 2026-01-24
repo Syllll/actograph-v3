@@ -1,4 +1,6 @@
-const electronApi = window.api;
+// Ce service est uniquement utilisé en mode Electron où window.api est toujours défini
+// L'assertion non-null (!) indique à TypeScript que window.api existe dans ce contexte
+const electronApi = window.api!;
 
 export default {
   exit: () => electronApi.invoke('exit'),

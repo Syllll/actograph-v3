@@ -4,27 +4,14 @@
     <template v-if="chronicle.hasChronicle.value">
       <q-card class="chronicle-card q-mb-md">
         <q-card-section class="chronicle-header">
-          <div class="row items-center justify-between">
-            <div class="row items-center">
-              <q-avatar color="accent" text-color="white" icon="mdi-clipboard-text" size="48px" class="q-mr-md" />
-              <div>
-                <div class="text-h6">{{ chronicle.sharedState.currentChronicle?.name }}</div>
-                <div class="text-caption text-grey">
-                  {{ chronicle.sharedState.currentChronicle?.description || 'Aucune description' }}
-                </div>
+          <div class="row items-center">
+            <q-avatar color="accent" text-color="white" icon="mdi-clipboard-text" size="48px" class="q-mr-md" />
+            <div>
+              <div class="text-h6">{{ chronicle.sharedState.currentChronicle?.name }}</div>
+              <div class="text-caption text-grey">
+                {{ chronicle.sharedState.currentChronicle?.description || 'Aucune description' }}
               </div>
             </div>
-            <!-- Cloud button for loaded chronicle -->
-            <q-btn
-              round
-              flat
-              color="primary"
-              icon="mdi-cloud-upload"
-              @click="methods.uploadCurrentChronicle"
-              :loading="state.uploadingId === chronicle.sharedState.currentChronicle?.id"
-            >
-              <q-tooltip>Envoyer vers le cloud</q-tooltip>
-            </q-btn>
           </div>
         </q-card-section>
 
@@ -92,48 +79,20 @@
           Créez ou chargez une chronique pour commencer
         </div>
 
-        <div class="row q-gutter-md justify-center">
-          <q-btn
-            color="accent"
-            label="Nouvelle chronique"
-            icon="mdi-plus"
-            @click="state.showCreateDialog = true"
-            size="lg"
-            unelevated
-          />
-          <q-btn
-            color="primary"
-            label="Cloud"
-            icon="mdi-cloud"
-            @click="methods.openCloud"
-            size="lg"
-            unelevated
-          >
-            <q-badge v-if="cloud.sharedState.isAuthenticated" color="positive" floating>
-              <q-icon name="mdi-check" size="12px" />
-            </q-badge>
-          </q-btn>
-        </div>
+        <q-btn
+          color="accent"
+          label="Nouvelle chronique"
+          icon="mdi-plus"
+          @click="state.showCreateDialog = true"
+          size="lg"
+          unelevated
+        />
       </div>
 
       <!-- Liste des chroniques existantes -->
       <q-card v-if="state.chronicles.length > 0" class="chronicles-list q-mt-md">
         <q-card-section class="q-pb-none">
-          <div class="row items-center justify-between">
-            <div class="text-subtitle1 text-weight-medium">Chroniques sur l'appareil</div>
-            <q-btn
-              flat
-              dense
-              color="primary"
-              icon="mdi-cloud"
-              label="Cloud"
-              @click="methods.openCloud"
-            >
-              <q-badge v-if="cloud.sharedState.isAuthenticated" color="positive" floating rounded>
-                {{ cloud.chroniclesCount.value }}
-              </q-badge>
-            </q-btn>
-          </div>
+          <div class="text-subtitle1 text-weight-medium">Chroniques sur l'appareil</div>
         </q-card-section>
 
         <q-list separator>
@@ -153,24 +112,7 @@
               </q-item-label>
             </q-item-section>
             <q-item-section side>
-              <div class="row items-center q-gutter-xs">
-                <!-- Upload to cloud button -->
-                <q-btn
-                  round
-                  flat
-                  dense
-                  color="primary"
-                  icon="mdi-cloud-upload"
-                  @click.stop="methods.uploadChronicle(chr.id, chr.name)"
-                  :loading="state.uploadingId === chr.id"
-                  :disable="cloud.isCloudFull.value && cloud.sharedState.isAuthenticated"
-                >
-                  <q-tooltip>
-                    {{ cloud.isCloudFull.value ? 'Cloud plein (10/10)' : 'Envoyer vers le cloud' }}
-                  </q-tooltip>
-                </q-btn>
-                <q-icon name="mdi-chevron-right" color="grey-5" />
-              </div>
+              <q-icon name="mdi-chevron-right" color="grey-5" />
             </q-item-section>
           </q-item>
         </q-list>
@@ -180,16 +122,82 @@
       <div v-else class="text-center q-mt-xl text-grey">
         <q-icon name="mdi-clipboard-text-off-outline" size="48px" />
         <div class="q-mt-sm">Aucune chronique enregistrée</div>
-        <q-btn
-          flat
-          color="primary"
-          label="Télécharger depuis le cloud"
-          icon="mdi-cloud-download"
-          class="q-mt-md"
-          @click="methods.openCloud"
-        />
       </div>
     </template>
+
+    <!-- Section Cloud - Toujours visible -->
+    <q-card class="cloud-card q-mt-md">
+      <q-card-section class="cloud-header">
+        <div class="row items-center justify-between">
+          <div class="row items-center">
+            <q-avatar 
+              :color="cloud.sharedState.isAuthenticated ? 'primary' : 'grey-5'" 
+              text-color="white" 
+              icon="mdi-cloud" 
+              size="40px" 
+              class="q-mr-md" 
+            />
+            <div>
+              <div class="text-subtitle1 text-weight-medium">Cloud ActoGraph</div>
+              <div v-if="cloud.sharedState.isAuthenticated" class="text-caption text-grey">
+                {{ cloud.sharedState.currentEmail }}
+              </div>
+              <div v-else class="text-caption text-grey">
+                Non connecté
+              </div>
+            </div>
+          </div>
+          <q-chip 
+            v-if="cloud.sharedState.isAuthenticated" 
+            :color="cloud.isCloudFull.value ? 'warning' : 'primary'" 
+            text-color="white" 
+            dense
+            class="q-ml-sm"
+          >
+            {{ cloud.chroniclesCount.value }}/{{ cloud.cloudLimit }}
+          </q-chip>
+        </div>
+      </q-card-section>
+
+      <q-card-section class="q-pt-none">
+        <div class="row q-gutter-sm">
+          <!-- Bouton principal : Connexion ou Voir le cloud -->
+          <q-btn
+            v-if="!cloud.sharedState.isAuthenticated"
+            color="primary"
+            label="Se connecter"
+            icon="mdi-login"
+            @click="methods.openCloud"
+            class="col"
+            unelevated
+          />
+          <template v-else>
+            <q-btn
+              color="primary"
+              label="Voir le cloud"
+              icon="mdi-cloud-search"
+              @click="methods.openCloudSyncDialog"
+              class="col"
+              unelevated
+            />
+            <!-- Bouton upload pour chronique active -->
+            <q-btn
+              v-if="chronicle.hasChronicle.value"
+              color="accent"
+              icon="mdi-cloud-upload"
+              @click="methods.uploadCurrentChronicle"
+              :loading="state.uploadingId === chronicle.sharedState.currentChronicle?.id"
+              :disable="cloud.isCloudFull.value"
+              unelevated
+            >
+              <q-tooltip>
+                {{ cloud.isCloudFull.value ? 'Cloud plein' : 'Envoyer la chronique active' }}
+              </q-tooltip>
+            </q-btn>
+          </template>
+        </div>
+      </q-card-section>
+    </q-card>
 
     <!-- Dialog création -->
     <q-dialog v-model="state.showCreateDialog">
@@ -460,5 +468,15 @@ export default defineComponent({
 .create-dialog {
   border-radius: 12px;
   overflow: hidden;
+}
+
+.cloud-card {
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0.02) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.cloud-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 </style>
