@@ -394,6 +394,26 @@ export class MyController extends BaseController {
 - Créer une migration vide avec : `yarn migration:create api/migrations/MigrationName`
 - **TOUJOURS exécuter les migrations dans le conteneur Docker API**
 
+#### Génération automatique des indexes (Entités et Migrations)
+
+**Problème résolu** : Quand l'API est bundlée avec esbuild, les glob patterns TypeORM ne fonctionnent pas. Les fichiers `all-entities.ts` et `all-migrations.ts` résolvent ce problème en important explicitement toutes les entités et migrations.
+
+**Comment ça fonctionne** :
+- Le script `api/scripts/generate-indexes.js` scanne automatiquement :
+  - Tous les fichiers `*.entity.ts` dans `api/src/` → génère `api/src/database/all-entities.ts`
+  - Tous les fichiers `*.ts` dans `api/migrations/` → génère `api/src/database/all-migrations.ts`
+- Ces fichiers sont **auto-générés** et ne doivent pas être édités manuellement
+
+**Quand est-ce exécuté** :
+- **Automatiquement lors du build de production** (CI/CD) : Le script est appelé en Step 1/4 dans `quasar.config.js` avant le build NestJS
+- **Manuellement** : `yarn generate:indexes` (dans le dossier `api/`)
+- **Avec le bundle** : `yarn build:bundle` (génère les indexes puis bundle avec esbuild)
+
+**Conséquence pratique** :
+- Lors du développement, il n'est **pas nécessaire** de mettre à jour manuellement `all-migrations.ts` ou `all-entities.ts`
+- Le script de build CI régénère ces fichiers automatiquement à partir des fichiers sources
+- Les nouvelles migrations et entités sont automatiquement découvertes et incluses dans le bundle
+
 #### Repositories
 - Les repositories doivent étendre `BaseRepository<Entity>` ou utiliser le décorateur `@CustomRepository()`
 - Utiliser `@InjectRepository()` dans les services pour injecter les repositories

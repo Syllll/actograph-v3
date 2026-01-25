@@ -44,19 +44,102 @@ function findFiles(dir, pattern, files = []) {
 }
 
 /**
- * Extract class name from a TypeScript file
- * Looks for: export class ClassName
+ * Extract entity class name from a TypeScript file
+ * Looks for: @Entity() decorator followed by export class ClassName
  */
 function extractClassName(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   
-  // Match: export class ClassName (possibly with extends/implements)
-  const match = content.match(/export\s+class\s+(\w+)/);
+  // Match: @Entity(...) followed by export class ClassName
+  // The @Entity decorator indicates this is the actual TypeORM entity
+  const match = content.match(/@Entity\([^)]*\)\s*(?:export\s+)?class\s+(\w+)/);
   if (match) {
     return match[1];
   }
   
+  // Fallback: if no @Entity decorator found, try to match export class
+  const fallbackMatch = content.match(/export\s+class\s+(\w+)/);
+  if (fallbackMatch) {
+    return fallbackMatch[1];
+  }
+  
   return null;
+}
+
+/**
+ * Extract entity dependencies from a TypeScript file
+ * Looks for imports from other .entity files
+ */
+function extractEntityDependencies(filePath) {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const dependencies = [];
+  
+  // Match imports from entity files: import { ClassName } from '...entity'
+  // This covers both relative paths and alias paths like @auth-jwt/entities/user-jwt.entity
+  const importRegex = /import\s*\{([^}]+)\}\s*from\s*['"][^'"]*\.entity['"]/g;
+  let match;
+  
+  while ((match = importRegex.exec(content)) !== null) {
+    // Extract class names from the import (handle multiple imports like { A, B })
+    const imports = match[1].split(',').map(s => s.trim()).filter(s => s);
+    dependencies.push(...imports);
+  }
+  
+  return dependencies;
+}
+
+/**
+ * Topological sort of entities based on their dependencies
+ * Entities that are dependencies of others should come first
+ */
+function topologicalSortEntities(entities) {
+  // Build dependency graph
+  const entityMap = new Map(); // className -> entity object
+  const dependencyGraph = new Map(); // className -> Set of dependency classNames
+  
+  for (const entity of entities) {
+    entityMap.set(entity.className, entity);
+    const deps = extractEntityDependencies(entity.filePath);
+    // Filter to only include dependencies that are actual entities in our list
+    const entityDeps = deps.filter(dep => entities.some(e => e.className === dep));
+    dependencyGraph.set(entity.className, new Set(entityDeps));
+  }
+  
+  // Kahn's algorithm for topological sort
+  const result = [];
+  const visited = new Set();
+  const visiting = new Set();
+  
+  function visit(className) {
+    if (visited.has(className)) return;
+    if (visiting.has(className)) {
+      // Circular dependency - just continue (TypeORM can handle some circular refs)
+      console.warn(`Warning: Circular dependency detected involving ${className}`);
+      return;
+    }
+    
+    visiting.add(className);
+    
+    // Visit dependencies first
+    const deps = dependencyGraph.get(className) || new Set();
+    for (const dep of deps) {
+      visit(dep);
+    }
+    
+    visiting.delete(className);
+    visited.add(className);
+    
+    if (entityMap.has(className)) {
+      result.push(entityMap.get(className));
+    }
+  }
+  
+  // Visit all entities
+  for (const entity of entities) {
+    visit(entity.className);
+  }
+  
+  return result;
 }
 
 /**
@@ -90,15 +173,17 @@ function generateEntitiesIndex() {
     }
   }
   
-  // Sort by class name for consistency
-  entities.sort((a, b) => a.className.localeCompare(b.className));
+  // Sort entities topologically based on dependencies
+  // Entities that are dependencies of others (e.g., UserJwt is used by User) come first
+  // This is important for TypeORM metadata resolution in bundled mode
+  const sortedEntities = topologicalSortEntities(entities);
   
   // Generate the file content
-  const imports = entities.map(e => 
+  const imports = sortedEntities.map(e => 
     `import { ${e.className} } from '${e.relativePath}';`
   ).join('\n');
   
-  const exports = entities.map(e => `  ${e.className},`).join('\n');
+  const exports = sortedEntities.map(e => `  ${e.className},`).join('\n');
   
   const content = `/**
  * AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
@@ -107,12 +192,18 @@ function generateEntitiesIndex() {
  * Run \`yarn generate:indexes\` to regenerate.
  * 
  * Generated: ${new Date().toISOString()}
- * Entities found: ${entities.length}
+ * Entities found: ${sortedEntities.length}
+ * 
+ * IMPORTANT: Entities are sorted topologically based on their dependencies.
+ * Entities that are referenced by other entities (e.g., UserJwt is used by User)
+ * are listed first. This ordering is critical for TypeORM metadata resolution
+ * when the API is bundled with esbuild.
  */
 
 ${imports}
 
 // Export all entities as an array for TypeORM configuration
+// Order matters! Dependencies must be loaded before entities that reference them.
 export const AllEntities = [
 ${exports}
 ];
@@ -120,7 +211,7 @@ ${exports}
 
   const outputPath = path.join(DATABASE_DIR, 'all-entities.ts');
   fs.writeFileSync(outputPath, content);
-  console.log(`✅ Generated ${outputPath} with ${entities.length} entities`);
+  console.log(`✅ Generated ${outputPath} with ${sortedEntities.length} entities`);
 }
 
 /**
