@@ -478,7 +478,9 @@ module.exports = configure(function (/* ctx */) {
           category: 'public.app-category.utilities',
           target: [
             // We build for both arch but not here, directly in the workflow github
-            { target: 'dmg' },
+            // Using 'zip' instead of 'dmg' to avoid hdiutil "Resource busy" errors on CI
+            // Users can still create DMG locally if needed
+            { target: 'zip' },
           ],
           // Use store compression for faster builds (like Windows)
           // Trade-off: slightly larger file size but much faster build
