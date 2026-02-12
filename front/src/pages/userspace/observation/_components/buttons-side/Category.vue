@@ -47,7 +47,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, PropType, reactive } from 'vue';
+import { defineComponent, computed, PropType, reactive, onBeforeUnmount } from 'vue';
 import { ProtocolItem, ProtocolItemActionEnum } from '@services/observations/protocol.service';
 import SwitchButton from './SwitchButton.vue';
 import PressButton from './PressButton.vue';
@@ -329,6 +329,16 @@ export default defineComponent({
         document.addEventListener('touchend', methods.handleDragEnd as unknown as EventListener);
       }
     };
+
+    // Cleanup des event listeners si le composant est détruit pendant un drag
+    onBeforeUnmount(() => {
+      if (state.isDragging) {
+        document.removeEventListener('mousemove', methods.handleDragMove);
+        document.removeEventListener('touchmove', methods.handleDragMove as unknown as EventListener);
+        document.removeEventListener('mouseup', methods.handleDragEnd);
+        document.removeEventListener('touchend', methods.handleDragEnd as unknown as EventListener);
+      }
+    });
 
     return {
       state,

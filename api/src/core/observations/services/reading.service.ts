@@ -148,7 +148,6 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
     const readings = await this.readingRepository.find({
       where: { observation: { id: options.observationIdToCopyFrom } },
     });
-    console.log('readings', readings);
     if (readings.length === 0) {
       return;
     }

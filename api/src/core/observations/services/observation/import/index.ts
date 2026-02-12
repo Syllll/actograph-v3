@@ -116,7 +116,7 @@ export class Import {
     originalName: string,
     userId: number,
   ): Promise<string> {
-    const existingObservations = await this.observationService.find.findAllForuser(userId);
+    const existingObservations = await this.observationService.find.findAllForUser(userId);
     const nameExists = existingObservations.some(
       (obs) => obs.name === originalName,
     );

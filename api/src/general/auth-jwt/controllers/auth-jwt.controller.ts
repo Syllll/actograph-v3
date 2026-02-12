@@ -101,7 +101,7 @@ export class AuthJwtController extends BaseController {
    * @route POST /auth-jwt/refreshToken
    */
   @Post('refreshToken')
-  async refreshToekn(@Body('token') token: string) {
+  async refreshToken(@Body('token') token: string) {
     let jwt: string | null = null;
     try {
       // Créer un nouveau token à partir de l'ancien (même payload, nouvelle expiration)
@@ -161,7 +161,7 @@ export class AuthJwtController extends BaseController {
       }
     } else {
       throw new HttpException(
-        'Creation  not authorized',
+        'Creation not authorized',
         HttpStatus.UNAUTHORIZED,
       );
     }

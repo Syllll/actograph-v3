@@ -217,10 +217,6 @@ export class ReadingController extends BaseController {
   ) {
     const user = req.user;
 
-    // Debug: log the received body BEFORE validation
-    console.log('[ReadingController] Received updateMany request (raw):', JSON.stringify(req.body, null, 2));
-    console.log('[ReadingController] Received updateMany request (validated):', JSON.stringify(body, null, 2));
-
     // Check if user can access observation
     await this.observationService.check.canUserAccessObservation({
       observationId: body.observationId,

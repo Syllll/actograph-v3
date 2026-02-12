@@ -155,7 +155,7 @@ export class ObservationController extends BaseController {
   @Roles(UserRoleEnum.User)
   async findAllForCurrentUser(@Req() req: any): Promise<Observation[]> {
     const user = req.user;
-    return this.observationService.find.findAllForuser(user.id);
+    return this.observationService.find.findAllForUser(user.id);
   }
 
   @Post('clone-example')

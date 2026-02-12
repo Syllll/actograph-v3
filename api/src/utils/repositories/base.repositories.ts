@@ -320,7 +320,6 @@ export class BaseRepository<
         // Special cases for: CONTAINS, IN, EXISTS, NOT EXISTS, IS NULL
         // We will override the standard case values
         if (cond.operator === OperatorEnum.CONTAINS && cond.key) {
-          console.log('type', typeof cond.value, cond.value);
           // If the value is a string, we will cast the db array to text[] to avoid type issues
           // If it is not, we do nothing and assume the user knows what he is doing
           if (typeof cond.value === 'string') {

@@ -86,7 +86,6 @@ export class BaseService<Entity extends ObjectLiteral, Repository> {
           .replace(/[-TZ:]/g, '')}.${extension}`,
       );
       filepath = path.join(folder, filename);
-      console.log({ extension, filepath });
     }
     fs.appendFileSync(filepath, file.buffer, {
       flag: 'wx',

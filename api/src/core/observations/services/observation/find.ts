@@ -39,7 +39,7 @@ export class Find {
     return matchingObservations.length;
   }
 
-  async findAllForuser(userId: number): Promise<Observation[]> {
+  async findAllForUser(userId: number): Promise<Observation[]> {
     return this.observationRepository.find({
       where: {
         user: { id: userId },
