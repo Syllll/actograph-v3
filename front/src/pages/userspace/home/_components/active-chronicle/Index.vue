@@ -121,6 +121,18 @@
                 flat
               />
               <q-btn
+                icon="merge_type"
+                label="Fusionner"
+                @click="methods.mergeObservations"
+                outline
+                color="primary"
+                no-caps
+                class="col-auto"
+                flat
+              >
+                <q-tooltip>Fusionner deux chroniques</q-tooltip>
+              </q-btn>
+              <q-btn
                 :icon="cloud.sharedState.isAuthenticated ? 'mdi-cloud-sync' : 'mdi-cloud-upload'"
                 label="Cloud"
                 @click="methods.openCloud"
@@ -142,52 +154,76 @@
         <template v-else>
           <div class="empty-state q-pa-md q-mb-md text-center full-width">
             <q-icon name="mdi-folder-open-outline" size="64px" class="text-grey-5 q-mb-md" />
-            <div class="text-body1 text-grey-7 q-mb-lg">
+            <div class="text-body1 text-grey-7 q-mb-sm">
               Aucune chronique n'est actuellement chargée.
             </div>
-            <div class="text-body2 text-grey-6 q-mb-md">
+            <div class="text-body2 text-grey-6">
               Créez-en une nouvelle ou importez une chronique existante.
             </div>
           </div>
 
           <!-- Boutons d'action -->
           <div class="q-px-md q-pb-md full-width">
-            <div class="column q-gutter-sm">
+            <div class="column q-gutter-md">
+              <!-- Action principale -->
               <DSubmitBtn
                 label="Nouvelle chronique"
+                icon="mdi-plus"
                 @click="methods.createNewObservation"
               />
-              <q-btn
-                label="Importer"
-                @click="methods.importObservation"
-                outline
-                color="primary"
-                no-caps
-                class="full-width"
-              />
-              <q-btn
-                label="Exporter"
-                @click="methods.exportObservation"
-                outline
-                color="primary"
-                no-caps
-                :disable="!observation.sharedState.currentObservation"
-                class="full-width"
-              />
-              <q-btn
-                label="Enregistrer sous..."
-                @click="methods.saveAsObservation"
-                outline
-                color="primary"
-                no-caps
-                :disable="!observation.sharedState.currentObservation"
-                class="full-width"
-              />
+
+              <!-- Import / Export côte à côte -->
+              <div class="row q-gutter-sm">
+                <q-btn
+                  icon="mdi-file-import"
+                  label="Importer"
+                  @click="methods.importObservation"
+                  outline
+                  color="primary"
+                  no-caps
+                  class="col"
+                />
+                <q-btn
+                  icon="mdi-file-export"
+                  label="Exporter"
+                  @click="methods.exportObservation"
+                  outline
+                  color="primary"
+                  no-caps
+                  :disable="!observation.sharedState.currentObservation"
+                  class="col"
+                />
+              </div>
+
+              <!-- Fusionner et Enregistrer sous -->
+              <div class="row q-gutter-sm">
+                <q-btn
+                  icon="merge_type"
+                  label="Fusionner"
+                  @click="methods.mergeObservations"
+                  outline
+                  color="primary"
+                  no-caps
+                  class="col"
+                />
+                <q-btn
+                  icon="mdi-content-save-edit"
+                  label="Enregistrer sous..."
+                  @click="methods.saveAsObservation"
+                  outline
+                  color="primary"
+                  no-caps
+                  :disable="!observation.sharedState.currentObservation"
+                  class="col"
+                />
+              </div>
+
+              <!-- Cloud -->
               <q-btn
                 :icon="cloud.sharedState.isAuthenticated ? 'mdi-cloud-sync' : 'mdi-cloud-upload'"
                 :label="cloud.sharedState.isAuthenticated ? 'Gérer le cloud' : 'Se connecter au cloud'"
                 @click="methods.openCloud"
-                outline
+                flat
                 color="primary"
                 no-caps
                 class="full-width"
@@ -224,6 +260,7 @@ import { exportService } from '@services/observations/export.service';
 import { importService } from '@services/observations/import.service';
 import { protocolService } from '@services/observations/protocol.service';
 import SaveAsDialog from './SaveAsDialog.vue';
+import MergeObservationsDialog from '../my-observations/MergeObservationsDialog.vue';
 
 export default defineComponent({
   name: 'ActiveChronicle',
@@ -623,6 +660,40 @@ export default defineComponent({
           $q.notify({
             type: 'negative',
             message: 'Erreur lors de l\'export de la chronique',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+          });
+        }
+      },
+
+      mergeObservations: async () => {
+        const mergedObservation = await createDialog({
+          component: MergeObservationsDialog,
+          componentProps: {},
+          persistent: true,
+        });
+
+        if (!mergedObservation || typeof mergedObservation !== 'object') {
+          return;
+        }
+
+        try {
+          await observation.methods.loadObservation(mergedObservation.id);
+
+          await nextTick();
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          $q.notify({
+            type: 'positive',
+            message: 'Chroniques fusionnées avec succès',
+            caption: mergedObservation.name,
+          });
+
+          await router.push({ name: 'user_home' });
+        } catch (error) {
+          console.error('Erreur lors du chargement de la chronique fusionnée:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors du chargement de la chronique fusionnée',
             caption: error instanceof Error ? error.message : 'Erreur inconnue',
           });
         }

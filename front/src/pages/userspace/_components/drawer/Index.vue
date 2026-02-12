@@ -30,12 +30,6 @@
               @click="methods.startObservation"
             />
             <d-action-btn
-              icon="merge_type"
-              tooltip="Fusionner deux chroniques"
-              label="Fusionner"
-              @click="methods.mergeObservations"
-            />
-            <d-action-btn
               icon="mdi-file-import"
               tooltip="Importer une chronique"
               label="Importer depuis un fichier"
@@ -193,7 +187,6 @@ import { userMenuItems } from '@lib-improba/components/layouts/standard/user-men
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import CreateObservationDialog from '@pages/userspace/home/_components/active-chronicle/CreateObservationDialog.vue';
-import MergeObservationsDialog from '@pages/userspace/home/_components/my-observations/MergeObservationsDialog.vue';
 import { exportService } from '@services/observations/export.service';
 import { importService } from '@services/observations/import.service';
 import { protocolService } from '@services/observations/protocol.service';
@@ -317,40 +310,6 @@ export default defineComponent({
           $q.notify({
             type: 'negative',
             message: 'Erreur lors de la création de la chronique',
-            caption: error instanceof Error ? error.message : 'Erreur inconnue',
-          });
-        }
-      },
-
-      mergeObservations: async () => {
-        const mergedObservation = await createDialog({
-          component: MergeObservationsDialog,
-          componentProps: {},
-          persistent: true,
-        });
-
-        if (!mergedObservation || typeof mergedObservation !== 'object') {
-          return;
-        }
-
-        try {
-          await observation.methods.loadObservation(mergedObservation.id);
-
-          await nextTick();
-          await new Promise((resolve) => setTimeout(resolve, 100));
-
-          $q.notify({
-            type: 'positive',
-            message: 'Chroniques fusionnées avec succès',
-            caption: mergedObservation.name,
-          });
-
-          await router.push({ name: 'user_home' });
-        } catch (error) {
-          console.error('Erreur lors du chargement de la chronique fusionnée:', error);
-          $q.notify({
-            type: 'negative',
-            message: 'Erreur lors du chargement de la chronique fusionnée',
             caption: error instanceof Error ? error.message : 'Erreur inconnue',
           });
         }
