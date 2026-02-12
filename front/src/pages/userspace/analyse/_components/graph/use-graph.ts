@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { onMounted, onUnmounted, reactive, watch } from 'vue';
 import { PixiApp } from '@actograph/graph';
 import { useObservation } from 'src/composables/use-observation';
 import { IObservation, IProtocol, IReading } from '@services/observations/interface';

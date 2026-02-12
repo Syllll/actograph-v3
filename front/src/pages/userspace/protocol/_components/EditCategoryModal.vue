@@ -58,6 +58,8 @@
       <DSubmitBtn
         @click="editCategory"
         label="Enregistrer"
+        :disable="state.loading"
+        :loading="state.loading"
       />
     </template>
   </DDialog>

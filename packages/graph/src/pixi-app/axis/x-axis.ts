@@ -2,9 +2,12 @@ import { Application, Container, Text } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
 import type { IReading, IObservation } from '@actograph/core';
-import { ObservationModeEnum } from '@actograph/core';
+import { ObservationModeEnum, ReadingTypeEnum } from '@actograph/core';
 import { YAxis } from './y-axis';
-import { formatFromDate } from '../../utils/duration.utils';
+import {
+  formatAxisLabel,
+  formatChronoAxisLabel,
+} from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 
 const timeSteps = {
@@ -55,6 +58,11 @@ export class xAxis extends BaseGroup {
   private pixelsPerMsec = 0;
   private axisStartTimeInMsec = 0;
   private axisEndTimeInMsec = 0;
+  /** Min/max timestamps from setData (START/STOP or sorted bounds) */
+  private minTimeInMsec = 0;
+  private maxTimeInMsec = 0;
+  /** Total duration in ms for adaptive label formatting (Bug 3.9) */
+  private totalDurationMs = 0;
 
   private styleOptions = {
     axis: { color: 'black', width: 2 },
@@ -114,6 +122,11 @@ export class xAxis extends BaseGroup {
     this.labelsContainer.removeChildren();
     this.ticks = [];
     this.pixelsPerMsec = 0;
+    this.axisStartTimeInMsec = 0;
+    this.axisEndTimeInMsec = 0;
+    this.minTimeInMsec = 0;
+    this.maxTimeInMsec = 0;
+    this.totalDurationMs = 0;
     super.clear();
   }
 
@@ -127,11 +140,39 @@ export class xAxis extends BaseGroup {
 
     this.readings = readings;
 
-    const minReading = readings[0];
-    const maxReading = readings[readings.length - 1];
+    // Bug 3.3: Use START and STOP readings for axis bounds (not array order)
+    const sortedByTime = [...readings].sort((a, b) => {
+      const ta = new Date(a.dateTime).getTime();
+      const tb = new Date(b.dateTime).getTime();
+      return ta - tb;
+    });
 
-    const minTimeInMsec = new Date(minReading.dateTime).getTime();
-    const maxTimeInMsec = new Date(maxReading.dateTime).getTime();
+    const startReading = readings.find((r) => r.type === ReadingTypeEnum.START);
+    const stopReading = readings.find((r) => r.type === ReadingTypeEnum.STOP);
+
+    let minTimeInMsec: number;
+    let maxTimeInMsec: number;
+
+    if (startReading && stopReading) {
+      minTimeInMsec = new Date(startReading.dateTime).getTime();
+      maxTimeInMsec = new Date(stopReading.dateTime).getTime();
+    } else {
+      // Fallback: use first and last by chronological order
+      minTimeInMsec = new Date(sortedByTime[0]!.dateTime).getTime();
+      maxTimeInMsec = new Date(sortedByTime[sortedByTime.length - 1]!.dateTime).getTime();
+    }
+
+    // Bug 3.8: Guard against invalid dates (NaN)
+    if (!Number.isFinite(minTimeInMsec)) minTimeInMsec = Date.now();
+    if (!Number.isFinite(maxTimeInMsec)) maxTimeInMsec = minTimeInMsec + 1;
+
+    // Bug 3.8: Ensure min <= max (chronological order)
+    if (minTimeInMsec > maxTimeInMsec) {
+      [minTimeInMsec, maxTimeInMsec] = [maxTimeInMsec, minTimeInMsec];
+    }
+    this.minTimeInMsec = minTimeInMsec;
+    this.maxTimeInMsec = maxTimeInMsec;
+    this.totalDurationMs = maxTimeInMsec - minTimeInMsec;
 
     const idealTimeStep = (maxTimeInMsec - minTimeInMsec) / 5;
 
@@ -154,7 +195,9 @@ export class xAxis extends BaseGroup {
 
     const ticks: { dateTime: Date; label: string }[] = [];
 
-    const firstTickTimeInMsec = Math.round(minTimeInMsec / mainTimeStepInMsec) * mainTimeStepInMsec;
+    // Bug 3.3: First tick at or after min (axis should not start at 0h00 when data starts at 6h06)
+    const firstTickTimeInMsec =
+      Math.ceil(minTimeInMsec / mainTimeStepInMsec) * mainTimeStepInMsec;
 
     let currentTimeInMsec = firstTickTimeInMsec;
     while (currentTimeInMsec <= maxTimeInMsec + mainTimeStepInMsec) {
@@ -163,19 +206,13 @@ export class xAxis extends BaseGroup {
 
         let label: string;
         if (this.observation?.mode === ObservationModeEnum.Chronometer) {
-          label = formatFromDate(dateTime, CHRONOMETER_T0);
+          label = formatChronoAxisLabel(
+            dateTime,
+            CHRONOMETER_T0,
+            this.totalDurationMs
+          );
         } else {
-          label = dateTime
-            .toLocaleDateString('fr-FR', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              fractionalSecondDigits: 3,
-            })
-            .replace(/\//g, '-');
+          label = formatAxisLabel(dateTime, this.totalDurationMs);
         }
 
         ticks.push({ dateTime, label });
@@ -235,28 +272,35 @@ export class xAxis extends BaseGroup {
     this.graphic.fill({ color: this.styleOptions.axis.color });
 
     const axisLengthInPixels = xAxisEnd.x - xAxisStart.x - 20;
-    const startReading = this.readings[0];
+
+    // Bug 3.3: Use stored min/max from setData (START/STOP bounds)
+    this.axisStartTimeInMsec = this.minTimeInMsec;
+    this.axisEndTimeInMsec = this.maxTimeInMsec;
+
+    // Bug 3.8: Guard against zero or negative duration (avoids NaN/Infinity)
+    let axisTimeLengthInMsec = this.maxTimeInMsec - this.minTimeInMsec;
+    if (axisTimeLengthInMsec <= 0 || !Number.isFinite(axisTimeLengthInMsec)) {
+      axisTimeLengthInMsec = 1; // 1ms minimum to avoid division by zero
+    }
+
+    const pixelsPerMsec = axisLengthInPixels / axisTimeLengthInMsec;
+    this.pixelsPerMsec = Number.isFinite(pixelsPerMsec) ? pixelsPerMsec : 0;
 
     if (this.ticks.length === 0) {
       console.warn('No ticks generated for X axis');
+      this.visible = true;
+      this.alpha = 1;
       return;
     }
 
-    const endTickTimeInMsecs = new Date(this.ticks[this.ticks.length - 1].dateTime).getTime();
-
-    const startTimeInMsecs = new Date(startReading.dateTime).getTime();
-    const endTimeInMsecs = endTickTimeInMsecs;
-    this.axisStartTimeInMsec = startTimeInMsecs;
-    this.axisEndTimeInMsec = endTimeInMsecs;
-
-    const axisTimeLengthInMsec = endTimeInMsecs - startTimeInMsecs;
-
-    const pixelsPerMsec = axisLengthInPixels / axisTimeLengthInMsec;
-    this.pixelsPerMsec = pixelsPerMsec;
-
     for (const tick of this.ticks) {
       const tickTimeInMsec = new Date(tick.dateTime).getTime();
-      const tickXpos = xAxisStart.x + (tickTimeInMsec - this.axisStartTimeInMsec) * pixelsPerMsec;
+      let tickXpos = xAxisStart.x + (tickTimeInMsec - this.axisStartTimeInMsec) * this.pixelsPerMsec;
+
+      // Bug 3.8: Skip invalid positions (NaN, Infinity)
+      if (!Number.isFinite(tickXpos)) {
+        continue;
+      }
 
       tick.pos = tickXpos;
 

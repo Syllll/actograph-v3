@@ -4,11 +4,13 @@ import {
   LicenseTypeEnum,
 } from '@core/security/entities/license.entity';
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'node:crypto';
 import { BaseService } from '@utils/services/base.service';
 import {
   Observation,
@@ -31,6 +33,7 @@ import { Example } from './example';
 import { Export } from './export';
 import { Import } from './import';
 import { ProtocolItemTypeEnum, ReadingTypeEnum } from '@actograph/core';
+import { ProtocolItem } from '../../entities/protocol.entity';
 
 @Injectable()
 export class ObservationService extends BaseService<
@@ -261,5 +264,186 @@ export class ObservationService extends BaseService<
     }
 
     return savedObservation;
+  }
+
+  /**
+   * Merge two observations into a new one.
+   * - Combines protocols (union of categories by name, merge observables for common categories)
+   * - Copies all readings from both observations
+   * - Creates a new activity graph (generated from data)
+   */
+  public async merge(options: {
+    userId: number;
+    sourceObservationId1: number;
+    sourceObservationId2: number;
+    name: string;
+    description?: string;
+  }): Promise<Observation> {
+    const user = options.userId;
+
+    // Load both observations with protocol and readings
+    const obs1 = await this.findOne(options.sourceObservationId1, {
+      relations: ['protocol', 'readings', 'user'],
+    });
+    const obs2 = await this.findOne(options.sourceObservationId2, {
+      relations: ['protocol', 'readings', 'user'],
+    });
+
+    if (!obs1 || !obs2) {
+      throw new NotFoundException('One or both observations not found');
+    }
+
+    // Verify ownership
+    if (obs1.user?.id !== user || obs2.user?.id !== user) {
+      throw new UnauthorizedException(
+        'You cannot merge observations you do not own',
+      );
+    }
+
+    if (obs1.id === obs2.id) {
+      throw new BadRequestException(
+        'Cannot merge an observation with itself',
+      );
+    }
+
+    // Create the new observation
+    const mergedObservation = await this.create({
+      userId: user,
+      name: options.name,
+      description: options.description,
+      protocol: this.mergeProtocols(obs1, obs2),
+      readings: [],
+      activityGraph: {},
+    });
+
+    // Copy readings from both observations
+    const allReadings: { name: string; type: ReadingTypeEnum; dateTime: Date }[] = [];
+
+    if (obs1.readings) {
+      for (const r of obs1.readings) {
+        allReadings.push({
+          name: r.name ?? '',
+          type: r.type,
+          dateTime: r.dateTime,
+        });
+      }
+    }
+    if (obs2.readings) {
+      for (const r of obs2.readings) {
+        allReadings.push({
+          name: r.name ?? '',
+          type: r.type,
+          dateTime: r.dateTime,
+        });
+      }
+    }
+
+    if (allReadings.length > 0) {
+      await this.readingService.createMany(
+        allReadings.map((r) => ({
+          ...r,
+          observationId: mergedObservation.id,
+        })),
+      );
+    }
+
+    return mergedObservation;
+  }
+
+  /**
+   * Merge protocols from two observations.
+   * - Takes all categories from observation 1
+   * - Adds categories from observation 2 that don't exist (by name)
+   * - For common categories (same name), merges observables (adds observables from obs2 that don't exist by name)
+   */
+  private mergeProtocols(
+    obs1: Pick<Observation, 'protocol'>,
+    obs2: Pick<Observation, 'protocol'>,
+  ): {
+    name?: string;
+    description?: string;
+    categories?: {
+      name: string;
+      description?: string;
+      observables?: { name: string }[];
+    }[];
+  } {
+    const items1 = this.parseProtocolItems(obs1.protocol?.items);
+    const items2 = this.parseProtocolItems(obs2.protocol?.items);
+
+    const mergedCategories: ProtocolItem[] = [];
+
+    // Process categories from obs1
+    for (const cat1 of items1) {
+      if (cat1.type !== ProtocolItemTypeEnum.Category) continue;
+      const cat2 = items2.find(
+        (c) => c.type === ProtocolItemTypeEnum.Category && c.name === cat1.name,
+      );
+      const mergedCategory = this.mergeCategory(cat1, cat2);
+      mergedCategories.push(mergedCategory);
+    }
+
+    // Add categories from obs2 that don't exist in obs1
+    for (const cat2 of items2) {
+      if (cat2.type !== ProtocolItemTypeEnum.Category) continue;
+      const exists = mergedCategories.some((c) => c.name === cat2.name);
+      if (!exists) {
+        mergedCategories.push(this.cloneCategoryWithNewIds(cat2));
+      }
+    }
+
+    // Convert to the format expected by create()
+    return {
+      categories: mergedCategories.map((cat) => ({
+        name: cat.name,
+        description: cat.description ?? undefined,
+        observables: (cat.children ?? []).map((o) => ({ name: o.name })),
+      })),
+    };
+  }
+
+  private parseProtocolItems(itemsStr: string | undefined): ProtocolItem[] {
+    if (!itemsStr) return [];
+    try {
+      return JSON.parse(itemsStr);
+    } catch {
+      return [];
+    }
+  }
+
+  private mergeCategory(
+    cat1: ProtocolItem,
+    cat2: ProtocolItem | undefined,
+  ): ProtocolItem {
+    const base = this.cloneCategoryWithNewIds(cat1);
+    if (!cat2?.children) return base;
+
+    const existingNames = new Set(
+      (base.children ?? []).map((o) => o.name.toLowerCase()),
+    );
+    for (const obs of cat2.children) {
+      if (obs.type === ProtocolItemTypeEnum.Observable) {
+        if (!existingNames.has(obs.name.toLowerCase())) {
+          base.children = base.children ?? [];
+          base.children.push({
+            ...obs,
+            id: randomUUID(),
+          });
+          existingNames.add(obs.name.toLowerCase());
+        }
+      }
+    }
+    return base;
+  }
+
+  private cloneCategoryWithNewIds(cat: ProtocolItem): ProtocolItem {
+    return {
+      ...cat,
+      id: randomUUID(),
+      children: (cat.children ?? []).map((o) => ({
+        ...o,
+        id: randomUUID(),
+      })),
+    };
   }
 }

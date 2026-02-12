@@ -6,14 +6,18 @@
         class="col-auto"
         v-model:search="search"
         :has-selected="hasSelectedReading"
+        :match-count="filteredReadings.length"
         :is-add-disabled="false"
         :can-activate-chronometer-mode="canActivateChronometerMode"
         :current-mode="currentObservationMode || undefined"
         @add-reading="handleAddReading"
+        @add-comment="handleAddComment"
         @remove-reading="handleRemoveReading"
         @remove-all-readings="handleRemoveAllReadings"
         @activate-chronometer-mode="handleActivateChronometerMode"
         @auto-correct-readings="handleAutoCorrectReadings"
+        @replace-selected="handleReplaceSelected"
+        @replace-all="handleReplaceAll"
       />
 
       <div class="col table-wrapper">
@@ -27,10 +31,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue';
+import { defineComponent, ref, computed, watch, onUnmounted, nextTick } from 'vue';
 import { useReadings } from 'src/composables/use-observation/use-readings';
 import { IReading, ReadingTypeEnum, ObservationModeEnum } from '@services/observations/interface';
-import { v4 as uuidv4 } from 'uuid';
 import ReadingsToolbar from './ReadingsToolbar.vue';
 import ReadingsTable from './ReadingsTable.vue';
 import { useObservation } from 'src/composables/use-observation';
@@ -161,6 +164,52 @@ export default defineComponent({
       });
     };
 
+    // Handler for adding a comment (Bug 2.7 - Bouton Commentaire BULLE)
+    // Opens a prompt dialog, then creates a reading with name '# ' + commentText
+    // Uses current observation timestamp (currentDate + elapsedTime)
+    const handleAddComment = async () => {
+      if (!observation.sharedState.currentObservation) {
+        $q.notify({ type: 'negative', message: 'Aucune chronique chargée' });
+        return;
+      }
+
+      const commentText = await createDialog({
+        title: 'Ajouter un commentaire',
+        message: 'Votre commentaire...',
+        prompt: {
+          model: '',
+          type: 'text',
+        },
+        cancel: 'Annuler',
+        ok: {
+          label: 'Ajouter',
+          color: 'primary',
+        },
+        persistent: true,
+      });
+
+      if (commentText === false || commentText === undefined) return;
+
+      const trimmed = String(commentText).trim();
+      if (!trimmed) return;
+
+      const newReading = methods.addReading({
+        name: '# ' + trimmed,
+        type: ReadingTypeEnum.DATA,
+        currentDate: observation.sharedState.currentDate || new Date(),
+        elapsedTime: observation.sharedState.elapsedTime ?? 0,
+      });
+
+      nextTick(() => {
+        const readingToSelect = sharedState.currentReadings.find(
+          (r: IReading) =>
+            (newReading.tempId && r.tempId === newReading.tempId) ||
+            (newReading.id && r.id === newReading.id)
+        );
+        selectedReading.value = readingToSelect ? [readingToSelect] : [newReading];
+      });
+    };
+
     // Handler for removing all readings
     // This clears the entire readings list
     const handleRemoveAllReadings = () => {
@@ -221,6 +270,31 @@ export default defineComponent({
           caption: `${result.actions.length} correction(s) ont été appliquée(s) avec succès.`,
         });
       });
+    };
+
+    // Handler for replace selected reading (Rechercher/Remplacer)
+    const handleReplaceSelected = async (replaceValue: string) => {
+      if (selectedReading.value.length === 0) return;
+      const reading = selectedReading.value[0];
+      const searchTerm = search.value;
+      if (!searchTerm) return;
+      const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'gi');
+      reading.name = (reading.name ?? '').replace(regex, replaceValue);
+      await methods.synchronizeReadings();
+    };
+
+    // Handler for replace all filtered readings (Rechercher/Remplacer)
+    const handleReplaceAll = async ({ search: searchTerm, replace: replaceValue }: { search: string; replace: string }) => {
+      const searchLower = searchTerm.toLowerCase();
+      const escapedSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedSearch, 'gi');
+      for (const reading of filteredReadings.value) {
+        if (reading.name?.toLowerCase().includes(searchLower)) {
+          reading.name = reading.name.replace(regex, replaceValue);
+        }
+      }
+      await methods.synchronizeReadings();
     };
 
     // Handler for activating chronometer mode
@@ -294,8 +368,11 @@ export default defineComponent({
       currentObservationMode,
       canActivateChronometerMode,
       handleAddReading,
+      handleAddComment,
       handleRemoveReading,
       handleRemoveAllReadings,
+      handleReplaceSelected,
+      handleReplaceAll,
       handleActivateChronometerMode,
       handleAutoCorrectReadings,
     };

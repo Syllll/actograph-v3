@@ -357,9 +357,10 @@ export const useReadings = (options: {
         const isChronometerMode = observationSharedState?.currentObservation?.mode === 'chronometer';
         
         if (isChronometerMode) {
-          // In chronometer mode, currentDate is already t0 + elapsedTime
-          // Use it directly without adding elapsedTime again
-          newReading.dateTime = new Date(options.currentDate.getTime());
+          // Bug 2b.1 : Clamp to t0 minimum - évite les horodatages négatifs (-2ms)
+          const dateTimeMs = options.currentDate.getTime();
+          const t0Ms = CHRONOMETER_T0.getTime();
+          newReading.dateTime = new Date(Math.max(dateTimeMs, t0Ms));
         } else {
           // In calendar mode, add elapsedTime to currentDate
           newReading.dateTime = new Date(
@@ -536,7 +537,11 @@ export const useReadings = (options: {
         elapsedTime: observationSharedState.elapsedTime || 0,
       });
     },
+    // Bug 2b.2 : En mode vidéo, ne pas enregistrer les événements pause
     addPauseStartReading: async () => {
+      const isVideoMode = observationSharedState?.currentObservation?.mode === 'chronometer'
+        && !!observationSharedState?.currentObservation?.videoPath;
+      if (isVideoMode) return;
       methods.addReading({
         name: 'Début de pause',
         type: ReadingTypeEnum.PAUSE_START,
@@ -545,6 +550,9 @@ export const useReadings = (options: {
       });
     },
     addPauseEndReading: async () => {
+      const isVideoMode = observationSharedState?.currentObservation?.mode === 'chronometer'
+        && !!observationSharedState?.currentObservation?.videoPath;
+      if (isVideoMode) return;
       methods.addReading({
         name: 'Fin de pause',
         type: ReadingTypeEnum.PAUSE_END,

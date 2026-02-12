@@ -49,6 +49,8 @@ import {
   IsEnum,
 } from 'class-validator';
 import { UpdateProtocolItemGraphPreferencesDto } from '../dtos/protocol-item-graph-preferences.dto';
+import { CloneProtocolDto } from '../dtos/clone-protocol.dto';
+
 class AddProtocolItemDto {
   @IsNotEmpty()
   @IsString()
@@ -126,6 +128,92 @@ export class ProtocolController extends BaseController {
     private readonly activityGraphService: ActivityGraphService,
   ) {
     super();
+  }
+
+  /**
+   * Clone un protocole d'une observation source vers une observation cible.
+   * Route déclarée AVANT les routes avec paramètres dynamiques (important pour le routage NestJS).
+   */
+  @Post('clone')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User, ...allMainUsers)
+  async cloneProtocol(
+    @Req() req: any,
+    @Body() body: CloneProtocolDto,
+  ) {
+    const user = req.user;
+
+    // Vérifier que source et cible sont différentes
+    if (body.sourceObservationId === body.targetObservationId) {
+      throw new BadRequestException(
+        'Source and target observations must be different',
+      );
+    }
+
+    // Vérifier l'accès à l'observation source
+    await this.observationService.check.canUserAccessObservation({
+      observationId: body.sourceObservationId,
+      userId: user.id,
+    });
+
+    // Vérifier l'accès à l'observation cible
+    await this.observationService.check.canUserAccessObservation({
+      observationId: body.targetObservationId,
+      userId: user.id,
+    });
+
+    // Récupérer l'observation source avec son protocole
+    const sourceObservation = await this.observationService.findOne(
+      body.sourceObservationId,
+      { relations: ['protocol'] },
+    );
+
+    if (!sourceObservation || !sourceObservation.protocol) {
+      throw new NotFoundException(
+        'Source observation or protocol not found',
+      );
+    }
+
+    // Cloner le protocole
+    const cloned = await this.protocolService.clone({
+      protocolId: sourceObservation.protocol.id,
+      observationIdToCopyTo: body.targetObservationId,
+      newUserId: user.id,
+    });
+
+    return cloned;
+  }
+
+  /**
+   * IMPORTANT: Route plus spécifique déclarée AVANT item/:id pour éviter
+   * que PATCH item/:id n'intercepte les requêtes graph-preferences (bug 3.2)
+   */
+  @Patch('item/:protocolId/:itemId/graph-preferences')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async updateItemGraphPreferences(
+    @Param('protocolId', ParseIntPipe) protocolId: number,
+    @Param('itemId') itemId: string,
+    @Body() body: UpdateProtocolItemGraphPreferencesDto,
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    const protocol = await this.protocolService.findOne(protocolId, {
+      relations: ['observation'],
+    });
+    if (!protocol?.observation) {
+      throw new NotFoundException('Protocol not found');
+    }
+    await this.observationService.check.canUserAccessObservation({
+      observationId: protocol.observation.id,
+      userId: user.id,
+    });
+
+    return await this.protocolService.items.updateItemGraphPreferences({
+      protocolId: protocolId,
+      itemId,
+      preferences: body,
+    });
   }
 
   @Delete('item/:protocolId/:itemId')

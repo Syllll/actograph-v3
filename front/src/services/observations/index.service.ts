@@ -36,6 +36,12 @@ export interface IObservationService {
   ): Promise<IObservation>;
   exportObservation(id: number): Promise<IChronicExport>;
   importObservation(file: File): Promise<IObservation>;
+  merge(options: {
+    sourceObservationId1: number;
+    sourceObservationId2: number;
+    name: string;
+    description?: string;
+  }): Promise<IObservation>;
 }
 
 export const observationService: IObservationService = {
@@ -129,6 +135,15 @@ export const observationService: IObservationService = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+  merge: async (options: {
+    sourceObservationId1: number;
+    sourceObservationId2: number;
+    name: string;
+    description?: string;
+  }): Promise<IObservation> => {
+    const response = await api().post(`${apiUrl}/observations/merge`, options);
     return response.data;
   },
 };

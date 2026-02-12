@@ -218,6 +218,23 @@ export const protocolService = {
   },
 
   /**
+   * Clone un protocole d'une observation source vers une observation cible
+   */
+  async cloneProtocol(
+    sourceObservationId: number,
+    targetObservationId: number
+  ): Promise<IProtocol> {
+    const response = await api().post(
+      `${apiUrl}/observations/protocols/clone`,
+      {
+        sourceObservationId,
+        targetObservationId,
+      }
+    );
+    return response.data;
+  },
+
+  /**
    * Récupère les préférences graphiques d'un observable avec héritage depuis sa catégorie parente
    */
   async getObservableGraphPreferencesWithInheritance(

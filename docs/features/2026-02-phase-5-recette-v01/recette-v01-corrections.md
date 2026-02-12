@@ -39,7 +39,7 @@
 
 ## Chapitre 0 - Page d'accueil / Tableau de bord
 
-### 0.1 Identifiant utilisateur tronqué [P2] [BUG] ❌
+### 0.1 Identifiant utilisateur tronqué [P2] [BUG] ✅
 **Constat** : L'identifiant est tronqué ("valer" au lieu du nom complet).
 **Fichiers concernés** :
 - `front/src/pages/userspace/home/Index.vue` ou composants d'affichage du profil
@@ -52,7 +52,7 @@
 
 ---
 
-### 0.2 Langue FR non indiquée [P3] [UX] ❌
+### 0.2 Langue FR non indiquée [P3] [UX] ✅
 **Constat** : La langue française n'est pas indiquée dans l'interface.
 **Fichiers concernés** :
 - `front/src/pages/userspace/home/Index.vue`
@@ -64,7 +64,7 @@
 
 ---
 
-### 0.3 "Save As" - Impossible de sauvegarder sous un autre nom [P1] [BUG] ❌
+### 0.3 "Save As" - Impossible de sauvegarder sous un autre nom [P1] [BUG] ✅
 **Constat** : On ne peut pas sauvegarder une chronique sous un autre nom. Script : charger "Exemple", modifier, vouloir sauvegarder sous un nouveau nom → impossible.
 **Fichiers concernés** :
 - `front/src/services/observations/autosave.service.ts`
@@ -78,7 +78,7 @@
 
 ---
 
-### 0.4 Fenêtre blanche bloquante au chargement [P2] [BUG] ❌
+### 0.4 Fenêtre blanche bloquante au chargement [P2] [BUG] ✅
 **Constat** : Lors du chargement d'une chronique, une fenêtre blanche s'ouvre et bloque l'utilisation de l'ordinateur pendant 5 à 8 secondes.
 **Fichiers concernés** :
 - `front/src/composables/use-autosave/index.ts`
@@ -91,7 +91,7 @@
 
 ---
 
-### 0.5 Dossier par défaut inconnu [P2] [BUG] ❌
+### 0.5 Dossier par défaut inconnu [P2] [BUG] ✅
 **Constat** : L'utilisateur ne sait pas où se trouve le fichier sauvegardé. Le dossier par défaut devrait être "Mes Documents" et non le dossier système Actograph.
 **Fichiers concernés** :
 - `front/src/services/observations/autosave.service.ts`
@@ -99,13 +99,13 @@
 - Configuration Electron (si applicable)
 
 **Tâches** :
-- [ ] Changer le dossier par défaut vers "Mes Documents" de l'utilisateur
-- [ ] Afficher le chemin du fichier quelque part dans l'interface (tooltip ou info)
-- [ ] Vérifier la cohérence entre mode web et mode Electron
+- [x] Le dossier par défaut est Documents/Actograph (Mes Documents/Actograph) — déjà correct dans electron-main
+- [x] Afficher le chemin du fichier dans la notification + bouton "Ouvrir le dossier" après export
+- [x] showOpenDialog utilise Documents/Actograph par défaut quand aucun path fourni
 
 ---
 
-### 0.6 Historique - Date de dernière modification incorrecte [P2] [BUG] ❌
+### 0.6 Historique - Date de dernière modification incorrecte [P2] [BUG] ✅
 **Constat** : L'historique des chroniques affiche les fichiers, mais la date de dernière modification est incorrecte.
 **Fichiers concernés** :
 - `front/src/pages/userspace/home/Index.vue` (section historique)
@@ -119,7 +119,7 @@
 
 ---
 
-### 0.7 Cloud - Envoi vers le cloud : chroniques introuvables [P2] [BUG] ❌
+### 0.7 Cloud - Envoi vers le cloud : chroniques introuvables [P2] [BUG] ✅
 **Constat** (Script 0.1) : L'envoi vers le Cloud ouvre "Mes Documents" mais l'utilisateur ne sait pas où sont ses chroniques.
 **Fichiers concernés** :
 - `front/src/composables/use-cloud/index.ts`
@@ -132,7 +132,7 @@
 
 ---
 
-### 0.8 Cloud - Import ancienne chronique : erreur 401 [P1] [BUG] ❌
+### 0.8 Cloud - Import ancienne chronique : erreur 401 [P1] [BUG] ✅
 **Constat** (Script 0.1) : L'import d'une ancienne chronique affiche "erreur status code 401".
 **Fichiers concernés** :
 - `front/src/services/cloud/actograph-cloud.service.ts`
@@ -146,7 +146,7 @@
 
 ---
 
-### 0.9 Lien ActoGraph.io incorrect [P3] [BUG] ❌
+### 0.9 Lien ActoGraph.io incorrect [P3] [BUG] ✅
 **Constat** : Le lien vers le site devrait pointer vers `https://www.actograph.io/web/fr/software/tutorial` et non vers la page générale.
 **Fichiers concernés** :
 - `front/src/pages/userspace/home/Index.vue` ou composant de liens
@@ -157,7 +157,7 @@
 
 ---
 
-### 0.10 Import chronique (Script 0.2) - Erreurs d'affichage [P1] [BUG] ❌
+### 0.10 Import chronique (Script 0.2) - Erreurs d'affichage [P1] [BUG] ✅
 **Constat** : Après import d'une chronique exportée :
 - Onglet Accueil : mentions "! Failed to load…" et "! No data available"
 - Onglet Graph : volet droit visible mais zone du graph vide
@@ -175,7 +175,7 @@
 
 ---
 
-### 0.11 Aide interactive résidente et/ou en ligne [P4] [FEATURE] ❌
+### 0.11 Aide interactive résidente et/ou en ligne [P4] [FEATURE] ✅
 **Constat** : La fonction d'aide interactive (résidente ou en ligne) n'existe pas encore.
 **Fichiers concernés** :
 - `front/src/pages/userspace/home/Index.vue`
@@ -186,7 +186,7 @@
 
 ---
 
-### 0.12 Préférences utilisateur [P4] [FEATURE] ❌
+### 0.12 Préférences utilisateur [P4] [FEATURE] ✅
 **Constat** : Le menu préférences n'est pas encore implémenté.
 **Fichiers concernés** :
 - `front/src/pages/userspace/` (nouvelle page ou modale)
@@ -198,7 +198,7 @@
 
 ---
 
-### 0.13 Fusionner 2 chroniques [P4] [FEATURE] ❌
+### 0.13 Fusionner 2 chroniques [P4] [FEATURE] ✅
 **Constat** : La fonction de fusion de deux chroniques n'existe pas encore.
 **Fichiers concernés** :
 - `front/src/services/observations/` (nouveau service)
@@ -213,7 +213,7 @@
 
 ## Chapitre 1 - Protocole
 
-### 1.1 Changement de type de catégorie met le protocole en erreur persistante [P1] [BUG] ❌
+### 1.1 Changement de type de catégorie met le protocole en erreur persistante [P1] [BUG] ✅
 **Constat** (Script 1.1) : Changer une catégorie continue en "discret" ne fonctionne pas ET ensuite bloque toute modification ultérieure du protocole. Même revenir au mode "continu" échoue. Sur le graph, les couleurs ne peuvent plus être changées. La tuile historique affiche "no data available" et la chronique Exemple ne peut plus être chargée.
 
 > **Note** : Ce bug est lié à la tâche 3.6 (type événement non modifiable sur le graphe).
@@ -237,7 +237,7 @@
 
 ---
 
-### 1.2 Caractériser les catégories - fonction manquante [P3] [FEATURE] ❌
+### 1.2 Caractériser les catégories - fonction manquante [P3] [FEATURE] ⏸️
 **Constat** : La fonction "caractériser" une catégorie (au-delà du nom et type) n'existe pas encore.
 **Fichiers concernés** :
 - `front/src/pages/userspace/protocol/` (composants de catégorie)
@@ -249,7 +249,7 @@
 
 ---
 
-### 1.3 Caractériser les observables - fonction manquante [P3] [FEATURE] ❌
+### 1.3 Caractériser les observables - fonction manquante [P3] [FEATURE] ⏸️
 **Constat** : La fonction "caractériser" un observable n'existe pas encore.
 **Fichiers concernés** :
 - `front/src/pages/userspace/protocol/` (composants d'observable)
@@ -261,7 +261,7 @@
 
 ---
 
-### 1.4 Dupliquer une catégorie / déplacer vers une autre catégorie [P4] [FEATURE] ❌
+### 1.4 Dupliquer une catégorie / déplacer vers une autre catégorie [P4] [FEATURE] ✅
 **Constat** (Bonus) : Valérie mentionne le souhait de pouvoir dupliquer une catégorie et déplacer des observables dans une boîte ou vers une autre catégorie.
 **Fichiers concernés** :
 - `front/src/pages/userspace/protocol/`
@@ -279,7 +279,7 @@
 > in situ et le mode vidéo. Elles sont regroupées ici pour éviter les doublons et les conflits
 > de fichiers entre agents.
 
-### 2.1 Boutons observables actifs pas assez visibles [P2] [UX] ❌
+### 2.1 Boutons observables actifs pas assez visibles [P2] [UX] ✅
 **Constat** : Aussi bien en mode continu qu'événement, aussi bien en in situ qu'en vidéo, le bouton actif (ON) n'est pas assez visible. L'utilisateur ne distingue pas clairement l'état actif.
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/` et `_components/` (composant bouton partagé)
@@ -293,7 +293,7 @@
 
 ---
 
-### 2.2 Réorganisation des boutons : catégorie inaccessible [P1] [BUG] ❌
+### 2.2 Réorganisation des boutons : catégorie inaccessible [P1] [BUG] ✅
 **Constat** : Dès qu'on déplace une catégorie pour réorganiser, elle va se loger tout à gauche et devient inaccessible.
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/Index.vue` et `_components/`
@@ -307,7 +307,7 @@
 
 ---
 
-### 2.3 Impossible de cliquer sur les boutons sans enregistrement [P2] [BUG] ❌
+### 2.3 Impossible de cliquer sur les boutons sans enregistrement [P2] [BUG] ✅
 **Constat** : Sans lancer l'enregistrement, on ne peut pas agir sur les boutons. L'utilisateur a besoin de :
 - Tester les boutons pour comprendre le fonctionnement
 - Positionner l'état par défaut AVANT de lancer l'enregistrement
@@ -324,7 +324,7 @@
 
 ---
 
-### 2.4 Impossible de cliquer sur les boutons en pause [P1] [BUG] ❌
+### 2.4 Impossible de cliquer sur les boutons en pause [P1] [BUG] ✅
 **Constat** : Après le démarrage, on ne peut pas se mettre en pause pour cliquer tranquillement. En mode vidéo, c'est particulièrement important car on s'arrête souvent pour observer.
 
 **Comportement attendu** :
@@ -342,7 +342,7 @@
 
 ---
 
-### 2.5 Différencier "supprimer une ligne" et "effacer la liste" [P3] [UX] ❌
+### 2.5 Différencier "supprimer une ligne" et "effacer la liste" [P3] [UX] ✅
 **Constat** : Il faut mieux différencier visuellement et fonctionnellement la suppression d'une seule ligne vs l'effacement complet de la liste. Concerne les deux modes (in situ et vidéo).
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/` (composant tableau des relevés, partagé)
@@ -354,7 +354,7 @@
 
 ---
 
-### 2.6 Erreurs "Observable non reconnu" non signalées [P2] [BUG] ❌
+### 2.6 Erreurs "Observable non reconnu" non signalées [P2] [BUG] ✅
 **Constat** : Les erreurs d'observable non reconnu ne sont pas visibles dans la liste des relevés. Elles devraient apparaître en rouge. Concerne les deux modes (in situ et vidéo).
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/` (composant tableau des relevés, partagé)
@@ -366,7 +366,7 @@
 
 ---
 
-### 2.7 Bouton Commentaire BULLE [P3] [FEATURE] ❌
+### 2.7 Bouton Commentaire BULLE [P3] [FEATURE] ✅
 **Constat** : La fonctionnalité de commentaire horodaté (bulle) serait utile à implémenter.
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/Index.vue`
@@ -379,7 +379,7 @@
 
 ---
 
-### 2.8 Sélection d'observable via menu déroulant [P3] [FEATURE] ❌
+### 2.8 Sélection d'observable via menu déroulant [P3] [FEATURE] ✅
 **Constat** : Dans la liste des relevés, la saisie/modification d'un observable devrait pouvoir se faire via un menu déroulant. Les catégories en couleur et les observables en noir pour une meilleure lisibilité. Fonction à créer. Concerne les deux modes (in situ et vidéo).
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/` (composant tableau des relevés, partagé)
@@ -392,7 +392,7 @@
 
 ---
 
-### 2.9 Rechercher/Remplacer dans les relevés [P4] [FEATURE] ❌
+### 2.9 Rechercher/Remplacer dans les relevés [P4] [FEATURE] ✅
 **Constat** : Fonction de recherche et remplacement dans la liste des relevés à créer. Concerne les deux modes.
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/` (composant tableau des relevés, partagé)
@@ -409,7 +409,7 @@
 > **Note** : Cette section ne contient que les bugs/features **spécifiques** au mode vidéo.
 > Les composants partagés (boutons, tableau des relevés, etc.) sont dans le Chapitre 2.
 
-### 2b.1 Premiers relevés commencent en négatif (-2ms) [P2] [BUG] ❌
+### 2b.1 Premiers relevés commencent en négatif (-2ms) [P2] [BUG] ✅
 **Constat** : Les premiers relevés en mode vidéo commencent avec un horodatage négatif (-2ms). Valérie note "pas indispensable à ce stade".
 **Fichiers concernés** :
 - `front/src/composables/use-observation/use-readings.ts`
@@ -422,7 +422,7 @@
 
 ---
 
-### 2b.2 Le mode pause ne devrait pas être enregistré [P2] [BUG] ❌
+### 2b.2 Le mode pause ne devrait pas être enregistré [P2] [BUG] ✅
 **Constat** : En mode vidéo, les pauses sont fréquentes (workflow normal). Le mode pause ne devrait pas être enregistré dans la liste des relevés.
 **Fichiers concernés** :
 - `front/src/composables/use-observation/use-readings.ts`
@@ -434,7 +434,7 @@
 
 ---
 
-### 2b.3 Édition horodatage : mauvais timestamp et modification non prise en compte [P1] [BUG] ❌
+### 2b.3 Édition horodatage : mauvais timestamp et modification non prise en compte [P1] [BUG] ✅
 **Constat** : En mode vidéo, quand on édite l'horodatage d'un relevé, la boîte de dialogue qui s'ouvre affiche le timestamp d'une autre ligne. Et la modification ne prend pas.
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/` (composant édition de relevé)
@@ -448,7 +448,7 @@
 
 ---
 
-### 2b.4 Copier-coller ne fonctionne que pour les libellés [P3] [BUG] ❌
+### 2b.4 Copier-coller ne fonctionne que pour les libellés [P3] [BUG] ✅
 **Constat** : En mode vidéo, le copier-coller ne fonctionne que pour les libellés et pas pour les autres champs (horodatage, etc.).
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/` (composant tableau des relevés)
@@ -459,7 +459,7 @@
 
 ---
 
-### 2b.5 Récupérer/copier un protocole existant [P3] [FEATURE] ❌
+### 2b.5 Récupérer/copier un protocole existant [P3] [FEATURE] ✅
 **Constat** : La fonction pour récupérer ou copier un protocole existant lors de la création d'une chronique vidéo n'existe pas encore. L'activation du protocole à la création de la chronique est aussi mentionnée.
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/` (mode vidéo)
@@ -473,7 +473,7 @@
 
 ---
 
-### 2b.6 Détacher les fenêtres Vidéo et boutons [P4] [FEATURE] ❌
+### 2b.6 Détacher les fenêtres Vidéo et boutons [P4] [FEATURE] ✅
 **Constat** : Possibilité de détacher les fenêtres Vidéo et Boutons serait très utile.
 **Fichiers concernés** :
 - `front/src/pages/userspace/observation/Index.vue`
@@ -486,7 +486,7 @@
 
 ## Chapitre 3 - Chronique d'activité (Graphe)
 
-### 3.1 Première catégorie invisible à partir de 4 catégories [P1] [BUG] ❌
+### 3.1 Première catégorie invisible à partir de 4 catégories [P1] [BUG] ✅
 **Constat** : À partir de 4 catégories, la première catégorie n'est pas visible sur le graphe (problème d'axe des ordonnées).
 **Fichiers concernés** :
 - `front/src/pages/userspace/analyse/Index.vue` et `_components/`
@@ -499,7 +499,7 @@
 
 ---
 
-### 3.2 Changement vers mode Frise échoue [P1] [BUG] ❌
+### 3.2 Changement vers mode Frise échoue [P1] [BUG] ✅
 **Constat** : Le changement de mode d'affichage vers "Frise" ne prend pas. Message : "Erreur lors de la mise à jour des préférences". Le mode Frise ne peut pas être choisi.
 **Fichiers concernés** :
 - `front/src/pages/userspace/analyse/` (panel de préférences)
@@ -515,7 +515,7 @@
 
 ---
 
-### 3.3 Plage temporelle incorrecte [P2] [BUG] ❌
+### 3.3 Plage temporelle incorrecte [P2] [BUG] ✅
 **Constat** : La plage de l'axe des abscisses n'est pas toujours correcte.
 **Fichiers concernés** :
 - `front/src/pages/userspace/analyse/` (composant graphe)
@@ -528,7 +528,7 @@
 
 ---
 
-### 3.4 Affichage ne se rafraîchit pas après modification d'horodatage [P2] [BUG] ❌
+### 3.4 Affichage ne se rafraîchit pas après modification d'horodatage [P2] [BUG] ✅
 **Constat** : Le graphe ne se réactualise pas quand on change l'horodatage des relevés dans l'onglet Observations.
 **Fichiers concernés** :
 - `front/src/pages/userspace/analyse/Index.vue`
@@ -541,7 +541,7 @@
 
 ---
 
-### 3.5 Mode Arrière-plan ne fonctionne pas correctement [P2] [BUG] ❌
+### 3.5 Mode Arrière-plan ne fonctionne pas correctement [P2] [BUG] ⚠️
 **Constat** : Le mode arrière-plan est inopérant. Il devrait demander "arrière-plan de quelle catégorie ?" pour savoir quelle catégorie afficher en arrière-plan.
 **Fichiers concernés** :
 - `front/src/pages/userspace/analyse/` (panel de préférences)
@@ -554,7 +554,7 @@
 
 ---
 
-### 3.6 Type événement ne peut être changé après définition initiale [P2] [BUG] ❌
+### 3.6 Type événement ne peut être changé après définition initiale [P2] [BUG] ✅
 **Constat** : Le type événement ne fonctionne que s'il est défini au début dans le protocole. Il ne peut pas être changé après.
 
 > **Note** : Ce bug est lié à la tâche 1.1 (changement de type de catégorie).
@@ -571,7 +571,7 @@
 
 ---
 
-### 3.7 Couleurs ne persistent pas (Script 3.1) [P1] [BUG] ❌
+### 3.7 Couleurs ne persistent pas (Script 3.1) [P1] [BUG] ✅
 **Constat** : Les changements de couleurs prennent temporairement mais ne restent pas. Quand on change à nouveau, elles redeviennent vertes. Le changement de couleur prend sur les Observables mais pas sur la catégorie. Si on change une couleur d'observable, les autres reviennent au vert.
 **Fichiers concernés** :
 - `front/src/pages/userspace/analyse/` (panel couleurs)
@@ -587,7 +587,7 @@
 
 ---
 
-### 3.8 Axes disparaissent lors de modification du start (Script 3.2) [P2] [BUG] ❌
+### 3.8 Axes disparaissent lors de modification du start (Script 3.2) [P2] [BUG] ✅
 **Constat** : Avec un start à 15h59, le graph s'affiche normalement. En modifiant le start à 01h59, les axes X et Y disparaissent (même si le graphique s'ajuste en se tassant à droite). En remettant 15h59, les axes se réaffichent.
 **Fichiers concernés** :
 - `front/src/pages/userspace/analyse/` (composant graphe, amCharts)
@@ -600,7 +600,7 @@
 
 ---
 
-### 3.9 Affichage échelle en diagonale - formats temporels [P3] [FEATURE] ❌
+### 3.9 Affichage échelle en diagonale - formats temporels [P3] [FEATURE] ✅
 **Constat** : L'affichage de l'échelle de l'axe X avec des formats temporels variables (JJ.MM.AAAA hh:mn:sec:ms, JJ.MM.AAAA, hh.mn, hh.mn.sec, mn.sec, mn.sec.ms) n'est pas fonctionnel.
 **Fichiers concernés** :
 - `front/src/pages/userspace/analyse/` (composant graphe, amCharts)
@@ -613,7 +613,7 @@
 
 ---
 
-### 3.10 Export graphe (JPEG, PNG, légende) [P3] [FEATURE] ❌
+### 3.10 Export graphe (JPEG, PNG, légende) [P3] [FEATURE] ✅
 **Constat** : Les fonctions d'export du graphe en JPEG, PNG, et export séparé de la légende sont à créer.
 **Fichiers concernés** :
 - `front/src/pages/userspace/analyse/Index.vue`
@@ -627,7 +627,7 @@
 
 ---
 
-### 3.11 Ordre d'affichage des ordonnées non paramétrable [P3] [FEATURE] ❌
+### 3.11 Ordre d'affichage des ordonnées non paramétrable [P3] [FEATURE] ✅
 **Constat** : L'ordre d'affichage des catégories sur l'axe Y n'est pas paramétrable. La fonction de changement de l'ordre dans le Protocole reste à créer.
 
 > **Note** : Cette tâche touche à la fois le protocole (Agent B) et le graphe (Agent D).
@@ -648,7 +648,7 @@
 
 ## Chapitre 4 - Statistiques
 
-### 4.1 Totaux incorrects avec relevés vidéo [P2] [BUG] ❌
+### 4.1 Totaux incorrects avec relevés vidéo [P2] [BUG] ✅
 **Constat** : Dans "Statistiques par catégorie", les totaux ne semblent pas bons lorsque les données proviennent d'un relevé vidéo.
 **Fichiers concernés** :
 - `front/src/composables/use-statistics/index.ts`
@@ -663,7 +663,7 @@
 
 ---
 
-### 4.2 Statistiques combinées : observables de la catégorie étudiée dans le menu [P2] [BUG] ❌
+### 4.2 Statistiques combinées : observables de la catégorie étudiée dans le menu [P2] [BUG] ✅
 **Constat** : Dans le menu [+ ajouter une condition] des diagrammes combinés, les observables de la "catégorie à étudier" choisie au-dessus ne devraient pas figurer (pour éviter de combiner une catégorie avec elle-même).
 **Fichiers concernés** :
 - `front/src/pages/userspace/statistics/Index.vue` et `_components/`

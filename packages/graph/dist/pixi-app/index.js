@@ -458,6 +458,18 @@ export class PixiApp {
     getZoomLevel() {
         return this.zoomState.scale;
     }
+    /**
+     * Exporte le graphique sous forme d'image (data URL)
+     * @param format - Format de l'image : 'png' ou 'jpeg'
+     * @param quality - Qualité JPEG (0-1), ignoré pour PNG
+     * @returns Data URL de l'image ou null si le canvas n'est pas disponible
+     */
+    exportAsImage(format = 'png', quality = 0.92) {
+        if (!this.app.canvas)
+            return null;
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+        return this.app.canvas.toDataURL(mimeType, quality);
+    }
     destroy() {
         if (this.app.canvas && this.app.canvas._zoomPanHandlers) {
             const handlers = this.app.canvas._zoomPanHandlers;

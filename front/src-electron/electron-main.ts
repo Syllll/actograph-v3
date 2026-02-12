@@ -397,6 +397,22 @@ ipcMain.on('open-external', (event, url: string) => {
   shell.openExternal(url);
 });
 
+ipcMain.handle('show-item-in-folder', async (event, filePath: string) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      shell.showItemInFolder(filePath);
+      return { success: true };
+    }
+    return { success: false, error: 'File not found' };
+  } catch (error) {
+    log.error('Error showing item in folder:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+});
+
 ipcMain.handle('get-actograph-folder', async (event) => {
   // Get the Documents directory path
   const documentsPath = app.getPath('documents');
@@ -586,9 +602,10 @@ ipcMain.handle('show-open-dialog', async (event, options: {
     return { canceled: true };
   }
 
-  // Utiliser le dossier Actograph si fourni, sinon Mes Documents
+  // Utiliser le dossier fourni, sinon Documents/Actograph (dossier chroniques)
   const documentsPath = app.getPath('documents');
-  const defaultPath = options.defaultPath || documentsPath;
+  const actographFolder = path.join(documentsPath, 'Actograph');
+  const defaultPath = options.defaultPath || actographFolder;
   
   const result = await dialog.showOpenDialog(mainWindow, {
     defaultPath,

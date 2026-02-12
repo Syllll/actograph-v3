@@ -40,6 +40,27 @@
         >
           <q-tooltip>Réinitialiser la vue</q-tooltip>
         </q-btn>
+        <q-separator v-if="showSeparatorBeforeReset" vertical />
+        <q-btn
+          flat
+          round
+          dense
+          icon="mdi-image-outline"
+          color="grey-8"
+          @click="methods.exportAsPng"
+        >
+          <q-tooltip>Exporter en PNG</q-tooltip>
+        </q-btn>
+        <q-btn
+          flat
+          round
+          dense
+          icon="mdi-file-jpg-box"
+          color="grey-8"
+          @click="methods.exportAsJpeg"
+        >
+          <q-tooltip>Exporter en JPEG</q-tooltip>
+        </q-btn>
       </div>
     </div>
 
@@ -55,8 +76,10 @@
 
 <script lang="ts">
 import { defineComponent, ref, reactive, watch, computed } from 'vue';
+import { useQuasar } from 'quasar';
 import { useGraph } from './use-graph';
 import { useGraphCustomization } from '../graph-customization-drawer/use-graph-customization';
+import { useObservation } from 'src/composables/use-observation';
 
 /**
  * Composant principal du graphique d'activité.
@@ -82,12 +105,17 @@ export default defineComponent({
     },
   },
   setup(props) {
+    const $q = useQuasar();
+
     // Référence au canvas HTML qui sera utilisé par PixiJS pour le rendu WebGL
     const canvasRef = ref<HTMLCanvasElement | null>(null);
 
     const state = reactive({
       zoomLevel: 1,
     });
+
+    // Composable pour accéder au nom de l'observation courante (pour le nom du fichier exporté)
+    const observation = useObservation();
 
     // Initialisation du composable graphique qui gère toute la logique PixiJS
     // Le composable reçoit la référence au canvas pour l'initialisation
@@ -121,6 +149,42 @@ export default defineComponent({
           // Mettre à jour le zoom level immédiatement après l'action
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
+      },
+      exportAsPng: async () => {
+        if (!graph.sharedState.pixiApp) return;
+        const dataUrl = graph.sharedState.pixiApp.exportAsImage('png');
+        if (!dataUrl) {
+          $q.notify({ type: 'warning', message: 'Le graphique n\'est pas encore prêt pour l\'export' });
+          return;
+        }
+        await methods.saveImageFile(dataUrl, 'png');
+      },
+      exportAsJpeg: async () => {
+        if (!graph.sharedState.pixiApp) return;
+        const dataUrl = graph.sharedState.pixiApp.exportAsImage('jpeg', 0.92);
+        if (!dataUrl) {
+          $q.notify({ type: 'warning', message: 'Le graphique n\'est pas encore prêt pour l\'export' });
+          return;
+        }
+        await methods.saveImageFile(dataUrl, 'jpeg');
+      },
+      saveImageFile: async (dataUrl: string, format: 'png' | 'jpeg') => {
+        const observationName =
+          observation.sharedState.currentObservation?.name || 'graph';
+        const safeName = (observationName.replace(/[<>:"/\\|?*]/g, '-').trim() || 'graph').slice(0, 100);
+        const ext = format === 'jpeg' ? 'jpg' : 'png';
+        const link = document.createElement('a');
+        link.download = `${safeName}-graph.${ext}`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        $q.notify({
+          type: 'positive',
+          message: `Graphe exporté en ${format.toUpperCase()}`,
+          timeout: 3000,
+        });
       },
     };
 

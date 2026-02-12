@@ -66,16 +66,20 @@ export default defineComponent({
   transform: translateY(-1px);
 }
 
+/* Bug 2.1 : État actif plus visible - contraste renforcé */
 .switch-button.active {
-  background-color: var(--q-primary);
-  color: white;
-  border-color: var(--q-primary);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  background-color: var(--accent) !important;
+  color: white !important;
+  border-color: var(--accent) !important;
+  border-width: 2px !important;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+  font-weight: 600;
 }
 
 .switch-button.active:hover:not(.disabled-button) {
-  background-color: var(--q-primary);
-  opacity: 0.9;
+  background-color: var(--accent) !important;
+  opacity: 0.95;
+  box-shadow: 0 3px 10px rgba(249, 115, 22, 0.5);
 }
 
 .disabled-button {

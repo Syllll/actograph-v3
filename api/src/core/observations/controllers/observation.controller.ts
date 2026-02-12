@@ -40,6 +40,7 @@ import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
 import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 import { IChronicExport } from '../services/observation/export';
 import { ObservationModeEnum } from '@actograph/core';
+import { MergeObservationsDto } from '../dtos/merge-observations.dto';
 
 export class ICreateObservationDto {
   @IsString()
@@ -165,6 +166,26 @@ export class ObservationController extends BaseController {
 
     const observation =
       await this.observationService.example.cloneExampleObservation(user.id);
+    return observation;
+  }
+
+  @Post('merge')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async merge(
+    @Req() req: any,
+    @Body() body: MergeObservationsDto,
+  ): Promise<Observation> {
+    const user = req.user;
+
+    const observation = await this.observationService.merge({
+      userId: user.id,
+      sourceObservationId1: body.sourceObservationId1,
+      sourceObservationId2: body.sourceObservationId2,
+      name: body.name,
+      description: body.description,
+    });
+
     return observation;
   }
 

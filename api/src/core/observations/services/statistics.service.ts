@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ObservationRepository } from '../repositories/obsavation.repository';
 import { ReadingRepository } from '../repositories/reading.repository';
 import { ProtocolItem } from '../entities/protocol.entity';
+import type { IReading } from '@actograph/core';
 import {
   ReadingTypeEnum,
   ProtocolItemTypeEnum,

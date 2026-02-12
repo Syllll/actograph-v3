@@ -12,6 +12,7 @@ const validChannels = [
   'update-downloaded',
   'update-error',
   'open-external',
+  'show-item-in-folder',
   'show-save-dialog',
   'write-file',
   'show-open-dialog',
@@ -54,6 +55,12 @@ contextBridge.exposeInMainWorld('api', {
   },
   openExternal: (url: string) => {
     ipcRenderer.send('open-external', url);
+  },
+  showItemInFolder: (filePath: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('show-item-in-folder', filePath) as Promise<{
+      success: boolean;
+      error?: string;
+    }>;
   },
   showSaveDialog: (options: {
     defaultPath?: string;

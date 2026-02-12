@@ -47,6 +47,30 @@
                         flat
                         round
                         dense
+                        size="xs"
+                        icon="arrow_upward"
+                        :disable="methods.getCategoryIndex(prop.node) <= 0 || state.movingCategory"
+                        :loading="state.movingCategory"
+                        @click.stop="methods.moveCategoryUp(prop.node)"
+                      >
+                        <q-tooltip>Monter</q-tooltip>
+                      </q-btn>
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        size="xs"
+                        icon="arrow_downward"
+                        :disable="methods.getCategoryIndex(prop.node) >= state.treeData.length - 1 || state.movingCategory"
+                        :loading="state.movingCategory"
+                        @click.stop="methods.moveCategoryDown(prop.node)"
+                      >
+                        <q-tooltip>Descendre</q-tooltip>
+                      </q-btn>
+                      <q-btn
+                        flat
+                        round
+                        dense
                         color="positive"
                         icon="add"
                         @click.stop="methods.openAddObservableModal(prop.node)"
@@ -67,6 +91,18 @@
                         flat
                         round
                         dense
+                        size="xs"
+                        icon="content_copy"
+                        :disable="state.duplicatingCategory"
+                        :loading="state.duplicatingCategory"
+                        @click.stop="methods.duplicateCategory(prop.node)"
+                      >
+                        <q-tooltip>Dupliquer la catégorie</q-tooltip>
+                      </q-btn>
+                      <q-btn
+                        flat
+                        round
+                        dense
                         color="negative"
                         icon="delete"
                         @click.stop="methods.openRemoveCategoryModal(prop.node)"
@@ -79,6 +115,16 @@
                       v-if="prop.node.type === 'observable'"
                       class="row q-gutter-sm"
                     >
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        size="xs"
+                        icon="drive_file_move_outline"
+                        @click.stop="methods.openMoveObservableModal(prop.node)"
+                      >
+                        <q-tooltip>Déplacer vers une autre catégorie</q-tooltip>
+                      </q-btn>
                       <q-btn
                         flat
                         round
@@ -167,6 +213,19 @@
         }
       "
     />
+
+    <MoveObservableModal
+      v-model="state.moveObservableModal"
+      :observable="state.selectedObservable"
+      :source-category-id="state.selectedObservableCategoryId"
+      :categories="state.treeData"
+      @observable-moved="
+        (categoryId) => {
+          ensureCategoryExpanded(categoryId);
+          methods.loadProtocol();
+        }
+      "
+    />
   </DPage>
 </template>
 
@@ -182,6 +241,7 @@ import {
 import {
   ProtocolItem,
   ProtocolItemTypeEnum,
+  protocolService,
 } from '@services/observations/protocol.service';
 import { useRoute } from 'vue-router';
 import { useObservation } from 'src/composables/use-observation';
@@ -192,6 +252,7 @@ import RemoveCategoryModal from './_components/RemoveCategoryModal.vue';
 import AddObservableModal from './_components/AddObservableModal.vue';
 import EditObservableModal from './_components/EditObservableModal.vue';
 import RemoveObservableModal from './_components/RemoveObservableModal.vue';
+import MoveObservableModal from './_components/MoveObservableModal.vue';
 
 export default defineComponent({
   components: {
@@ -201,6 +262,7 @@ export default defineComponent({
     AddObservableModal,
     EditObservableModal,
     RemoveObservableModal,
+    MoveObservableModal,
   },
 
   setup() {
@@ -227,6 +289,7 @@ export default defineComponent({
       addObservableModal: false,
       editObservableModal: false,
       removeObservableModal: false,
+      moveObservableModal: false,
 
       // Pour la catégorie sélectionnée
       selectedCategory: null as ProtocolItem | null,
@@ -236,6 +299,10 @@ export default defineComponent({
       // Pour l'observable sélectionné
       selectedObservable: null as ProtocolItem | null,
       selectedObservableCategoryId: '',
+
+      // Protection contre les doubles clics
+      movingCategory: false,
+      duplicatingCategory: false,
     });
 
     // Initial expansion of all category nodes (only called once at load time)
@@ -260,6 +327,107 @@ export default defineComponent({
     };
 
     const methods = {
+      getCategoryIndex: (category: ProtocolItem): number => {
+        return state.treeData.findIndex((c) => c.id === category.id);
+      },
+
+      moveCategoryUp: async (category: ProtocolItem) => {
+        if (state.movingCategory) return;
+        const currentIndex = methods.getCategoryIndex(category);
+        if (currentIndex <= 0) return;
+        if (!protocol?.methods || !state.currentProtocol?.id) return;
+        state.movingCategory = true;
+        try {
+          await protocol.methods.editProtocolItem({
+            id: category.id,
+            protocolId: state.currentProtocol.id,
+            type: ProtocolItemTypeEnum.Category,
+            order: currentIndex - 1,
+          });
+          await methods.loadProtocol();
+        } catch (error) {
+          console.error('Failed to move category up:', error);
+          $q.notify({ type: 'negative', message: 'Échec du déplacement de la catégorie' });
+        } finally {
+          state.movingCategory = false;
+        }
+      },
+
+      moveCategoryDown: async (category: ProtocolItem) => {
+        if (state.movingCategory) return;
+        const currentIndex = methods.getCategoryIndex(category);
+        const totalCategories = state.treeData.length;
+        if (currentIndex >= totalCategories - 1) return;
+        if (!protocol?.methods || !state.currentProtocol?.id) return;
+        state.movingCategory = true;
+        try {
+          await protocol.methods.editProtocolItem({
+            id: category.id,
+            protocolId: state.currentProtocol.id,
+            type: ProtocolItemTypeEnum.Category,
+            order: currentIndex + 1,
+          });
+          await methods.loadProtocol();
+        } catch (error) {
+          console.error('Failed to move category down:', error);
+          $q.notify({ type: 'negative', message: 'Échec du déplacement de la catégorie' });
+        } finally {
+          state.movingCategory = false;
+        }
+      },
+
+      duplicateCategory: async (category: ProtocolItem) => {
+        if (state.duplicatingCategory) return;
+        if (!state.currentProtocol?.id || !protocol?.methods) return;
+        const currentObservation = observation.sharedState.currentObservation;
+        if (!currentObservation) return;
+        state.duplicatingCategory = true;
+        try {
+          const protocolId = state.currentProtocol.id;
+          const currentIndex = methods.getCategoryIndex(category);
+          const newOrder = currentIndex + 1;
+
+          const newCategory = await protocolService.addCategory({
+            protocolId,
+            name: category.name + ' (copie)',
+            description: category.description,
+            action: category.action,
+            order: newOrder,
+          });
+
+          const children = category.children || [];
+          for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+            if (child.type === ProtocolItemTypeEnum.Observable) {
+              await protocolService.addObservable({
+                protocolId,
+                parentId: newCategory.id,
+                name: child.name,
+                description: child.description,
+                order: i,
+              });
+            }
+          }
+
+          await protocol.methods.loadProtocol(currentObservation);
+          await methods.loadProtocol();
+          ensureCategoryExpanded(newCategory.id);
+
+          $q.notify({
+            type: 'positive',
+            message: 'Catégorie dupliquée avec succès',
+          });
+        } catch (error) {
+          console.error('Failed to duplicate category:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Échec de la duplication de la catégorie',
+          });
+        } finally {
+          state.duplicatingCategory = false;
+        }
+      },
+
       loadProtocol: async () => {
         try {
           state.loading = true;
@@ -491,6 +659,61 @@ export default defineComponent({
         state.selectedObservable = observable;
         state.selectedObservableCategoryId = categoryId;
         state.removeObservableModal = true;
+      },
+
+      openMoveObservableModal: (observable: ProtocolItem) => {
+        if (!observable || !observable.id) {
+          $q.notify({
+            type: 'negative',
+            message: 'Observable invalide ou identifiant manquant',
+          });
+          return;
+        }
+
+        if (!state.currentProtocol?.id) {
+          $q.notify({
+            type: 'negative',
+            message:
+              "Impossible de déplacer l'observable : protocole non chargé",
+          });
+          return;
+        }
+
+        if (!protocol || !protocol.methods) {
+          $q.notify({
+            type: 'negative',
+            message: 'Service de protocole non disponible',
+          });
+          console.error(
+            'Protocol service is not properly initialized:',
+            protocol
+          );
+          return;
+        }
+
+        // Trouver la catégorie parente de l'observable
+        let categoryId = '';
+        for (const category of state.treeData) {
+          if (category.type === ProtocolItemTypeEnum.Category && category.children) {
+            const found = category.children.findIndex((o: any) => o.id === observable.id);
+            if (found !== -1) {
+              categoryId = category.id;
+              break;
+            }
+          }
+        }
+
+        if (!categoryId) {
+          $q.notify({
+            type: 'negative',
+            message: "Impossible de trouver la catégorie parente de l'observable",
+          });
+          return;
+        }
+
+        state.selectedObservable = observable;
+        state.selectedObservableCategoryId = categoryId;
+        state.moveObservableModal = true;
       },
     };
 

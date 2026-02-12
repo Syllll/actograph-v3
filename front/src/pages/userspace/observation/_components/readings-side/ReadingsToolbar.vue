@@ -14,23 +14,36 @@
         </q-chip>
       </div>
       
-      <div class="row q-gutter-sm">
-        <!-- Search input -->
-        <q-input
-          :modelValue="search"
-          outlined
-          dense
-          placeholder="Rechercher des relevés..."
-          class="q-mr-sm"
-          style="min-width: 200px"
-          clearable
-          @update:model-value="onSearchInput"
-          @clear="onSearchClear"
-        >
-          <template v-slot:append>
-            <q-icon name="search" />
-          </template>
-        </q-input>
+      <div class="column">
+        <div class="row q-gutter-sm items-center">
+          <!-- Search input -->
+          <q-input
+            :modelValue="search"
+            outlined
+            dense
+            placeholder="Rechercher des relevés..."
+            class="q-mr-sm"
+            style="min-width: 200px"
+            clearable
+            @update:model-value="onSearchInput"
+            @clear="onSearchClear"
+          >
+            <template v-slot:append>
+              <q-icon name="search" />
+            </template>
+          </q-input>
+
+          <!-- Rechercher/Remplacer toggle button -->
+          <q-btn
+            :color="state.showReplace ? 'primary' : undefined"
+            icon="find_replace"
+            flat
+            round
+            dense
+            @click="state.showReplace = !state.showReplace"
+          >
+            <q-tooltip>Rechercher et remplacer</q-tooltip>
+          </q-btn>
         
         <!-- Action buttons -->
         <q-btn
@@ -44,27 +57,40 @@
         >
           <q-tooltip>Ajouter un relevé</q-tooltip>
         </q-btn>
-        
+
+        <q-btn
+          color="primary"
+          icon="mdi-comment-text-outline"
+          @click="$emit('add-comment')"
+          flat
+          round
+          dense
+        >
+          <q-tooltip>Ajouter un commentaire horodaté</q-tooltip>
+        </q-btn>
+
         <q-btn
           color="negative"
           icon="delete"
+          label="Supprimer"
           :disable="!hasSelected"
-          @click="$emit('remove-reading')"
+          @click="methods.removeReading()"
           flat
-          round
+          rounded
           dense
         >
           <q-tooltip>Supprimer le relevé sélectionné</q-tooltip>
         </q-btn>
+        <q-separator vertical />
         <q-btn
           color="negative"
-          icon="mdi-delete-forever"
+          icon="mdi-delete-sweep"
+          label="Tout effacer"
           @click="methods.removeAllReadings()"
-          flat
-          round
+          outline
           dense
         >
-          <q-tooltip>Supprimer tous les relevés</q-tooltip>
+          <q-tooltip>Effacer toute la liste des relevés</q-tooltip>
         </q-btn>
         
         <!-- Auto-correct readings button -->
@@ -91,6 +117,42 @@
         >
           <q-tooltip>Passer en mode chronomètre (iéo)</q-tooltip>
         </q-btn>
+        </div>
+
+        <!-- Panel Rechercher/Remplacer -->
+        <div v-if="state.showReplace" class="row items-center q-gutter-sm q-mt-xs">
+          <q-input
+            v-model="state.replaceValue"
+            placeholder="Remplacer par..."
+            dense
+            outlined
+            class="col"
+            clearable
+          >
+            <template v-slot:prepend>
+              <q-icon name="find_replace" size="xs" />
+            </template>
+          </q-input>
+          <span v-if="search" class="text-caption text-grey">
+            {{ matchCount }} résultat(s) trouvé(s)
+          </span>
+          <q-btn
+            flat
+            dense
+            label="Remplacer"
+            color="primary"
+            :disable="!hasSelected || !state.replaceValue"
+            @click="$emit('replace-selected', state.replaceValue)"
+          />
+          <q-btn
+            flat
+            dense
+            label="Tout remplacer"
+            color="primary"
+            :disable="!search || !state.replaceValue"
+            @click="$emit('replace-all', { search: search, replace: state.replaceValue })"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -98,7 +160,7 @@
 
 <script lang="ts">
 import { createDialog } from '@lib-improba/utils/dialog.utils';
-import { defineComponent } from 'vue';
+import { defineComponent, reactive } from 'vue';
 
 export default defineComponent({
   name: 'ReadingsToolbar',
@@ -107,6 +169,10 @@ export default defineComponent({
     search: {
       type: String,
       default: '',
+    },
+    matchCount: {
+      type: Number,
+      default: 0,
     },
     hasSelected: {
       type: Boolean,
@@ -132,13 +198,20 @@ export default defineComponent({
   emits: [
     'update:search',
     'add-reading',
+    'add-comment',
     'remove-reading',
     'remove-all-readings',
     'activate-chronometer-mode',
-    'auto-correct-readings'
+    'auto-correct-readings',
+    'replace-selected',
+    'replace-all',
   ],
 
   setup(props, { emit }) {
+    const state = reactive({
+      showReplace: false,
+      replaceValue: '',
+    });
     // Handle search input changes
     const onSearchInput = (value: string | number | null) => {
       emit('update:search', String(value ?? ''));
@@ -150,10 +223,10 @@ export default defineComponent({
     };
 
     const methods = {
-      removeAllReadings: async () => {
-        const dialog = await createDialog({
-          title: 'Suppression de tous les relevés',
-          message: 'Voulez-vous vraiment supprimer tous les relevés ?',
+      removeReading: async () => {
+        const confirmed = await createDialog({
+          title: 'Supprimer ce relevé ?',
+          message: 'Voulez-vous supprimer le relevé sélectionné ?',
           cancel: 'Annuler',
           ok: {
             label: 'Supprimer',
@@ -161,13 +234,29 @@ export default defineComponent({
           }
         });
 
-        if (!dialog) return;
+        if (!confirmed) return;
+
+        emit('remove-reading');
+      },
+      removeAllReadings: async () => {
+        const confirmed = await createDialog({
+          title: 'Effacer toute la liste',
+          message: 'Voulez-vous effacer toute la liste des relevés ? Cette action est irréversible.',
+          cancel: 'Annuler',
+          ok: {
+            label: 'Tout effacer',
+            color: 'negative',
+          }
+        });
+
+        if (!confirmed) return;
 
         emit('remove-all-readings');
       }
     }
     
     return {
+      state,
       onSearchInput,
       onSearchClear,
       methods

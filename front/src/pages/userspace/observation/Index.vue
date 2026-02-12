@@ -40,7 +40,20 @@
       >
         <!-- Panneau supérieur : Lecteur vidéo -->
         <template v-slot:before>
-          <VideoPlayer />
+          <div class="video-panel-wrapper column fit position-relative">
+            <VideoPlayer class="col" />
+            <q-btn
+              icon="open_in_new"
+              flat
+              round
+              dense
+              size="sm"
+              class="popout-btn"
+              :title="$t('observation.popoutVideoTooltip')"
+              :disable="!observation.sharedState.currentObservation?.id"
+              @click="methods.popOutVideo"
+            />
+          </div>
         </template>
         
         <!-- Séparateur : Bouton de redimensionnement horizontal -->
@@ -71,7 +84,20 @@
               reverse
             >
               <template v-slot:before>
-                <ButtonsSideIndex />
+                <div class="buttons-panel-wrapper column fit position-relative">
+                  <ButtonsSideIndex class="col" />
+                  <q-btn
+                    icon="open_in_new"
+                    flat
+                    round
+                    dense
+                    size="sm"
+                    class="popout-btn"
+                    :title="$t('observation.popoutButtonsTooltip')"
+                    :disable="!observation.sharedState.currentObservation?.id"
+                    @click="methods.popOutButtons"
+                  />
+                </div>
               </template>
               <template v-slot:separator>
                 <q-avatar
@@ -111,7 +137,20 @@
           reverse
         >
           <template v-slot:before>
-            <ButtonsSideIndex />
+            <div class="buttons-panel-wrapper column fit position-relative">
+              <ButtonsSideIndex class="col" />
+              <q-btn
+                icon="open_in_new"
+                flat
+                round
+                dense
+                size="sm"
+                class="popout-btn"
+                :title="$t('observation.popoutButtonsTooltip')"
+                :disable="!observation.sharedState.currentObservation?.id"
+                @click="methods.popOutButtons"
+              />
+            </div>
           </template>
           <template v-slot:separator>
             <q-avatar
@@ -160,6 +199,41 @@ export default defineComponent({
       // The ResizeObserver below dynamically updates this value when the container size changes.
       containerHeight: 600, // Default height, will be updated dynamically by ResizeObserver
     });
+
+    const popOutVideo = () => {
+      const observationId = observation.sharedState.currentObservation?.id;
+      if (!observationId) return;
+      const width = 800;
+      const height = 600;
+      const left = window.screenX + 50;
+      const top = window.screenY + 50;
+      const baseUrl = window.location.href.split('#')[0];
+      window.open(
+        `${baseUrl}#/popup/video?observationId=${observationId}`,
+        'actograph-video',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes`
+      );
+    };
+
+    const popOutButtons = () => {
+      const observationId = observation.sharedState.currentObservation?.id;
+      if (!observationId) return;
+      const width = 400;
+      const height = 600;
+      const left = window.screenX + 50;
+      const top = window.screenY + 50;
+      const baseUrl = window.location.href.split('#')[0];
+      window.open(
+        `${baseUrl}#/popup/buttons?observationId=${observationId}`,
+        'actograph-buttons',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes`
+      );
+    };
+
+    const methods = {
+      popOutVideo,
+      popOutButtons,
+    };
 
     // Update container height dynamically
     // This function is called by ResizeObserver whenever the container's size changes.
@@ -213,6 +287,7 @@ export default defineComponent({
       observation,
       containerRef,
       state,
+      methods,
     };
   },
 });
@@ -221,6 +296,13 @@ export default defineComponent({
 <style scoped>
 .video-resize-handle {
   cursor: ns-resize;
+}
+
+.popout-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 10;
 }
 </style>
 

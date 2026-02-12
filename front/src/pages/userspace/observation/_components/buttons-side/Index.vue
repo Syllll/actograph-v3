@@ -123,8 +123,11 @@ export default defineComponent({
     };
 
     // Computed
+    // Bug 2.4 : Boutons cliquables en enregistrement ou pause
+    // Bug 2.3 : Boutons toujours cliquables (mode test sans enregistrement)
     const computedState = {
-      isObservationActive: computed(() => observation.sharedState.isPlaying),
+      isObservationActive: computed(() => true), // Toujours actifs pour permettre clics en mode test
+      isRecording: computed(() => observation.isActive.value), // Pour savoir si on crée des relevés
       categories: computed(() => {
         if (!sharedState.currentProtocol || !sharedState.currentProtocol._items) {
           return [] as ProtocolItem[];
@@ -265,11 +268,9 @@ export default defineComponent({
       },
 
       // Handle click on switch button (continuous category)
+      // Bug 2.4 : en pause, le clic crée un relevé en vidéo, changement visuel en in situ
+      // Bug 2.3 : sans enregistrement, clic possible pour tester (changement visuel seulement)
       handleSwitchClick: ({ categoryId, observableId }: { categoryId: string; observableId: string }) => {
-        if (!computedState.isObservationActive.value) {
-          methods.showObservationInactiveNotification();
-          return;
-        }
         if (state.activeObservableIdByCategoryId[categoryId] === observableId) {
           delete state.activeObservableIdByCategoryId[categoryId];
         } else {
@@ -279,11 +280,9 @@ export default defineComponent({
       },
 
       // Handle click on press button (discrete category)
+      // Bug 2.4 : en pause, le clic crée un relevé en vidéo
+      // Bug 2.3 : sans enregistrement, clic possible pour tester (pas de relevé)
       handlePressClick: ({ categoryId, observableId }: { categoryId: string; observableId: string }) => {
-        if (!computedState.isObservationActive.value) {
-          methods.showObservationInactiveNotification();
-          return;
-        }
         methods.recordReading(categoryId, observableId);
       },
 
@@ -297,7 +296,22 @@ export default defineComponent({
       },
 
       // Record a new reading
+      // Bug 2.3 : Sans enregistrement (elapsedTime=0) : pas de relevé, changement visuel seulement
+      // Bug 2.4 : En pause + in situ : ne pas créer de relevé. En pause + vidéo : créer un relevé.
       recordReading: (categoryId: string, observableId: string) => {
+        const isRecording = computedState.isRecording.value;
+        const isPaused = !observation.sharedState.isPlaying && observation.sharedState.elapsedTime > 0;
+        const isVideoMode = observation.isChronometerMode.value && !!observation.sharedState.currentObservation?.videoPath;
+
+        if (!isRecording) {
+          // Bug 2.3 : Sans enregistrement - pas de relevé
+          return;
+        }
+        if (isPaused && !isVideoMode) {
+          // Bug 2.4 : En in situ en pause : ne pas créer de relevé
+          return;
+        }
+
         const category = computedState.categories.value.find(
           (cat: ProtocolItem) => cat.id === categoryId
         );

@@ -217,8 +217,9 @@ export default defineComponent({
         );
 
         // Contraintes horizontales : empêcher la catégorie de sortir du conteneur
-        // On permet un léger débordement (margin) pour un meilleur UX
-        if (newX < -cardWidth + margin) newX = -cardWidth + margin;
+        // IMPORTANT : On ne permet jamais de position négative en X, sinon la catégorie
+        // se loge tout à gauche et devient inaccessible (bug 2.2)
+        if (newX < 0) newX = 0;
         if (newX > contentWidth - margin) newX = contentWidth - margin;
         
         // Contraintes verticales

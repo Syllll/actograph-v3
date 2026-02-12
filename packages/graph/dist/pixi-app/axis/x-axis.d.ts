@@ -10,6 +10,11 @@ export declare class xAxis extends BaseGroup {
     private pixelsPerMsec;
     private axisStartTimeInMsec;
     private axisEndTimeInMsec;
+    /** Min/max timestamps from setData (START/STOP or sorted bounds) */
+    private minTimeInMsec;
+    private maxTimeInMsec;
+    /** Total duration in ms for adaptive label formatting (Bug 3.9) */
+    private totalDurationMs;
     private styleOptions;
     private ticks;
     private axisStart;

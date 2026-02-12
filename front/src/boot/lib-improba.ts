@@ -11,6 +11,7 @@ declare global {
       invoke: (channel: string, data?: unknown) => Promise<unknown>;
       on: (channel: string, func: any) => void;
       openExternal: (url: string) => void;
+      showItemInFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>;
       showSaveDialog: (options: {
         defaultPath?: string;
         filters?: { name: string; extensions: string[] }[];
@@ -20,6 +21,7 @@ declare global {
         data: string
       ) => Promise<{ success: boolean; error?: string }>;
       showOpenDialog: (options: {
+        defaultPath?: string;
         filters?: { name: string; extensions: string[] }[];
       }) => Promise<{ canceled: boolean; filePaths?: string[] }>;
       readFile: (filePath: string) => Promise<{

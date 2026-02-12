@@ -30,6 +30,12 @@
               @click="methods.startObservation"
             />
             <d-action-btn
+              icon="merge_type"
+              tooltip="Fusionner deux chroniques"
+              label="Fusionner"
+              @click="methods.mergeObservations"
+            />
+            <d-action-btn
               icon="mdi-file-import"
               tooltip="Importer une chronique"
               label="Importer depuis un fichier"
@@ -145,6 +151,31 @@
         </q-list>
 
         <q-space />
+
+        <!-- Aide et Préférences -->
+        <div class="column q-gutter-sm q-px-md q-pb-sm">
+          <q-btn
+            flat
+            icon="help_outline"
+            :label="$t('drawer.help')"
+            class="full-width justify-start"
+            @click="methods.openHelpDialog"
+          />
+          <q-btn
+            flat
+            icon="settings"
+            :label="$t('drawer.preferences')"
+            class="full-width justify-start"
+            @click="methods.openPreferencesDialog"
+          />
+        </div>
+
+        <!-- Indicateur de langue -->
+        <div class="row justify-center q-px-md q-pb-md">
+          <q-chip size="sm" dense flat>
+            {{ computedState.localeDisplay.value }}
+          </q-chip>
+        </div>
       </div>
     </div>
   </q-drawer>
@@ -161,13 +192,15 @@ import { useAuth } from '@lib-improba/composables/use-auth';
 import { userMenuItems } from '@lib-improba/components/layouts/standard/user-menu-items';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
-import ThemeToggler from '@lib-improba/components/layouts/theme-toggler/ThemeToggler.vue';
 import CreateObservationDialog from '@pages/userspace/home/_components/active-chronicle/CreateObservationDialog.vue';
+import MergeObservationsDialog from '@pages/userspace/home/_components/my-observations/MergeObservationsDialog.vue';
 import { exportService } from '@services/observations/export.service';
 import { importService } from '@services/observations/import.service';
+import { protocolService } from '@services/observations/protocol.service';
 import { useNotifications } from 'src/composables/use-notifications';
-import { createDialog } from '@lib-improba/utils/dialog.utils';
 import SaveAsDialog from '@pages/userspace/home/_components/active-chronicle/SaveAsDialog.vue';
+import HelpDialog from '@pages/userspace/_components/HelpDialog.vue';
+import PreferencesDialog from '@pages/userspace/_components/PreferencesDialog.vue';
 
 export default defineComponent({
   props: {
@@ -178,7 +211,8 @@ export default defineComponent({
   },
   emits: ['update:showDrawer'],
   components: {
-    ThemeToggler,
+    HelpDialog,
+    PreferencesDialog,
   },
   setup(props) {
     const drawer = useDrawer();
@@ -218,6 +252,11 @@ export default defineComponent({
         return userName;
       }),
       userMenuItems: computed(() => userMenuItems(i18n, auth)),
+      localeDisplay: computed(() => {
+        const locale = i18n.locale.value;
+        if (!locale) return 'FR';
+        return locale.split('-')[0].toUpperCase();
+      }),
     }
 
     const methods = {
@@ -254,6 +293,17 @@ export default defineComponent({
           // Créer l'observation (cette méthode charge déjà l'observation complète)
           await observation.methods.createObservation(createOptions);
 
+          // Si une source de protocole a été sélectionnée, cloner le protocole
+          if (diagRes.sourceObservationId && observation.sharedState.currentObservation?.id) {
+            await protocolService.cloneProtocol(
+              diagRes.sourceObservationId,
+              observation.sharedState.currentObservation.id
+            );
+            await observation.protocol.methods.loadProtocol(
+              observation.sharedState.currentObservation
+            );
+          }
+
           // Attendre que Vue ait mis à jour le DOM avec la nouvelle observation
           await nextTick();
           
@@ -272,6 +322,40 @@ export default defineComponent({
         }
       },
 
+      mergeObservations: async () => {
+        const mergedObservation = await createDialog({
+          component: MergeObservationsDialog,
+          componentProps: {},
+          persistent: true,
+        });
+
+        if (!mergedObservation || typeof mergedObservation !== 'object') {
+          return;
+        }
+
+        try {
+          await observation.methods.loadObservation(mergedObservation.id);
+
+          await nextTick();
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          $q.notify({
+            type: 'positive',
+            message: 'Chroniques fusionnées avec succès',
+            caption: mergedObservation.name,
+          });
+
+          await router.push({ name: 'user_home' });
+        } catch (error) {
+          console.error('Erreur lors du chargement de la chronique fusionnée:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors du chargement de la chronique fusionnée',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+          });
+        }
+      },
+
       importObservation: async () => {
         // Vérifier que l'API Electron est disponible
         if (!window.api || !window.api.showOpenDialog || !window.api.readFile) {
@@ -283,8 +367,14 @@ export default defineComponent({
         }
 
         try {
-          // Ouvrir le dialogue de sélection de fichier
+          // Ouvrir le dialogue dans le dossier Actograph
+          let defaultPath = '';
+          if (window.api?.getActographFolder) {
+            defaultPath = await window.api.getActographFolder();
+          }
+
           const dialogResult = await window.api.showOpenDialog({
+            defaultPath: defaultPath || undefined,
             filters: [
               { name: 'Fichiers Chronique', extensions: ['jchronic', 'chronic'] },
               { name: 'Tous les fichiers', extensions: ['*'] },
@@ -367,7 +457,19 @@ export default defineComponent({
             $q.notify({
               type: 'positive',
               message: 'Chronique exportée avec succès',
-              caption: filePath,
+              caption: `Enregistré dans : ${filePath}`,
+              timeout: 10000,
+              actions: window.api?.showItemInFolder
+                ? [
+                    {
+                      label: 'Ouvrir le dossier',
+                      color: 'white',
+                      handler: () => {
+                        window.api?.showItemInFolder(filePath);
+                      },
+                    },
+                  ]
+                : undefined,
             });
           }
           // Si filePath est null, l'utilisateur a annulé, pas besoin de notification
@@ -425,6 +527,22 @@ export default defineComponent({
             caption: error instanceof Error ? error.message : 'Erreur inconnue',
           });
         }
+      },
+
+      openHelpDialog: () => {
+        createDialog({
+          component: HelpDialog,
+          componentProps: {},
+          persistent: true,
+        });
+      },
+
+      openPreferencesDialog: () => {
+        createDialog({
+          component: PreferencesDialog,
+          componentProps: {},
+          persistent: true,
+        });
       },
     };
 

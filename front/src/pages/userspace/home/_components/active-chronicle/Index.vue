@@ -222,6 +222,7 @@ import { useRouter } from 'vue-router';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { exportService } from '@services/observations/export.service';
 import { importService } from '@services/observations/import.service';
+import { protocolService } from '@services/observations/protocol.service';
 import SaveAsDialog from './SaveAsDialog.vue';
 
 export default defineComponent({
@@ -378,6 +379,17 @@ export default defineComponent({
           // Créer l'observation (cette méthode charge déjà l'observation complète)
           await observation.methods.createObservation(createOptions);
 
+          // Si une source de protocole a été sélectionnée, cloner le protocole
+          if (diagRes.sourceObservationId && observation.sharedState.currentObservation?.id) {
+            await protocolService.cloneProtocol(
+              diagRes.sourceObservationId,
+              observation.sharedState.currentObservation.id
+            );
+            await observation.protocol.methods.loadProtocol(
+              observation.sharedState.currentObservation
+            );
+          }
+
           // Attendre que Vue ait mis à jour le DOM avec la nouvelle observation
           await nextTick();
           
@@ -429,9 +441,14 @@ export default defineComponent({
         }
 
         try {
-          // ÉTAPE 1 : Ouvrir le dialogue de sélection de fichier
-          // L'utilisateur peut sélectionner un fichier .jchronic ou .chronic
+          // ÉTAPE 1 : Ouvrir le dialogue dans le dossier Actograph
+          let defaultPath = '';
+          if (window.api?.getActographFolder) {
+            defaultPath = await window.api.getActographFolder();
+          }
+
           const dialogResult = await window.api.showOpenDialog({
+            defaultPath: defaultPath || undefined,
             filters: [
               { name: 'Fichiers Chronique', extensions: ['jchronic', 'chronic'] },
               { name: 'Tous les fichiers', extensions: ['*'] },
@@ -583,7 +600,19 @@ export default defineComponent({
             $q.notify({
               type: 'positive',
               message: 'Chronique exportée avec succès',
-              caption: filePath, // Afficher le chemin complet du fichier
+              caption: `Enregistré dans : ${filePath}`,
+              timeout: 10000,
+              actions: window.api?.showItemInFolder
+                ? [
+                    {
+                      label: 'Ouvrir le dossier',
+                      color: 'white',
+                      handler: () => {
+                        window.api?.showItemInFolder(filePath);
+                      },
+                    },
+                  ]
+                : undefined,
             });
           }
           // Si filePath est null, l'utilisateur a annulé le dialogue

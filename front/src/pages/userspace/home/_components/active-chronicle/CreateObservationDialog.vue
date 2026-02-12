@@ -73,6 +73,31 @@
             </div>
           </div>
           
+          <!-- Section Protocole : copier un protocole existant -->
+          <q-separator />
+          <div class="column q-gutter-sm">
+            <q-toggle
+              v-model="state.copyProtocol"
+              label="Copier un protocole existant"
+              color="primary"
+            />
+            <q-select
+              v-if="state.copyProtocol"
+              v-model="state.sourceObservationId"
+              :options="observationOptions"
+              option-label="label"
+              option-value="value"
+              emit-value
+              map-options
+              outlined
+              dense
+              placeholder="Choisir une chronique source"
+              :loading="state.observationsLoading"
+              :disable="state.observationsLoading"
+              hint="Copie le protocole (catégories, observables) depuis une chronique existante"
+            />
+          </div>
+          
           <!-- Mode selection (only if "Observer en direct" is selected) -->
           <q-select
             v-if="state.observationType === 'direct'"
@@ -106,7 +131,8 @@
           <DSubmitBtn
             label="Créer"
             @click="onOKClick"
-            :disable="!state.name || state.name.trim().length === 0"
+            :disable="!methods.isValid || state.creating"
+            :loading="state.creating"
           />
         </div>
       </DCardSection>
@@ -115,7 +141,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, nextTick, ref, onMounted, onUnmounted } from 'vue';
+import { defineComponent, reactive, nextTick, ref, onMounted, onUnmounted, computed } from 'vue';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import {
   DCard,
@@ -124,9 +150,11 @@ import {
   DSubmitBtn,
 } from '@lib-improba/components';
 import { ObservationModeEnum } from '@services/observations/interface';
+import { observationService } from '@services/observations/index.service';
 
 export default defineComponent({
   name: 'CreateObservationDialog',
+  emits: [...useDialogPluginComponent.emits],
   components: {
     DCard,
     DCardSection,
@@ -141,8 +169,20 @@ export default defineComponent({
     // Flag pour savoir si le composant est encore monté
     const isMounted = ref(true);
 
-    onMounted(() => {
+    onMounted(async () => {
       isMounted.value = true;
+      state.observationsLoading = true;
+      try {
+        const observations = await observationService.findAllForCurrentUser();
+        state.observations = observations.map((obs) => ({
+          id: obs.id,
+          name: obs.name || `Chronique ${obs.id}`,
+        }));
+      } catch (error) {
+        console.error('Erreur lors du chargement des observations:', error);
+      } finally {
+        state.observationsLoading = false;
+      }
     });
 
     onUnmounted(() => {
@@ -155,7 +195,19 @@ export default defineComponent({
       observationType: 'direct' as 'video' | 'direct',
       videoPath: null as string | null,
       mode: ObservationModeEnum.Calendar as ObservationModeEnum,
+      copyProtocol: false,
+      sourceObservationId: null as number | null,
+      observations: [] as { id: number; name: string }[],
+      observationsLoading: false,
+      creating: false,
     });
+
+    const observationOptions = computed(() =>
+      state.observations.map((obs) => ({
+        label: obs.name,
+        value: obs.id,
+      }))
+    );
 
     const observationTypeOptions = [
       {
@@ -211,6 +263,14 @@ export default defineComponent({
     };
 
     const methods = {
+      get isValid(): boolean {
+        if (!state.name || state.name.trim().length === 0) return false;
+        if (state.observationType === 'video' && !state.videoPath) return false;
+        if (state.observationType === 'direct' && !state.mode) return false;
+        if (state.copyProtocol && !state.sourceObservationId) return false;
+        return true;
+      },
+
       selectVideoFile: async () => {
         // Check if Electron API is available
         if (!window.api || !window.api.showOpenDialog) {
@@ -251,19 +311,12 @@ export default defineComponent({
       },
 
       onOKClick: () => {
+        if (!methods.isValid || state.creating) return;
+
         // If video is selected, mode is automatically Chronometer
         const finalMode = state.observationType === 'video' 
           ? ObservationModeEnum.Chronometer 
           : state.mode;
-
-        // Validate video selection if video type is selected
-        if (state.observationType === 'video' && !state.videoPath) {
-          $q.notify({
-            type: 'negative',
-            message: 'Veuillez sélectionner un fichier vidéo',
-          });
-          return;
-        }
 
         // Construire le résultat du dialog
         const dialogResult: any = {
@@ -271,16 +324,19 @@ export default defineComponent({
           description: state.description.trim() || undefined,
           mode: finalMode,
         };
+
+        if (state.copyProtocol && state.sourceObservationId) {
+          dialogResult.sourceObservationId = state.sourceObservationId;
+        }
         
         // IMPORTANT: Toujours inclure videoPath si observationType est 'video'
-        // On vérifie explicitement que videoPath existe et n'est pas null/undefined/vide
         if (state.observationType === 'video') {
-          // La validation ci-dessus garantit que videoPath existe, mais on vérifie quand même
           if (state.videoPath && typeof state.videoPath === 'string' && state.videoPath.trim() !== '') {
             dialogResult.videoPath = state.videoPath;
           }
         }
         
+        state.creating = true;
         onDialogOK(dialogResult);
       },
       onCancelClick: () => {
@@ -293,6 +349,7 @@ export default defineComponent({
       state,
       observationTypeOptions,
       modeOptions,
+      observationOptions,
       methods,
       handleDialogHide,
       onOKClick: methods.onOKClick,

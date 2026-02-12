@@ -35,6 +35,12 @@ const routes: RouteRecordRaw[] = [
       ...adminRoutes,
       ...userRoutes,
       ...authRoutes,
+      {
+        path: 'popup/:component',
+        name: 'popup',
+        component: () => import('pages/userspace/observation/PopupView.vue'),
+        props: true,
+      },
     ],
   },
   // Always leave this as last one,

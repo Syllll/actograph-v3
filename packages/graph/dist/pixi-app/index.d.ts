@@ -60,6 +60,13 @@ export declare class PixiApp {
     zoomOut(): void;
     resetView(): void;
     getZoomLevel(): number;
+    /**
+     * Exporte le graphique sous forme d'image (data URL)
+     * @param format - Format de l'image : 'png' ou 'jpeg'
+     * @param quality - Qualité JPEG (0-1), ignoré pour PNG
+     * @returns Data URL de l'image ou null si le canvas n'est pas disponible
+     */
+    exportAsImage(format?: 'png' | 'jpeg', quality?: number): string | null;
     destroy(): void;
 }
 //# sourceMappingURL=index.d.ts.map

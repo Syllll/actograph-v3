@@ -22,7 +22,7 @@
             <q-item
               clickable
               v-ripple
-              @click="methods.openExternalLink('https://www.actograph.io/fr/software/description')"
+              @click="methods.openExternalLink('https://www.actograph.io/web/fr/software/description')"
               class="help-link"
             >
               <q-item-section avatar>
@@ -39,7 +39,7 @@
             <q-item
               clickable
               v-ripple
-              @click="methods.openExternalLink('https://www.actograph.io/fr/software/install')"
+              @click="methods.openExternalLink('https://www.actograph.io/web/fr/software/install')"
               class="help-link"
             >
               <q-item-section avatar>
@@ -56,7 +56,7 @@
             <q-item
               clickable
               v-ripple
-              @click="methods.openExternalLink('https://www.actograph.io/fr/software/tutorial')"
+              @click="methods.openExternalLink('https://www.actograph.io/web/fr/software/tutorial')"
               class="help-link"
             >
               <q-item-section avatar>
@@ -73,7 +73,7 @@
             <q-item
               clickable
               v-ripple
-              @click="methods.openExternalLink('https://www.actograph.io/fr/faq')"
+              @click="methods.openExternalLink('https://www.actograph.io/web/fr/faq')"
               class="help-link"
             >
               <q-item-section avatar>
@@ -123,7 +123,7 @@
             <q-item
               clickable
               v-ripple
-              @click="methods.openExternalLink('https://www.actograph.io/fr/contact')"
+              @click="methods.openExternalLink('https://www.actograph.io/web/fr/contact')"
               class="help-link"
             >
               <q-item-section avatar>

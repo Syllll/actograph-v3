@@ -30,7 +30,7 @@
               <q-item-section>
                 <q-item-label>{{ methods.getObservationName(file.name) }}</q-item-label>
                 <q-item-label caption>
-                  Sauvegardé le {{ methods.formatDate(file.modified) }}
+                  Sauvegardé le {{ methods.formatDate(file.modified, file.name) }}
                   <span v-if="file.size"> • {{ methods.formatFileSize(file.size) }}</span>
                 </q-item-label>
               </q-item-section>
@@ -110,8 +110,16 @@ export default defineComponent({
         return fileName.replace(/\.jchronic$/, '').replace(/autosave_\d+_/, '');
       },
 
-      formatDate: (dateString: string): string => {
-        const date = new Date(dateString);
+      formatDate: (dateString: string, fileName?: string): string => {
+        let date = new Date(dateString);
+        if (isNaN(date.getTime()) && fileName) {
+          const tsMatch = fileName.match(/(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z/);
+          if (tsMatch) {
+            const iso = `${tsMatch[1]}T${tsMatch[2]}:${tsMatch[3]}:${tsMatch[4]}.${tsMatch[5]}Z`;
+            date = new Date(iso);
+          }
+        }
+        if (isNaN(date.getTime())) return dateString;
         return date.toLocaleString('fr-FR', {
           day: '2-digit',
           month: '2-digit',

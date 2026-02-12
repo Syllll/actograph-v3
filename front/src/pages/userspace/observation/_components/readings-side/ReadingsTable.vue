@@ -27,7 +27,10 @@
       <template v-slot:body="props">
         <q-tr 
           :props="props" 
-          :class="{ 'selected-row': isRowSelected(props.row) }"
+          :class="{ 
+            'selected-row': isRowSelected(props.row),
+            'unrecognized-observable-row': isUnrecognizedObservable(props.row)
+          }"
           @click="toggleRowSelection(props.row)"
         >
           <q-td key="order" :props="props">
@@ -68,11 +71,21 @@
                 :model-value="observation.isChronometerMode.value ? formatDurationForEdit(props.row.dateTime) : formatDateTimeForEdit(props.row.dateTime)"
                 :title="observation.isChronometerMode.value ? 'Editer la durée' : 'Editer la date et l\'heure'" 
                 buttons
+                @before-show="() => syncDurationEditStateFromRow(props.row)"
                 @save="(val, initialVal) => handleDateTimeSave(props.row, val, initialVal)"
                 v-slot="scope"
               >
                 <!-- Duration editor (chronometer mode) -->
                 <div v-if="observation.isChronometerMode.value" class="column q-gutter-sm">
+                  <!-- Champ texte pour copier-coller rapide (Bug 2b.4) -->
+                  <q-input
+                    :model-value="formatDurationCompact()"
+                    @update:model-value="parseDurationFromText($event)"
+                    label="Durée (copier-coller)"
+                    dense
+                    placeholder="ex: 1h 30m 45s"
+                    hint="Formats: Xj Yh Zm Ws Vms"
+                  />
                   <div class="row q-gutter-sm">
                     <q-input
                       v-model.number="durationEditState.days"
@@ -121,9 +134,6 @@
                       :max="999"
                       style="width: 150px"
                     />
-                  </div>
-                  <div class="text-caption text-grey-6">
-                    Format: Xj Yh Zm Ws Vms
                   </div>
                 </div>
                 <!-- Date/time editor (calendar mode) -->
@@ -175,8 +185,10 @@
             <div class="editable-cell">
               <span 
                 :class="{ 
-                  'comment-reading': props.row.name?.startsWith('#')
+                  'comment-reading': props.row.name?.startsWith('#'),
+                  'unrecognized-observable': isUnrecognizedObservable(props.row)
                 }"
+                :title="isUnrecognizedObservable(props.row) ? `Observable non reconnu : \"${props.row.name}\" n'existe pas dans le protocole actuel` : undefined"
               >
                 {{ props.row.name }}
               </span>
@@ -187,11 +199,37 @@
                 @save="(val, initialVal) => handleNameSave(props.row, val, initialVal)"
                 v-slot="scope"
               >
-                <q-input 
-                  type="text" 
-                  v-model="scope.value" 
-                  dense 
-                  autofocus 
+                <q-select
+                  v-if="protocolObservableOptions.length > 0"
+                  v-model="scope.value"
+                  :options="protocolObservableOptions"
+                  option-label="label"
+                  option-value="value"
+                  :option-disable="(opt) => opt.disable === true"
+                  use-input
+                  input-debounce="0"
+                  emit-value
+                  map-options
+                  dense
+                  autofocus
+                  new-value-mode="add-unique"
+                  :rules="[val => val && val.length > 0 || 'Le libellé ne peut pas être vide']"
+                >
+                  <template v-slot:option="optScope">
+                    <q-item v-if="optScope.opt.isCategory" dense class="text-weight-bold non-selectable" :style="{ color: optScope.opt.categoryColor || 'var(--primary)' }">
+                      <q-item-section>{{ optScope.opt.label }}</q-item-section>
+                    </q-item>
+                    <q-item v-else v-bind="optScope.itemProps" dense class="q-pl-lg">
+                      <q-item-section>{{ optScope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                </q-select>
+                <q-input
+                  v-else
+                  type="text"
+                  v-model="scope.value"
+                  dense
+                  autofocus
                   :rules="[val => val && val.length > 0 || 'Le libellé ne peut pas être vide']"
                 />
               </q-popup-edit>
@@ -225,6 +263,7 @@
 <script lang="ts">
 import { defineComponent, computed, ref, watch, reactive } from 'vue';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
+import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { QTableColumn } from 'quasar';
 import { date as qDate } from 'quasar';
 import { useObservation } from 'src/composables/use-observation';
@@ -288,6 +327,66 @@ export default defineComponent({
     const observation = useObservation();
     const duration = useDuration();
     const isChronometerMode = computed(() => observation.isChronometerMode.value);
+
+    // Bug 2.6 : Liste des noms d'observables reconnus dans le protocole
+    const protocolObservableNames = computed(() => {
+      const protocol = observation.protocol.sharedState.currentProtocol;
+      if (!protocol?._items) return new Set<string>();
+      const names = new Set<string>();
+      for (const item of protocol._items) {
+        const isCategory = item.type === ProtocolItemTypeEnum.Category || item.type === 'category';
+        if (isCategory && item.children) {
+          for (const child of item.children) {
+            if (child.name) names.add(child.name);
+          }
+        }
+      }
+      return names;
+    });
+
+    // Bug 2.8 : Options pour le menu déroulant des observables (groupées par catégorie)
+    type ProtocolObservableOption = {
+      label: string;
+      value: string;
+      isCategory?: boolean;
+      categoryColor?: string;
+      disable?: boolean;
+    };
+    const protocolObservableOptions = computed((): ProtocolObservableOption[] => {
+      const protocol = observation.protocol.sharedState.currentProtocol;
+      if (!protocol?._items) return [];
+      const options: ProtocolObservableOption[] = [];
+      for (const item of protocol._items) {
+        const isCategory = item.type === ProtocolItemTypeEnum.Category || item.type === 'category';
+        if (isCategory) {
+          options.push({
+            label: item.name,
+            value: `__cat_${item.id}`,
+            isCategory: true,
+            categoryColor: item.graphPreferences?.color || undefined,
+            disable: true,
+          });
+          if (item.children) {
+            for (const child of item.children) {
+              if (child.name) {
+                options.push({
+                  label: child.name,
+                  value: child.name,
+                });
+              }
+            }
+          }
+        }
+      }
+      return options;
+    });
+
+    // Bug 2.6 : Vérifie si un relevé DATA a un observable non reconnu
+    const isUnrecognizedObservable = (row: IReading): boolean => {
+      if (row.type !== ReadingTypeEnum.DATA || !row.name) return false;
+      if (row.name.startsWith('#')) return false; // Commentaires
+      return !protocolObservableNames.value.has(row.name);
+    };
     
     // State for duration editing
     const durationEditState = reactive({
@@ -331,7 +430,6 @@ export default defineComponent({
     // This allows selecting readings whether they have an id or tempId
     const toggleRowSelection = (row: IReading) => {
       if (!row) return;
-      console.log('toggleRowSelection', row);
       if (isRowSelected(row)) {
         selectedInternal.value = [];
       } else {
@@ -414,6 +512,63 @@ export default defineComponent({
       return duration.formatCompact(durationMs);
     };
 
+    // Bug 2b.3 : Synchronise l'état d'édition avec la ligne correcte à l'ouverture du popup
+    const syncDurationEditStateFromRow = (row: IReading) => {
+      if (row?.dateTime) {
+        formatDurationForEdit(row.dateTime);
+      }
+    };
+
+    // Bug 2b.4 : Format compact pour affichage (ex: "1j 2h 30m 45s 500ms")
+    const formatDurationCompact = () => {
+      const parts: string[] = [];
+      if (durationEditState.days > 0) parts.push(`${durationEditState.days}j`);
+      if (durationEditState.hours > 0) parts.push(`${durationEditState.hours}h`);
+      if (durationEditState.minutes > 0) parts.push(`${durationEditState.minutes}m`);
+      if (durationEditState.seconds > 0) parts.push(`${durationEditState.seconds}s`);
+      if (durationEditState.milliseconds > 0) parts.push(`${durationEditState.milliseconds}ms`);
+      return parts.join(' ') || '0s';
+    };
+
+    // Bug 2b.4 : Parse du format compact (ex: "1j 2h 30m 45s 500ms", "2h30m", "45s")
+    const parseDurationFromText = (text: string) => {
+      if (!text || typeof text !== 'string') return;
+      // ms avant m pour éviter que "500ms" soit interprété comme "500s"
+      const regex = /(\d+)\s*(j|h|ms|m|s)/gi;
+      let match;
+      let days = 0;
+      let hours = 0;
+      let minutes = 0;
+      let seconds = 0;
+      let milliseconds = 0;
+      while ((match = regex.exec(text)) !== null) {
+        const value = parseInt(match[1], 10);
+        const unit = match[2].toLowerCase();
+        switch (unit) {
+          case 'j':
+            days = value;
+            break;
+          case 'h':
+            hours = value;
+            break;
+          case 'm':
+            minutes = value;
+            break;
+          case 's':
+            seconds = value;
+            break;
+          case 'ms':
+            milliseconds = value;
+            break;
+        }
+      }
+      durationEditState.days = days;
+      durationEditState.hours = hours;
+      durationEditState.minutes = minutes;
+      durationEditState.seconds = seconds;
+      durationEditState.milliseconds = milliseconds;
+    };
+
     // Extract date part from datetime string (DD/MM/YYYY)
     const getDatePart = (dateTimeStr: string) => {
       if (!dateTimeStr) return '';
@@ -484,6 +639,7 @@ export default defineComponent({
     };
 
     // Handle date/time save with proper conversion
+    // Bug 2b.3 : Trouver la ligne par id/tempId pour éviter les erreurs avec virtual-scroll
     const handleDateTimeSave = (row: IReading, val: any, initialVal: any) => {
       if (!val && !isChronometerMode.value) return;
       
@@ -515,9 +671,14 @@ export default defineComponent({
         }
       }
       
-      // Update the row's dateTime
-      row.dateTime = dateValue;
-      row.updatedAt = new Date();
+      // Bug 2b.3 : Find the correct row by id/tempId (virtual-scroll may recycle row references)
+      const targetRow = props.readings.find((r: IReading) =>
+        (row.id && r.id === row.id) || (row.tempId && r.tempId === row.tempId) || r === row
+      );
+      if (targetRow) {
+        targetRow.dateTime = dateValue;
+        targetRow.updatedAt = new Date();
+      }
     };
 
     // Handle name save
@@ -551,6 +712,9 @@ export default defineComponent({
       handleRequestSelected,
       formatDuration,
       formatDurationForEdit,
+      syncDurationEditStateFromRow,
+      formatDurationCompact,
+      parseDurationFromText,
       formatDateTime,
       formatDateTimeForEdit,
       getDatePart,
@@ -567,6 +731,8 @@ export default defineComponent({
       handleDescriptionSave,
       handleTypeSave,
       getRowKey,
+      isUnrecognizedObservable,
+      protocolObservableOptions,
     };
   },
 });
@@ -603,6 +769,16 @@ tr.selected-row td {
 .comment-reading {
   color: #3b82f6; /* Blue color */
   font-weight: 500;
+}
+
+/* Bug 2.6 : Observable non reconnu dans le protocole */
+.unrecognized-observable {
+  color: var(--danger, #ef4444) !important;
+  font-weight: 600;
+}
+
+.unrecognized-observable-row {
+  background-color: rgba(239, 68, 68, 0.08);
 }
 
 /* Table container for virtual scroll */
