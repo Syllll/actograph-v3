@@ -256,12 +256,11 @@ jobs:
           name: electron-artifacts-${{ matrix.os }}
           path: |
             front/dist/electron/Packaged/*.exe
-            front/dist/electron/Packaged/*.dmg
+            front/dist/electron/Packaged/*.zip
             front/dist/electron/Packaged/*.AppImage
             front/dist/electron/Packaged/*.snap
             front/dist/electron/Packaged/latest*.yml
             front/dist/electron/Packaged/latest*.yaml
-            front/dist/electron/Packaged/*-mac.zip
             front/dist/electron/Packaged/*.blockmap
 
   create-release:
@@ -326,40 +325,16 @@ jobs:
         run: |
           set -e
           mkdir -p artifacts/release
-          # macOS x64 from macos-15-intel
-          if compgen -G "artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.dmg" > /dev/null; then
-            cp -f artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.dmg artifacts/release/
-          fi
-          if compgen -G "artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.dmg.blockmap" > /dev/null; then
-            cp -f artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.dmg.blockmap artifacts/release/
-          fi
-          # Include macOS x64 ZIP files if they exist (Electron Builder may generate ZIP files)
-          if compgen -G "artifacts/electron-artifacts-macos-15-intel/*mac*.zip" > /dev/null; then
-            # Copy ZIP files, renaming if needed to include architecture
-            for zipfile in artifacts/electron-artifacts-macos-15-intel/*mac*.zip; do
-              if [[ "$zipfile" =~ x64 ]] || [[ ! "$zipfile" =~ (arm64|x64) ]]; then
-                cp -f "$zipfile" artifacts/release/
-              fi
-            done
+          # macOS x64 from macos-15-intel (target is zip, not dmg)
+          if compgen -G "artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.zip" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-15-intel/ActoGraph-v3-x64.zip artifacts/release/
           fi
           if compgen -G "artifacts/electron-artifacts-macos-15-intel/latest-mac-x64.yml" > /dev/null; then
             cp -f artifacts/electron-artifacts-macos-15-intel/latest-mac-x64.yml artifacts/release/
           fi
-          # macOS arm64 from macos-14
-          if compgen -G "artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg" > /dev/null; then
-            cp -f artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg artifacts/release/
-          fi
-          if compgen -G "artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg.blockmap" > /dev/null; then
-            cp -f artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.dmg.blockmap artifacts/release/
-          fi
-          # Include macOS arm64 ZIP files if they exist (Electron Builder may generate ZIP files)
-          if compgen -G "artifacts/electron-artifacts-macos-14/*mac*.zip" > /dev/null; then
-            # Copy ZIP files, renaming if needed to include architecture
-            for zipfile in artifacts/electron-artifacts-macos-14/*mac*.zip; do
-              if [[ "$zipfile" =~ arm64 ]] || [[ ! "$zipfile" =~ (arm64|x64) ]]; then
-                cp -f "$zipfile" artifacts/release/
-              fi
-            done
+          # macOS arm64 from macos-14 (target is zip, not dmg)
+          if compgen -G "artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.zip" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.zip artifacts/release/
           fi
           if compgen -G "artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml" > /dev/null; then
             cp -f artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml artifacts/release/
@@ -387,29 +362,28 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install js-yaml in release folder
-        run: |
-          set -e
-          mkdir -p artifacts/release
-          cd artifacts/release
-          npm init -y >/dev/null 2>&1 || true
-          npm install js-yaml
-
       - name: Merge mac update YAML into latest-mac.yml
         run: |
           set -e
           cd artifacts/release
           if [ -f latest-mac-x64.yml ] && [ -f latest-mac-arm64.yml ]; then
             echo "Merging mac YAMLs into latest-mac.yml"
+            # Install js-yaml in a temp directory to avoid polluting the release folder
+            tmpdir=$(mktemp -d)
+            cd "$tmpdir"
+            npm init -y >/dev/null 2>&1
+            npm install js-yaml >/dev/null 2>&1
+            cd -
             node -e '
               const fs = require("fs");
-              const yaml = require("js-yaml");
+              const yaml = require("'"$tmpdir"'/node_modules/js-yaml");
               const x64 = yaml.load(fs.readFileSync("latest-mac-x64.yml", "utf8"));
               const arm = yaml.load(fs.readFileSync("latest-mac-arm64.yml", "utf8"));
               const merged = { ...x64 };
               merged.files = [...(x64.files || []), ...(arm.files || [])];
               fs.writeFileSync("latest-mac.yml", yaml.dump(merged));
             '
+            rm -rf "$tmpdir"
           elif [ -f latest-mac-x64.yml ]; then
             cp latest-mac-x64.yml latest-mac.yml
           elif [ -f latest-mac-arm64.yml ]; then

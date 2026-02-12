@@ -108,17 +108,33 @@
             </div>
           </div>
 
-          <!-- Bouton secondaire -->
+          <!-- Boutons secondaires -->
           <div class="q-px-md full-width">
-            <q-btn
-              label="Charger une autre chronique"
-              @click="methods.openSelectDialog"
-              outline
-              color="accent"
-              no-caps
-              class="full-width"
-              flat
-            />
+            <div class="row q-gutter-sm">
+              <q-btn
+                label="Charger une autre chronique"
+                @click="methods.openSelectDialog"
+                outline
+                color="accent"
+                no-caps
+                class="col"
+                flat
+              />
+              <q-btn
+                :icon="cloud.sharedState.isAuthenticated ? 'mdi-cloud-sync' : 'mdi-cloud-upload'"
+                label="Cloud"
+                @click="methods.openCloud"
+                outline
+                color="primary"
+                no-caps
+                class="col-auto"
+                flat
+              >
+                <q-tooltip>
+                  {{ cloud.sharedState.isAuthenticated ? 'Gérer le cloud' : 'Se connecter au cloud' }}
+                </q-tooltip>
+              </q-btn>
+            </div>
           </div>
         </template>
 
@@ -158,6 +174,15 @@
                 :disable="!observation.sharedState.currentObservation"
                 class="full-width"
               />
+              <q-btn
+                :icon="cloud.sharedState.isAuthenticated ? 'mdi-cloud-sync' : 'mdi-cloud-upload'"
+                :label="cloud.sharedState.isAuthenticated ? 'Gérer le cloud' : 'Se connecter au cloud'"
+                @click="methods.openCloud"
+                outline
+                color="primary"
+                no-caps
+                class="full-width"
+              />
             </div>
           </div>
         </template>
@@ -173,15 +198,18 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, computed, nextTick } from 'vue';
+import { defineComponent, reactive, computed, nextTick, onMounted } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
+import { useCloud } from 'src/composables/use-cloud';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
 import SelectChronicleDialog from './SelectChronicleDialog.vue';
 import CreateObservationDialog from './CreateObservationDialog.vue';
+import CloudLoginDialog from '../cloud/CloudLoginDialog.vue';
+import CloudSyncDialog from '../cloud/CloudSyncDialog.vue';
 import { DSubmitBtn } from '@lib-improba/components';
 import { useQuasar } from 'quasar';
 import { ObservationModeEnum } from '@services/observations/interface';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { exportService } from '@services/observations/export.service';
 import { importService } from '@services/observations/import.service';
@@ -196,11 +224,16 @@ export default defineComponent({
   setup() {
     const $q = useQuasar();
     const router = useRouter();
-    const route = useRoute();
     const observation = useObservation();
+    const cloud = useCloud();
 
     const state = reactive({
       showSelectDialog: false,
+    });
+
+    // Initialiser le cloud au montage pour afficher l'état de connexion
+    onMounted(async () => {
+      await cloud.methods.init();
     });
 
     const hasObservables = computed(() => {
@@ -517,10 +550,41 @@ export default defineComponent({
       navigateToGraph: () => {
         router.push({ name: 'user_analyse' });
       },
+
+      openCloud: async () => {
+        // Initialiser le cloud si nécessaire
+        await cloud.methods.init();
+
+        if (!cloud.sharedState.isAuthenticated) {
+          // Ouvrir le dialog de login
+          $q.dialog({
+            component: CloudLoginDialog,
+          }).onOk(() => {
+            // Connexion réussie, ouvrir le dialog de sync
+            methods.openCloudSyncDialog();
+          });
+        } else {
+          // Déjà connecté, ouvrir directement le dialog de sync
+          methods.openCloudSyncDialog();
+        }
+      },
+
+      openCloudSyncDialog: () => {
+        $q.dialog({
+          component: CloudSyncDialog,
+        }).onOk((result: { action: string; observationId?: number }) => {
+          if (result.action === 'logout') {
+            // Utilisateur déconnecté, réouvrir le login
+            methods.openCloud();
+          }
+          // Si result.action === 'downloaded', l'observation a été chargée dans le dialog
+        });
+      },
     };
 
     return {
       observation,
+      cloud,
       state,
       hasObservables,
       hasReadings,

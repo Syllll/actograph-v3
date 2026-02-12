@@ -279,23 +279,54 @@ DB_NAME=actograph.sqlite
 
 ### Workflow : `.github/workflows/publish.yml`
 
-Le workflow build pour 3 plateformes en parallèle :
+Le workflow build pour 3 plateformes en parallèle (4 jobs) :
 
-| Plateforme | Architecture | Artifact |
-|------------|--------------|----------|
-| Windows | x64 | `ActoGraph-v3-x64.exe` |
-| macOS | x64 | `ActoGraph-v3-x64.dmg` |
-| macOS | arm64 | `ActoGraph-v3-arm64.dmg` |
-| Linux | x64 | `ActoGraph-v3-x64.AppImage` |
+| Plateforme | Runner | Architecture | Artifact |
+|------------|--------|--------------|----------|
+| Windows | `windows-latest` | x64 | `ActoGraph-v3-x64.exe` |
+| macOS | `macos-15-intel` | x64 | `ActoGraph-v3-x64.zip` |
+| macOS | `macos-14` | arm64 | `ActoGraph-v3-arm64.zip` |
+| Linux | `ubuntu-latest` | x64 | `ActoGraph-v3-x64.AppImage` |
+
+> **Note** : macOS utilise le format `zip` (pas `dmg`) pour éviter les erreurs `hdiutil "Resource busy"` sur les runners CI GitHub.
 
 ### Étapes du workflow
 
+**Job 1 : `build-and-upload`** (parallèle sur 4 runners)
+
 1. Checkout du code
 2. Setup Node.js 20
-3. Création du `.env` avec `DB_TYPE=better-sqlite3`
-4. Installation des dépendances (yarn)
-5. Build Electron (quasar build -m electron)
-6. Upload des artifacts
+3. Injection des secrets (certificat Windows, fonctions de sécurité)
+4. Mise à jour des versions dans `package.json`
+5. Création des fichiers `.env` avec `DB_TYPE=better-sqlite3`
+6. Installation des dépendances (yarn) avec cache par OS/architecture
+7. Build Electron (`quasar build -m electron --publish never`)
+8. Upload des artifacts (`.exe`, `.zip`, `.AppImage`, `latest*.yml`, `.blockmap`)
+
+**Job 2 : `create-release`** (après tous les builds)
+
+1. Téléchargement de tous les artifacts
+2. Normalisation des fichiers YAML macOS (`latest-mac.yml` → `latest-mac-arm64.yml` / `latest-mac-x64.yml`)
+3. Préparation du bundle release (copie des fichiers dans `artifacts/release/`)
+4. Merge des YAML macOS en un seul `latest-mac.yml` contenant les deux architectures
+5. Création de la release GitHub avec tous les assets
+
+### Auto-update (electron-updater)
+
+L'application utilise `electron-updater` avec le provider GitHub pour la mise à jour automatique.
+
+Le fichier `latest-mac.yml` mergé contient les entrées pour les deux architectures :
+
+```yaml
+version: X.Y.Z
+files:
+  - url: ActoGraph-v3-x64.zip
+    sha512: ...
+  - url: ActoGraph-v3-arm64.zip
+    sha512: ...
+```
+
+`electron-updater` sélectionne automatiquement le bon fichier en comparant `process.arch` avec les noms de fichiers dans l'URL. Les fichiers `latest.yml` (Windows) et `latest-linux.yml` (Linux) ne nécessitent pas de merge car il n'y a qu'un seul build par plateforme.
 
 ## Dépannage
 
