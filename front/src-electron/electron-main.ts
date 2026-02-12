@@ -579,17 +579,19 @@ ipcMain.handle('write-file', async (event, filePath: string, data: string) => {
 });
 
 ipcMain.handle('show-open-dialog', async (event, options: {
+  defaultPath?: string;
   filters?: { name: string; extensions: string[] }[];
 }) => {
   if (!mainWindow) {
     return { canceled: true };
   }
 
-  // Get the Documents directory path
+  // Utiliser le dossier Actograph si fourni, sinon Mes Documents
   const documentsPath = app.getPath('documents');
+  const defaultPath = options.defaultPath || documentsPath;
   
   const result = await dialog.showOpenDialog(mainWindow, {
-    defaultPath: documentsPath,
+    defaultPath,
     filters: options.filters || [
       { name: 'Fichiers Chronique', extensions: ['jchronic', 'chronic'] },
       { name: 'Tous les fichiers', extensions: ['*'] },

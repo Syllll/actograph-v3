@@ -81,4 +81,18 @@ export const chronicleSubMenu = (router: Router) => [
       return '';
     },
   },
+  {
+    label: 'Enregistrer sous...',
+    icon: 'mdi-content-save-as',
+    separator: false,
+    action: null, // Sera géré dans le template
+    isActive: () => false,
+    disabled: (observation: any) => !observation.sharedState.currentObservation,
+    tooltip: (observation: any) => {
+      if (!observation.sharedState.currentObservation) {
+        return 'Aucune chronique chargée';
+      }
+      return 'Créer une copie avec un nouveau nom';
+    },
+  },
 ];

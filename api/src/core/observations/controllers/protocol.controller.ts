@@ -40,7 +40,14 @@ import {
   ProtocolItem,
   IGraphPreferences,
 } from '../entities/protocol.entity';
-import { IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsEnum,
+} from 'class-validator';
 import { UpdateProtocolItemGraphPreferencesDto } from '../dtos/protocol-item-graph-preferences.dto';
 class AddProtocolItemDto {
   @IsNotEmpty()
@@ -52,7 +59,7 @@ class AddProtocolItemDto {
   description?: string;
 
   @IsOptional()
-  @IsString()
+  @IsEnum(ProtocolItemActionEnum)
   action?: ProtocolItemActionEnum;
 
   @IsOptional()
@@ -98,7 +105,7 @@ class EditProtocolItemDto {
   description?: string;
 
   @IsOptional()
-  @IsString()
+  @IsEnum(ProtocolItemActionEnum)
   action?: ProtocolItemActionEnum;
 
   @IsOptional()
@@ -210,35 +217,6 @@ export class ProtocolController extends BaseController {
     }
 
     return output;
-  }
-
-  @Patch('item/:protocolId/:itemId/graph-preferences')
-  @UseGuards(JwtAuthGuard, UserRolesGuard)
-  @Roles(UserRoleEnum.User)
-  async updateItemGraphPreferences(
-    @Param('protocolId', ParseIntPipe) protocolId: number,
-    @Param('itemId') itemId: string,
-    @Body() body: UpdateProtocolItemGraphPreferencesDto,
-    @Req() req: any,
-  ) {
-    const user = req.user;
-    const protocol = await this.protocolService.findOne(protocolId, {
-      relations: ['observation'],
-    });
-    if (!protocol?.observation) {
-      throw new NotFoundException('Protocol not found');
-    }
-    // Can the user access the protocol?
-    await this.observationService.check.canUserAccessObservation({
-      observationId: protocol.observation.id,
-      userId: user.id,
-    });
-
-    return await this.protocolService.items.updateItemGraphPreferences({
-      protocolId: protocolId,
-      itemId,
-      preferences: body,
-    });
   }
 
   @Get('item/:protocolId/:itemId/graph-preferences')

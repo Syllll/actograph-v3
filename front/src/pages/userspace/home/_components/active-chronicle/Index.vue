@@ -175,6 +175,15 @@
                 class="full-width"
               />
               <q-btn
+                label="Enregistrer sous..."
+                @click="methods.saveAsObservation"
+                outline
+                color="primary"
+                no-caps
+                :disable="!observation.sharedState.currentObservation"
+                class="full-width"
+              />
+              <q-btn
                 :icon="cloud.sharedState.isAuthenticated ? 'mdi-cloud-sync' : 'mdi-cloud-upload'"
                 :label="cloud.sharedState.isAuthenticated ? 'Gérer le cloud' : 'Se connecter au cloud'"
                 @click="methods.openCloud"
@@ -213,12 +222,14 @@ import { useRouter } from 'vue-router';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { exportService } from '@services/observations/export.service';
 import { importService } from '@services/observations/import.service';
+import SaveAsDialog from './SaveAsDialog.vue';
 
 export default defineComponent({
   name: 'ActiveChronicle',
   components: {
     SelectChronicleDialog,
     CreateObservationDialog,
+    SaveAsDialog,
     DSubmitBtn,
   },
   setup() {
@@ -467,6 +478,55 @@ export default defineComponent({
             type: 'negative',
             message: 'Erreur lors de l\'import de la chronique',
             caption: errorMessage,
+          });
+        }
+      },
+
+      /**
+       * "Enregistrer sous" : crée une copie de la chronique avec un nouveau nom
+       */
+      saveAsObservation: async () => {
+        const currentObservation = observation.sharedState.currentObservation;
+
+        if (!currentObservation) {
+          $q.notify({
+            type: 'warning',
+            message: 'Aucune chronique chargée',
+          });
+          return;
+        }
+
+        const newName = await createDialog({
+          component: SaveAsDialog,
+          componentProps: {
+            currentName: currentObservation.name,
+          },
+          persistent: true,
+        });
+
+        if (!newName || typeof newName !== 'string') {
+          return;
+        }
+
+        try {
+          const newObservation = await exportService.saveAsObservation(
+            currentObservation,
+            newName
+          );
+
+          await observation.methods.loadObservation(newObservation.id);
+
+          $q.notify({
+            type: 'positive',
+            message: 'Chronique enregistrée sous un nouveau nom',
+            caption: newObservation.name,
+          });
+        } catch (error) {
+          console.error('Erreur lors de l\'enregistrement sous:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de l\'enregistrement',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
           });
         }
       },

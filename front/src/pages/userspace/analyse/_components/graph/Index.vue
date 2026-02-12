@@ -171,7 +171,8 @@ export default defineComponent({
 .canvas-container {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  /* overflow: auto pour permettre le scroll quand le graphe dépasse (bug 3.1: première catégorie invisible avec 4+ catégories) */
+  overflow: auto;
 }
 
 .zoom-controls {

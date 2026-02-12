@@ -104,7 +104,7 @@ export default defineComponent({
           console.error('Error fetching observations:', error);
           $q.notify({
             type: 'negative',
-            message: 'Failed to load observations',
+            message: 'Erreur lors du chargement des chroniques',
           });
           return { count: 0, results: [] };
         }

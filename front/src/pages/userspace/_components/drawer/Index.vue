@@ -80,7 +80,7 @@
                     </q-tooltip>
                     <span 
                       class="text-truncate" 
-                      style="max-width: 150px"
+                      style="max-width: 200px"
                     >
                       {{ computedState.chronicleDisplayName.value ?? '' }}
                     </span>
@@ -114,6 +114,8 @@
                       } else {
                         if (subMenuItem.label === 'Exporter la chronique') {
                           methods.exportObservation();
+                        } else if (subMenuItem.label === 'Enregistrer sous...') {
+                          methods.saveAsObservation();
                         } else if (subMenuItem.action) {
                           subMenuItem.action();
                         }
@@ -164,6 +166,8 @@ import CreateObservationDialog from '@pages/userspace/home/_components/active-ch
 import { exportService } from '@services/observations/export.service';
 import { importService } from '@services/observations/import.service';
 import { useNotifications } from 'src/composables/use-notifications';
+import { createDialog } from '@lib-improba/utils/dialog.utils';
+import SaveAsDialog from '@pages/userspace/home/_components/active-chronicle/SaveAsDialog.vue';
 
 export default defineComponent({
   props: {
@@ -192,10 +196,7 @@ export default defineComponent({
       chronicleDisplayName: computed(() => {
         const name = observation.sharedState.currentObservation?.name;
         if (!name) return '';
-        // Tronquer le nom si trop long (max 20 caractères)
-        console.log('name', name);
-        const trimmedName = name.trim();
-        return trimmedName.length > 20 ? trimmedName.substring(0, 20) + '...' : trimmedName;
+        return name.trim();
       }),
       isChronicleActive: computed(() => {
         const routeName = router.currentRoute.value.name;
@@ -302,6 +303,10 @@ export default defineComponent({
           // Recharger l'observation complète
           await observation.methods.loadObservation(newObservation.id);
 
+          // Attendre la propagation des mises à jour (évite affichage incorrect)
+          await nextTick();
+          await new Promise((resolve) => setTimeout(resolve, 150));
+
           $q.notify({
             type: 'positive',
             message: 'Chronique importée avec succès',
@@ -371,6 +376,52 @@ export default defineComponent({
           $q.notify({
             type: 'negative',
             message: 'Erreur lors de l\'export de la chronique',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+          });
+        }
+      },
+
+      saveAsObservation: async () => {
+        const currentObservation = observation.sharedState.currentObservation;
+
+        if (!currentObservation) {
+          $q.notify({
+            type: 'warning',
+            message: 'Aucune chronique chargée',
+          });
+          return;
+        }
+
+        const newName = await createDialog({
+          component: SaveAsDialog,
+          componentProps: {
+            currentName: currentObservation.name,
+          },
+          persistent: true,
+        });
+
+        if (!newName || typeof newName !== 'string') {
+          return;
+        }
+
+        try {
+          const newObservation = await exportService.saveAsObservation(
+            currentObservation,
+            newName
+          );
+
+          await observation.methods.loadObservation(newObservation.id);
+
+          $q.notify({
+            type: 'positive',
+            message: 'Chronique enregistrée sous un nouveau nom',
+            caption: newObservation.name,
+          });
+        } catch (error) {
+          console.error('Erreur lors de l\'enregistrement sous:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de l\'enregistrement',
             caption: error instanceof Error ? error.message : 'Erreur inconnue',
           });
         }

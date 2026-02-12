@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('api', {
     }>;
   },
   showOpenDialog: (options: {
+    defaultPath?: string;
     filters?: { name: string; extensions: string[] }[];
   }): Promise<{ canceled: boolean; filePaths?: string[] }> => {
     return ipcRenderer.invoke('show-open-dialog', options) as Promise<{

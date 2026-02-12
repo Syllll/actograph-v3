@@ -494,6 +494,16 @@ export default defineComponent({
       },
     };
 
+    // Refresh display when edit category modal closes (success, cancel, or after error)
+    watch(
+      () => state.editCategoryModal,
+      (isOpen) => {
+        if (!isOpen) {
+          methods.loadProtocol();
+        }
+      }
+    );
+
     onMounted(() => {
       methods.loadProtocol();
     });

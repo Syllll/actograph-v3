@@ -263,8 +263,14 @@ export default defineComponent({
         }
 
         try {
-          // Ouvrir le dialogue de sélection de fichier
+          // Ouvrir le dialogue dans le dossier Actograph (Mes Documents/Actograph)
+          let defaultPath = '';
+          if (window.api?.getActographFolder) {
+            defaultPath = await window.api.getActographFolder();
+          }
+
           const dialogResult = await window.api.showOpenDialog({
+            defaultPath: defaultPath || undefined,
             filters: [
               { name: 'Fichiers Chronique', extensions: ['jchronic'] },
               { name: 'Tous les fichiers', extensions: ['*'] },

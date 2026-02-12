@@ -1,6 +1,15 @@
 <template>
   <DPage>
-    <div class="fit row">
+    <div class="home-page-wrapper relative-position">
+      <div
+        v-if="observation.sharedState.loading"
+        class="loading-overlay column items-center justify-center"
+      >
+        <q-spinner-dots size="48px" color="primary" />
+        <div class="text-body2 text-grey-7 q-mt-md">Chargement de la chronique...</div>
+      </div>
+
+      <div class="fit row">
       <div class="col-6 column">
         <div class="col-6 box-wrapper">
           <div class="box column">
@@ -30,6 +39,7 @@
         </div>
       </div>
     </div>
+    </div>
   </DPage>
 </template>
 
@@ -40,6 +50,7 @@ import MyObservations from './_components/my-observations/Index.vue';
 import FirstSteps from './_components/first-steps/Index.vue';
 import ActiveChronicle from './_components/active-chronicle/Index.vue';
 import Advertisement from './_components/advertisement/Index.vue';
+import { useObservation } from 'src/composables/use-observation';
 
 export default defineComponent({
   components: {
@@ -50,12 +61,31 @@ export default defineComponent({
     Advertisement,
   },
   setup() {
-    return {};
+    const observation = useObservation();
+    return {
+      observation,
+    };
   },
 });
 </script>
 
 <style lang="scss" scoped>
+.home-page-wrapper {
+  position: relative;
+  min-height: 100%;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.75);
+  z-index: 100;
+  pointer-events: none; /* Non bloquant : l'utilisateur peut voir le chargement */
+}
+
 .box-wrapper {
   padding: 0.2rem;
 }

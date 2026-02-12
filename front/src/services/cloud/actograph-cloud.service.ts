@@ -241,6 +241,12 @@ class ActographCloudService {
       );
 
       if (!response.ok) {
+        if (response.status === 401) {
+          return {
+            success: false,
+            error: 'Session expirée. Veuillez vous reconnecter au cloud.',
+          };
+        }
         return {
           success: false,
           error: `Erreur serveur: ${response.status}`,
@@ -255,9 +261,12 @@ class ActographCloudService {
       };
     } catch (error) {
       console.error('Error downloading chronicle:', error);
+      const errMsg = error instanceof Error ? error.message : 'Erreur inconnue';
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Erreur inconnue',
+        error: /401|session expirée|non authentifié/i.test(errMsg)
+          ? 'Session expirée. Veuillez vous reconnecter au cloud.'
+          : errMsg,
       };
     }
   }

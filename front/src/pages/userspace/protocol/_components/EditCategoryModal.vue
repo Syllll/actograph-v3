@@ -202,9 +202,13 @@ export default defineComponent({
 
         emit('category-updated');
         emit('update:modelValue', false);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to edit category:', error);
-        state.error = 'Échec de la modification de la catégorie';
+        const apiMessage = error?.response?.data?.message;
+        const message = Array.isArray(apiMessage)
+          ? apiMessage.join('. ')
+          : apiMessage || error?.message || 'Échec de la modification de la catégorie';
+        state.error = message;
       } finally {
         state.loading = false;
       }

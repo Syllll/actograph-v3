@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, reactive, ref } from 'vue';
+import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { PixiApp } from '@actograph/graph';
 import { useObservation } from 'src/composables/use-observation';
 import { IObservation, IProtocol, IReading } from '@services/observations/interface';
@@ -104,6 +104,29 @@ export const useGraph = (options?: {
 
       console.info('Pixi app initialized');
     });
+
+    /**
+     * Watch pour rafraîchir le graphe quand les relevés changent (bug 3.4 : horodatage modifié)
+     */
+    watch(
+      () => observation.readings?.sharedState?.currentReadings ?? [],
+      (readings) => {
+        if (!sharedState.pixiApp || !readings.length) return;
+
+        const obs = observation.sharedState.currentObservation as IObservation;
+        if (!obs) return;
+
+        const protocol = observation.protocol?.sharedState?.currentProtocol ?? null;
+        if (!protocol) return;
+
+        obs.readings = readings as IReading[];
+        obs.protocol = protocol as IProtocol;
+
+        sharedState.pixiApp.setData(obs as ICoreObservation);
+        sharedState.pixiApp.draw();
+      },
+      { deep: true }
+    );
 
     /**
      * Hook appelé lorsque le composant est démonté du DOM.

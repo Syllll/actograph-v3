@@ -186,11 +186,23 @@ export const useProtocol = (options: { sharedStateFromObservation: any }) => {
      * @param item - Updated item data
      */
     editProtocolItem: async (item: EditItemDto) => {
-      await protocolService.editItem(item);
-      // Reload the protocol to reflect changes
-      await methods.loadProtocol(
-        options.sharedStateFromObservation.currentObservation
-      );
+      const observation = options.sharedStateFromObservation.currentObservation;
+      if (!observation?.id) {
+        throw new Error('Impossible de modifier : aucune observation chargée');
+      }
+
+      try {
+        await protocolService.editItem(item);
+        await methods.loadProtocol(observation);
+      } catch (error) {
+        // Reload protocol from server to prevent persistent error state.
+        try {
+          await methods.loadProtocol(observation);
+        } catch (reloadError) {
+          console.error('Failed to reload protocol after edit error:', reloadError);
+        }
+        throw error;
+      }
     },
   };
 

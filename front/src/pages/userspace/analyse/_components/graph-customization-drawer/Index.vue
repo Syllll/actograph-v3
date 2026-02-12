@@ -122,7 +122,7 @@
                 />
               </div>
 
-              <!-- Support (uniquement pour Background) -->
+              <!-- Support (uniquement pour Background) - bug 3.5 : sélecteur "arrière-plan de quelle catégorie ?" -->
               <div 
                 v-if="category.graphPreferences?.displayMode === DisplayModeEnum.Background"
                 class="col-auto"
@@ -137,6 +137,7 @@
                   outlined
                   emit-value
                   map-options
+                  placeholder="Arrière-plan de..."
                   @update:model-value="(val) => methods.updateCategoryPreference(category.id, { supportCategoryId: val === '' ? null : val })"
                 />
               </div>
@@ -548,16 +549,34 @@ export default defineComponent({
             preference
           );
 
+          // Recharger le protocole depuis l'API pour garantir la persistance (bug 3.7)
+          if (observation.sharedState.currentObservation) {
+            const reloaded = await protocolService.findOneFromObservationId(
+              observation.sharedState.currentObservation.id
+            );
+            protocol.sharedState.currentProtocol = reloaded;
+            if (graph.sharedState.pixiApp) {
+              graph.sharedState.pixiApp.setProtocol(reloaded as any);
+              graph.sharedState.pixiApp.draw();
+            }
+          }
+
           // Sauvegarder avec debounce
           methods.debouncedSave();
-        } catch (error) {
+        } catch (error: any) {
           // Rollback en cas d'erreur API
           protocol.sharedState.currentProtocol = originalProtocol;
+          
+          const apiMessage = error?.response?.data?.message;
+          const validationErrors = error?.response?.data?.errors;
+          const message = Array.isArray(validationErrors)
+            ? validationErrors.join(', ')
+            : apiMessage || 'Erreur lors de la mise à jour des préférences';
           
           console.error('Error updating category preference:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de la mise à jour des préférences',
+            message,
           });
         }
       },
@@ -620,27 +639,34 @@ export default defineComponent({
             preference
           );
 
-          // Mettre à jour le protocole dans le pixiApp et redessiner
-          if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
-            // Type assertion: le frontend utilise items?: string et _items?: IProtocolItem[]
-            // mais setProtocol gère les deux formats en interne
-            graph.sharedState.pixiApp.setProtocol(protocol.sharedState.currentProtocol as any);
-            graph.sharedState.pixiApp.updateObservablePreference(
-              observableId,
-              preference
+          // Recharger le protocole depuis l'API pour garantir la persistance (bug 3.7)
+          if (observation.sharedState.currentObservation) {
+            const reloaded = await protocolService.findOneFromObservationId(
+              observation.sharedState.currentObservation.id
             );
+            protocol.sharedState.currentProtocol = reloaded;
+            if (graph.sharedState.pixiApp) {
+              graph.sharedState.pixiApp.setProtocol(reloaded as any);
+              graph.sharedState.pixiApp.draw();
+            }
           }
 
           // Sauvegarder avec debounce
           methods.debouncedSave();
-        } catch (error) {
+        } catch (error: any) {
           // Rollback en cas d'erreur API
           protocol.sharedState.currentProtocol = originalProtocol;
+          
+          const apiMessage = error?.response?.data?.message;
+          const validationErrors = error?.response?.data?.errors;
+          const message = Array.isArray(validationErrors)
+            ? validationErrors.join(', ')
+            : apiMessage || 'Erreur lors de la mise à jour des préférences';
           
           console.error('Error updating observable preference:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de la mise à jour des préférences',
+            message,
           });
         }
       },
@@ -666,7 +692,7 @@ export default defineComponent({
         if (!currentProtocol?._items) return [];
 
         const options: { label: string; value: string | null }[] = [
-          { label: 'Arrière plan du graph', value: null },
+          { label: 'Arrière-plan du graph', value: null },
         ];
 
         // Ajouter les autres catégories en mode "normal"

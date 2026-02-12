@@ -138,7 +138,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, computed } from 'vue';
+import { defineComponent, reactive, computed, watch } from 'vue';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useObservation } from 'src/composables/use-observation';
 import { DCard, DCardSection } from '@lib-improba/components';
@@ -176,6 +176,8 @@ export default defineComponent({
       { label: 'Off', value: ObservableStateEnum.OFF },
     ];
 
+    // Observables filtrés : exclure ceux de la catégorie à étudier pour éviter
+    // de combiner une catégorie avec elle-même dans les conditions
     const observableOptions = computed(() => {
       if (!observation.protocol || !observation.protocol.sharedState) {
         return [];
@@ -185,11 +187,31 @@ export default defineComponent({
         return [];
       }
 
+      // Collecter les noms des observables de la catégorie sélectionnée
+      const targetCategoryObservableNames = new Set<string>();
+      if (state.targetCategoryId) {
+        const targetCategory = protocol._items.find(
+          (item: any) =>
+            item.type === 'category' && item.id === state.targetCategoryId,
+        );
+        if (targetCategory?.children) {
+          for (const child of targetCategory.children) {
+            if (child.type === 'observable' && child.name) {
+              targetCategoryObservableNames.add(child.name);
+            }
+          }
+        }
+      }
+
       const observables: Array<{ label: string; value: string }> = [];
       for (const item of protocol._items) {
         if (item.type === 'category' && item.children) {
           for (const child of item.children) {
-            if (child.type === 'observable' && child.name) {
+            if (
+              child.type === 'observable' &&
+              child.name &&
+              !targetCategoryObservableNames.has(child.name)
+            ) {
               observables.push({
                 label: child.name,
                 value: child.name,
@@ -201,6 +223,24 @@ export default defineComponent({
 
       return observables;
     });
+
+    // Réinitialiser les conditions avec des observables invalides quand la catégorie change
+    watch(
+      () => state.targetCategoryId,
+      () => {
+        const validNames = new Set(
+          observableOptions.value.map((opt) => opt.value),
+        );
+        for (const condition of state.conditions) {
+          if (
+            condition.observableName &&
+            !validNames.has(condition.observableName)
+          ) {
+            condition.observableName = '';
+          }
+        }
+      },
+    );
 
     const categoryOptions = computed(() => {
       if (!observation.protocol || !observation.protocol.sharedState) {

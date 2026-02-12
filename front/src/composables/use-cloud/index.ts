@@ -166,9 +166,13 @@ export function useCloud() {
         const downloadResult = await actographCloudService.downloadChronicle(chronicle.id);
 
         if (!downloadResult.success || !downloadResult.content) {
+          const errorMsg = downloadResult.error || 'Erreur de téléchargement';
+          const is401 = /401|session expirée|non authentifié/i.test(errorMsg);
           return {
             success: false,
-            error: downloadResult.error || 'Erreur de téléchargement',
+            error: is401
+              ? 'Session expirée. Veuillez vous déconnecter et vous reconnecter au cloud.'
+              : errorMsg,
           };
         }
 
@@ -185,11 +189,18 @@ export function useCloud() {
           success: true,
           observation,
         };
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error downloading chronicle:', error);
+        let errorMsg = 'Erreur d\'import';
+        if (error instanceof Error) {
+          errorMsg = error.message;
+          if (/401|session expirée|non authentifié/i.test(errorMsg)) {
+            errorMsg = 'Session expirée. Veuillez vous déconnecter et vous reconnecter au cloud.';
+          }
+        }
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Erreur d\'import',
+          error: errorMsg,
         };
       } finally {
         sharedState.isLoading = false;

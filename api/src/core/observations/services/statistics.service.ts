@@ -17,6 +17,55 @@ import {
   ConditionalStatisticsDto,
 } from '../dtos/statistics-conditional.dto';
 
+/**
+ * Normalize readings for video mode: clamp DATA reading timestamps to observation bounds.
+ * Video timestamps can be outside [START, STOP] (e.g. negative -2ms bug), causing wrong totals.
+ * Returns { normalizedReadings, observationStart, observationEnd } or null if no valid bounds.
+ */
+function normalizeReadingsForStatistics(
+  readings: IReading[],
+): {
+  normalizedReadings: IReading[];
+  observationStart: Date;
+  observationEnd: Date;
+} | null {
+  const sortedReadings = [...readings].sort(
+    (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
+  );
+  const startReadings = sortedReadings.filter(
+    (r) => r.type === ReadingTypeEnum.START,
+  );
+  const stopReadings = sortedReadings.filter(
+    (r) => r.type === ReadingTypeEnum.STOP,
+  );
+  if (startReadings.length === 0 || stopReadings.length === 0) {
+    return null;
+  }
+  const observationStart = new Date(
+    Math.min(...startReadings.map((r) => r.dateTime.getTime())),
+  );
+  const observationEnd = new Date(
+    Math.max(...stopReadings.map((r) => r.dateTime.getTime())),
+  );
+  const startT = observationStart.getTime();
+  const endT = observationEnd.getTime();
+  const normalizedReadings = sortedReadings.map((r) => {
+    if (r.type !== ReadingTypeEnum.DATA) {
+      return r;
+    }
+    const t = r.dateTime.getTime();
+    if (t < startT || t > endT) {
+      return { ...r, dateTime: new Date(Math.max(startT, Math.min(endT, t))) };
+    }
+    return r;
+  });
+  return {
+    normalizedReadings,
+    observationStart,
+    observationEnd,
+  };
+}
+
 @Injectable()
 export class StatisticsService {
   private readonly logger = new Logger(StatisticsService.name);
@@ -64,8 +113,12 @@ export class StatisticsService {
       ? JSON.parse(observation.protocol.items)
       : [];
 
+    // Normalize readings for video mode (clamp DATA timestamps to observation bounds)
+    const normalized = normalizeReadingsForStatistics(observation.readings);
+    const readingsToUse = normalized?.normalizedReadings ?? observation.readings;
+
     // Use core function to calculate statistics
-    const stats = calculateGeneralStatistics(observation.readings, protocolItems);
+    const stats = calculateGeneralStatistics(readingsToUse, protocolItems);
 
     this.logger.debug(
       `General statistics calculated for observation ${observationId}: ` +
@@ -111,15 +164,9 @@ export class StatisticsService {
       
       this.logger.debug(`Found category "${category.name}" with ${category.children?.length || 0} observables`);
 
-      const readings = observation.readings.sort(
-        (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
-      );
-
-      // Calculate total observation duration (minus pauses)
-      const startReading = readings.find((r) => r.type === ReadingTypeEnum.START);
-      const stopReading = readings.find((r) => r.type === ReadingTypeEnum.STOP);
-
-      if (!startReading || !stopReading) {
+      // Normalize readings for video mode (clamp DATA timestamps, use min START / max STOP)
+      const normalized = normalizeReadingsForStatistics(observation.readings);
+      if (!normalized) {
         return {
           categoryId: category.id,
           categoryName: category.name,
@@ -127,12 +174,15 @@ export class StatisticsService {
         };
       }
 
+      const { normalizedReadings, observationStart, observationEnd } =
+        normalized;
+
       // Use core function to calculate category statistics
       const result = calculateCategoryStatistics(
         category,
-        readings,
-        startReading.dateTime,
-        stopReading.dateTime,
+        normalizedReadings,
+        observationStart,
+        observationEnd,
       );
 
       this.logger.debug(
@@ -181,9 +231,13 @@ export class StatisticsService {
 
     const protocolItems: ProtocolItem[] = JSON.parse(observation.protocol.items);
 
+    // Normalize readings for video mode (clamp DATA timestamps to observation bounds)
+    const normalized = normalizeReadingsForStatistics(observation.readings);
+    const readingsToUse = normalized?.normalizedReadings ?? observation.readings;
+
     // Use core function to calculate conditional statistics
     const { categoryStatistics: targetCategoryStats, filteredPeriods } = calculateConditionalStatistics(
-      observation.readings,
+      readingsToUse,
       protocolItems,
       request,
     );

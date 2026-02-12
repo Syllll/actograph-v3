@@ -129,5 +129,42 @@ export const exportService = {
     // Retourner le chemin du fichier sauvegardé pour affichage à l'utilisateur
     return dialogResult.filePath;
   },
+
+  /**
+   * "Save As" : crée une copie de l'observation avec un nouveau nom
+   * 
+   * Flux d'exécution :
+   * 1. Récupère les données d'export
+   * 2. Modifie le nom dans les données
+   * 3. Importe via le backend (crée une nouvelle observation avec nouveaux IDs)
+   * 4. Retourne la nouvelle observation
+   * 
+   * @param observation L'observation à dupliquer
+   * @param newName Le nouveau nom pour la copie
+   * @returns La nouvelle observation créée
+   */
+  async saveAsObservation(
+    observation: IObservation,
+    newName: string
+  ): Promise<IObservation> {
+    if (!observation.id) {
+      throw new Error('Observation ID is required');
+    }
+
+    const exportData = await observationService.exportObservation(observation.id);
+
+    exportData.observation.name = newName.trim();
+    exportData.observation.updatedAt = new Date().toISOString();
+    exportData.observation.createdAt = new Date().toISOString();
+    exportData.exportedAt = new Date().toISOString();
+
+    const jsonContent = JSON.stringify(exportData, null, 2);
+    const fileName = `${newName.trim().replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50)}.jchronic`;
+    const file = new File([jsonContent], fileName, {
+      type: 'application/json',
+    });
+
+    return await observationService.importObservation(file);
+  },
 };
 
