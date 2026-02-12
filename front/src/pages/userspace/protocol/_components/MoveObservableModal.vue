@@ -124,13 +124,13 @@ export default defineComponent({
       }
 
       if (!props.observable?.id) {
-        state.error = "Observable invalide ou identifiant manquant";
+        state.error = 'Observable invalide ou identifiant manquant';
         return;
       }
 
       if (!observation.protocol.sharedState.currentProtocol?.id) {
         state.error =
-          "Impossible de déplacer : identifiant de protocole manquant";
+          'Impossible de déplacer : identifiant de protocole manquant';
         return;
       }
 

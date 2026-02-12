@@ -188,7 +188,7 @@
                   'comment-reading': props.row.name?.startsWith('#'),
                   'unrecognized-observable': isUnrecognizedObservable(props.row)
                 }"
-                :title="isUnrecognizedObservable(props.row) ? `Observable non reconnu : \"${props.row.name}\" n'existe pas dans le protocole actuel` : undefined"
+                :title="getUnrecognizedObservableTitle(props.row)"
               >
                 {{ props.row.name }}
               </span>
@@ -380,6 +380,12 @@ export default defineComponent({
       }
       return options;
     });
+
+    // Bug 2.6 : Titre tooltip pour un observable non reconnu
+    const getUnrecognizedObservableTitle = (row: IReading): string | undefined => {
+      if (!isUnrecognizedObservable(row)) return undefined;
+      return 'Observable non reconnu : "' + row.name + '" n\'existe pas dans le protocole actuel';
+    };
 
     // Bug 2.6 : Vérifie si un relevé DATA a un observable non reconnu
     const isUnrecognizedObservable = (row: IReading): boolean => {
@@ -732,6 +738,7 @@ export default defineComponent({
       handleTypeSave,
       getRowKey,
       isUnrecognizedObservable,
+      getUnrecognizedObservableTitle,
       protocolObservableOptions,
     };
   },
