@@ -10,6 +10,7 @@ Ce projet utilise les conventions et recettes de la **Knowledge Base Improba** a
 - Ce projet utilise des **couleurs CSS custom** définies dans `front/src/css/_colors.scss` (pas Anubis UI par défaut)
 
 **Recettes pertinentes de la Knowledge Base** :
+- `.knowledge-base/recipes/glutamat/auto-implement.md` - **Processus d'implémentation de features et structure docs/** (OBLIGATOIRE)
 - `.knowledge-base/recipes/glutamat/creer-module-nestjs.md` - Structure de base (⚠️ adapter pour TypeORM)
 - `.knowledge-base/recipes/glutamat/creer-module-quasar.md` - Structure frontend (⚠️ adapter pour `defineComponent`)
 - `.knowledge-base/best-practices/code-quality/conventions-vue-quasar.md` - Conventions Vue/Quasar (⚠️ adapter pour `defineComponent`)
@@ -734,32 +735,47 @@ export interface IMyEntity {
 
 ## Processus d'implémentation de features
 
-Quand l'utilisateur demande d'implémenter une feature depuis un lien GitHub (ex: "implémente la feature de ce lien {lien}"), suivre le processus décrit dans `docs/auto-implement.md` :
+**Source de vérité : `.knowledge-base/recipes/glutamat/auto-implement.md`**
 
-1. **Créer la structure de documentation** dans `docs/features/{date}-phase-{number}-{name}/`
-   - Les features sont organisées par phases dans des dossiers `{date}-phase-{number}-{name}/`
-   - Exemple : `docs/features/2025-01-phase-1-fondations/`
-2. **Créer un seul fichier** `{issue-number}-{feature-name}.md` qui combine plan + avancement
-   - Un seul fichier à maintenir (pas de séparation plan/done)
-   - Utiliser des checkboxes `- [ ]` pour les tâches non complétées et `- [x]` pour les tâches complétées
+Ce processus est **OBLIGATOIRE** pour toute nouvelle feature. Consulter la recette IKB pour le processus complet et le format détaillé des fichiers.
+
+### Résumé du processus
+
+1. **Demander le nom de l'auteur** avant de créer le fichier (OBLIGATOIRE)
+2. **Créer le fichier** dans `docs/temp/` pendant l'implémentation
+   - Format du nom : `{YYYYMMDDhhmmss}-{issue-number}-{feature-name}-{Prénom-Nom}.md`
+   - Exemple : `docs/temp/20260212143000-42-mon-feature-Sylvain-Meylan.md`
 3. **Analyser l'issue GitHub** pour comprendre les besoins fonctionnels
 4. **Analyser le code existant** pour identifier ce qui est déjà implémenté
-5. **Créer un plan d'implémentation détaillé** avec checkboxes dans le fichier unique
+5. **Créer un plan d'implémentation détaillé** dans le fichier (format IKB avec frontmatter YAML)
 6. **Demander validation** à l'utilisateur avant de commencer l'implémentation
-7. **Ajuster le plan** selon les retours de l'utilisateur
-8. **Créer un commentaire GitHub formaté** dans `comment-github.md` (optionnel)
-9. **Pendant l'implémentation** : Mettre à jour les checkboxes au fur et à mesure dans le même fichier
-10. **Pendant l'implémentation** : Ajouter les sections "Problèmes rencontrés" et "Initiatives prises" directement dans le fichier de plan
+7. **Pendant l'implémentation** : Mettre à jour le fichier au fur et à mesure (checkboxes, problèmes, initiatives)
+8. **Une fois terminé** : Déplacer le fichier vers le dossier approprié :
+   - `docs/features/` pour la documentation pérenne (nettoyer les TODOs terminés)
+   - `docs/plans/` pour les plans réutilisables
+   - `docs/reviews/` pour les reviews importantes
 
-**Points importants** :
+### Structure du dossier docs/
+
+```
+docs/
+├── README.md                    # Description de la structure
+├── features/                    # Documentation PÉRENNE de features terminées (tracké git)
+├── plans/                       # Plans d'implémentation PARTAGEABLES (tracké git)
+├── reviews/                     # Reviews IMPORTANTES à conserver (tracké git)
+└── temp/                        # Fichiers TEMPORAIRES en cours de travail (NON tracké git)
+```
+
+### Points importants
 - ✅ Toujours analyser le code existant AVANT de proposer un plan
 - ✅ Marquer clairement ce qui existe déjà (✅) vs ce qui doit être créé (❌)
 - ✅ Ne pas proposer d'implémenter ce qui existe déjà
 - ✅ Demander validation avant de commencer à coder
-- ✅ **Mettre à jour le plan au fur et à mesure** : cocher les tâches et ajouter les sections nécessaires directement dans le fichier unique
+- ✅ Mettre à jour le plan au fur et à mesure
+- ✅ Si trop de fichiers dans un dossier, possibilité de créer des sous-dossiers thématiques
 - ❌ Ne pas inclure d'estimations de temps sauf si explicitement demandé
 
-Voir `docs/auto-implement.md` pour le processus détaillé et des exemples.
+Voir `.knowledge-base/recipes/glutamat/auto-implement.md` pour le processus détaillé, le format YAML frontmatter, et des exemples complets.
 
 ## Règles générales
 
