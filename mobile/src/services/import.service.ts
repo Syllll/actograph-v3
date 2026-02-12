@@ -77,68 +77,78 @@ class ImportService {
         mode: 'Chronometer',
       });
 
-      // Get the protocol
-      const protocol = await protocolRepository.findByObservationId(observation.id);
-      if (!protocol) {
-        throw new Error('Failed to create protocol');
-      }
+      try {
+        // Get the protocol
+        const protocol = await protocolRepository.findByObservationId(observation.id);
+        if (!protocol) {
+          throw new Error('Failed to create protocol');
+        }
 
-      let categoriesCount = 0;
-      let observablesCount = 0;
+        let categoriesCount = 0;
+        let observablesCount = 0;
 
-      // Add categories and observables
-      if (data.protocol?.categories) {
-        for (let i = 0; i < data.protocol.categories.length; i++) {
-          const category = data.protocol.categories[i];
-          const categoryItem = await protocolRepository.addCategory(
-            protocol.id,
-            category.name,
-            i,
-            'continuous',
-            category.meta
-          );
-          categoriesCount++;
+        // Add categories and observables
+        if (data.protocol?.categories) {
+          for (let i = 0; i < data.protocol.categories.length; i++) {
+            const category = data.protocol.categories[i];
+            const categoryItem = await protocolRepository.addCategory(
+              protocol.id,
+              category.name,
+              i,
+              'continuous',
+              category.meta
+            );
+            categoriesCount++;
 
-          // Add observables to category
-          if (category.observables) {
-            for (let j = 0; j < category.observables.length; j++) {
-              const observable = category.observables[j];
-              await protocolRepository.addObservable(
-                protocol.id,
-                categoryItem.id,
-                observable.name,
-                undefined, // color is not available in normalized data
-                j
-              );
-              observablesCount++;
+            // Add observables to category
+            if (category.observables) {
+              for (let j = 0; j < category.observables.length; j++) {
+                const observable = category.observables[j];
+                await protocolRepository.addObservable(
+                  protocol.id,
+                  categoryItem.id,
+                  observable.name,
+                  undefined, // color is not available in normalized data
+                  j
+                );
+                observablesCount++;
+              }
             }
           }
         }
-      }
 
-      // Add readings
-      let readingsCount = 0;
-      if (data.readings) {
-        for (const reading of data.readings) {
-          await readingRepository.addReading(
-            observation.id,
-            mapReadingType(reading.type),
-            reading.dateTime,
-            reading.name,
-            reading.description
-          );
-          readingsCount++;
+        // Add readings
+        let readingsCount = 0;
+        if (data.readings) {
+          for (const reading of data.readings) {
+            await readingRepository.addReading(
+              observation.id,
+              mapReadingType(reading.type),
+              reading.dateTime,
+              reading.name,
+              reading.description
+            );
+            readingsCount++;
+          }
         }
-      }
 
-      return {
-        success: true,
-        observationId: observation.id,
-        observationName: observation.name,
-        categoriesCount,
-        observablesCount,
-        readingsCount,
-      };
+        return {
+          success: true,
+          observationId: observation.id,
+          observationName: observation.name,
+          categoriesCount,
+          observablesCount,
+          readingsCount,
+        };
+      } catch (error) {
+        // Rollback: delete the observation (cascades to protocol, protocol_items, readings)
+        try {
+          await observationRepository.hardDelete(observation.id);
+        } catch (rollbackError) {
+          console.error('Rollback failed:', rollbackError);
+        }
+        throw error;
+      }
     } catch (error) {
       console.error('Error saving import:', error);
       return {

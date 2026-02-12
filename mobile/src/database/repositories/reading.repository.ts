@@ -15,6 +15,23 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
   protected tableName = 'readings';
 
   /**
+   * Override update() because the readings table has no updated_at column.
+   * BaseRepository.update() adds updated_at automatically, which would crash.
+   */
+  override async update(id: number, data: Partial<Omit<IReadingEntity, 'id' | 'created_at'>>): Promise<IReadingEntity | null> {
+    const columns = Object.keys(data);
+    if (columns.length === 0) return this.findById(id);
+
+    const setClause = columns.map((col) => `${col} = ?`).join(', ');
+    const values = [...Object.values(data), id];
+
+    const sql = `UPDATE ${this.tableName} SET ${setClause} WHERE id = ?`;
+    await sqliteService.run(sql, values);
+
+    return this.findById(id);
+  }
+
+  /**
    * Find all readings for an observation
    */
   async findByObservationId(observationId: number): Promise<IReadingEntity[]> {

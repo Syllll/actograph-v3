@@ -13,7 +13,7 @@ export abstract class BaseRepository<T extends IBaseEntity> {
    * Find all entities
    */
   async findAll(): Promise<T[]> {
-    const sql = `SELECT * FROM ${this.tableName} WHERE deleted_at IS NULL ORDER BY created_at DESC`;
+    const sql = `SELECT * FROM ${this.tableName} ORDER BY created_at DESC`;
     return sqliteService.query<T>(sql);
   }
 
@@ -21,7 +21,7 @@ export abstract class BaseRepository<T extends IBaseEntity> {
    * Find entity by ID
    */
   async findById(id: number): Promise<T | null> {
-    const sql = `SELECT * FROM ${this.tableName} WHERE id = ? AND deleted_at IS NULL`;
+    const sql = `SELECT * FROM ${this.tableName} WHERE id = ?`;
     const results = await sqliteService.query<T>(sql, [id]);
     return results[0] ?? null;
   }
@@ -60,18 +60,9 @@ export abstract class BaseRepository<T extends IBaseEntity> {
   }
 
   /**
-   * Soft delete an entity
+   * Delete an entity (hard delete)
    */
   async delete(id: number): Promise<boolean> {
-    const sql = `UPDATE ${this.tableName} SET deleted_at = datetime('now') WHERE id = ?`;
-    const result = await sqliteService.run(sql, [id]);
-    return result.changes > 0;
-  }
-
-  /**
-   * Hard delete an entity
-   */
-  async hardDelete(id: number): Promise<boolean> {
     const sql = `DELETE FROM ${this.tableName} WHERE id = ?`;
     const result = await sqliteService.run(sql, [id]);
     return result.changes > 0;
@@ -81,9 +72,57 @@ export abstract class BaseRepository<T extends IBaseEntity> {
    * Count all entities
    */
   async count(): Promise<number> {
+    const sql = `SELECT COUNT(*) as count FROM ${this.tableName}`;
+    const result = await sqliteService.query<{ count: number }>(sql);
+    return result[0]?.count ?? 0;
+  }
+}
+
+/**
+ * Repository for tables with soft delete (deleted_at column).
+ * Extends BaseRepository and overrides find/delete/count to filter by deleted_at.
+ */
+export class SoftDeleteRepository<T extends IBaseEntity> extends BaseRepository<T> {
+  /**
+   * Find all non-deleted entities
+   */
+  override async findAll(): Promise<T[]> {
+    const sql = `SELECT * FROM ${this.tableName} WHERE deleted_at IS NULL ORDER BY created_at DESC`;
+    return sqliteService.query<T>(sql);
+  }
+
+  /**
+   * Find entity by ID (only if not deleted)
+   */
+  override async findById(id: number): Promise<T | null> {
+    const sql = `SELECT * FROM ${this.tableName} WHERE id = ? AND deleted_at IS NULL`;
+    const results = await sqliteService.query<T>(sql, [id]);
+    return results[0] ?? null;
+  }
+
+  /**
+   * Count non-deleted entities
+   */
+  override async count(): Promise<number> {
     const sql = `SELECT COUNT(*) as count FROM ${this.tableName} WHERE deleted_at IS NULL`;
     const result = await sqliteService.query<{ count: number }>(sql);
     return result[0]?.count ?? 0;
+  }
+
+  /**
+   * Soft delete an entity
+   */
+  override async delete(id: number): Promise<boolean> {
+    const sql = `UPDATE ${this.tableName} SET deleted_at = datetime('now') WHERE id = ?`;
+    const result = await sqliteService.run(sql, [id]);
+    return result.changes > 0;
+  }
+
+  /**
+   * Hard delete an entity (permanent removal)
+   */
+  async hardDelete(id: number): Promise<boolean> {
+    return super.delete(id);
   }
 }
 

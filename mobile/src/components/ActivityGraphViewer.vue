@@ -11,6 +11,10 @@
 </template>
 
 <script lang="ts">
+/**
+ * @deprecated Currently unused in mobile app.
+ * TODO: Remove if confirmed unnecessary.
+ */
 import { defineComponent, ref, onMounted, onUnmounted, watch, computed, PropType } from 'vue';
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
 

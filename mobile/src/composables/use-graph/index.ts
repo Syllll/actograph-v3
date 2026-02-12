@@ -75,6 +75,7 @@ export function useGraph(options: UseGraphOptions) {
 
   // PixiApp instance for this component
   let pixiAppInstance: PixiApp | null = null;
+  let destroyed = false;
   const chronicle = useChronicle();
   const { canvasRef } = options;
 
@@ -133,6 +134,7 @@ export function useGraph(options: UseGraphOptions) {
    * Destroy the PixiJS application and cleanup.
    */
   function destroyGraph(): void {
+    destroyed = true;
     if (pixiAppInstance) {
       try {
         pixiAppInstance.destroy();
@@ -165,6 +167,8 @@ export function useGraph(options: UseGraphOptions) {
       console.log('[useGraph] Already ready or loading, skipping init');
       return;
     }
+
+    destroyed = false;
 
     // =========================================================================
     // VÉRIFICATIONS PRÉ-INITIALISATION
@@ -215,6 +219,13 @@ export function useGraph(options: UseGraphOptions) {
       // Créer et initialiser l'application PixiJS
       pixiAppInstance = new PixiApp();
       await pixiAppInstance.init({ view: canvas });
+
+      // Check if component was unmounted during async init
+      if (destroyed) {
+        pixiAppInstance?.destroy();
+        pixiAppInstance = null;
+        return;
+      }
 
       // Dessiner le graphique avec les données actuelles
       drawGraph();

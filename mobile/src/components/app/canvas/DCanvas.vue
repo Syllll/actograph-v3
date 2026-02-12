@@ -6,7 +6,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, ref } from 'vue';
+import { defineComponent, onMounted, onBeforeUnmount, ref } from 'vue';
 
 /**
  * DCanvas - Canvas component for PixiJS in Capacitor/Mobile environment.
@@ -50,6 +50,11 @@ export default defineComponent({
     // ⚠️ GUARD: Empêche les doubles initialisations si le composant est re-monté
     // (ne devrait pas arriver si Index.vue est bien configuré, mais sécurité supplémentaire)
     let initialized = false;
+    let isMounted = true;
+
+    onBeforeUnmount(() => {
+      isMounted = false;
+    });
 
     onMounted(async () => {
       // Protection contre les doubles initialisations
@@ -82,6 +87,7 @@ export default defineComponent({
           break;
         }
         await new Promise(resolve => setTimeout(resolve, 50));
+        if (!isMounted) return;
       }
 
       if (width <= 0 || height <= 0) {
@@ -120,6 +126,7 @@ export default defineComponent({
       // ÉTAPE 4: Signaler que le canvas est prêt
       // Index.vue écoute cet événement pour appeler useGraph.initGraph()
       // =========================================================================
+      if (!isMounted) return;
       context.emit('ready');
     });
 

@@ -1,4 +1,4 @@
-import { reactive, computed } from 'vue';
+import { reactive, computed, onScopeDispose } from 'vue';
 import { observationService } from '@services/observation.service';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
 import type { IReadingEntity } from '@database/repositories/reading.repository';
@@ -83,6 +83,11 @@ export const useChronicle = () => {
           sharedState.currentChronicle = data.observation as IChronicleObservation;
           sharedState.currentProtocol = data.protocol;
           sharedState.currentReadings = data.readings;
+        } else {
+          // Reset state if chronicle not found
+          sharedState.currentChronicle = null;
+          sharedState.currentProtocol = [];
+          sharedState.currentReadings = [];
         }
       } finally {
         sharedState.loading = false;
@@ -211,6 +216,14 @@ export const useChronicle = () => {
       return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
     },
   };
+
+  // Cleanup timer when the effect scope is disposed (component unmount)
+  onScopeDispose(() => {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  });
 
   return {
     sharedState,

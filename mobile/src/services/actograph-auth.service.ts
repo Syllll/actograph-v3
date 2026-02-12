@@ -78,7 +78,14 @@ class ActographAuthService {
     await Preferences.set({ key: STORAGE_KEYS.TOKEN, value: token });
 
     // Mot de passe dans le stockage sécurisé
-    await SecureStoragePlugin.set({ key: STORAGE_KEYS.PASSWORD, value: password });
+    try {
+      await SecureStoragePlugin.set({ key: STORAGE_KEYS.PASSWORD, value: password });
+    } catch (error) {
+      // Rollback: supprimer email et token si le mot de passe n'a pas pu être sauvegardé
+      await Preferences.remove({ key: STORAGE_KEYS.EMAIL });
+      await Preferences.remove({ key: STORAGE_KEYS.TOKEN });
+      throw error;
+    }
 
     this.email = email;
     this.token = token;
@@ -117,7 +124,15 @@ class ActographAuthService {
         }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        return {
+          success: false,
+          error: `Erreur serveur (${response.status}). Veuillez réessayer.`,
+        };
+      }
 
       // Vérifier les erreurs
       if (data.code || data.message === 'Invalid credentials' || !data.value) {

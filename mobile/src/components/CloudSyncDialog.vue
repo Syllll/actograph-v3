@@ -163,7 +163,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive } from 'vue';
+import { defineComponent, reactive, onMounted } from 'vue';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { useCloud } from '@composables/use-cloud';
 import type { ICloudChronicle } from '@services/actograph-cloud.service';
@@ -287,8 +287,9 @@ export default defineComponent({
       onDialogCancel();
     };
 
-    // Charger la liste au montage
-    cloud.methods.refreshList();
+    onMounted(() => {
+      cloud.methods.refreshList();
+    });
 
     return {
       dialogRef,

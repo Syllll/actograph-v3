@@ -5,7 +5,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive } from 'vue';
+import { defineComponent } from 'vue';
 
 import Page from './page-view/Page.vue';
 
@@ -15,11 +15,8 @@ export default defineComponent({
     padding: { type: Boolean, default: false },
   },
   setup(props) {
-    const state = reactive({});
-
     return {
       props,
-      state,
     };
   },
 });

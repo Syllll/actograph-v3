@@ -1,3 +1,8 @@
+/**
+ * @deprecated Currently unused in mobile app.
+ * The observation page uses useChronicle instead.
+ * TODO: Remove if confirmed unnecessary.
+ */
 import { reactive, computed, ref, onUnmounted } from 'vue';
 import { observationService, type IObservationFull } from '@services/observation.service';
 import { protocolService } from '@services/protocol.service';

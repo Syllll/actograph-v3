@@ -78,7 +78,7 @@ export async function autoCorrectReadings(observationId: number): Promise<void> 
     if (action.type === 'remove_duplicate') {
       if (action.readingIds) {
         for (const id of action.readingIds) {
-          await readingRepository.hardDelete(id);
+          await readingRepository.delete(id);
         }
       }
       // Note: tempIds are not applicable in mobile (all readings are persisted)

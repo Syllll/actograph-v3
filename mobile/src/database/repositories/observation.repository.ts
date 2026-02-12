@@ -1,4 +1,4 @@
-import { BaseRepository, IBaseEntity } from './base.repository';
+import { SoftDeleteRepository, IBaseEntity } from './base.repository';
 import { sqliteService } from '../sqlite.service';
 
 export interface IObservationEntity extends IBaseEntity {
@@ -14,7 +14,7 @@ export interface IObservationWithCounts extends IObservationEntity {
   categories_count: number;
 }
 
-export class ObservationRepository extends BaseRepository<IObservationEntity> {
+export class ObservationRepository extends SoftDeleteRepository<IObservationEntity> {
   protected tableName = 'observations';
 
   /**

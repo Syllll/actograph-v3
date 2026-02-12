@@ -57,6 +57,8 @@ interface ICloudChronicleRaw {
  * - Suppression de fichiers
  */
 class ActographCloudService {
+  private reconnectPromise: Promise<boolean> | null = null;
+
   /**
    * Effectue une requête authentifiée avec reconnexion automatique si token expiré
    */
@@ -81,15 +83,18 @@ class ActographCloudService {
 
     // Si token expiré (401), tenter reconnexion auto
     if (response.status === 401) {
-      const reconnected = await actographAuthService.tryAutoReconnect();
-      
+      const reconnected = await this.doAutoReconnect();
+
       if (reconnected) {
         const newToken = actographAuthService.getToken();
+        if (!newToken) {
+          throw new Error('Token manquant après reconnexion');
+        }
         response = await fetch(url, {
           ...options,
           headers: {
             ...options.headers,
-            'X-Auth-Token': newToken!,
+            'X-Auth-Token': newToken,
           },
         });
       } else {
@@ -98,6 +103,18 @@ class ActographCloudService {
     }
 
     return response;
+  }
+
+  private async doAutoReconnect(): Promise<boolean> {
+    if (this.reconnectPromise) {
+      return this.reconnectPromise;
+    }
+    this.reconnectPromise = actographAuthService.tryAutoReconnect();
+    try {
+      return await this.reconnectPromise;
+    } finally {
+      this.reconnectPromise = null;
+    }
   }
 
   /**

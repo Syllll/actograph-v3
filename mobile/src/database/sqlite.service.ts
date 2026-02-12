@@ -260,11 +260,12 @@ class SQLiteService {
       throw new Error('Database not initialized');
     }
 
-    // Delete in order respecting foreign key constraints
-    await this.db.execute('DELETE FROM readings');
-    await this.db.execute('DELETE FROM protocol_items');
-    await this.db.execute('DELETE FROM protocols');
-    await this.db.execute('DELETE FROM observations');
+    await this.executeTransaction([
+      { statement: 'DELETE FROM readings' },
+      { statement: 'DELETE FROM protocol_items' },
+      { statement: 'DELETE FROM protocols' },
+      { statement: 'DELETE FROM observations' },
+    ]);
 
     console.log('All data cleared from database');
   }
