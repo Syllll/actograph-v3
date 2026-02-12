@@ -334,7 +334,7 @@ export default defineComponent({
       if (!protocol?._items) return new Set<string>();
       const names = new Set<string>();
       for (const item of protocol._items) {
-        const isCategory = item.type === ProtocolItemTypeEnum.Category || item.type === 'category';
+        const isCategory = item.type === ProtocolItemTypeEnum.Category;
         if (isCategory && item.children) {
           for (const child of item.children) {
             if (child.name) names.add(child.name);
@@ -357,7 +357,7 @@ export default defineComponent({
       if (!protocol?._items) return [];
       const options: ProtocolObservableOption[] = [];
       for (const item of protocol._items) {
-        const isCategory = item.type === ProtocolItemTypeEnum.Category || item.type === 'category';
+        const isCategory = item.type === ProtocolItemTypeEnum.Category;
         if (isCategory) {
           options.push({
             label: item.name,

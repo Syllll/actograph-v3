@@ -2,7 +2,7 @@
   <q-dialog ref="dialogRef" @hide="handleDialogHide">
     <DCard
       class="q-dialog-plugin"
-      style="min-width: 400px"
+      style="min-width: 500px"
       bgColor="background"
       innerHeader
       title="Fusionner deux chroniques"

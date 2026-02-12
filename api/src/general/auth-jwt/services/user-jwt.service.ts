@@ -197,7 +197,7 @@ export class UserJwtService {
 
       // Activer le compte
       user.activated = true;
-      this.userJwtRepository.save(user);
+      await this.userJwtRepository.save(user);
       result.success = true;
 
       // Émettre un événement d'activation

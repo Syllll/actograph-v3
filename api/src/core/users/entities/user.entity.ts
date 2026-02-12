@@ -47,7 +47,7 @@ export class User extends BaseEntity {
   @AfterInsert()
   @AfterUpdate()
   generateFullName(): void {
-    this.fullname = `${this.firstname} ${this.lastname}`;
+    this.fullname = [this.firstname, this.lastname].filter(Boolean).join(' ') || '';
   }
 
   /** Indique si une réinitialisation de mot de passe est en cours */

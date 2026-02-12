@@ -7,7 +7,7 @@
     elevated
     bordered
     behavior="desktop"
-    :class="$q.dark.isActive ? 'bg-secondary' : 'bg-secondary'"
+    class="bg-secondary"
   >
     <div class="fit">
       <div class="fit column q-col-gutter-md">

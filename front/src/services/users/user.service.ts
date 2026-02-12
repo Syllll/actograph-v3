@@ -18,7 +18,11 @@ export const UserService = {
   ): Promise<any> {
     const apiUrl = httpUtils.apiUrl();
 
-    const response = await api().get(`${apiUrl}/users/register`);
+    const response = await api().post(`${apiUrl}/users/register`, {
+      username,
+      password,
+      roles,
+    });
 
     return response.data;
   },

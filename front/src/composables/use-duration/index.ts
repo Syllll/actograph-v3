@@ -113,7 +113,8 @@ export const useDuration = () => {
     };
 
     // Match patterns like "2j", "3h", "15m", "30s", "500ms"
-    const regex = /(\d+)(j|h|m|s|ms)/g;
+    // Note: "ms" must appear before "m" and "s" in the alternation to match correctly
+    const regex = /(\d+)(ms|j|h|m|s)/g;
     let match;
 
     while ((match = regex.exec(durationStr)) !== null) {
@@ -127,19 +128,14 @@ export const useDuration = () => {
         case 'h':
           parts.hours = value;
           break;
+        case 'ms':
+          parts.milliseconds = value;
+          break;
         case 'm':
-          // Check if it's "ms" (milliseconds) or "m" (minutes)
-          if (match[0].endsWith('ms')) {
-            parts.milliseconds = value;
-          } else {
-            parts.minutes = value;
-          }
+          parts.minutes = value;
           break;
         case 's':
           parts.seconds = value;
-          break;
-        case 'ms':
-          parts.milliseconds = value;
           break;
       }
     }
