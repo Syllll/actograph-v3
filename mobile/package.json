@@ -1,6 +1,6 @@
 {
   "name": "actograph-mobile",
-  "version": "0.0.80",
+  "version": "0.0.81",
   "description": "ActoGraph Mobile - Application mobile offline pour observations comportementales",
   "productName": "ActoGraph Mobile",
   "author": "Sylvain Meylan <sylvain@ateliom.fr>",
