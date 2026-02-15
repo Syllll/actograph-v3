@@ -1,5 +1,24 @@
 apply plugin: 'com.android.application'
 
+// Read version from mobile/package.json (single source of truth)
+def packageJsonFile = file("../../../package.json")
+def packageJson = new groovy.json.JsonSlurper().parseText(packageJsonFile.text)
+def appVersionName = packageJson.version ?: "0.0.1"
+
+// Compute versionCode from semver: major * 10000 + minor * 100 + patch
+// e.g. "0.0.80" -> 80, "1.2.3" -> 10203, "2.0.0" -> 20000
+def versionParts = appVersionName.split('\\.')
+def appVersionCode = (versionParts[0] as int) * 10000 + (versionParts[1] as int) * 100 + (versionParts[2] as int)
+
+// Load keystore properties for release signing (if available)
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasKeystoreConfig = false
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    hasKeystoreConfig = true
+}
+
 android {
     namespace "com.actograph.mobile"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +26,8 @@ android {
         applicationId "com.actograph.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersionCode
+        versionName appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +35,25 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    if (hasKeystoreConfig) {
+        signingConfigs {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasKeystoreConfig) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
