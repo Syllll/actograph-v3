@@ -12,6 +12,9 @@
     "dev": "quasar dev -m capacitor -T android",
     "dev:ios": "quasar dev -m capacitor -T ios",
     "build": "quasar build -m capacitor -T android",
+    "build:apk": "quasar build -m capacitor -T android --skip-pkg && cd src-capacitor/android && ./gradlew assembleDebug",
+    "build:apk:release": "quasar build -m capacitor -T android --skip-pkg && cd src-capacitor/android && ./gradlew assembleRelease",
+    "build:aab": "quasar build -m capacitor -T android --skip-pkg && cd src-capacitor/android && ./gradlew bundleRelease",
     "build:ios": "quasar build -m capacitor -T ios"
   },
   "dependencies": {
@@ -25,11 +28,11 @@
     "@capacitor/haptics": "^6.0.0",
     "@capacitor/ios": "^6.0.0",
     "@capacitor/keyboard": "^6.0.0",
-    "@capacitor/preferences": "^8.0.0",
+    "@capacitor/preferences": "^6.0.0",
     "@capacitor/splash-screen": "^6.0.0",
     "@capacitor/status-bar": "^6.0.0",
     "@quasar/extras": "^1.16.4",
-    "capacitor-secure-storage-plugin": "^0.12.0",
+    "capacitor-secure-storage-plugin": "~0.10.0",
     "pixi.js": "^8.12.0",
     "quasar": "^2.8.0",
     "vue": "^3.4.18",
