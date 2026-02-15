@@ -5,8 +5,6 @@
     :rows="readings"
     :columns="columns"
     :row-key="getRowKey"
-    :selected="selectedInternal"
-    selection="single"
     binary-state-sort
     virtual-scroll
     :virtual-scroll-sticky-size-start="48"
@@ -14,7 +12,6 @@
     :rows-per-page-options="[0]"
     hide-pagination
     hide-bottom
-    @request:selected="handleRequestSelected"
   >
       <template v-slot:header="props">
         <q-tr :props="props">
@@ -202,18 +199,22 @@
                 <q-select
                   v-if="protocolObservableOptions.length > 0"
                   v-model="scope.value"
-                  :options="protocolObservableOptions"
+                  :options="filteredObservableOptions"
                   option-label="label"
                   option-value="value"
                   :option-disable="(opt) => opt.disable === true"
                   use-input
+                  fill-input
+                  hide-selected
                   input-debounce="0"
                   emit-value
                   map-options
                   dense
                   autofocus
                   new-value-mode="add-unique"
+                  @filter="filterObservables"
                   :rules="[val => val && val.length > 0 || 'Le libellé ne peut pas être vide']"
+                  class="observable-autocomplete"
                 >
                   <template v-slot:option="optScope">
                     <q-item v-if="optScope.opt.isCategory" dense class="text-weight-bold non-selectable" :style="{ color: optScope.opt.categoryColor || 'var(--primary)' }">
@@ -221,6 +222,13 @@
                     </q-item>
                     <q-item v-else v-bind="optScope.itemProps" dense class="q-pl-lg">
                       <q-item-section>{{ optScope.opt.label }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template v-slot:no-option>
+                    <q-item dense>
+                      <q-item-section class="text-grey text-italic">
+                        Saisie libre — appuyez Entrée pour valider
+                      </q-item-section>
                     </q-item>
                   </template>
                 </q-select>
@@ -381,6 +389,44 @@ export default defineComponent({
       return options;
     });
 
+    // Options filtrées pour l'autocomplétion (réactif, mis à jour par @filter)
+    const filteredObservableOptions = ref<ProtocolObservableOption[]>([]);
+
+    // Filtre les options d'observables selon la saisie utilisateur
+    // Affiche les catégories uniquement si elles ont des enfants correspondants
+    const filterObservables = (val: string, update: (fn: () => void) => void) => {
+      update(() => {
+        if (!val) {
+          filteredObservableOptions.value = protocolObservableOptions.value;
+          return;
+        }
+        const needle = val.toLowerCase();
+        const allOptions = protocolObservableOptions.value;
+        const result: ProtocolObservableOption[] = [];
+
+        for (let i = 0; i < allOptions.length; i++) {
+          const opt = allOptions[i];
+          if (opt.isCategory) {
+            // Collecter les enfants correspondants de cette catégorie
+            const children: ProtocolObservableOption[] = [];
+            let j = i + 1;
+            while (j < allOptions.length && !allOptions[j].isCategory) {
+              if (allOptions[j].label.toLowerCase().includes(needle)) {
+                children.push(allOptions[j]);
+              }
+              j++;
+            }
+            // Ajouter la catégorie uniquement si elle a des enfants correspondants
+            if (children.length > 0) {
+              result.push(opt);
+              result.push(...children);
+            }
+          }
+        }
+        filteredObservableOptions.value = result;
+      });
+    };
+
     // Bug 2.6 : Titre tooltip pour un observable non reconnu
     const getUnrecognizedObservableTitle = (row: IReading): string | undefined => {
       if (!isUnrecognizedObservable(row)) return undefined;
@@ -441,19 +487,6 @@ export default defineComponent({
       } else {
         // Make sure we only select this row
         selectedInternal.value = [row];
-      }
-      
-      emit('update:selected', selectedInternal.value);
-    };
-    
-    // Handle selection request from q-table
-    // This ensures single selection mode is enforced
-    const handleRequestSelected = (details: any) => {
-      // Force single selection mode
-      if (details.rows && details.rows.length > 0) {
-        selectedInternal.value = [details.rows[0]];
-      } else {
-        selectedInternal.value = [];
       }
       
       emit('update:selected', selectedInternal.value);
@@ -636,16 +669,25 @@ export default defineComponent({
       { label: 'Data', value: ReadingTypeEnum.DATA },
     ];
 
+    // Retrouve la ligne réelle par id/tempId dans le tableau readings.
+    // Nécessaire car le virtual-scroll de q-table peut recycler les références d'objets row.
+    const findRowSafe = (row: IReading): IReading | undefined => {
+      return props.readings.find((r: IReading) =>
+        (row.id && r.id === row.id) || (row.tempId && r.tempId === row.tempId) || r === row
+      );
+    };
+
     // Handle type save
     const handleTypeSave = (row: IReading, val: ReadingTypeEnum, initialVal: ReadingTypeEnum) => {
-      if (val) {
-        row.type = val;
-        row.updatedAt = new Date();
+      if (!val) return;
+      const targetRow = findRowSafe(row);
+      if (targetRow) {
+        targetRow.type = val;
+        targetRow.updatedAt = new Date();
       }
     };
 
     // Handle date/time save with proper conversion
-    // Bug 2b.3 : Trouver la ligne par id/tempId pour éviter les erreurs avec virtual-scroll
     const handleDateTimeSave = (row: IReading, val: any, initialVal: any) => {
       if (!val && !isChronometerMode.value) return;
       
@@ -661,26 +703,21 @@ export default defineComponent({
         dateValue = observation.chronometerMethods.durationToDate(durationMs);
       } else {
         // In calendar mode, parse date string
-      if (val instanceof Date) {
-        dateValue = val;
-      } else if (typeof val === 'string') {
-        // Try to parse the date string
-        const parsed = qDate.extractDate(val, 'DD/MM/YYYY HH:mm:ss.SSS');
-        if (parsed) {
-          dateValue = parsed;
+        if (val instanceof Date) {
+          dateValue = val;
+        } else if (typeof val === 'string') {
+          const parsed = qDate.extractDate(val, 'DD/MM/YYYY HH:mm:ss.SSS');
+          if (parsed) {
+            dateValue = parsed;
+          } else {
+            dateValue = new Date(val);
+          }
         } else {
-          // Fallback to standard Date parsing
           dateValue = new Date(val);
-        }
-      } else {
-        dateValue = new Date(val);
         }
       }
       
-      // Bug 2b.3 : Find the correct row by id/tempId (virtual-scroll may recycle row references)
-      const targetRow = props.readings.find((r: IReading) =>
-        (row.id && r.id === row.id) || (row.tempId && r.tempId === row.tempId) || r === row
-      );
+      const targetRow = findRowSafe(row);
       if (targetRow) {
         targetRow.dateTime = dateValue;
         targetRow.updatedAt = new Date();
@@ -688,17 +725,24 @@ export default defineComponent({
     };
 
     // Handle name save
+    // Utilise le même pattern de row-lookup que handleDateTimeSave (sécurité virtual-scroll)
     const handleNameSave = (row: IReading, val: string, initialVal: string) => {
-      if (val && val.trim()) {
-        row.name = val.trim();
-        row.updatedAt = new Date();
+      if (!val || !val.trim()) return;
+      const targetRow = findRowSafe(row);
+      if (targetRow) {
+        targetRow.name = val.trim();
+        targetRow.updatedAt = new Date();
       }
     };
 
     // Handle description save
+    // Utilise le même pattern de row-lookup que handleDateTimeSave (sécurité virtual-scroll)
     const handleDescriptionSave = (row: IReading, val: string | undefined, initialVal: string | undefined) => {
-      row.description = val || undefined;
-      row.updatedAt = new Date();
+      const targetRow = findRowSafe(row);
+      if (targetRow) {
+        targetRow.description = val || undefined;
+        targetRow.updatedAt = new Date();
+      }
     };
     
     // Get row key for q-table (use id if available, otherwise tempId)
@@ -714,8 +758,6 @@ export default defineComponent({
       isChronometerMode,
       durationEditState,
       columns,
-      selectedInternal,
-      handleRequestSelected,
       formatDuration,
       formatDurationForEdit,
       syncDurationEditStateFromRow,
@@ -740,6 +782,8 @@ export default defineComponent({
       isUnrecognizedObservable,
       getUnrecognizedObservableTitle,
       protocolObservableOptions,
+      filteredObservableOptions,
+      filterObservables,
     };
   },
 });
@@ -786,6 +830,11 @@ tr.selected-row td {
 
 .unrecognized-observable-row {
   background-color: rgba(239, 68, 68, 0.08);
+}
+
+/* Autocomplete observable : largeur minimale pour le popup */
+.observable-autocomplete {
+  min-width: 250px;
 }
 
 /* Table container for virtual scroll */
