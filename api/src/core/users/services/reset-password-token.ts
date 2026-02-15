@@ -4,7 +4,6 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { UserRepository } from '@users/repositories/user.repository';
 import { UserService } from './user.service';
 
@@ -37,17 +36,11 @@ export class ResetPasswordToken {
    * @returns Le token JWT (actuellement retourne une chaîne vide - implémentation à compléter)
    */
   async createResetPasswordToken(username: string): Promise<string> {
-    // const jwt = await this.jwtService.signAsync(
-    //   {
-    //     username,
-    //     createDate: new Date(),
-    //   },
-    //   {
-    //     expiresIn: 60 * 60 * 1000,
-    //   }
-    // );
-    // return jwt;
-    return '';
+    // TODO: Implement proper reset password token generation
+    // This requires a JwtService instance for signing tokens
+    throw new InternalServerErrorException(
+      'Reset password token generation is not yet implemented',
+    );
   }
 
   // async projectFromShareToken(token: string): Promise<ProjectEntity> {

@@ -47,7 +47,7 @@
             />
             <d-submit-btn
               class="q-ma-sm"
-              @click="activatePro"
+              @click="methods.activatePro"
               :label="'Activer'"
               :loading="loading"
             />
@@ -58,52 +58,54 @@
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref } from 'vue';
-import { useI18n } from 'vue-i18n';
-import securityService from 'src/services/security/index.service';
+<script lang="ts">
+import { defineComponent, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import securityService from 'src/services/security/index.service';
 
-const router = useRouter();
+export default defineComponent({
+  name: 'ActivatePro',
+  setup() {
+    const router = useRouter();
 
-const { t } = useI18n();
+    const loading = ref(false);
+    const errorInForm = ref('');
+    const activationKey = ref('');
+    const topAnchor = ref(null);
 
-// Reactive state
-const loading = ref(false);
-const errorInForm = ref('');
-const activationKey = ref('');
-const topAnchor = ref(null);
+    const methods = {
+      activatePro: async () => {
+        loading.value = true;
+        errorInForm.value = '';
 
-// Methods
-const activatePro = async () => {
-  loading.value = true;
-  errorInForm.value = '';
+        try {
+          const key = activationKey.value.replace(/ /g, '');
+          const result = await securityService.activatePro(key);
 
-  let result = false;
+          if (result === true) {
+            router.push({
+              name: 'gateway_loading',
+            });
+          } else {
+            errorInForm.value = 'Clé de licence invalide';
+          }
+        } catch (error) {
+          errorInForm.value = 'Clé de licence invalide';
+        } finally {
+          loading.value = false;
+        }
+      },
+    };
 
-  try {
-    const key = activationKey.value.replace(/ /g, '');
-    result = await securityService.activatePro(key);
-
-    if (result === true) {
-      router.push({
-        name: 'gateway_loading',
-      });
-    } else {
-      errorInForm.value = 'Clé de licence invalide';
-    }
-  } catch (error) {
-    errorInForm.value = 'Clé de licence invalide';
-  }
-
-  if (result === true) {
-    router.push({
-      name: 'user',
-    });
-  }
-
-  loading.value = false;
-};
+    return {
+      loading,
+      errorInForm,
+      activationKey,
+      topAnchor,
+      methods,
+    };
+  },
+});
 </script>
 
 <style scoped lang="scss">

@@ -12,6 +12,7 @@
           subtitle="Gratuite"
           description="Cette version est gratuite et réservée aux étudiants opérant dans un contexte académique."
           buttonLabel="Je suis étudiant"
+          :loading="loadingStudent"
           @activate="methods.activateStudent"
         />
         <VersionCard
@@ -28,10 +29,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, ref } from 'vue';
 import EmptyLayout from '@lib-improba/components/layouts/empty/Index.vue';
 import VersionCard from './_components/VersionCard.vue';
 import { useRouter } from 'vue-router';
+import { useQuasar } from 'quasar';
 import { useAuth } from '@lib-improba/composables/use-auth';
 import securityService from '@services/security/index.service';
 
@@ -39,14 +41,28 @@ export default defineComponent({
   components: { EmptyLayout, VersionCard },
   setup() {
     const router = useRouter();
+    const $q = useQuasar();
     const auth = useAuth(router);
+
+    const loadingStudent = ref(false);
 
     const methods = {
       activateStudent: async () => {
-        await securityService.activateStudent();
-        router.push({
-          name: 'gateway_loading',
-        });
+        loadingStudent.value = true;
+        try {
+          await securityService.activateStudent();
+          router.push({
+            name: 'gateway_loading',
+          });
+        } catch (error) {
+          console.error('Error activating student:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de l\'activation de la version étudiante',
+          });
+        } finally {
+          loadingStudent.value = false;
+        }
       },
       activatePro: () => {
         router.push({ name: 'gateway_activate-pro' });
@@ -55,6 +71,7 @@ export default defineComponent({
 
     return {
       auth,
+      loadingStudent,
       methods,
     };
   },

@@ -109,6 +109,13 @@ export class ObservationService extends BaseService<
     await this.readingService.removeAllForObservation(<number>observation.id);
   }
 
+  public override async delete(id: number): Promise<Observation | undefined> {
+    // Clean up sub-entities first
+    await this.remove(id);
+    // Then soft-delete the observation
+    return await super.delete(id);
+  }
+
   public async clone(observationId: number, newUserId: number) {
     const observation = await this.findOne(observationId, {
       relations: ['protocol', 'activityGraph'],

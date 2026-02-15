@@ -75,7 +75,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, watch, computed } from 'vue';
+import { defineComponent, ref, reactive, watch, computed, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useGraph } from './use-graph';
 import { useGraphCustomization } from '../graph-customization-drawer/use-graph-customization';
@@ -188,23 +188,39 @@ export default defineComponent({
       },
     };
 
+    let zoomInterval: ReturnType<typeof setInterval> | null = null;
+
     // Watch for zoom changes from mouse wheel
     watch(
       () => graph.sharedState.pixiApp,
       (pixiApp) => {
+        // Clear previous interval if any
+        if (zoomInterval) {
+          clearInterval(zoomInterval);
+          zoomInterval = null;
+        }
         if (pixiApp) {
           // Update zoom level periodically (could be improved with events)
-          const interval = setInterval(() => {
+          zoomInterval = setInterval(() => {
             if (pixiApp) {
               state.zoomLevel = pixiApp.getZoomLevel();
-            } else {
-              clearInterval(interval);
+            } else if (zoomInterval) {
+              clearInterval(zoomInterval);
+              zoomInterval = null;
             }
           }, 100);
         }
       },
       { immediate: true }
     );
+
+    // Cleanup on unmount
+    onUnmounted(() => {
+      if (zoomInterval) {
+        clearInterval(zoomInterval);
+        zoomInterval = null;
+      }
+    });
 
     // Computed property pour déterminer si le séparateur avant le reset est nécessaire
     const showSeparatorBeforeReset = computed(() => {

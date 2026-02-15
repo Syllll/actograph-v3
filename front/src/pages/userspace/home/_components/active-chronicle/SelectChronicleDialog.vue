@@ -40,7 +40,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, watch, computed } from 'vue';
+import { defineComponent, reactive, watch, computed, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { observationService } from '@services/observations/index.service';
 import { PaginationResponse } from '@lib-improba/utils/pagination.utils';
@@ -141,6 +141,12 @@ export default defineComponent({
         }
       }
     );
+
+    onUnmounted(() => {
+      if (state.searchDebounceTimeout) {
+        clearTimeout(state.searchDebounceTimeout);
+      }
+    });
 
     return {
       stateless,

@@ -125,9 +125,6 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
         };
       }),
     );
-    _readings.forEach((r) => {
-      r.id = r.id;
-    });
     return this.readingRepository.save(_readings);
   }
 

@@ -28,6 +28,7 @@ import { Roles } from '../utils/roles.decorator';
 import { User } from '../entities/user.entity';
 import { UserUpdateCurrentDto, UserUpdateDto } from '../dtos/user-patch.dto';
 import { UserCreateDto } from '../dtos/user-create.dto';
+import { ChoosePasswordDto } from '../dtos/choose-password.dto';
 import {
   IPaginationOptions,
   IPaginationOutput,
@@ -67,8 +68,8 @@ export class UserController extends BaseController {
     @Req() req: any,
     @Param('username', new DefaultValuePipe(undefined)) username: string,
   ): Promise<string> {
-    const user = this.service.findWithUsername(username);
-    if (!user) {
+    const users = await this.service.findWithUsername(username);
+    if (!users || users.length === 0) {
       throw new NotFoundException('User does not exist');
     }
 
@@ -91,10 +92,7 @@ export class UserController extends BaseController {
   @Roles(UserRoleEnum.User, ...allMainUsers)
   async choosePasswordAfterReset(
     @Req() req: any,
-    @Body()
-    body: {
-      password: string;
-    },
+    @Body() body: ChoosePasswordDto,
   ): Promise<User> {
     const user = req.user;
 

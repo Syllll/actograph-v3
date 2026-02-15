@@ -18,6 +18,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@users/guards/jwt-auth.guard';
+import { UserRolesGuard } from '@users/guards/user-roles.guard';
 import { allMainUsers, UserRoleEnum } from '@users/utils/user-role.enum';
 import { Roles } from '@users/utils/roles.decorator';
 import { BaseController } from '@utils/controllers/base.controller';
@@ -48,7 +49,7 @@ export class SecurityController extends BaseController {
   }
 
   @Get('enabled-license')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)
   async enabledLicense(@Req() req: any): Promise<License | null> {
     const user = req.user;
@@ -60,7 +61,7 @@ export class SecurityController extends BaseController {
   // **********************
 
   @Post('electron/determine-access')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)
   async electronDetermineAccess(
     @Req() req: any,
@@ -102,14 +103,14 @@ export class SecurityController extends BaseController {
   }
 
   @Post('electron/activate-license')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)
   async electronActivateLicense(@Body() body: { key: string }) {
     return this.securityService.electron.activateLicense(body.key);
   }
 
   @Post('electron/activate-student')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)
   async electronActivateStudent() {
     return this.securityService.electron.activateStudent();

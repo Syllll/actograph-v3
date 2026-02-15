@@ -213,7 +213,7 @@ export class UserService extends BaseService<User, UserRepository> {
    */
   async findWithUsername(
     username: string,
-  ): Promise<Partial<User[]> | undefined> {
+  ): Promise<User[] | undefined> {
     const users = await this.repository.find({
       relations: ['userJwt'],
       where: {

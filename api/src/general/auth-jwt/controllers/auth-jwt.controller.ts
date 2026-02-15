@@ -32,6 +32,12 @@ import {
   SuccessResponse,
   TokenResponse,
 } from '../services/user-jwt.service';
+import {
+  LoginDto,
+  RefreshTokenDto,
+  PasswordForgotDto,
+  RecuperationDto,
+} from '../dtos/auth.dto';
 
 /**
  * Contrôleur d'authentification JWT
@@ -70,14 +76,11 @@ export class AuthJwtController extends BaseController {
    * @route POST /auth-jwt/login
    */
   @Post('login')
-  async postLogin(
-    @Body('username') username: string,
-    @Body('password') password: string,
-  ) {
+  async postLogin(@Body() body: LoginDto) {
     // Vérifier les identifiants (comparaison bcrypt du mot de passe)
     const user = await this.usersService.findByUsernamePassword(
-      username,
-      password,
+      body.username,
+      body.password,
     );
     if (!user) throw new HttpException('Wrong credentials', 403);
 
@@ -101,11 +104,11 @@ export class AuthJwtController extends BaseController {
    * @route POST /auth-jwt/refreshToken
    */
   @Post('refreshToken')
-  async refreshToken(@Body('token') token: string) {
+  async refreshToken(@Body() body: RefreshTokenDto) {
     let jwt: string | null = null;
     try {
       // Créer un nouveau token à partir de l'ancien (même payload, nouvelle expiration)
-      jwt = this.usersService.createNewTokenFromPreviousOne(token);
+      jwt = this.usersService.createNewTokenFromPreviousOne(body.token);
     } catch (err: any) {
       throw new UnauthorizedException('Token cannot be refreshed');
     }
@@ -199,15 +202,12 @@ export class AuthJwtController extends BaseController {
    * @route POST /auth-jwt/password-forgot
    */
   @Post('password-forgot')
-  async getNewPassword(
-    @Body('username') username: string,
-    @Body('resetPasswordUrl') resetPasswordUrl: string,
-  ): Promise<SuccessResponse> {
+  async getNewPassword(@Body() body: PasswordForgotDto): Promise<SuccessResponse> {
     const response = new SuccessResponse();
     // Générer le token et envoyer l'email
     const result = await this.usersService.sendMailForNewPassword(
-      username,
-      resetPasswordUrl,
+      body.username,
+      body.resetPasswordUrl,
     );
 
     if (!result)
@@ -240,13 +240,13 @@ export class AuthJwtController extends BaseController {
    * @route POST /auth-jwt/recuperation
    */
   @Post('recuperation')
-  async postNewPassword(
-    @Body('token') token: string,
-    @Body('password') password: string,
-  ): Promise<TokenResponse> {
+  async postNewPassword(@Body() body: RecuperationDto): Promise<TokenResponse> {
     const response = new TokenResponse();
     // Changer le mot de passe et récupérer l'utilisateur mis à jour
-    const result = await this.usersService.changePasswordUser(token, password);
+    const result = await this.usersService.changePasswordUser(
+      body.token,
+      body.password,
+    );
 
     if (!result.user)
       throw new HttpException(

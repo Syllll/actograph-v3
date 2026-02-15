@@ -12,7 +12,7 @@
     <q-separator />
 
     <q-card-actions class="row justify-center">
-      <d-submit-btn @click="$emit('activate')">{{ buttonLabel }}</d-submit-btn>
+      <d-submit-btn :loading="loading" @click="$emit('activate')">{{ buttonLabel }}</d-submit-btn>
     </q-card-actions>
   </DCard>
 </template>
@@ -38,6 +38,10 @@ export default defineComponent({
     buttonLabel: {
       type: String,
       default: 'Activer',
+    },
+    loading: {
+      type: Boolean,
+      default: false,
     },
   },
   emits: ['activate'],

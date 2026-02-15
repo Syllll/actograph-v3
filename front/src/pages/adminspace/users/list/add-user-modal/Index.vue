@@ -112,7 +112,7 @@ export default defineComponent({
               err.message ??
               err.response?.data?.message ??
               err.response?.message ??
-              'Unkwown error';
+              'Unknown error';
           }
           state.loading = false;
           return;

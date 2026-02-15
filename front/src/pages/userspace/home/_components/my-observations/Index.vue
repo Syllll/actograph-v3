@@ -41,7 +41,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, watch } from 'vue';
+import { defineComponent, reactive, watch, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { observationService } from '@services/observations/index.service';
 import { columns } from './columns';
@@ -113,30 +113,6 @@ export default defineComponent({
       loadObservation: async (id: number) => {
         await observation.methods.loadObservation(id);
       },
-
-      deleteObservation: async (id: number) => {
-        try {
-          $q.dialog({
-            title: 'Delete Observation',
-            message: 'Are you sure you want to delete this observation?',
-            cancel: true,
-            persistent: true,
-          }).onOk(async () => {
-            await observationService.delete(id);
-            $q.notify({
-              type: 'positive',
-              message: 'Observation deleted successfully',
-            });
-            state.reload = true;
-          });
-        } catch (error) {
-          console.error('Error deleting observation:', error);
-          $q.notify({
-            type: 'negative',
-            message: 'Failed to delete observation',
-          });
-        }
-      },
     };
 
     watch(
@@ -147,6 +123,12 @@ export default defineComponent({
         }
       }
     );
+
+    onUnmounted(() => {
+      if (state.searchDebounceTimeout) {
+        clearTimeout(state.searchDebounceTimeout);
+      }
+    });
 
     return {
       stateless,
