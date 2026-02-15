@@ -67,8 +67,8 @@ export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
 export CAPACITOR_ANDROID_STUDIO_PATH="/chemin/vers/android-studio/bin/studio.sh"
 # Exemple : export CAPACITOR_ANDROID_STUDIO_PATH="$HOME/programs/android-studio/bin/studio.sh"
 
-# Java (si pas déjà configuré)
-# export JAVA_HOME="/usr/lib/jvm/java-17-openjdk"
+# Java 17+ (OBLIGATOIRE pour le build Android en ligne de commande)
+export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
 ```
 
 Après modification, rechargez le fichier :
@@ -79,10 +79,10 @@ source ~/.bashrc
 ### 3. Configuration Android Studio
 
 1. **Ouvrir Android Studio** et aller dans `Settings > Languages & Frameworks > Android SDK`
-2. **Installer** les SDK Platform pour Android 13 (API 33) ou supérieur
+2. **Installer** les SDK Platform pour Android 15 (API 35) ou supérieur
 3. **Installer** les outils : Android SDK Build-Tools, Android Emulator, Android SDK Platform-Tools
 4. **Créer un émulateur** : Tools > Device Manager > Create Device
-   - Recommandé : Pixel 6 avec Android 14 (API 34)
+   - Recommandé : Pixel 6 avec Android 15 (API 35)
 
 ### 4. Configuration JDK dans Android Studio
 
