@@ -23,6 +23,10 @@ yarn-error.log*
 *.njsproj
 *.sln
 
+# Built APKs/AABs
+*.apk
+*.aab
+
 # local .env files
 .env.local*
 .env

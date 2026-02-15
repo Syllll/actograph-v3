@@ -154,7 +154,52 @@ npx cap sync android
 
 ## 📦 Build
 
-### Build Android (APK de debug)
+Les builds Android peuvent être lancés **sans ouvrir Android Studio**, directement en ligne de commande.
+
+### Build rapide (depuis `mobile/`)
+
+```bash
+cd mobile
+
+# APK de debug
+yarn build:apk
+
+# APK release signé
+yarn build:apk:release
+
+# AAB release signé (pour le Play Store)
+yarn build:aab
+```
+
+Les fichiers générés se trouvent dans :
+- APK debug : `src-capacitor/android/app/build/outputs/apk/debug/`
+- APK release : `src-capacitor/android/app/build/outputs/apk/release/`
+- AAB release : `src-capacitor/android/app/build/outputs/bundle/release/`
+
+### Build complet (depuis la racine du projet)
+
+Le script `scripts/build-android.sh` gère tout automatiquement : build des packages partagés, installation des dépendances, build Quasar, et build Gradle.
+
+```bash
+# APK de debug
+bash scripts/build-android.sh
+
+# APK release signé
+bash scripts/build-android.sh release
+
+# AAB release signé (Play Store)
+bash scripts/build-android.sh release --aab
+
+# Build debug + installer sur device/émulateur connecté
+bash scripts/build-android.sh debug -i
+
+# Aide
+bash scripts/build-android.sh --help
+```
+
+Le script copie automatiquement le fichier final dans `mobile/actograph-mobile-{debug|release}.{apk|aab}`.
+
+### Build avec Android Studio (legacy)
 
 ```bash
 yarn build
@@ -162,7 +207,48 @@ yarn build
 quasar build -m capacitor -T android
 ```
 
-L'APK sera généré dans `src-capacitor/android/app/build/outputs/apk/debug/`
+Cette commande ouvre Android Studio pour lancer le build manuellement.
+
+### Configuration de la signature release
+
+Pour produire des APK/AAB signés (nécessaire pour le Play Store), il faut configurer un keystore.
+
+#### 1. Générer le keystore (une seule fois)
+
+```bash
+keytool -genkey -v \
+  -keystore mobile/src-capacitor/android/app/actograph-release.jks \
+  -alias actograph \
+  -keyalg RSA -keysize 2048 \
+  -validity 10000
+```
+
+> ⚠️ **Conservez précieusement** le fichier `.jks` et les mots de passe. Si vous les perdez, vous ne pourrez plus publier de mise à jour sur le Play Store avec la même clé.
+
+#### 2. Créer le fichier de configuration
+
+```bash
+cd mobile/src-capacitor/android
+cp keystore.properties.example keystore.properties
+```
+
+Puis remplissez les mots de passe dans `keystore.properties` :
+
+```properties
+storeFile=actograph-release.jks
+storePassword=VOTRE_MOT_DE_PASSE
+keyAlias=actograph
+keyPassword=VOTRE_MOT_DE_PASSE
+```
+
+> Les fichiers `keystore.properties`, `*.jks` et `*.keystore` sont gitignorés. Ne les commitez **jamais**.
+
+#### 3. Vérifier
+
+```bash
+# Un build release signé devrait maintenant fonctionner :
+bash scripts/build-android.sh release
+```
 
 ### Build iOS
 
