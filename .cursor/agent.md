@@ -1,5 +1,22 @@
 # ActoGraph v3 - Cursor Agent Rules
 
+## Setup de l'environnement
+
+**OBLIGATOIRE au demarrage** : Avant toute action, executer le script de setup de l'environnement :
+
+```bash
+bash .cursor/setup.sh
+```
+
+Ce script :
+- Clone la **Knowledge Base Improba** dans `.knowledge-base/` si elle n'est pas deja presente
+- Utilise la variable d'environnement `KNOWLEDGE_BASE_REPO_URL` pour l'URL du repo (a configurer dans les secrets Cursor Cloud Agent si necessaire)
+- Si la variable n'est pas definie, utilise l'URL par defaut configuree dans le script
+
+**Configuration des secrets** (pour Cloud Agents) :
+- Ajouter `KNOWLEDGE_BASE_REPO_URL` dans les secrets Cursor (Dashboard > Cloud Agents > Secrets)
+- Format : URL HTTPS ou SSH du repo Git de la Knowledge Base
+
 ## Knowledge Base Improba
 
 Ce projet utilise les conventions et recettes de la **Knowledge Base Improba** accessible via le lien symbolique `.knowledge-base/`.
