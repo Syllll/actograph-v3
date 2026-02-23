@@ -19,36 +19,33 @@
             flat
             round
             dense
-            icon="add"
+            icon="mdi-plus"
             color="grey-8"
+            aria-label="Zoom avant"
             @click="graph.methods.zoomIn"
             :disable="!graph.sharedState.ready || graph.sharedState.zoomLevel >= 5"
-          >
-            <q-tooltip>Zoom avant</q-tooltip>
-          </q-btn>
+          />
           <q-btn
             flat
             round
             dense
-            icon="remove"
+            icon="mdi-minus"
             color="grey-8"
+            aria-label="Zoom arrière"
             @click="graph.methods.zoomOut"
             :disable="!graph.sharedState.ready || graph.sharedState.zoomLevel <= 0.1"
-          >
-            <q-tooltip>Zoom arrière</q-tooltip>
-          </q-btn>
+          />
           <q-separator vertical />
           <q-btn
             flat
             round
             dense
-            icon="restart_alt"
+            icon="mdi-restore"
             color="grey-8"
+            aria-label="Réinitialiser la vue"
             @click="graph.methods.resetView"
             :disable="!graph.sharedState.ready"
-          >
-            <q-tooltip>Réinitialiser la vue</q-tooltip>
-          </q-btn>
+          />
         </div>
       </div>
 

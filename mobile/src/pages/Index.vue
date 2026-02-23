@@ -89,8 +89,13 @@
         />
       </div>
 
+      <!-- Chargement -->
+      <div v-if="state.loading" class="text-center q-pa-lg">
+        <q-spinner-dots size="40px" color="primary" />
+      </div>
+
       <!-- Liste des chroniques existantes -->
-      <q-card v-if="state.chronicles.length > 0" class="chronicles-list q-mt-md">
+      <q-card v-else-if="state.chronicles.length > 0" class="chronicles-list q-mt-md">
         <q-card-section class="q-pb-none">
           <div class="text-subtitle1 text-weight-medium">Chroniques sur l'appareil</div>
         </q-card-section>
@@ -185,15 +190,12 @@
               v-if="chronicle.hasChronicle.value"
               color="accent"
               icon="mdi-cloud-upload"
+              :aria-label="cloud.isCloudFull.value ? 'Cloud plein' : 'Envoyer la chronique active'"
               @click="methods.uploadCurrentChronicle"
               :loading="state.uploadingId === chronicle.sharedState.currentChronicle?.id"
               :disable="cloud.isCloudFull.value"
               unelevated
-            >
-              <q-tooltip>
-                {{ cloud.isCloudFull.value ? 'Cloud plein' : 'Envoyer la chronique active' }}
-              </q-tooltip>
-            </q-btn>
+            />
           </template>
         </div>
       </q-card-section>
@@ -395,9 +397,11 @@ export default defineComponent({
     };
 
     onMounted(async () => {
-      await methods.loadChronicles();
-      // Initialiser le cloud en arrière-plan
-      await cloud.methods.init();
+      await Promise.all([
+        methods.loadChronicles(),
+        // Initialiser le cloud en arrière-plan
+        cloud.methods.init(),
+      ]);
     });
 
     return {

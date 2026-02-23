@@ -82,6 +82,7 @@ export default defineComponent({
     let app: Application | null = null;
     let mainContainer: Container | null = null;
     let isInitializing = false;
+    let observableYCenters = new Map<string, number>();
 
     const hasData = computed(() => {
       return props.readings.length > 0 && props.categories.length > 0;
@@ -178,6 +179,24 @@ export default defineComponent({
       }
     };
 
+    const buildObservableYCenters = () => {
+      const centers = new Map<string, number>();
+      let currentCategory = '';
+      let y = 0;
+
+      for (const obs of allObservables.value) {
+        if (obs.categoryName !== currentCategory) {
+          currentCategory = obs.categoryName;
+          y += LAYOUT.categoryHeaderHeight;
+        }
+
+        centers.set(obs.name, y + LAYOUT.rowHeight / 2);
+        y += LAYOUT.rowHeight;
+      }
+
+      return centers;
+    };
+
     // Main render function
     const render = () => {
       if (!app || !mainContainer || !containerRef.value) return;
@@ -186,6 +205,8 @@ export default defineComponent({
       mainContainer.removeChildren();
 
       if (!hasData.value) return;
+
+      observableYCenters = buildObservableYCenters();
 
       const width = containerRef.value.clientWidth || 400;
       const height = props.height;
@@ -379,19 +400,8 @@ export default defineComponent({
         const readingTime = new Date(reading.date).getTime();
         const x = ((readingTime - start) / duration) * dataAreaWidth;
 
-        // Calculate Y position
-        let y = 0;
-        let currentCategory = '';
-        for (const o of allObservables.value) {
-          if (o.categoryName !== currentCategory) {
-            currentCategory = o.categoryName;
-            y += LAYOUT.categoryHeaderHeight;
-          }
-          if (o.name === obs.name) break;
-          y += LAYOUT.rowHeight;
-        }
-
-        const yCenter = y + LAYOUT.rowHeight / 2;
+        const yCenter = observableYCenters.get(obs.name);
+        if (yCenter === undefined) continue;
 
         // Check if this is a toggle on or off
         const state = observableStates.get(reading.name);
@@ -436,19 +446,8 @@ export default defineComponent({
           const startX = ((state.startTime - start) / duration) * dataAreaWidth;
           const endX = dataAreaWidth;
 
-          // Calculate Y position
-          let y = 0;
-          let currentCategory = '';
-          for (const o of allObservables.value) {
-            if (o.categoryName !== currentCategory) {
-              currentCategory = o.categoryName;
-              y += LAYOUT.categoryHeaderHeight;
-            }
-            if (o.name === obs.name) break;
-            y += LAYOUT.rowHeight;
-          }
-
-          const yCenter = y + LAYOUT.rowHeight / 2;
+          const yCenter = observableYCenters.get(obs.name);
+          if (yCenter === undefined) continue;
 
           // Draw line to end
           const line = new Graphics();
@@ -541,4 +540,3 @@ export default defineComponent({
   }
 }
 </style>
-

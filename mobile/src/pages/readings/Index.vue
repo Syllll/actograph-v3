@@ -3,14 +3,14 @@
     <!-- Header avec compteur -->
     <div class="readings-header row items-center q-pa-md bg-grey-1">
       <div class="text-subtitle1 text-weight-medium">
-        {{ state.readings.length }} relevé{{ state.readings.length > 1 ? 's' : '' }}
+        {{ readings.length }} relevé{{ readings.length > 1 ? 's' : '' }}
       </div>
       <q-space />
       <q-input
         v-model="state.search"
         placeholder="Rechercher..."
-        dense
         outlined
+        dense
         clearable
         class="search-input"
       >
@@ -24,11 +24,11 @@
     <div class="col table-container">
       <q-table
         class="readings-table"
-        :rows="computedState.filteredReadings.value"
+        :rows="filteredReadings"
         :columns="columns"
         row-key="id"
-        dense
         flat
+        dense
         virtual-scroll
         :rows-per-page-options="[0]"
         hide-pagination
@@ -41,6 +41,7 @@
               text-color="white"
               size="sm"
               dense
+              class="reading-type-chip"
             >
               {{ methods.getTypeLabel(props.row.type, props.row.name) }}
             </q-chip>
@@ -71,22 +72,44 @@
     </div>
 
     <!-- Empty state -->
-    <div v-if="state.readings.length === 0" class="empty-state column items-center justify-center">
+    <div v-if="filteredReadings.length === 0" class="empty-state column items-center justify-center">
       <q-icon name="mdi-table-off" size="64px" color="grey-5" />
-      <div class="text-h6 q-mt-md text-grey">Aucun relevé</div>
+      <div class="text-h6 q-mt-md text-grey">
+        {{ isSearchActive ? 'Aucun relevé trouvé' : 'Aucun relevé' }}
+      </div>
       <div class="text-body2 text-grey">
-        Démarrez une observation pour enregistrer des relevés
+        {{
+          isSearchActive
+            ? 'Essayez un autre terme de recherche'
+            : 'Démarrez une observation pour enregistrer des relevés'
+        }}
       </div>
     </div>
   </DPage>
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, computed, watch, onMounted } from 'vue';
+import { defineComponent, reactive, computed } from 'vue';
 import { useChronicle } from '@composables/use-chronicle';
 import { DPage } from '@components';
 import type { IReadingEntity, ReadingType } from '@database/repositories/reading.repository';
 import { QTableColumn } from 'quasar';
+
+const TYPE_LABELS: Record<ReadingType, string> = {
+  START: 'Début',
+  STOP: 'Fin',
+  PAUSE_START: 'Pause ▶',
+  PAUSE_END: 'Pause ■',
+  DATA: 'Data',
+};
+
+const TYPE_COLORS: Record<ReadingType, string> = {
+  START: 'positive',
+  STOP: 'negative',
+  PAUSE_START: 'warning',
+  PAUSE_END: 'warning',
+  DATA: 'primary',
+};
 
 export default defineComponent({
   name: 'ReadingsIndexPage',
@@ -98,25 +121,17 @@ export default defineComponent({
 
     const columns: QTableColumn[] = [
       {
-        name: 'order',
-        label: 'N°',
-        field: 'id',
-        align: 'left',
-        style: 'width: 50px',
-      },
-      {
         name: 'type',
         label: 'Type',
         field: 'type',
         align: 'left',
-        style: 'width: 100px',
       },
       {
         name: 'date',
-        label: 'Date & Heure',
+        label: 'Heure',
         field: 'date',
         align: 'left',
-        style: 'width: 180px',
+        style: 'width: 90px',
       },
       {
         name: 'name',
@@ -127,87 +142,58 @@ export default defineComponent({
     ];
 
     const state = reactive({
-      readings: [] as IReadingEntity[],
       search: '',
     });
 
-    const computedState = {
-      filteredReadings: computed(() => {
-        if (!state.search) {
-          return state.readings;
-        }
-        const searchLower = state.search.toLowerCase();
-        return state.readings.filter(
-          (r) =>
-            r.name?.toLowerCase().includes(searchLower) ||
-            r.type.toLowerCase().includes(searchLower) ||
-            r.description?.toLowerCase().includes(searchLower)
-        );
-      }),
-    };
+    const readings = computed(() => chronicle.sharedState.currentReadings as IReadingEntity[]);
+
+    const filteredReadings = computed(() => {
+      if (!state.search) {
+        return readings.value;
+      }
+      const searchLower = state.search.toLowerCase();
+      return readings.value.filter(
+        (r) =>
+          r.name?.toLowerCase().includes(searchLower) ||
+          r.type.toLowerCase().includes(searchLower) ||
+          r.description?.toLowerCase().includes(searchLower)
+      );
+    });
+
+    const isSearchActive = computed(() => state.search.trim().length > 0);
 
     const methods = {
-      loadReadings: () => {
-        state.readings = chronicle.sharedState.currentReadings;
-      },
-
       getTypeLabel: (type: ReadingType, name?: string): string => {
         // Special handling for comments
         if (type === 'DATA' && name?.startsWith('#')) {
           return 'Commentaire';
         }
-        
-        const labels: Record<ReadingType, string> = {
-          START: 'Début',
-          STOP: 'Fin',
-          PAUSE_START: 'Pause ▶',
-          PAUSE_END: 'Pause ■',
-          DATA: 'Data',
-        };
-        return labels[type] || type;
+
+        return TYPE_LABELS[type] || type;
       },
 
       getTypeColor: (type: ReadingType): string => {
-        const colors: Record<ReadingType, string> = {
-          START: 'positive',
-          STOP: 'negative',
-          PAUSE_START: 'warning',
-          PAUSE_END: 'warning',
-          DATA: 'primary',
-        };
-        return colors[type] || 'grey';
+        return TYPE_COLORS[type] || 'grey';
       },
 
       formatDate: (dateStr: string): string => {
         if (!dateStr) return '-';
         const date = new Date(dateStr);
-        return date.toLocaleString('fr-FR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
+        return date.toLocaleTimeString('fr-FR', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
-          fractionalSecondDigits: 3,
         });
       },
     };
 
-    onMounted(() => {
-      methods.loadReadings();
-    });
-
-    watch(
-      () => chronicle.sharedState.currentReadings,
-      () => methods.loadReadings(),
-      { deep: true }
-    );
-
     return {
       chronicle,
       columns,
+      readings,
       state,
-      computedState,
+      filteredReadings,
+      isSearchActive,
       methods,
     };
   },
@@ -218,10 +204,31 @@ export default defineComponent({
 .readings-header {
   flex-shrink: 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 56px;
 }
 
 .search-input {
   width: 180px;
+  flex: 1 1 220px;
+  max-width: 320px;
+}
+
+@media (max-width: 600px) {
+  .readings-header {
+    align-items: stretch;
+  }
+
+  .search-input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  :deep(.readings-header .q-space) {
+    flex-basis: 100%;
+    height: 0;
+  }
 }
 
 .table-container {
@@ -257,5 +264,56 @@ export default defineComponent({
   color: #3b82f6; /* Blue color */
   font-weight: 500;
 }
-</style>
 
+
+:deep(.search-input .q-field__control) {
+  min-height: 44px;
+}
+
+:deep(.search-input .q-field__append .q-icon),
+:deep(.search-input .q-field__prepend .q-icon) {
+  font-size: 20px;
+}
+
+.readings-table {
+  :deep(.q-table__middle) {
+    background-color: #fff;
+  }
+
+  :deep(.q-table tbody tr) {
+    height: 52px;
+  }
+
+  :deep(.q-table tbody td) {
+    padding: 12px 12px;
+    font-size: 14px;
+  }
+}
+
+.reading-type-chip {
+  min-height: 32px;
+  padding: 0 10px;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .readings-header {
+    min-height: auto;
+    padding: 12px 16px;
+  }
+
+  :deep(.search-input .q-field__control) {
+    min-height: 48px;
+  }
+
+  .readings-table {
+    :deep(.q-table tbody tr) {
+      height: 56px;
+    }
+
+    :deep(.q-table tbody td) {
+      padding: 14px 12px;
+    }
+  }
+}
+</style>

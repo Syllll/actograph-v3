@@ -225,12 +225,12 @@ class ObservationService {
   }
 
   /**
-   * Check if observation is recording
+   * Check if observation is currently recording.
+   * Looks at the most recent START/STOP reading to handle multiple sessions.
    */
   async isRecording(observationId: number): Promise<boolean> {
-    const hasStart = await readingRepository.hasStartReading(observationId);
-    const hasStop = await readingRepository.hasStopReading(observationId);
-    return hasStart && !hasStop;
+    const last = await readingRepository.getLastStartOrStop(observationId);
+    return last?.type === 'START';
   }
 }
 

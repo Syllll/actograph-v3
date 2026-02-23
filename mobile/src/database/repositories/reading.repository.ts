@@ -158,27 +158,18 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
   }
 
   /**
-   * Check if observation has START reading
+   * Get the most recent START or STOP reading for an observation.
+   * Handles multiple recording sessions correctly (START → STOP → START → …).
    */
-  async hasStartReading(observationId: number): Promise<boolean> {
+  async getLastStartOrStop(observationId: number): Promise<IReadingEntity | null> {
     const sql = `
-      SELECT COUNT(*) as count FROM ${this.tableName} 
-      WHERE observation_id = ? AND type = 'START'
+      SELECT * FROM ${this.tableName}
+      WHERE observation_id = ? AND type IN ('START', 'STOP')
+      ORDER BY date DESC
+      LIMIT 1
     `;
-    const result = await sqliteService.query<{ count: number }>(sql, [observationId]);
-    return (result[0]?.count ?? 0) > 0;
-  }
-
-  /**
-   * Check if observation has STOP reading
-   */
-  async hasStopReading(observationId: number): Promise<boolean> {
-    const sql = `
-      SELECT COUNT(*) as count FROM ${this.tableName} 
-      WHERE observation_id = ? AND type = 'STOP'
-    `;
-    const result = await sqliteService.query<{ count: number }>(sql, [observationId]);
-    return (result[0]?.count ?? 0) > 0;
+    const results = await sqliteService.query<IReadingEntity>(sql, [observationId]);
+    return results[0] ?? null;
   }
 }
 

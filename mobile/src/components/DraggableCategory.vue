@@ -302,7 +302,7 @@ export default defineComponent({
   .category-header {
     background: var(--primary);
     color: white;
-    min-height: 28px;
+    min-height: 36px;
   }
 
   .category-name {
@@ -326,15 +326,15 @@ export default defineComponent({
   .observables-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
   }
 
   .observable-btn-small {
     width: 100%;
     justify-content: flex-start;
-    font-size: 11px;
-    padding: 2px 8px;
-    min-height: 24px;
+    font-size: 13px;
+    padding: 6px 12px;
+    min-height: 40px;
   }
 }
 </style>

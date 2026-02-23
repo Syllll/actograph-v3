@@ -112,40 +112,34 @@
 
             <q-item-section side>
               <div class="row q-gutter-xs">
-                <!-- Download button -->
                 <q-btn
                   v-if="chronicle.isJchronic"
                   round
                   flat
                   color="primary"
                   icon="mdi-download"
+                  aria-label="Télécharger"
                   @click="methods.downloadChronicle(chronicle)"
                   :loading="state.downloadingId === chronicle.id"
-                >
-                  <q-tooltip>Télécharger</q-tooltip>
-                </q-btn>
+                />
                 <q-btn
                   v-else
                   round
                   flat
                   color="grey"
                   icon="mdi-download-off"
+                  aria-label="Non téléchargeable sur mobile"
                   disable
-                >
-                  <q-tooltip>Non téléchargeable sur mobile</q-tooltip>
-                </q-btn>
-
-                <!-- Delete button -->
+                />
                 <q-btn
                   round
                   flat
                   color="negative"
                   icon="mdi-delete"
+                  aria-label="Supprimer"
                   @click="methods.confirmDelete(chronicle)"
                   :loading="state.deletingId === chronicle.id"
-                >
-                  <q-tooltip>Supprimer</q-tooltip>
-                </q-btn>
+                />
               </div>
             </q-item-section>
           </q-item>

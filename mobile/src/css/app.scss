@@ -38,22 +38,72 @@ $modernDarkGrey: #1f2937;
 
 // Dark mode overrides
 body.body--dark {
+  $dark-surface: #374151;
+
   --text: #{$white};
   --text-invert: #{$black};
   --background: #{$modernDarkGrey};
+
+  .bg-white {
+    background-color: $dark-surface !important;
+    color: #{$white} !important;
+  }
+
+  .q-card,
+  .q-list.bg-white,
+  .q-dialog__inner > div,
+  .q-menu {
+    background-color: $dark-surface;
+    color: #{$white};
+  }
+
+  .q-table__container {
+    background-color: $dark-surface;
+    color: #{$white};
+  }
+
+  .draggable-category,
+  .positioned-category,
+  .category-item {
+    background-color: $dark-surface;
+    color: #{$white};
+  }
+
+  .readings-table thead th {
+    background-color: $dark-surface;
+    color: #{$white};
+  }
+
+  .bg-grey-1 {
+    background-color: #283141 !important;
+  }
+
+  .bg-grey-2 {
+    background-color: #2d3748 !important;
+  }
 }
 
 // Global styles
 body {
   font-family: 'Roboto', '-apple-system', 'Helvetica Neue', Helvetica, Arial,
     sans-serif;
+  color: var(--text);
+  background-color: var(--background);
 }
 
 // Mobile-specific styles
-.q-page {
-  // Safe area for notched devices
+.q-header {
   padding-top: env(safe-area-inset-top);
+}
+
+.q-footer {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+.q-page {
+  // Safe area handled by header/footer
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 // Custom scrollbar
@@ -75,11 +125,25 @@ body {
 // Button styles
 .q-btn {
   border-radius: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
 }
 
 // Input styles
 .q-field--outlined .q-field__control {
   border-radius: 8px;
+  min-height: 44px;
+}
+
+.q-field__control {
+  min-height: 44px;
+}
+
+// Touch target sizing for common interactive elements
+.q-tab,
+.q-item,
+.q-btn--dense {
+  min-height: 44px;
 }
 
 // Dialog styles

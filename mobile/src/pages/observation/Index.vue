@@ -2,67 +2,65 @@
   <DPage>
     <!-- Timer toolbar (header fixe) -->
     <div class="timer-toolbar q-pa-md">
-      <!-- Protocol button -->
       <div class="row items-center justify-between q-mb-sm">
-        <q-btn
-          flat
-          dense
-          icon="mdi-clipboard-list"
-          color="white"
-          size="sm"
-          label="Protocole"
-          @click="state.showProtocolSheet = true"
-        />
-        <div class="text-caption text-white text-center col">
-          {{ state.categories.length }} catégorie(s)
-        </div>
-        <!-- Bouton mode édition -->
-        <q-btn
-          v-if="!editMode.sharedState.isEditing && canEnterEditMode"
-          flat
-          dense
-          icon="mdi-pencil"
-          color="white"
-          size="sm"
-          @click="methods.enterEditMode"
-        >
-          <q-tooltip>Éditer les positions</q-tooltip>
-        </q-btn>
-        <!-- Boutons en mode édition -->
-        <template v-if="editMode.sharedState.isEditing">
+        <template v-if="!editMode.sharedState.isEditing">
+          <q-btn
+            flat
+            dense
+            icon="mdi-clipboard-list"
+            color="white"
+            size="sm"
+            label="Protocole"
+            @click="state.showProtocolSheet = true"
+          />
+          <div class="text-caption text-white text-center col">
+            {{ state.categories.length }} catégorie(s)
+          </div>
+          <q-btn
+            v-if="canEnterEditMode"
+            flat
+            dense
+            icon="mdi-pencil"
+            color="white"
+            size="sm"
+            aria-label="Éditer les positions"
+            @click="methods.enterEditMode"
+          />
+          <div v-else style="width: 40px"></div>
+        </template>
+        <template v-else>
           <q-btn
             flat
             dense
             icon="mdi-close"
             color="negative"
             size="sm"
+            aria-label="Annuler les changements"
             @click="methods.cancelEditMode"
-          >
-            <q-tooltip>Annuler les changements</q-tooltip>
-          </q-btn>
-          <q-btn
-            flat
-            dense
-            icon="mdi-refresh"
-            color="white"
-            size="sm"
-            @click="methods.resetCategoryPositions"
-          >
-            <q-tooltip>Réinitialiser les positions</q-tooltip>
-          </q-btn>
-          <q-btn
-            flat
-            dense
-            icon="mdi-check"
-            color="positive"
-            size="sm"
-            :loading="editMode.sharedState.isSaving"
-            @click="methods.exitEditMode"
-          >
-            <q-tooltip>Terminer l'édition</q-tooltip>
-          </q-btn>
+          />
+          <div class="text-caption text-white text-center col">Édition des positions</div>
+          <div class="row items-center no-wrap q-gutter-xs">
+            <q-btn
+              flat
+              dense
+              icon="mdi-refresh"
+              color="white"
+              size="sm"
+              aria-label="Réinitialiser les positions"
+              @click="methods.resetCategoryPositions"
+            />
+            <q-btn
+              flat
+              dense
+              icon="mdi-check"
+              color="positive"
+              size="sm"
+              :loading="editMode.sharedState.isSaving"
+              aria-label="Valider les positions"
+              @click="methods.exitEditMode"
+            />
+          </div>
         </template>
-        <div v-if="!editMode.sharedState.isEditing && !canEnterEditMode" style="width: 40px"></div>
       </div>
 
       <div class="row items-center justify-center">
@@ -81,10 +79,9 @@
           color="positive"
           icon="mdi-play"
           size="lg"
+          aria-label="Démarrer l'enregistrement"
           @click="methods.startRecording"
-        >
-          <q-tooltip>Démarrer l'enregistrement</q-tooltip>
-        </q-btn>
+        />
 
         <template v-else>
           <q-btn
@@ -92,20 +89,18 @@
             :color="chronicle.sharedState.isPaused ? 'positive' : 'warning'"
             :icon="chronicle.sharedState.isPaused ? 'mdi-play' : 'mdi-pause'"
             size="lg"
+            :aria-label="chronicle.sharedState.isPaused ? 'Reprendre' : 'Pause'"
             @click="methods.togglePause"
-          >
-            <q-tooltip>{{ chronicle.sharedState.isPaused ? 'Reprendre' : 'Pause' }}</q-tooltip>
-          </q-btn>
+          />
 
           <q-btn
             round
             color="negative"
             icon="mdi-stop"
             size="lg"
+            aria-label="Arrêter l'enregistrement"
             @click="methods.stopRecording"
-          >
-            <q-tooltip>Arrêter l'enregistrement</q-tooltip>
-          </q-btn>
+          />
         </template>
       </div>
     </div>
@@ -175,10 +170,9 @@
         color="info"
         icon="mdi-comment-plus"
         size="lg"
+        aria-label="Ajouter un commentaire"
         @click="state.showAddCommentDialog = true"
-      >
-        <q-tooltip>Ajouter un commentaire</q-tooltip>
-      </q-btn>
+      />
     </q-page-sticky>
 
     <!-- Dialog ajout commentaire -->
@@ -464,40 +458,34 @@
                   </q-item-label>
                 </q-item-section>
                 <q-item-section side>
-                  <div class="row q-gutter-xs">
+                  <div class="row q-gutter-sm">
                     <q-btn
                       flat
                       round
                       dense
-                      size="sm"
                       icon="mdi-plus"
                       color="positive"
+                      aria-label="Ajouter observable"
                       @click="methods.openAddObservableForCategory(category)"
-                    >
-                      <q-tooltip>Ajouter observable</q-tooltip>
-                    </q-btn>
+                    />
                     <q-btn
                       flat
                       round
                       dense
-                      size="sm"
                       icon="mdi-pencil"
                       color="info"
+                      aria-label="Renommer"
                       @click="methods.openRenameCategory(category)"
-                    >
-                      <q-tooltip>Renommer</q-tooltip>
-                    </q-btn>
+                    />
                     <q-btn
                       flat
                       round
                       dense
-                      size="sm"
                       icon="mdi-delete"
                       color="negative"
+                      aria-label="Supprimer catégorie"
                       @click="methods.deleteCategory(category)"
-                    >
-                      <q-tooltip>Supprimer catégorie</q-tooltip>
-                    </q-btn>
+                    />
                   </div>
                 </q-item-section>
               </q-item>
@@ -515,29 +503,25 @@
                   <q-item-label>{{ observable.name }}</q-item-label>
                 </q-item-section>
                 <q-item-section side>
-                  <div class="row q-gutter-xs">
+                  <div class="row q-gutter-sm">
                     <q-btn
                       flat
                       round
                       dense
-                      size="sm"
                       icon="mdi-pencil"
                       color="info"
+                      aria-label="Renommer"
                       @click="methods.openRenameObservable(category, observable)"
-                    >
-                      <q-tooltip>Renommer</q-tooltip>
-                    </q-btn>
+                    />
                     <q-btn
                       flat
                       round
                       dense
-                      size="sm"
                       icon="mdi-delete"
                       color="negative"
+                      aria-label="Supprimer"
                       @click="methods.deleteObservable(category, observable)"
-                    >
-                      <q-tooltip>Supprimer</q-tooltip>
-                    </q-btn>
+                    />
                   </div>
                 </q-item-section>
               </q-item>
@@ -643,6 +627,30 @@ export default defineComponent({
     const canEnterEditMode = computed(() => 
       !state.isRecording && !chronicle.sharedState.isPaused
     );
+
+    const READING_ICONS: Record<ReadingType, string> = {
+      START: 'mdi-play-circle',
+      STOP: 'mdi-stop-circle',
+      PAUSE_START: 'mdi-pause-circle',
+      PAUSE_END: 'mdi-play-circle-outline',
+      DATA: 'mdi-circle',
+    };
+
+    const READING_COLORS: Record<ReadingType, string> = {
+      START: 'positive',
+      STOP: 'negative',
+      PAUSE_START: 'warning',
+      PAUSE_END: 'positive',
+      DATA: 'accent',
+    };
+
+    const READING_LABELS: Record<ReadingType, string> = {
+      START: 'Début',
+      STOP: 'Fin',
+      PAUSE_START: 'Pause',
+      PAUSE_END: 'Reprise',
+      DATA: 'Data',
+    };
 
     const methods = {
       loadProtocol: () => {
@@ -757,38 +765,11 @@ export default defineComponent({
         methods.loadRecentReadings();
       },
 
-      getReadingIcon: (type: ReadingType): string => {
-        const icons: Record<ReadingType, string> = {
-          START: 'mdi-play-circle',
-          STOP: 'mdi-stop-circle',
-          PAUSE_START: 'mdi-pause-circle',
-          PAUSE_END: 'mdi-play-circle-outline',
-          DATA: 'mdi-circle',
-        };
-        return icons[type] || 'mdi-circle';
-      },
+      getReadingIcon: (type: ReadingType): string => READING_ICONS[type] || 'mdi-circle',
 
-      getReadingColor: (type: ReadingType): string => {
-        const colors: Record<ReadingType, string> = {
-          START: 'positive',
-          STOP: 'negative',
-          PAUSE_START: 'warning',
-          PAUSE_END: 'positive',
-          DATA: 'accent',
-        };
-        return colors[type] || 'grey';
-      },
+      getReadingColor: (type: ReadingType): string => READING_COLORS[type] || 'grey',
 
-      getReadingLabel: (type: ReadingType): string => {
-        const labels: Record<ReadingType, string> = {
-          START: 'Début',
-          STOP: 'Fin',
-          PAUSE_START: 'Pause',
-          PAUSE_END: 'Reprise',
-          DATA: 'Data',
-        };
-        return labels[type] || type;
-      },
+      getReadingLabel: (type: ReadingType): string => READING_LABELS[type] || type,
 
       formatTime: (dateStr: string): string => {
         if (!dateStr) return '';
@@ -1298,7 +1279,7 @@ export default defineComponent({
   .category-header {
     background: var(--primary);
     color: white;
-    min-height: 28px;
+    min-height: 36px;
   }
 
   .category-content {
@@ -1309,13 +1290,13 @@ export default defineComponent({
 .observables-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .observable-btn-small {
-  font-size: 11px;
-  padding: 2px 8px;
-  min-height: 24px;
+  font-size: 13px;
+  padding: 6px 12px;
+  min-height: 40px;
 }
 
 .edit-hint {
