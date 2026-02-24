@@ -4,6 +4,8 @@
 
 "@actograph/core@file:../core":
   version "0.0.80"
+  dependencies:
+    int64-buffer "^1.0.1"
 
 "@pixi/colord@^2.9.6":
   version "2.9.6"
@@ -53,6 +55,11 @@ gifuct-js@^2.1.2:
   integrity sha512-rI2asw77u0mGgwhV3qA+OEgYqaDn5UNqgs+Bx0FGwSpuqfYn+Ir6RQY5ENNQ8SbIiG/m5gVa7CD5RriO4f4Lsg==
   dependencies:
     js-binary-schema-parser "^2.0.3"
+
+int64-buffer@^1.0.1:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/int64-buffer/-/int64-buffer-1.1.0.tgz#7ebe9822196a93bbedf93ec6b73b569561b5ae3a"
+  integrity sha512-94smTCQOvigN4d/2R/YDjz8YVG0Sufvv2aAh8P5m42gwhCsDAJqnbNOrxJsrADuAFAA69Q/ptGzxvNcNuIJcvw==
 
 ismobilejs@^1.1.1:
   version "1.1.1"

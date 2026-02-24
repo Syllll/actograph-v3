@@ -76,7 +76,7 @@ function julianDayToDate(i) {
 
 function mapObject(obj, fn) {
   const keys = Object.keys(obj);
-  for (let key of keys) {
+  for (const key of keys) {
     const descriptor = Object.getOwnPropertyDescriptor(obj, key);
     Object.assign(descriptor, {
       value: fn(obj[key]),

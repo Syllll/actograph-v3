@@ -14,7 +14,7 @@ import {
  */
 export function validateProtocolItem(
   item: Partial<IProtocolItem>,
-  path: string = 'item',
+  path = 'item',
 ): IValidationResult {
   const errors: IValidationError[] = [];
 
@@ -186,7 +186,7 @@ function findDuplicates(arr: string[]): string[] {
  */
 export function validateCategoryHasObservables(
   category: IProtocolItem,
-  path: string = 'category',
+  path = 'category',
 ): IValidationResult {
   if (category.type !== ProtocolItemTypeEnum.Category) {
     return validResult();

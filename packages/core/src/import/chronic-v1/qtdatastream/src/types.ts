@@ -672,7 +672,7 @@ class QList extends QClass {
     const bufs = [];
     // nb of elements in the list
     bufs.push(QUInt.from(this.__obj.length).toBuffer());
-    for (let el of this.__obj) {
+    for (const el of this.__obj) {
       // Values are QVariant
       bufs.push(QVariant.from(el).toBuffer());
     }
@@ -722,7 +722,7 @@ class QStringList extends QClass {
     const bufs = [];
     // nb of elements in the list
     bufs.push(QUInt.from(this.__obj.length).toBuffer());
-    for (let el of this.__obj) {
+    for (const el of this.__obj) {
       // Values are QString
       bufs.push(QString.from(el).toBuffer());
     }
@@ -830,7 +830,7 @@ class QMap extends QClass {
     if (this.__obj instanceof Map) {
       // Map number of elements
       bufs.push(QUInt.from(this.__obj.size).toBuffer());
-      for (let [key, value] of this.__obj) {
+      for (const [key, value] of this.__obj) {
         // write key
         bufs.push(QString.from(key).toBuffer());
         // write value
@@ -840,7 +840,7 @@ class QMap extends QClass {
       const keys = Object.keys(this.__obj);
       // Map number of elements
       bufs.push(QUInt.from(keys.length).toBuffer());
-      for (let key of keys) {
+      for (const key of keys) {
         // write key
         bufs.push(QString.from(key).toBuffer());
         // write value
@@ -914,7 +914,7 @@ class QUserType extends QClass {
 
       static read(buffer) {
         const obj = {};
-        for (let elt of compiled) {
+        for (const elt of compiled) {
           Object.defineProperty(obj, elt.key, {
             enumerable: true,
             configurable: true,
@@ -927,7 +927,7 @@ class QUserType extends QClass {
 
       toBuffer(skipname = false) {
         const bufs = [this._getNameBuffer(skipname)];
-        for (let elt of compiled) {
+        for (const elt of compiled) {
           bufs.push(elt.quserclass.from(this.__obj[elt.key]).toBuffer(true));
         }
         return Buffer.concat(bufs);
