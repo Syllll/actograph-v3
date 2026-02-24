@@ -50,11 +50,11 @@ export class ChronicV1Parser {
         );
       }
 
-      let name: string = '';
+      let name = '';
       let protocol: IChronicV1['protocol'] | undefined;
       let reading: IChronicV1['reading'] | undefined;
-      let hasSaveFile: boolean = false;
-      let saveFile: string = '';
+      let hasSaveFile = false;
+      let saveFile = '';
       let modeManager: IChronicV1['modeManager'] | undefined;
       let graphManager: IChronicV1['graphManager'] | undefined;
       let autoPosButtons = true;
@@ -62,7 +62,7 @@ export class ChronicV1Parser {
         version: 1.0,
         extensions: {},
       };
-      let scaleFactor = 1;
+      const scaleFactor = 1;
       let buttonsWidth = 160 * scaleFactor;
 
       if (version === 1) {

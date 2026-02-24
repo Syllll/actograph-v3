@@ -27,10 +27,10 @@ export class ProtocolV1Parser {
     let isBackground: boolean;
     let backgroundCover: string;
     let backgroundMotif: number;
-    let bX: number = -1;
-    let bY: number = -1;
-    let bWidth: number = -1;
-    let bHeight: number = -1;
+    let bX = -1;
+    let bY = -1;
+    let bWidth = -1;
+    let bHeight = -1;
     const children: IProtocolNodeV1[] = [];
 
     if (version === 1) {

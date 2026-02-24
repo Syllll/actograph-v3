@@ -48,7 +48,7 @@ export function parseJchronicFile(content: string): IJchronicImport {
  */
 export function normalizeJchronicData(data: IJchronicImport): INormalizedImport {
   // Process protocol if present
-  let protocolCategories: INormalizedCategory[] = [];
+  const protocolCategories: INormalizedCategory[] = [];
 
   if (data.protocol?.items) {
     // Sort items by order if present

@@ -76,7 +76,7 @@ function Serializable(usertype) {
     aclass.prototype._mapping_out = function () {
       const ret = {};
       const keys = Object.keys(this.__serialize);
-      for (let key of keys) {
+      for (const key of keys) {
         Object.defineProperty(ret, key, {
           enumerable: true,
           configurable: true,

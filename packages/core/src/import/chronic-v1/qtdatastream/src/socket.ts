@@ -14,7 +14,7 @@ const events = require('events');
 const debuglib = require('debug');
 import transform from './transform';
 const logger = debuglib('qtdatastream:socket');
-let debug =
+const debug =
   Boolean(process.env.QTDSDEBUG) || debuglib.enabled('qtdatastream:*');
 
 if (debug && !debuglib.enabled('qtdatastream:*')) {

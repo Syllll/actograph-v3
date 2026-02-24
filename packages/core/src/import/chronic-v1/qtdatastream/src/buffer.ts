@@ -16,7 +16,7 @@ const { Int64BE, Uint64BE } = require('int64-buffer');
  * @param {Buffer} buffer
  */
 export class CustomBuffer {
-  private read_offset: number = 0;
+  private read_offset = 0;
   private buffer: Buffer;
 
   constructor(buffer: Buffer) {
