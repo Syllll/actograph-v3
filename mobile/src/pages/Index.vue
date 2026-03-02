@@ -301,6 +301,12 @@ export default defineComponent({
           await methods.loadChronicles();
         } catch (error) {
           console.error('Failed to create chronicle:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de la création de la chronique',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+            position: 'top',
+          });
         }
       },
 
