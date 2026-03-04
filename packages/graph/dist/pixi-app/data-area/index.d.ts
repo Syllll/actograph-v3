@@ -6,6 +6,7 @@ import { xAxis } from '../axis/x-axis';
 export declare class DataArea extends BaseGroup {
     private yAxis;
     private xAxis;
+    private graphInteractionEnabled;
     private readingsPerCategory;
     private graphicPerCategory;
     private tilingSpritesPerCategory;
@@ -16,7 +17,9 @@ export declare class DataArea extends BaseGroup {
     private timeLabelBackground;
     private protocol;
     protected observation: IObservation | null;
-    constructor(app: Application, yAxis: YAxis, xAxis: xAxis);
+    constructor(app: Application, yAxis: YAxis, xAxis: xAxis, options?: {
+        interactive?: boolean;
+    });
     init(): void;
     setProtocol(protocol: IProtocol): void;
     setData(observation: IObservation): void;

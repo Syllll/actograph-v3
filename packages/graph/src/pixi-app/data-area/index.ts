@@ -25,7 +25,7 @@ import { createTilingPatternSprite } from '../../lib/pattern-textures';
 export class DataArea extends BaseGroup {
   private yAxis: YAxis;
   private xAxis: xAxis;
-  private interactive: boolean;
+  private graphInteractionEnabled: boolean;
 
   private readingsPerCategory: {
     category: ProtocolItem;
@@ -61,7 +61,7 @@ export class DataArea extends BaseGroup {
 
     this.yAxis = yAxis;
     this.xAxis = xAxis;
-    this.interactive = options?.interactive ?? true;
+    this.graphInteractionEnabled = options?.interactive ?? true;
 
     this.graphicForBackground = new BaseGraphic(app);
     this.addChild(this.graphicForBackground);
@@ -89,7 +89,7 @@ export class DataArea extends BaseGroup {
   public init() {
     super.init();
 
-    if (!this.interactive) {
+    if (!this.graphInteractionEnabled) {
       this.eventMode = 'none';
       this.graphicForBackground.eventMode = 'none';
       if (this.timeLabelContainer) {
@@ -295,10 +295,14 @@ export class DataArea extends BaseGroup {
     if (!yAxisStart || !yAxisEnd) {
       return;
     }
+    const xAxisEnd = this.xAxis.getAxisEnd();
+    if (typeof xAxisEnd?.x !== 'number') {
+      return;
+    }
     const bottomLeft = yAxisStart as { x: number; y: number };
 
     const topRight = {
-      x: this.xAxis.getAxisEnd().x,
+      x: xAxisEnd.x,
       y: yAxisEnd.y,
     } as { x: number; y: number };
 
@@ -312,9 +316,9 @@ export class DataArea extends BaseGroup {
       color: 'transparent',
     });
 
-    const backgroundCategories: typeof this.readingsPerCategory = [];
-    const friezeCategories: typeof this.readingsPerCategory = [];
-    const normalCategories: typeof this.readingsPerCategory = [];
+    const backgroundCategories: Array<{ category: ProtocolItem; readings: IReading[] }> = [];
+    const friezeCategories: Array<{ category: ProtocolItem; readings: IReading[] }> = [];
+    const normalCategories: Array<{ category: ProtocolItem; readings: IReading[] }> = [];
 
     for (const categoryEntry of this.readingsPerCategory) {
       const displayMode =
@@ -403,7 +407,11 @@ export class DataArea extends BaseGroup {
 
       const last = { x: start.x, y: start.y };
       const minVisibleSegmentPx = 2;
-      const axisEndX = this.xAxis.getAxisEnd().x;
+      const xAxisEnd = this.xAxis.getAxisEnd();
+      if (typeof xAxisEnd?.x !== 'number') {
+        return;
+      }
+      const axisEndX = xAxisEnd.x;
 
       for (let i = 1; i < readings.length; i++) {
         const reading = readings[i];
@@ -474,9 +482,13 @@ export class DataArea extends BaseGroup {
     if (!yAxisStart || !yAxisEnd) {
       return;
     }
+    const xAxisEnd = this.xAxis.getAxisEnd();
+    if (typeof xAxisEnd?.x !== 'number') {
+      return;
+    }
     const bottomLeft = yAxisStart as { x: number; y: number };
     const topRight = {
-      x: this.xAxis.getAxisEnd().x,
+      x: xAxisEnd.x,
       y: yAxisEnd.y,
     } as { x: number; y: number };
 

@@ -7,7 +7,7 @@ import { formatFromDate } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 import { createTilingPatternSprite } from '../../lib/pattern-textures';
 export class DataArea extends BaseGroup {
-    constructor(app, yAxis, xAxis) {
+    constructor(app, yAxis, xAxis, options) {
         super(app);
         this.readingsPerCategory = [];
         this.graphicPerCategory = [];
@@ -19,6 +19,7 @@ export class DataArea extends BaseGroup {
         this.observation = null;
         this.yAxis = yAxis;
         this.xAxis = xAxis;
+        this.graphInteractionEnabled = options?.interactive ?? true;
         this.graphicForBackground = new BaseGraphic(app);
         this.addChild(this.graphicForBackground);
         this.pointerDashedLines = new BaseGraphic(app);
@@ -39,6 +40,14 @@ export class DataArea extends BaseGroup {
     }
     init() {
         super.init();
+        if (!this.graphInteractionEnabled) {
+            this.eventMode = 'none';
+            this.graphicForBackground.eventMode = 'none';
+            if (this.timeLabelContainer) {
+                this.timeLabelContainer.visible = false;
+            }
+            return;
+        }
         this.eventMode = 'passive';
         this.graphicForBackground.eventMode = 'static';
         this.graphicForBackground.on('pointermove', (evt) => {
@@ -202,9 +211,13 @@ export class DataArea extends BaseGroup {
         if (!yAxisStart || !yAxisEnd) {
             return;
         }
+        const xAxisEnd = this.xAxis.getAxisEnd();
+        if (typeof xAxisEnd?.x !== 'number') {
+            return;
+        }
         const bottomLeft = yAxisStart;
         const topRight = {
-            x: this.xAxis.getAxisEnd().x,
+            x: xAxisEnd.x,
             y: yAxisEnd.y,
         };
         this.graphicForBackground.rect(bottomLeft.x, topRight.y, topRight.x - bottomLeft.x, Math.abs(topRight.y - bottomLeft.y));
@@ -287,10 +300,18 @@ export class DataArea extends BaseGroup {
             if (startY < 0)
                 return;
             const start = {
-                x: this.yAxis?.getAxisStart()?.x ?? 0,
+                // Start the first segment at the first DATA timestamp for this category.
+                // Otherwise categories that start later appear active from axis origin.
+                x: this.xAxis.getPosFromDateTime(firstReading.dateTime),
                 y: startY,
             };
             const last = { x: start.x, y: start.y };
+            const minVisibleSegmentPx = 2;
+            const xAxisEnd = this.xAxis.getAxisEnd();
+            if (typeof xAxisEnd?.x !== 'number') {
+                return;
+            }
+            const axisEndX = xAxisEnd.x;
             for (let i = 1; i < readings.length; i++) {
                 const reading = readings[i];
                 if (!reading)
@@ -298,7 +319,16 @@ export class DataArea extends BaseGroup {
                 const yPos = reading.type === ReadingTypeEnum.STOP
                     ? -1
                     : this.yAxis.getPosFromLabel(reading.name || '');
-                const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
+                // Consecutive readings can share the same timestamp (mobile taps in same second).
+                // Without a minimum spacing, segments collapse to zero width and look "missing".
+                const rawXPos = this.xAxis.getPosFromDateTime(reading.dateTime);
+                let xPos = rawXPos;
+                if (xPos <= last.x) {
+                    xPos = last.x + minVisibleSegmentPx;
+                }
+                if (xPos > axisEndX) {
+                    xPos = axisEndX;
+                }
                 const horizontalPrefs = this.getObservablePreferencesForReading(readings[i - 1]?.name || firstReading.name || '');
                 const horizontalColor = horizontalPrefs?.color ?? 'green';
                 const horizontalStrokeWidth = horizontalPrefs?.strokeWidth ?? 2;
@@ -339,9 +369,13 @@ export class DataArea extends BaseGroup {
         if (!yAxisStart || !yAxisEnd) {
             return;
         }
+        const xAxisEnd = this.xAxis.getAxisEnd();
+        if (typeof xAxisEnd?.x !== 'number') {
+            return;
+        }
         const bottomLeft = yAxisStart;
         const topRight = {
-            x: this.xAxis.getAxisEnd().x,
+            x: xAxisEnd.x,
             y: yAxisEnd.y,
         };
         const zoneHeight = Math.abs(topRight.y - bottomLeft.y);

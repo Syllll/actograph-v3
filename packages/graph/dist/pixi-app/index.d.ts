@@ -1,4 +1,8 @@
 import type { IObservation, IProtocol, IGraphPreferences } from '@actograph/core';
+interface IPixiAppInitOptions {
+    view: HTMLCanvasElement;
+    interactive?: boolean;
+}
 /**
  * Classe principale gérant l'application PixiJS pour le graphique d'activité.
  *
@@ -34,6 +38,8 @@ export declare class PixiApp {
     private yAxis;
     private dataArea;
     private protocol;
+    private isInteractive;
+    private baseCanvasHeight;
     private zoomState;
     constructor();
     /**
@@ -45,9 +51,7 @@ export declare class PixiApp {
      *
      * @param options.view - L'élément canvas HTML à utiliser
      */
-    init(options: {
-        view: HTMLCanvasElement;
-    }): Promise<void>;
+    init(options: IPixiAppInitOptions): Promise<void>;
     setData(observation: IObservation): void;
     setProtocol(protocol: IProtocol): void;
     getObservablePreferences(observableId: string): IGraphPreferences | null;
@@ -69,4 +73,5 @@ export declare class PixiApp {
     exportAsImage(format?: 'png' | 'jpeg', quality?: number): string | null;
     destroy(): void;
 }
+export {};
 //# sourceMappingURL=index.d.ts.map

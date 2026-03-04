@@ -30,6 +30,12 @@ export declare class YAxis extends BaseGroup {
     }): void;
     clear(): void;
     draw(): void;
+    /**
+     * On mobile screens, a fixed 150px left offset wastes horizontal space when labels are short.
+     * Estimate the needed label width and keep the offset adaptive, while preserving legacy spacing
+     * on larger viewports.
+     */
+    private computeAxisOffsetX;
     private prepareForDraw;
     private drawAxisLine;
     private drawArrow;
