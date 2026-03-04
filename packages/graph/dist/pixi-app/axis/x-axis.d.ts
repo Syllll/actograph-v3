@@ -28,6 +28,7 @@ export declare class xAxis extends BaseGroup {
         y?: number | undefined;
     };
     constructor(app: Application, yAxis: YAxis);
+    private getReadingTimeInMsec;
     getPosFromDateTime(dateTime: Date | string): number;
     getDateTimeFromPos(xPos: number): Date;
     clear(): void;

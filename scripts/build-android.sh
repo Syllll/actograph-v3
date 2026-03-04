@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Build Android APK/AAB without opening Android Studio
+# Build Android AAB/APK without opening Android Studio
 #
 # Use examples:
-# bash scripts/build-android.sh                  # Build debug APK
-# bash scripts/build-android.sh release           # Build signed release APK
-# bash scripts/build-android.sh release --aab     # Build signed AAB (Play Store)
-# bash scripts/build-android.sh debug -i          # Build debug APK and install on device
+# bash scripts/build-android.sh                  # Build debug AAB (default)
+# bash scripts/build-android.sh release           # Build signed release AAB (Play Store)
+# bash scripts/build-android.sh release --apk     # Build signed release APK
+# bash scripts/build-android.sh debug --apk -i    # Build debug APK and install on device
 #
 # Prerequisites:
 # - ANDROID_HOME or ANDROID_SDK_ROOT set in ~/.bashrc
@@ -31,7 +31,7 @@ source "$scriptFolderPath/colors.sh"
 # Parse arguments
 # ==========================================
 BUILD_TYPE="debug"
-BUILD_AAB=false
+BUILD_AAB=true
 INSTALL_ON_DEVICE=false
 
 for arg in "$@"; do
@@ -45,23 +45,27 @@ for arg in "$@"; do
         --aab)
             BUILD_AAB=true
             ;;
+        --apk)
+            BUILD_AAB=false
+            ;;
         -i|--install)
             INSTALL_ON_DEVICE=true
             ;;
         -h|--help)
-            echo "Usage: bash scripts/build-android.sh [debug|release] [--aab] [-i|--install]"
+            echo "Usage: bash scripts/build-android.sh [debug|release] [--aab|--apk] [-i|--install]"
             echo ""
             echo "Arguments:"
-            echo "  debug       Build a debug APK (default)"
-            echo "  release     Build a signed release APK"
-            echo "  --aab       Build an AAB instead of APK (for Play Store upload)"
-            echo "  -i          Install APK on connected device/emulator after build"
+            echo "  debug       Build a debug bundle (default)"
+            echo "  release     Build a signed release bundle"
+            echo "  --aab       Build an AAB (default, for Play Store upload)"
+            echo "  --apk       Build an APK instead of AAB"
+            echo "  -i          Install APK on connected device/emulator after build (requires --apk)"
             echo ""
             echo "Examples:"
-            echo "  bash scripts/build-android.sh                   # Debug APK"
-            echo "  bash scripts/build-android.sh release            # Signed release APK"
-            echo "  bash scripts/build-android.sh release --aab      # Signed AAB (Play Store)"
-            echo "  bash scripts/build-android.sh debug -i           # Debug APK + install"
+            echo "  bash scripts/build-android.sh                   # Debug AAB (default)"
+            echo "  bash scripts/build-android.sh release            # Signed release AAB (Play Store)"
+            echo "  bash scripts/build-android.sh release --apk      # Signed release APK"
+            echo "  bash scripts/build-android.sh debug --apk -i     # Debug APK + install"
             echo ""
             echo "Release signing setup:"
             echo "  1. Generate a keystore:"
@@ -217,7 +221,6 @@ if [ "$BUILD_TYPE" = "release" ]; then
     fi
 else
     if [ "$BUILD_AAB" = true ]; then
-        echo "Warning: AAB is typically only used for release builds, building debug AAB anyway..."
         ./gradlew bundleDebug
         AAB_PATH="app/build/outputs/bundle/debug/app-debug.aab"
     else
@@ -261,7 +264,7 @@ if [ "$BUILD_TYPE" = "release" ]; then
     else
         echo ""
         echo "This APK is signed and ready to distribute."
-        echo "For Play Store, use --aab to generate an Android App Bundle instead."
+        echo "For Play Store, omit --apk to generate an AAB instead."
     fi
 fi
 
@@ -272,7 +275,7 @@ if [ "$INSTALL_ON_DEVICE" = true ]; then
     if [ "$BUILD_AAB" = true ]; then
         echo ""
         echo "Warning: AAB files cannot be installed directly on a device."
-        echo "Use 'bundletool' to generate APKs from an AAB, or build without --aab."
+        echo "Use 'bundletool' to generate APKs from an AAB, or build with --apk."
     else
         echo ""
         echo -e "${BLUE}Installing on connected device...${NC}"

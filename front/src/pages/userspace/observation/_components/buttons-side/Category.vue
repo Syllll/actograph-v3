@@ -28,7 +28,7 @@
           :key="observable.id"
           :observable="observable"
           :active="computedState.activeObservableId.value === observable.id"
-          :disabled="!isObservationActive"
+          :disabled="isContinuousDisabled"
           @click="methods.handleSwitchClick(observable)"
         />
       </div>
@@ -38,7 +38,7 @@
           v-for="observable in category.children"
           :key="observable.id"
           :observable="observable"
-          :disabled="!isObservationActive"
+          :disabled="isDiscreteDisabled"
           @click="methods.handlePressClick(observable)"
         />
       </div>
@@ -73,7 +73,11 @@ export default defineComponent({
       type: Object as PropType<{ x: number, y: number }>,
       default: () => ({ x: 0, y: 0 })
     },
-    isObservationActive: {
+    isContinuousDisabled: {
+      type: Boolean,
+      default: false
+    },
+    isDiscreteDisabled: {
       type: Boolean,
       default: false
     }

@@ -15,7 +15,7 @@
             <q-chip color="white" text-color="primary" dense>
               {{ cloud.chroniclesCount.value }}/{{ cloud.cloudLimit }}
             </q-chip>
-            <q-btn flat round icon="mdi-close" @click="onCloseClick" />
+            <q-btn flat round icon="mdi-close" aria-label="Fermer" @click="onCloseClick" />
           </div>
         </div>
       </q-card-section>

@@ -38,7 +38,7 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
     const sql = `
       SELECT * FROM ${this.tableName} 
       WHERE observation_id = ? 
-      ORDER BY date ASC
+      ORDER BY date ASC, id ASC
     `;
     return sqliteService.query<IReadingEntity>(sql, [observationId]);
   }
@@ -50,7 +50,7 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
     const sql = `
       SELECT * FROM ${this.tableName} 
       WHERE observation_id = ? 
-      ORDER BY date DESC 
+      ORDER BY date DESC, id DESC 
       LIMIT ?
     `;
     return sqliteService.query<IReadingEntity>(sql, [observationId, limit]);
@@ -150,7 +150,7 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
     const sql = `
       SELECT * FROM ${this.tableName} 
       WHERE observation_id = ? 
-      ORDER BY date DESC 
+      ORDER BY date DESC, id DESC 
       LIMIT 1
     `;
     const results = await sqliteService.query<IReadingEntity>(sql, [observationId]);
@@ -165,7 +165,7 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
     const sql = `
       SELECT * FROM ${this.tableName}
       WHERE observation_id = ? AND type IN ('START', 'STOP')
-      ORDER BY date DESC
+      ORDER BY date DESC, id DESC
       LIMIT 1
     `;
     const results = await sqliteService.query<IReadingEntity>(sql, [observationId]);

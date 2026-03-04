@@ -156,9 +156,12 @@ export const useChronicle = () => {
     },
 
     // Recording methods
-    startRecording: async () => {
+    startRecording: async (initialContinuousObservableNames: string[] = []) => {
       if (!sharedState.currentChronicle) return;
-      await observationService.startRecording(sharedState.currentChronicle.id);
+      await observationService.startRecording(
+        sharedState.currentChronicle.id,
+        initialContinuousObservableNames
+      );
       methods.startTimer();
       await methods.refreshReadings();
     },

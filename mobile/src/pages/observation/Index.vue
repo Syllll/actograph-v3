@@ -11,6 +11,7 @@
             color="white"
             size="sm"
             label="Protocole"
+            aria-label="Ouvrir le protocole"
             @click="state.showProtocolSheet = true"
           />
           <div class="text-caption text-white text-center col">
@@ -149,7 +150,8 @@
             :container-bounds="containerBounds"
             :active-observable-by-category="state.activeObservableByCategory"
             :draggable="editMode.sharedState.isEditing"
-            :observables-disabled="editMode.sharedState.isEditing || !state.isRecording || chronicle.sharedState.isPaused"
+            :continuous-observables-disabled="editMode.sharedState.isEditing || chronicle.sharedState.isPaused"
+            :discrete-observables-disabled="editMode.sharedState.isEditing || !state.isRecording || chronicle.sharedState.isPaused"
             :on-toggle-observable="editMode.sharedState.isEditing ? undefined : methods.toggleObservable"
             :on-press-observable="editMode.sharedState.isEditing ? undefined : methods.pressObservable"
             :style="editMode.sharedState.isEditing 
@@ -262,7 +264,7 @@
     <!-- Dialog sélection catégorie pour ajout observable -->
     <q-dialog v-model="state.showSelectCategoryDialog">
       <q-card style="min-width: 320px">
-        <q-card-section class="bg-secondary text-white">
+        <q-card-section class="bg-primary text-white">
           <div class="text-h6">Choisir une catégorie</div>
         </q-card-section>
 
@@ -298,7 +300,7 @@
     <!-- Dialog ajout observable -->
     <q-dialog v-model="state.showAddObservableDialog">
       <q-card style="min-width: 320px">
-        <q-card-section class="bg-secondary text-white">
+        <q-card-section class="bg-primary text-white">
           <div class="text-h6">Nouvel observable</div>
           <div class="text-caption">
             Dans : {{ state.selectedCategory?.name }}
@@ -319,7 +321,7 @@
         <q-card-actions align="right" class="q-px-md q-pb-md">
           <q-btn flat label="Annuler" v-close-popup />
           <q-btn
-            color="secondary"
+            color="primary"
             label="Ajouter"
             @click="methods.addObservable"
             :disable="!state.newObservable.name"
@@ -331,7 +333,7 @@
     <!-- Dialog renommer catégorie -->
     <q-dialog v-model="state.showRenameCategoryDialog">
       <q-card style="min-width: 320px">
-        <q-card-section class="bg-info text-white">
+        <q-card-section class="bg-primary text-white">
           <div class="text-h6">Renommer la catégorie</div>
         </q-card-section>
 
@@ -349,7 +351,7 @@
         <q-card-actions align="right" class="q-px-md q-pb-md">
           <q-btn flat label="Annuler" v-close-popup />
           <q-btn
-            color="info"
+            color="primary"
             label="Renommer"
             @click="methods.renameCategory"
             :disable="!state.renameCategory.name"
@@ -361,7 +363,7 @@
     <!-- Dialog renommer observable -->
     <q-dialog v-model="state.showRenameObservableDialog">
       <q-card style="min-width: 320px">
-        <q-card-section class="bg-info text-white">
+        <q-card-section class="bg-primary text-white">
           <div class="text-h6">Renommer l'observable</div>
           <div class="text-caption">
             Dans : {{ state.selectedCategory?.name }}
@@ -382,7 +384,7 @@
         <q-card-actions align="right" class="q-px-md q-pb-md">
           <q-btn flat label="Annuler" v-close-popup />
           <q-btn
-            color="info"
+            color="primary"
             label="Renommer"
             @click="methods.renameObservable"
             :disable="!state.renameObservable.name"
@@ -391,17 +393,14 @@
       </q-card>
     </q-dialog>
 
-    <!-- Recent readings mini-list -->
-    <q-expansion-item
-      v-if="state.recentReadings.length > 0"
-      class="recent-readings bg-grey-2"
-      icon="mdi-history"
-      label="Derniers relevés"
-      :caption="`${state.recentReadings.length} relevé(s) récent(s)`"
-      dense
-      header-class="text-primary"
-    >
-      <q-list dense separator class="bg-white">
+    <!-- Recent readings - section toujours visible quand des relevés existent -->
+    <div v-if="state.recentReadings.length > 0" class="recent-readings-section">
+      <div class="recent-readings-header row items-center q-pa-sm">
+        <q-icon name="mdi-history" color="primary" size="20px" class="q-mr-sm" />
+        <span class="text-subtitle2 text-weight-medium">Derniers relevés</span>
+        <q-badge color="primary" :label="state.recentReadings.length" class="q-ml-sm" />
+      </div>
+      <q-list dense separator class="recent-readings-list">
         <q-item v-for="reading in state.recentReadings" :key="reading.id">
           <q-item-section avatar>
             <q-icon
@@ -418,7 +417,7 @@
           </q-item-section>
         </q-item>
       </q-list>
-    </q-expansion-item>
+    </div>
 
     <!-- Bottom sheet pour gérer le protocole -->
     <q-dialog v-model="state.showProtocolSheet" position="bottom" full-width>
@@ -429,7 +428,7 @@
             Protocole
           </div>
           <q-space />
-          <q-btn flat round dense icon="mdi-close" v-close-popup />
+          <q-btn flat round dense icon="mdi-close" aria-label="Fermer" v-close-popup />
         </q-card-section>
 
         <q-card-section class="q-pt-sm">
@@ -557,7 +556,7 @@
 import { defineComponent, reactive, onMounted, onBeforeUnmount, watch, ref, computed, nextTick } from 'vue';
 import { useQuasar } from 'quasar';
 import { useChronicle } from '@composables/use-chronicle';
-import { useEditMode } from '@composables';
+import { useEditMode, useHaptics } from '@composables';
 import { protocolService } from '@services/protocol.service';
 import { observationService } from '@services/observation.service';
 import { DPage, DraggableCategory } from '@components';
@@ -574,6 +573,7 @@ export default defineComponent({
     const $q = useQuasar();
     const chronicle = useChronicle();
     const editMode = useEditMode();
+    const haptics = useHaptics();
 
     const state = reactive({
       categories: [] as IProtocolItemWithChildren[],
@@ -653,6 +653,44 @@ export default defineComponent({
     };
 
     const methods = {
+      getDefaultContinuousObservableName: (category: IProtocolItemWithChildren): string | null => {
+        const observables = category.children ?? [];
+        if (category.action !== 'continuous' || observables.length === 0) {
+          return null;
+        }
+
+        const defaultObservable = observables[observables.length - 1];
+        return defaultObservable?.name || null;
+      },
+
+      initializeContinuousActiveObservables: () => {
+        const nextActiveObservableByCategory: Record<number, string> = {};
+
+        state.categories.forEach((category) => {
+          if (category.action !== 'continuous') {
+            return;
+          }
+
+          const observableNames = (category.children ?? []).map((child) => child.name);
+          if (observableNames.length === 0) {
+            return;
+          }
+
+          const currentActive = state.activeObservableByCategory[category.id];
+          if (currentActive && observableNames.includes(currentActive)) {
+            nextActiveObservableByCategory[category.id] = currentActive;
+            return;
+          }
+
+          const defaultObservableName = methods.getDefaultContinuousObservableName(category);
+          if (defaultObservableName) {
+            nextActiveObservableByCategory[category.id] = defaultObservableName;
+          }
+        });
+
+        state.activeObservableByCategory = nextActiveObservableByCategory;
+      },
+
       loadProtocol: () => {
         // Filter and normalize categories - more lenient check
         const filteredCategories = chronicle.sharedState.currentProtocol
@@ -697,26 +735,13 @@ export default defineComponent({
           }
           return posA.x - posB.x;
         });
+
+        methods.initializeContinuousActiveObservables();
       },
 
       loadRecentReadings: () => {
         const readings = chronicle.sharedState.currentReadings;
         state.recentReadings = readings.slice(-5).reverse();
-
-        // Find active observables for continuous categories
-        state.categories.forEach((category) => {
-          if (category.action === 'continuous') {
-            // Find the last DATA reading for this category's observables
-            const categoryObservableNames = category.children?.map((o) => o.name) || [];
-            const lastDataReading = [...readings]
-              .reverse()
-              .find((r) => r.type === 'DATA' && categoryObservableNames.includes(r.name || ''));
-            
-            if (lastDataReading && lastDataReading.name) {
-              state.activeObservableByCategory[category.id] = lastDataReading.name;
-            }
-          }
-        });
 
         // Determine if recording is currently active
         // We look at the LAST reading of type START or STOP to handle multiple sessions correctly
@@ -730,22 +755,78 @@ export default defineComponent({
           // No START/STOP readings yet - not recording
           state.isRecording = false;
         }
+
+        const nextActiveObservableByCategory: Record<number, string> = {};
+        state.categories.forEach((category) => {
+          if (category.action !== 'continuous') {
+            return;
+          }
+
+          const categoryObservableNames = (category.children ?? []).map((observable) => observable.name);
+          if (categoryObservableNames.length === 0) {
+            return;
+          }
+
+          if (state.isRecording) {
+            const lastDataReading = [...readings]
+              .reverse()
+              .find((reading) => (
+                reading.type === 'DATA'
+                && !!reading.name
+                && categoryObservableNames.includes(reading.name)
+              ));
+
+            if (lastDataReading?.name) {
+              nextActiveObservableByCategory[category.id] = lastDataReading.name;
+              return;
+            }
+          }
+
+          const currentActive = state.activeObservableByCategory[category.id];
+          if (currentActive && categoryObservableNames.includes(currentActive)) {
+            nextActiveObservableByCategory[category.id] = currentActive;
+            return;
+          }
+
+          const defaultObservableName = methods.getDefaultContinuousObservableName(category);
+          if (defaultObservableName) {
+            nextActiveObservableByCategory[category.id] = defaultObservableName;
+          }
+        });
+
+        state.activeObservableByCategory = nextActiveObservableByCategory;
       },
 
       startRecording: async () => {
-        await chronicle.methods.startRecording();
+        haptics.impactLight();
+        methods.initializeContinuousActiveObservables();
+
+        const initialContinuousObservableNames = state.categories
+          .filter((category) => category.action === 'continuous')
+          .map((category) => {
+            const activeObservableName = state.activeObservableByCategory[category.id];
+            if (activeObservableName) {
+              return activeObservableName;
+            }
+            return methods.getDefaultContinuousObservableName(category);
+          })
+          .filter((observableName): observableName is string => Boolean(observableName));
+
+        await chronicle.methods.startRecording(initialContinuousObservableNames);
         state.isRecording = true;
         methods.loadRecentReadings();
       },
 
       stopRecording: async () => {
+        haptics.impactMedium();
         await chronicle.methods.stopRecording();
         state.isRecording = false;
-        state.activeObservableByCategory = {};
+        methods.initializeContinuousActiveObservables();
         methods.loadRecentReadings();
       },
 
       togglePause: async () => {
+        haptics.impactLight();
         if (!chronicle.sharedState.isPaused) {
           await chronicle.methods.pauseRecording();
         } else {
@@ -755,12 +836,35 @@ export default defineComponent({
       },
 
       toggleObservable: async (category: IProtocolItemWithChildren, observable: IProtocolItemWithChildren) => {
-        await chronicle.methods.toggleObservable(observable.name);
+        haptics.impactLight();
+
+        if (category.action !== 'continuous') {
+          return;
+        }
+
+        const currentActiveObservable = state.activeObservableByCategory[category.id];
+        if (currentActiveObservable === observable.name) {
+          return;
+        }
+
         state.activeObservableByCategory[category.id] = observable.name;
+
+        // Before recording starts, selecting a continuous observable only updates
+        // the active state used for the initial DATA reading at START.
+        if (!state.isRecording || chronicle.sharedState.isPaused) {
+          return;
+        }
+
+        await chronicle.methods.toggleObservable(observable.name);
         methods.loadRecentReadings();
       },
 
       pressObservable: async (observable: IProtocolItemWithChildren) => {
+        if (!state.isRecording || chronicle.sharedState.isPaused) {
+          return;
+        }
+
+        haptics.impactLight();
         await chronicle.methods.toggleObservable(observable.name);
         methods.loadRecentReadings();
       },
@@ -909,6 +1013,7 @@ export default defineComponent({
       addComment: async () => {
         if (!chronicle.sharedState.currentChronicle || !state.newComment.text) return;
 
+        haptics.impactLight();
         try {
           await observationService.addComment(
             chronicle.sharedState.currentChronicle.id,
@@ -1374,9 +1479,23 @@ export default defineComponent({
   justify-content: center;
 }
 
-.recent-readings {
+.recent-readings-section {
   flex: 0 0 auto;
   border-top: 1px solid rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, rgba(31, 41, 55, 0.04) 0%, rgba(31, 41, 55, 0.02) 100%);
+  border-radius: 8px;
+  margin: 8px;
+  overflow: hidden;
+}
+
+.recent-readings-header {
+  background: rgba(31, 41, 55, 0.06);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.recent-readings-list {
+  max-height: 160px;
+  overflow-y: auto;
 }
 
 // Protocol sheet styles

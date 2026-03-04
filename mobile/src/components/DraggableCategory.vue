@@ -3,10 +3,11 @@
     class="draggable-category"
     :class="{
       'is-dragging': state.isDragging,
+      'is-draggable': draggable,
       'continuous': category.action === 'continuous',
     }"
-    @touchstart.prevent="methods.handleTouchStart"
-    @touchmove.prevent="methods.handleTouchMove"
+    @touchstart="methods.handleTouchStart"
+    @touchmove="methods.handleTouchMove"
     @touchend="methods.handleTouchEnd"
     @touchcancel="methods.handleTouchEnd"
   >
@@ -42,7 +43,7 @@
           :color="activeObservableByCategory[category.id] === observable.name ? 'accent' : 'grey-4'"
           :text-color="activeObservableByCategory[category.id] === observable.name ? 'white' : 'dark'"
           :outline="activeObservableByCategory[category.id] !== observable.name"
-          :disable="observablesDisabled"
+          :disable="continuousObservablesDisabled"
           dense
           rounded
           unelevated
@@ -60,7 +61,7 @@
           :key="observable.id"
           :label="observable.name"
           color="primary"
-          :disable="observablesDisabled"
+          :disable="discreteObservablesDisabled"
           dense
           rounded
           unelevated
@@ -132,7 +133,14 @@ export default defineComponent({
     /**
      * Whether observables are disabled (true in edit mode, false in normal mode)
      */
-    observablesDisabled: {
+    continuousObservablesDisabled: {
+      type: Boolean,
+      default: true,
+    },
+    /**
+     * Whether discrete observables are disabled.
+     */
+    discreteObservablesDisabled: {
       type: Boolean,
       default: true,
     },
@@ -193,8 +201,10 @@ export default defineComponent({
        */
       handleTouchStart: (event: TouchEvent) => {
         if (!props.draggable) return;
+        event.preventDefault();
         
         const touch = event.touches[0];
+        if (!touch) return;
         
         state.isDragging = true;
         state.startTouch = { 
@@ -217,13 +227,15 @@ export default defineComponent({
         const throttleMs = 16; // ~60fps
 
         return (event: TouchEvent) => {
-          if (!state.isDragging) return;
+          if (!state.isDragging || !props.draggable) return;
+          event.preventDefault();
 
           const now = Date.now();
           if (now - lastCall < throttleMs) return;
           lastCall = now;
 
           const touch = event.touches[0];
+          if (!touch) return;
           
           // Calculate delta from start position
           const deltaX = touch.clientX - state.startTouch.x;
@@ -278,11 +290,16 @@ export default defineComponent({
 
 <style scoped lang="scss">
 .draggable-category {
-  touch-action: none;
-  user-select: none;
+  touch-action: auto;
+  user-select: auto;
   border-radius: 12px;
   overflow: hidden;
   background: white;
+
+  &.is-draggable {
+    touch-action: none;
+    user-select: none;
+  }
   
   // Visual feedback for drag state
   &.is-dragging {

@@ -3,7 +3,9 @@
   "appName": "ActoGraph Mobile",
   "webDir": "www",
   "server": {
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "url": "http://10.243.121.186:9500",
+    "cleartext": true
   },
   "plugins": {
     "SplashScreen": {

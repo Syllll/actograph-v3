@@ -13,6 +13,7 @@
         dense
         clearable
         class="search-input"
+        aria-label="Rechercher dans les relevés"
       >
         <template v-slot:prepend>
           <q-icon name="mdi-magnify" />

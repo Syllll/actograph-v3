@@ -384,13 +384,14 @@ export function autoCorrectReadings(
           startReading.dateTime = new Date(earliestDate.getTime() - 1);
         }
       } else {
-        // No other readings, START can stay at its current date or be set to 0
+        // No other readings: keep the original START timestamp.
+        // Forcing epoch (1970) pollutes calendar-based timelines.
         const startDate = startReading.dateTime instanceof Date 
           ? startReading.dateTime 
           : new Date(startReading.dateTime);
-        // If START is not at 0 or before, set it just before the first reading
-        if (startDate.getTime() > 0) {
-          startReading.dateTime = new Date(0);
+        // Guard invalid dates only.
+        if (!Number.isFinite(startDate.getTime())) {
+          startReading.dateTime = new Date();
         }
       }
     }

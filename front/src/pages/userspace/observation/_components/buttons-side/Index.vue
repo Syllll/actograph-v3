@@ -29,7 +29,8 @@
             :category="category"
             :active-observable-id-by-category-id="state.activeObservableIdByCategoryId"
             :position="state.categoryPositions[category.id] || { x: 0, y: 0 }"
-            :is-observation-active="computedState.isObservationActive.value"
+            :is-continuous-disabled="computedState.isContinuousDisabled.value"
+            :is-discrete-disabled="computedState.isDiscreteDisabled.value"
             :style="methods.getCategoryStyle(category.id)"
             @switch-click="methods.handleSwitchClick"
             @press-click="methods.handlePressClick"
@@ -52,7 +53,7 @@
 import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
 import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@services/observations/protocol.service';
-import { ReadingTypeEnum } from '@services/observations/interface';
+import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import Category from './Category.vue';
 import { useQuasar } from 'quasar';
 import { DScrollArea } from '@lib-improba/components/app/scroll-areas';
@@ -80,7 +81,7 @@ export default defineComponent({
       categoryPositions: {} as Record<string, { x: number; y: number }>,
       isDragging: false,
       isDraggingCategoryId: null as string | null,
-      hasInitializedStartReadings: false,
+      lastInitializedStartSignature: null as string | null,
     });
     
     // Listen for video reading active events to auto-activate buttons
@@ -88,10 +89,6 @@ export default defineComponent({
       const readingsByCategory = event.detail.readingsByCategory;
       
       if (!readingsByCategory) {
-        // Clear all active buttons if no data
-        Object.keys(state.activeObservableIdByCategoryId).forEach(key => {
-          delete state.activeObservableIdByCategoryId[key];
-        });
         return;
       }
       
@@ -123,11 +120,21 @@ export default defineComponent({
     };
 
     // Computed
-    // Bug 2.4 : Boutons cliquables en enregistrement ou pause
-    // Bug 2.3 : Boutons toujours cliquables (mode test sans enregistrement)
     const computedState = {
-      isObservationActive: computed(() => true), // Toujours actifs pour permettre clics en mode test
-      isRecording: computed(() => observation.isActive.value), // Pour savoir si on crée des relevés
+      isRecordingStarted: computed(() => {
+        const startStopReadings = readings.sharedState.currentReadings.filter(
+          (reading: IReading) => reading.type === ReadingTypeEnum.START || reading.type === ReadingTypeEnum.STOP
+        );
+        if (startStopReadings.length === 0) {
+          return false;
+        }
+        return startStopReadings[startStopReadings.length - 1].type === ReadingTypeEnum.START;
+      }),
+      isPaused: computed(() => computedState.isRecordingStarted.value && !observation.sharedState.isPlaying),
+      isContinuousDisabled: computed(() => computedState.isPaused.value),
+      isDiscreteDisabled: computed(
+        () => !computedState.isRecordingStarted.value || computedState.isPaused.value
+      ),
       categories: computed(() => {
         if (!sharedState.currentProtocol || !sharedState.currentProtocol._items) {
           return [] as ProtocolItem[];
@@ -267,48 +274,115 @@ export default defineComponent({
         methods.updateWrapperHeight();
       },
 
-      // Handle click on switch button (continuous category)
-      // Bug 2.4 : en pause, le clic crée un relevé en vidéo, changement visuel en in situ
-      // Bug 2.3 : sans enregistrement, clic possible pour tester (changement visuel seulement)
-      handleSwitchClick: ({ categoryId, observableId }: { categoryId: string; observableId: string }) => {
-        if (state.activeObservableIdByCategoryId[categoryId] === observableId) {
-          delete state.activeObservableIdByCategoryId[categoryId];
-        } else {
-          state.activeObservableIdByCategoryId[categoryId] = observableId;
+      getDefaultContinuousObservableId: (category: ProtocolItem): string | null => {
+        const observables = category.children || [];
+        if (category.action !== ProtocolItemActionEnum.Continuous || observables.length === 0) {
+          return null;
         }
-        methods.recordReading(categoryId, observableId);
+        const lastObservable = observables[observables.length - 1] as ProtocolItem;
+        return (lastObservable?.id as string) || null;
+      },
+
+      syncContinuousActiveObservables: () => {
+        const nextActiveObservableIdByCategoryId: Record<string, string> = {};
+        const currentReadings = readings.sharedState.currentReadings;
+
+        computedState.categories.value.forEach((category: ProtocolItem) => {
+          if (category.action !== ProtocolItemActionEnum.Continuous) {
+            return;
+          }
+
+          const observables = (category.children || []) as ProtocolItem[];
+          if (observables.length === 0) {
+            return;
+          }
+
+          const currentActiveObservableId = state.activeObservableIdByCategoryId[category.id];
+          const currentActiveObservableExists = observables.some(
+            (observable) => observable.id === currentActiveObservableId
+          );
+          if (currentActiveObservableId && currentActiveObservableExists) {
+            nextActiveObservableIdByCategoryId[category.id] = currentActiveObservableId;
+          }
+
+          if (computedState.isRecordingStarted.value) {
+            const observableNames = observables.map((observable) => observable.name);
+            const lastDataReading = [...currentReadings]
+              .reverse()
+              .find((reading: IReading) => (
+                reading.type === ReadingTypeEnum.DATA
+                && !!reading.name
+                && observableNames.includes(reading.name)
+              ));
+
+            if (lastDataReading?.name) {
+              const matchingObservable = observables.find(
+                (observable) => observable.name === lastDataReading.name
+              );
+              if (matchingObservable?.id) {
+                nextActiveObservableIdByCategoryId[category.id] = matchingObservable.id as string;
+                return;
+              }
+            }
+          }
+
+          if (!nextActiveObservableIdByCategoryId[category.id]) {
+            const defaultObservableId = methods.getDefaultContinuousObservableId(category);
+            if (defaultObservableId) {
+              nextActiveObservableIdByCategoryId[category.id] = defaultObservableId;
+            }
+          }
+        });
+
+        state.activeObservableIdByCategoryId = nextActiveObservableIdByCategoryId;
+      },
+
+      // Handle click on switch button (continuous category)
+      handleSwitchClick: ({ categoryId, observableId }: { categoryId: string; observableId: string }) => {
+        const category = computedState.categories.value.find(
+          (cat: ProtocolItem) => cat.id === categoryId
+        );
+        if (!category || category.action !== ProtocolItemActionEnum.Continuous) {
+          return;
+        }
+
+        const currentActiveObservableId = state.activeObservableIdByCategoryId[categoryId];
+        if (currentActiveObservableId === observableId) {
+          return;
+        }
+
+        state.activeObservableIdByCategoryId[categoryId] = observableId;
+        methods.recordReading(categoryId, observableId, category.action);
       },
 
       // Handle click on press button (discrete category)
-      // Bug 2.4 : en pause, le clic crée un relevé en vidéo
-      // Bug 2.3 : sans enregistrement, clic possible pour tester (pas de relevé)
       handlePressClick: ({ categoryId, observableId }: { categoryId: string; observableId: string }) => {
-        methods.recordReading(categoryId, observableId);
-      },
-
-      showObservationInactiveNotification: () => {
-        $q.notify({
-          type: 'warning',
-          message: 'Veuillez commencer l\'enregistrement avant d\'utiliser les boutons',
-          position: 'top-right',
-          timeout: 2000,
-        });
+        const category = computedState.categories.value.find(
+          (cat: ProtocolItem) => cat.id === categoryId
+        );
+        if (!category || category.action !== ProtocolItemActionEnum.Discrete) {
+          return;
+        }
+        methods.recordReading(categoryId, observableId, category.action);
       },
 
       // Record a new reading
-      // Bug 2.3 : Sans enregistrement (elapsedTime=0) : pas de relevé, changement visuel seulement
-      // Bug 2.4 : En pause + in situ : ne pas créer de relevé. En pause + vidéo : créer un relevé.
-      recordReading: (categoryId: string, observableId: string) => {
-        const isRecording = computedState.isRecording.value;
-        const isPaused = !observation.sharedState.isPlaying && observation.sharedState.elapsedTime > 0;
-        const isVideoMode = observation.isChronometerMode.value && !!observation.sharedState.currentObservation?.videoPath;
-
-        if (!isRecording) {
-          // Bug 2.3 : Sans enregistrement - pas de relevé
+      recordReading: (
+        categoryId: string,
+        observableId: string,
+        action: ProtocolItemActionEnum
+      ) => {
+        if (action === ProtocolItemActionEnum.Discrete && computedState.isDiscreteDisabled.value) {
           return;
         }
-        if (isPaused && !isVideoMode) {
-          // Bug 2.4 : En in situ en pause : ne pas créer de relevé
+
+        if (action === ProtocolItemActionEnum.Continuous) {
+          if (!computedState.isRecordingStarted.value || computedState.isPaused.value) {
+            return;
+          }
+        }
+
+        if (!computedState.isRecordingStarted.value || computedState.isPaused.value) {
           return;
         }
 
@@ -458,43 +532,73 @@ export default defineComponent({
         });
       },
 
-      // Initialize readings for continuous categories on first start
-      createInitialContinuousReadingsIfNeeded: () => {
-        if (state.hasInitializedStartReadings) return;
-        if (readings.sharedState.currentReadings.length !== 1) return;
-        const first = readings.sharedState.currentReadings[0];
-        if (!first || first.type !== ReadingTypeEnum.START) return;
-        const startDate = first.dateTime;
-        // ensure insertion at end
+      createInitialContinuousReadingsForCurrentStart: () => {
+        const allReadings = readings.sharedState.currentReadings;
+        const lastStartReading = [...allReadings]
+          .reverse()
+          .find((reading: IReading) => reading.type === ReadingTypeEnum.START);
+        if (!lastStartReading) {
+          return;
+        }
+
+        const startSignature = String(
+          lastStartReading.id
+          || lastStartReading.tempId
+          || new Date(lastStartReading.dateTime).toISOString()
+        );
+        if (state.lastInitializedStartSignature === startSignature) {
+          return;
+        }
+
+        const startDate = new Date(lastStartReading.dateTime);
+        const startTimestamp = startDate.getTime();
+
+        // Ensure insertion at end for the startup DATA readings.
         readings.methods.selectReading(null);
+
         computedState.categories.value.forEach((category: ProtocolItem) => {
-          if (category.action === ProtocolItemActionEnum.Continuous && category.children && category.children.length > 0) {
-            const lastObservable = category.children[category.children.length - 1] as ProtocolItem;
-            // Mark button active
-            state.activeObservableIdByCategoryId[category.id] = lastObservable.id as unknown as string;
-            // Add reading with the same timestamp as start
-            readings.methods.addReading({
-              categoryName: category.name,
-              observableName: (lastObservable as any).name,
-              observableDescription: (lastObservable as any).description || '',
-              dateTime: startDate,
-            });
+          if (category.action !== ProtocolItemActionEnum.Continuous || !category.children?.length) {
+            return;
           }
+
+          const observables = category.children as ProtocolItem[];
+          const activeObservableId = state.activeObservableIdByCategoryId[category.id]
+            || methods.getDefaultContinuousObservableId(category);
+          const activeObservable = observables.find((observable) => observable.id === activeObservableId);
+          if (!activeObservable) {
+            return;
+          }
+
+          state.activeObservableIdByCategoryId[category.id] = activeObservable.id as string;
+
+          const hasReadingForThisStart = allReadings.some((reading: IReading) => (
+            reading.type === ReadingTypeEnum.DATA
+            && reading.name === activeObservable.name
+            && new Date(reading.dateTime).getTime() === startTimestamp
+          ));
+          if (hasReadingForThisStart) {
+            return;
+          }
+
+          readings.methods.addReading({
+            categoryName: category.name,
+            observableName: activeObservable.name,
+            observableDescription: activeObservable.description || '',
+            dateTime: startDate,
+          });
         });
-        state.hasInitializedStartReadings = true;
+
+        state.lastInitializedStartSignature = startSignature;
       },
     };
 
     // Initialize category positions when protocol changes
     watch(() => sharedState.currentProtocol, (newProtocol) => {
       if (newProtocol && newProtocol._items) {
-        // Reset active observables
-        Object.keys(state.activeObservableIdByCategoryId).forEach(key => {
-          delete state.activeObservableIdByCategoryId[key];
-        });
-        state.hasInitializedStartReadings = false;
+        state.lastInitializedStartSignature = null;
         // Initialize positions if not already set
         methods.calculateCategoryPositions();
+        methods.syncContinuousActiveObservables();
       }
     }, { immediate: true });
 
@@ -510,6 +614,15 @@ export default defineComponent({
     watch(state.categoryPositions, () => {
       methods.updateWrapperHeight();
     }, { deep: true });
+
+    // Keep active continuous observable per category synced with protocol/readings.
+    watch(
+      () => readings.sharedState.currentReadings,
+      () => {
+        methods.syncContinuousActiveObservables();
+      },
+      { deep: true }
+    );
 
     // Single onMounted hook consolidating all initialization logic
     // IMPORTANT: This consolidates what was previously split across two onMounted hooks
@@ -529,10 +642,10 @@ export default defineComponent({
       window.removeEventListener('video-reading-active', handleVideoReadingActive as EventListener);
     });
 
-    // Trigger initial continuous readings when starting from zero
+    // Trigger initial continuous readings at each START event.
     watch(() => observation.sharedState.isPlaying, (playing, prev) => {
-      if (playing && !state.hasInitializedStartReadings) {
-        methods.createInitialContinuousReadingsIfNeeded();
+      if (playing && !prev) {
+        methods.createInitialContinuousReadingsForCurrentStart();
       }
     });
 

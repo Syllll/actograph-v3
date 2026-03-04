@@ -157,8 +157,22 @@ class ObservationService {
   /**
    * Start recording
    */
-  async startRecording(observationId: number): Promise<IReadingEntity> {
-    return readingRepository.addStart(observationId);
+  async startRecording(
+    observationId: number,
+    initialContinuousObservableNames: string[] = []
+  ): Promise<IReadingEntity> {
+    const startDate = new Date();
+    const startReading = await readingRepository.addStart(observationId, startDate);
+
+    for (const observableName of initialContinuousObservableNames) {
+      const trimmedObservableName = observableName.trim();
+      if (!trimmedObservableName) {
+        continue;
+      }
+      await readingRepository.addData(observationId, trimmedObservableName, startDate);
+    }
+
+    return startReading;
   }
 
   /**

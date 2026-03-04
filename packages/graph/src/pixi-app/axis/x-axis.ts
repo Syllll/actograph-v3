@@ -91,6 +91,11 @@ export class xAxis extends BaseGroup {
     this.addChild(this.labelsContainer);
   }
 
+  private getReadingTimeInMsec(reading: IReading): number | null {
+    const timeInMsec = new Date(reading.dateTime).getTime();
+    return Number.isFinite(timeInMsec) ? timeInMsec : null;
+  }
+
   public getPosFromDateTime(dateTime: Date | string): number {
     const dateTimeInMsec = new Date(dateTime).getTime();
     const axisStart = this.yAxis.getAxisStart();
@@ -142,24 +147,36 @@ export class xAxis extends BaseGroup {
 
     // Bug 3.3: Use START and STOP readings for axis bounds (not array order)
     const sortedByTime = [...readings].sort((a, b) => {
-      const ta = new Date(a.dateTime).getTime();
-      const tb = new Date(b.dateTime).getTime();
+      const ta = this.getReadingTimeInMsec(a) ?? 0;
+      const tb = this.getReadingTimeInMsec(b) ?? 0;
       return ta - tb;
     });
 
-    const startReading = readings.find((r) => r.type === ReadingTypeEnum.START);
-    const stopReading = readings.find((r) => r.type === ReadingTypeEnum.STOP);
+    const startReading = sortedByTime.find((r) => r.type === ReadingTypeEnum.START);
+    const stopReading = [...sortedByTime].reverse().find((r) => r.type === ReadingTypeEnum.STOP);
 
     let minTimeInMsec: number;
     let maxTimeInMsec: number;
 
     if (startReading && stopReading) {
-      minTimeInMsec = new Date(startReading.dateTime).getTime();
-      maxTimeInMsec = new Date(stopReading.dateTime).getTime();
+      minTimeInMsec = this.getReadingTimeInMsec(startReading) ?? Date.now();
+      maxTimeInMsec = this.getReadingTimeInMsec(stopReading) ?? minTimeInMsec + 1;
     } else {
       // Fallback: use first and last by chronological order
-      minTimeInMsec = new Date(sortedByTime[0]!.dateTime).getTime();
-      maxTimeInMsec = new Date(sortedByTime[sortedByTime.length - 1]!.dateTime).getTime();
+      minTimeInMsec = this.getReadingTimeInMsec(sortedByTime[0]!) ?? Date.now();
+      maxTimeInMsec =
+        this.getReadingTimeInMsec(sortedByTime[sortedByTime.length - 1]!) ?? minTimeInMsec + 1;
+    }
+
+    // Some legacy mobile auto-corrections persisted START at Unix epoch (1970-01-01).
+    // In Calendar mode this creates absurd decades-long axes. If we detect this sentinel,
+    // realign the axis start to the earliest non-START reading.
+    if (this.observation?.mode !== ObservationModeEnum.Chronometer && minTimeInMsec <= 1000) {
+      const firstNonStart = sortedByTime.find((r) => r.type !== ReadingTypeEnum.START);
+      const firstNonStartTime = firstNonStart ? this.getReadingTimeInMsec(firstNonStart) : null;
+      if (firstNonStartTime !== null) {
+        minTimeInMsec = firstNonStartTime;
+      }
     }
 
     // Bug 3.8: Guard against invalid dates (NaN)
