@@ -25,6 +25,7 @@ import { createTilingPatternSprite } from '../../lib/pattern-textures';
 export class DataArea extends BaseGroup {
   private yAxis: YAxis;
   private xAxis: xAxis;
+  private interactive: boolean;
 
   private readingsPerCategory: {
     category: ProtocolItem;
@@ -50,11 +51,17 @@ export class DataArea extends BaseGroup {
   private protocol: IProtocol | null = null;
   protected observation: IObservation | null = null;
 
-  constructor(app: Application, yAxis: YAxis, xAxis: xAxis) {
+  constructor(
+    app: Application,
+    yAxis: YAxis,
+    xAxis: xAxis,
+    options?: { interactive?: boolean }
+  ) {
     super(app);
 
     this.yAxis = yAxis;
     this.xAxis = xAxis;
+    this.interactive = options?.interactive ?? true;
 
     this.graphicForBackground = new BaseGraphic(app);
     this.addChild(this.graphicForBackground);
@@ -81,6 +88,15 @@ export class DataArea extends BaseGroup {
 
   public init() {
     super.init();
+
+    if (!this.interactive) {
+      this.eventMode = 'none';
+      this.graphicForBackground.eventMode = 'none';
+      if (this.timeLabelContainer) {
+        this.timeLabelContainer.visible = false;
+      }
+      return;
+    }
 
     this.eventMode = 'passive';
     this.graphicForBackground.eventMode = 'static';
@@ -379,11 +395,15 @@ export class DataArea extends BaseGroup {
       if (startY < 0) return;
 
       const start = {
-        x: this.yAxis?.getAxisStart()?.x ?? 0,
+        // Start the first segment at the first DATA timestamp for this category.
+        // Otherwise categories that start later appear active from axis origin.
+        x: this.xAxis.getPosFromDateTime(firstReading.dateTime),
         y: startY,
       };
 
       const last = { x: start.x, y: start.y };
+      const minVisibleSegmentPx = 2;
+      const axisEndX = this.xAxis.getAxisEnd().x;
 
       for (let i = 1; i < readings.length; i++) {
         const reading = readings[i];
@@ -394,7 +414,16 @@ export class DataArea extends BaseGroup {
             ? -1
             : this.yAxis.getPosFromLabel(reading.name || '');
 
-        const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
+        // Consecutive readings can share the same timestamp (mobile taps in same second).
+        // Without a minimum spacing, segments collapse to zero width and look "missing".
+        const rawXPos = this.xAxis.getPosFromDateTime(reading.dateTime);
+        let xPos = rawXPos;
+        if (xPos <= last.x) {
+          xPos = last.x + minVisibleSegmentPx;
+        }
+        if (xPos > axisEndX) {
+          xPos = axisEndX;
+        }
 
         const horizontalPrefs = this.getObservablePreferencesForReading(
           readings[i - 1]?.name || firstReading.name || ''

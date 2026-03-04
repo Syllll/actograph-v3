@@ -2,50 +2,13 @@
   <DPage>
     <!-- Conteneur principal avec positionnement absolu -->
     <div class="graph-page">
-      <!-- Header avec contrôles de zoom -->
-      <div class="graph-header row items-center justify-between q-pa-sm bg-grey-1">
-        <!-- Error indicator -->
-        <div v-if="graph.sharedState.error" class="text-negative text-caption q-mr-sm">
+      <div class="graph-header row items-center q-px-sm q-py-xs">
+        <div v-if="graph.sharedState.error" class="text-negative text-caption row items-center">
           <q-icon name="warning" size="xs" class="q-mr-xs" />
-          {{ graph.sharedState.error }}
+          <span>{{ graph.sharedState.error }}</span>
         </div>
         <div v-else class="text-caption text-grey-6">
           {{ graph.sharedState.ready ? 'Graphique prêt' : 'En attente...' }}
-        </div>
-
-        <!-- Zoom controls -->
-        <div class="zoom-controls row items-center q-gutter-sm">
-          <q-btn
-            flat
-            round
-            dense
-            icon="mdi-plus"
-            color="grey-8"
-            aria-label="Zoom avant"
-            @click="graph.methods.zoomIn"
-            :disable="!graph.sharedState.ready || graph.sharedState.zoomLevel >= 5"
-          />
-          <q-btn
-            flat
-            round
-            dense
-            icon="mdi-minus"
-            color="grey-8"
-            aria-label="Zoom arrière"
-            @click="graph.methods.zoomOut"
-            :disable="!graph.sharedState.ready || graph.sharedState.zoomLevel <= 0.1"
-          />
-          <q-separator vertical />
-          <q-btn
-            flat
-            round
-            dense
-            icon="mdi-restore"
-            color="grey-8"
-            aria-label="Réinitialiser la vue"
-            @click="graph.methods.resetView"
-            :disable="!graph.sharedState.ready"
-          />
         </div>
       </div>
 
@@ -158,17 +121,20 @@ export default defineComponent({
   left: 0;
   right: 0;
   z-index: 10;
+  min-height: 48px;
   background-color: rgba(255, 255, 255, 0.95);
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .canvas-container {
   position: absolute;
-  top: 48px; // Hauteur du header
+  top: 48px;
   left: 0;
   right: 0;
   bottom: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .empty-state-overlay {
@@ -183,17 +149,5 @@ export default defineComponent({
   inset: 0;
   background-color: rgba(255, 255, 255, 0.9);
   z-index: 2;
-}
-
-.zoom-controls {
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 4px;
-
-  :deep(.q-separator--vertical) {
-    height: 24px;
-    margin: 0 4px;
-  }
 }
 </style>

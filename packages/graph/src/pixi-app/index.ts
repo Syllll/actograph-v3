@@ -5,6 +5,11 @@ import { DataArea } from './data-area';
 import type { IObservation, IProtocol, IGraphPreferences, IProtocolItem } from '@actograph/core';
 import { getObservableGraphPreferences } from '../utils/protocol.utils';
 
+interface IPixiAppInitOptions {
+  view: HTMLCanvasElement;
+  interactive?: boolean;
+}
+
 /**
  * Classe principale gérant l'application PixiJS pour le graphique d'activité.
  * 
@@ -40,6 +45,8 @@ export class PixiApp {
   private yAxis!: YAxis;
   private dataArea!: DataArea;
   private protocol: IProtocol | null = null;
+  private isInteractive = true;
+  private baseCanvasHeight = 0;
 
   private zoomState = {
     scale: 1,
@@ -69,8 +76,9 @@ export class PixiApp {
    * 
    * @param options.view - L'élément canvas HTML à utiliser
    */
-  async init(options: { view: HTMLCanvasElement }) {
+  async init(options: IPixiAppInitOptions) {
     const canvas = options.view;
+    this.isInteractive = options.interactive ?? true;
     const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
     
     // Lire les dimensions CSS actuelles du canvas
@@ -78,6 +86,7 @@ export class PixiApp {
     const rect = canvas.getBoundingClientRect();
     const width = Math.max(1, Math.floor(rect.width));
     const height = Math.max(1, Math.floor(rect.height));
+    this.baseCanvasHeight = height;
     
     console.log('[PixiApp] Init with dimensions:', width, 'x', height, 'dpr:', dpr);
 
@@ -94,7 +103,9 @@ export class PixiApp {
 
     this.yAxis = new YAxis(this.app);
     this.xAxis = new xAxis(this.app, this.yAxis);
-    this.dataArea = new DataArea(this.app, this.yAxis, this.xAxis);
+    this.dataArea = new DataArea(this.app, this.yAxis, this.xAxis, {
+      interactive: this.isInteractive,
+    });
 
     this.viewport = new Container();
     this.viewport.x = 0;
@@ -132,10 +143,23 @@ export class PixiApp {
     this.dataArea.setData(observation);
 
     const requiredHeight = this.yAxis.getRequiredHeight();
-    if (this.app.canvas && requiredHeight > this.app.canvas.height) {
-      // CORRECTION : enlever le point-virgule dans la valeur CSS
-      this.app.canvas.style.height = `${requiredHeight}px`;
-      this.app.canvas.height = requiredHeight;
+    const currentWidth = this.app.screen.width;
+    const currentHeight = this.app.screen.height;
+
+    if (this.isInteractive && requiredHeight > currentHeight) {
+      this.app.renderer.resize(currentWidth, requiredHeight);
+    }
+
+    if (this.app.canvas && !this.isInteractive) {
+      const targetHeight = Math.max(this.baseCanvasHeight, requiredHeight);
+      if (targetHeight !== currentHeight) {
+        this.app.renderer.resize(currentWidth, targetHeight);
+      }
+
+      const canvasParent = this.app.canvas.parentElement as HTMLElement | null;
+      if (canvasParent) {
+        canvasParent.style.height = `${targetHeight}px`;
+      }
     }
   }
 
@@ -213,6 +237,10 @@ export class PixiApp {
 
   private setupZoomAndPan() {
     this.app.canvas.style.cursor = 'default';
+    if (!this.isInteractive) {
+      this.app.canvas.style.touchAction = 'auto';
+      return;
+    }
     this.app.canvas.style.touchAction = 'none'; // Important pour mobile
 
     const wheelHandler = (evt: WheelEvent) => {
@@ -496,6 +524,7 @@ export class PixiApp {
   }
 
   public zoomIn() {
+    if (!this.isInteractive) return;
     // Utiliser le centre de l'écran visible (viewport) plutôt que le centre du canvas bitmap
     const rect = this.app.canvas.getBoundingClientRect();
     const centerX = rect.width / 2;
@@ -515,6 +544,7 @@ export class PixiApp {
   }
 
   public zoomOut() {
+    if (!this.isInteractive) return;
     // Utiliser le centre de l'écran visible (viewport) plutôt que le centre du canvas bitmap
     const rect = this.app.canvas.getBoundingClientRect();
     const centerX = rect.width / 2;
@@ -534,6 +564,7 @@ export class PixiApp {
   }
 
   public resetView() {
+    if (!this.isInteractive) return;
     this.zoomState.scale = 1;
     this.viewport.scale.set(1);
 

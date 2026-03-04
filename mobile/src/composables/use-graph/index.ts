@@ -218,7 +218,10 @@ export function useGraph(options: UseGraphOptions) {
     try {
       // Créer et initialiser l'application PixiJS
       pixiAppInstance = new PixiApp();
-      await pixiAppInstance.init({ view: canvas });
+      await pixiAppInstance.init({
+        view: canvas,
+        interactive: false,
+      });
 
       // Check if component was unmounted during async init
       if (destroyed) {

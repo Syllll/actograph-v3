@@ -178,13 +178,14 @@ export class YAxis extends BaseGroup {
     this.prepareForDraw();
 
     const { axisLength, ticks } = this.computeAxisLengthAndTicks();
+    const axisOffsetX = this.computeAxisOffsetX(ticks);
 
     const yAxisStart: IPosition = {
-      x: AXIS_CONFIG.OFFSET_X,
+      x: axisOffsetX,
       y: axisLength + AXIS_CONFIG.OFFSET_Y,
     };
     const yAxisEnd: IPosition = {
-      x: AXIS_CONFIG.OFFSET_X,
+      x: axisOffsetX,
       y: AXIS_CONFIG.OFFSET_Y,
     };
 
@@ -199,6 +200,31 @@ export class YAxis extends BaseGroup {
 
     this.visible = true;
     this.alpha = 1;
+  }
+
+  /**
+   * On mobile screens, a fixed 150px left offset wastes horizontal space when labels are short.
+   * Estimate the needed label width and keep the offset adaptive, while preserving legacy spacing
+   * on larger viewports.
+   */
+  private computeAxisOffsetX(ticks: ITick[]): number {
+    const screenWidth = this.app.screen.width;
+    const longestLabelLength = ticks.reduce((max, tick) => {
+      return Math.max(max, tick.label.length);
+    }, 0);
+
+    const estimatedLabelWidth = Math.min(
+      longestLabelLength * LABEL_CONFIG.FONT_SIZE * 0.58,
+      screenWidth * 0.35
+    );
+
+    const minOffset = 80;
+    const maxOffset = AXIS_CONFIG.OFFSET_X;
+    const estimatedOffset = Math.ceil(
+      estimatedLabelWidth + LABEL_CONFIG.OFFSET + TICK_CONFIG.TICK_LENGTH + 6
+    );
+
+    return Math.max(minOffset, Math.min(maxOffset, estimatedOffset));
   }
 
   private prepareForDraw(): void {
