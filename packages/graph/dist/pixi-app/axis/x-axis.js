@@ -180,22 +180,27 @@ export class xAxis extends BaseGroup {
         }
         const mainTimeStepInMsec = timeSteps[bestTimeStep];
         const ticks = [];
-        // Bug 3.3: First tick at or after min (axis should not start at 0h00 when data starts at 6h06)
-        const firstTickTimeInMsec = Math.ceil(minTimeInMsec / mainTimeStepInMsec) * mainTimeStepInMsec;
-        let currentTimeInMsec = firstTickTimeInMsec;
-        while (currentTimeInMsec <= maxTimeInMsec + mainTimeStepInMsec) {
-            if (currentTimeInMsec >= minTimeInMsec) {
-                const dateTime = new Date(currentTimeInMsec);
-                let label;
-                if (this.observation?.mode === ObservationModeEnum.Chronometer) {
-                    label = formatChronoAxisLabel(dateTime, CHRONOMETER_T0, this.totalDurationMs);
-                }
-                else {
-                    label = formatAxisLabel(dateTime, this.totalDurationMs);
-                }
-                ticks.push({ dateTime, label });
+        const tickTimesInMsec = [minTimeInMsec];
+        // Ensure we always have a label at axis origin (X/Y intersection),
+        // then add aligned ticks strictly within the axis end.
+        const firstAlignedTickTimeInMsec = Math.ceil(minTimeInMsec / mainTimeStepInMsec) * mainTimeStepInMsec;
+        let currentTimeInMsec = firstAlignedTickTimeInMsec;
+        while (currentTimeInMsec <= maxTimeInMsec) {
+            if (currentTimeInMsec > minTimeInMsec) {
+                tickTimesInMsec.push(currentTimeInMsec);
             }
             currentTimeInMsec += mainTimeStepInMsec;
+        }
+        for (const tickTimeInMsec of tickTimesInMsec) {
+            const dateTime = new Date(tickTimeInMsec);
+            let label;
+            if (this.observation?.mode === ObservationModeEnum.Chronometer) {
+                label = formatChronoAxisLabel(dateTime, CHRONOMETER_T0, this.totalDurationMs);
+            }
+            else {
+                label = formatAxisLabel(dateTime, this.totalDurationMs);
+            }
+            ticks.push({ dateTime, label });
         }
         this.ticks = ticks;
     }
@@ -254,11 +259,16 @@ export class xAxis extends BaseGroup {
             this.alpha = 1;
             return;
         }
+        const maxTickXPos = xAxisEnd.x - 20;
         for (const tick of this.ticks) {
             const tickTimeInMsec = new Date(tick.dateTime).getTime();
-            let tickXpos = xAxisStart.x + (tickTimeInMsec - this.axisStartTimeInMsec) * this.pixelsPerMsec;
+            const tickXpos = xAxisStart.x + (tickTimeInMsec - this.axisStartTimeInMsec) * this.pixelsPerMsec;
             // Bug 3.8: Skip invalid positions (NaN, Infinity)
             if (!Number.isFinite(tickXpos)) {
+                continue;
+            }
+            // Keep ticks strictly within the visible X axis segment (before arrow tip).
+            if (tickXpos < xAxisStart.x || tickXpos > maxTickXPos) {
                 continue;
             }
             tick.pos = tickXpos;
