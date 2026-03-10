@@ -31,7 +31,18 @@
     <q-card-section class="category-content q-py-sm q-px-sm">
       <!-- Empty category message -->
       <div v-if="!category.children || category.children.length === 0" class="text-center">
-        <div class="text-caption text-grey">Vide</div>
+        <div class="text-caption text-grey q-mb-xs">Vide</div>
+        <q-btn
+          v-if="onAddObservable && !draggable"
+          icon="mdi-plus"
+          label="Ajouter un observable"
+          color="primary"
+          size="sm"
+          dense
+          unelevated
+          no-caps
+          @click="onAddObservable(category)"
+        />
       </div>
 
       <!-- Continuous category: Switch buttons (toggle) -->
@@ -156,6 +167,13 @@ export default defineComponent({
      */
     onPressObservable: {
       type: Function as PropType<(observable: IProtocolItemWithChildren) => void>,
+      default: undefined,
+    },
+    /**
+     * Handler to add an observable directly in an empty category
+     */
+    onAddObservable: {
+      type: Function as PropType<(category: IProtocolItemWithChildren) => void>,
       default: undefined,
     },
   },

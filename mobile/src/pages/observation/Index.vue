@@ -154,6 +154,7 @@
             :discrete-observables-disabled="editMode.sharedState.isEditing || !state.isRecording || chronicle.sharedState.isPaused"
             :on-toggle-observable="editMode.sharedState.isEditing ? undefined : methods.toggleObservable"
             :on-press-observable="editMode.sharedState.isEditing ? undefined : methods.pressObservable"
+            :on-add-observable="editMode.sharedState.isEditing ? undefined : methods.openAddObservableForCategory"
             :style="editMode.sharedState.isEditing 
               ? editMode.methods.getCategoryStyle(category.id)
               : methods.getCategoryPositionStyle(category.id)"
@@ -937,17 +938,22 @@ export default defineComponent({
           state.newCategory.action = 'continuous';
           await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
           methods.loadProtocol();
+          await nextTick();
+
+          const allCategories = state.categories;
+          const addedCategory = allCategories.find((category) => category.id === newCategory.id)
+            || allCategories.find((category) => category.name === trimmedName);
           
           // If in edit mode, add a position for the new category
-          if (editMode.sharedState.isEditing && newCategory) {
-            // Wait for categories to be updated
-            await nextTick();
-            const allCategories = state.categories;
-            // Find the new category in the list (it should have the same name)
-            const addedCategory = allCategories.find(c => c.name === trimmedName);
+          if (editMode.sharedState.isEditing) {
             if (addedCategory) {
               editMode.methods.addCategoryPosition(addedCategory.id, allCategories);
             }
+          } else if (addedCategory) {
+            // Shortcut UX: immediately propose creating the first observable.
+            state.selectedCategory = addedCategory;
+            state.newObservable.name = '';
+            state.showAddObservableDialog = true;
           }
           
           $q.notify({
