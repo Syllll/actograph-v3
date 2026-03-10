@@ -4,6 +4,7 @@ import {
   IProtocol,
   IReading,
   ObservationModeEnum,
+  ReadingTypeEnum,
 } from '@services/observations/interface';
 import { observationService } from '@services/observations/index.service';
 import { readingService } from '@services/observations/reading.service';
@@ -108,12 +109,22 @@ export const useObservation = (options?: { init?: boolean }) => {
     startTimer: () => {
       if (intervalId) return;
 
-      // If there are no readings (0 readings), we add a start reading
-      if (readings.sharedState.currentReadings.length === 0) {
+      // Decide start/resume from timeline state, not from raw readings count.
+      // This avoids getting stuck without START when data readings already exist.
+      const startStopReadings = readings.sharedState.currentReadings.filter(
+        (reading: IReading) => (
+          reading.type === ReadingTypeEnum.START
+          || reading.type === ReadingTypeEnum.STOP
+        )
+      );
+      const lastStartStopReading = startStopReadings[startStopReadings.length - 1];
+      const shouldCreateStartReading = !lastStartStopReading
+        || lastStartStopReading.type === ReadingTypeEnum.STOP;
+
+      if (shouldCreateStartReading) {
         readings.methods.addStartReading();
-      } 
-      // If there is a reading, we add a pause start reading
-      else {
+      } else {
+        // Resume flow (PAUSE_END may be skipped in video mode by design).
         readings.methods.addPauseEndReading();
       }
 
