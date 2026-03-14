@@ -65,10 +65,11 @@
               {{ formatDateTime(props.row.dateTime) }}
               </span>
               <q-popup-edit 
-                :model-value="observation.isChronometerMode.value ? formatDurationForEdit(props.row.dateTime) : formatDateTimeForEdit(props.row.dateTime)"
+                :model-value="observation.isChronometerMode.value ? formatDurationForEditDisplay(props.row.dateTime) : formatDateTimeForEdit(props.row.dateTime)"
                 :title="observation.isChronometerMode.value ? 'Editer la durée' : 'Editer la date et l\'heure'" 
                 buttons
-                @before-show="() => syncDurationEditStateFromRow(props.row)"
+                @before-show="() => openDateTimeEditor(props.row)"
+                @hide="clearDateTimeEditTarget"
                 @save="(val, initialVal) => handleDateTimeSave(props.row, val, initialVal)"
                 v-slot="scope"
               >
@@ -448,6 +449,7 @@ export default defineComponent({
       seconds: 0,
       milliseconds: 0,
     });
+    const dateTimeEditTarget = ref<{ id?: number; tempId?: string | null } | null>(null);
 
     const selectedInternal = ref<IReading[]>([]);
     
@@ -520,14 +522,9 @@ export default defineComponent({
       return observation.chronometerMethods.formatDateAsDuration(date);
     };
 
-    // Format duration for editing (returns object with parts)
-    const formatDurationForEdit = (dateTime: Date | string) => {
+    // Keep this side-effect free. It is called during render in virtual-scroll rows.
+    const formatDurationForEditDisplay = (dateTime: Date | string) => {
       if (!dateTime) {
-        durationEditState.days = 0;
-        durationEditState.hours = 0;
-        durationEditState.minutes = 0;
-        durationEditState.seconds = 0;
-        durationEditState.milliseconds = 0;
         return '';
       }
       
@@ -537,25 +534,49 @@ export default defineComponent({
         return formatDateTimeForEdit(dateTime);
       }
       
-      // Convert date to duration milliseconds
+      const durationMs = observation.chronometerMethods.dateToDuration(date);
+      return duration.formatCompact(durationMs);
+    };
+
+    const setDurationEditStateFromDateTime = (dateTime: Date | string) => {
+      if (!dateTime) {
+        durationEditState.days = 0;
+        durationEditState.hours = 0;
+        durationEditState.minutes = 0;
+        durationEditState.seconds = 0;
+        durationEditState.milliseconds = 0;
+        return;
+      }
+      const date = dateTime instanceof Date ? dateTime : new Date(dateTime);
+      if (!isChronometerMode.value) {
+        return;
+      }
       const durationMs = observation.chronometerMethods.dateToDuration(date);
       const parts = duration.millisecondsToParts(durationMs);
-      
-      // Update edit state
       durationEditState.days = parts.days;
       durationEditState.hours = parts.hours;
       durationEditState.minutes = parts.minutes;
       durationEditState.seconds = parts.seconds;
       durationEditState.milliseconds = parts.milliseconds;
-      
-      return duration.formatCompact(durationMs);
     };
 
-    // Bug 2b.3 : Synchronise l'état d'édition avec la ligne correcte à l'ouverture du popup
+    // Bug 2b.3 : Synchronise l'état d'édition avec la ligne correcte à l'ouverture du popup.
     const syncDurationEditStateFromRow = (row: IReading) => {
       if (row?.dateTime) {
-        formatDurationForEdit(row.dateTime);
+        setDurationEditStateFromDateTime(row.dateTime);
       }
+    };
+
+    const openDateTimeEditor = (row: IReading) => {
+      dateTimeEditTarget.value = {
+        id: row.id,
+        tempId: row.tempId || null,
+      };
+      syncDurationEditStateFromRow(row);
+    };
+
+    const clearDateTimeEditTarget = () => {
+      dateTimeEditTarget.value = null;
     };
 
     // Bug 2b.4 : Format compact pour affichage (ex: "1j 2h 30m 45s 500ms")
@@ -572,6 +593,60 @@ export default defineComponent({
     // Bug 2b.4 : Parse du format compact (ex: "1j 2h 30m 45s 500ms", "2h30m", "45s")
     const parseDurationFromText = (text: string) => {
       if (!text || typeof text !== 'string') return;
+      const normalized = text.trim().toLowerCase();
+      if (!normalized) return;
+
+      // Support formats like HH:MM:SS.mmm or MM:SS
+      if (normalized.includes(':')) {
+        const parts = normalized.split(':');
+        const parseSecMs = (secPart: string): { sec: number; ms: number } => {
+          const [secRaw, msRaw] = secPart.replace(',', '.').split('.');
+          const sec = Number.parseInt(secRaw || '0', 10) || 0;
+          const ms = Number.parseInt((msRaw || '0').padEnd(3, '0').slice(0, 3), 10) || 0;
+          return { sec, ms };
+        };
+
+        let days = 0;
+        let hours = 0;
+        let minutes = 0;
+        let seconds = 0;
+        let milliseconds = 0;
+
+        if (parts.length === 3) {
+          hours = Number.parseInt(parts[0] || '0', 10) || 0;
+          minutes = Number.parseInt(parts[1] || '0', 10) || 0;
+          const secMs = parseSecMs(parts[2] || '0');
+          seconds = secMs.sec;
+          milliseconds = secMs.ms;
+        } else if (parts.length === 2) {
+          minutes = Number.parseInt(parts[0] || '0', 10) || 0;
+          const secMs = parseSecMs(parts[1] || '0');
+          seconds = secMs.sec;
+          milliseconds = secMs.ms;
+        } else {
+          return;
+        }
+
+        durationEditState.days = days;
+        durationEditState.hours = hours;
+        durationEditState.minutes = minutes;
+        durationEditState.seconds = seconds;
+        durationEditState.milliseconds = milliseconds;
+        return;
+      }
+
+      // Support plain milliseconds value (e.g. "12345")
+      if (/^\d+$/.test(normalized)) {
+        const durationMs = Number.parseInt(normalized, 10);
+        const parsedParts = duration.millisecondsToParts(durationMs);
+        durationEditState.days = parsedParts.days;
+        durationEditState.hours = parsedParts.hours;
+        durationEditState.minutes = parsedParts.minutes;
+        durationEditState.seconds = parsedParts.seconds;
+        durationEditState.milliseconds = parsedParts.milliseconds;
+        return;
+      }
+
       // ms avant m pour éviter que "500ms" soit interprété comme "500s"
       const regex = /(\d+)\s*(j|h|ms|m|s)/gi;
       let match;
@@ -677,6 +752,16 @@ export default defineComponent({
       );
     };
 
+    const findRowByIdentity = (
+      identity: { id?: number; tempId?: string | null } | null
+    ): IReading | undefined => {
+      if (!identity) return undefined;
+      return props.readings.find((r: IReading) =>
+        (identity.id && r.id === identity.id) ||
+        (identity.tempId && r.tempId === identity.tempId)
+      );
+    };
+
     // Handle type save
     const handleTypeSave = (row: IReading, val: ReadingTypeEnum, initialVal: ReadingTypeEnum) => {
       if (!val) return;
@@ -717,11 +802,12 @@ export default defineComponent({
         }
       }
       
-      const targetRow = findRowSafe(row);
+      const targetRow = findRowByIdentity(dateTimeEditTarget.value) || findRowSafe(row);
       if (targetRow) {
         targetRow.dateTime = dateValue;
         targetRow.updatedAt = new Date();
       }
+      clearDateTimeEditTarget();
     };
 
     // Handle name save
@@ -759,8 +845,10 @@ export default defineComponent({
       durationEditState,
       columns,
       formatDuration,
-      formatDurationForEdit,
+      formatDurationForEditDisplay,
       syncDurationEditStateFromRow,
+      openDateTimeEditor,
+      clearDateTimeEditTarget,
       formatDurationCompact,
       parseDurationFromText,
       formatDateTime,

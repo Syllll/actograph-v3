@@ -18,6 +18,7 @@ const validChannels = [
   'show-open-dialog',
   'read-file',
   'read-file-binary',
+  'copy-file',
   'get-file-stats',
   'get-actograph-folder',
   'get-autosave-folder',
@@ -108,6 +109,26 @@ contextBridge.exposeInMainWorld('api', {
     return ipcRenderer.invoke('read-file-binary', filePath) as Promise<{
       success: boolean;
       data?: string;
+      error?: string;
+    }>;
+  },
+  copyFile: (
+    sourcePath: string,
+    targetPath: string,
+    options?: { overwrite?: boolean }
+  ): Promise<{
+    success: boolean;
+    targetPath?: string;
+    error?: string;
+  }> => {
+    return ipcRenderer.invoke(
+      'copy-file',
+      sourcePath,
+      targetPath,
+      options
+    ) as Promise<{
+      success: boolean;
+      targetPath?: string;
       error?: string;
     }>;
   },

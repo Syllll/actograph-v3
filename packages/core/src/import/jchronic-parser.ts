@@ -1,4 +1,8 @@
-import { ReadingTypeEnum, ProtocolItemTypeEnum } from '../enums';
+import {
+  ReadingTypeEnum,
+  ProtocolItemTypeEnum,
+  ObservationModeEnum,
+} from '../enums';
 import { ParseError, ValidationError } from './errors';
 import {
   IJchronicImport,
@@ -35,6 +39,20 @@ export function parseJchronicFile(content: string): IJchronicImport {
   }
 
   return data;
+}
+
+function normalizeObservationMode(
+  mode: ObservationModeEnum | null | undefined,
+): ObservationModeEnum | undefined {
+  if (mode === ObservationModeEnum.Calendar) {
+    return ObservationModeEnum.Calendar;
+  }
+
+  if (mode === ObservationModeEnum.Chronometer) {
+    return ObservationModeEnum.Chronometer;
+  }
+
+  return undefined;
 }
 
 /**
@@ -99,6 +117,11 @@ export function normalizeJchronicData(data: IJchronicImport): INormalizedImport 
     observation: {
       name: data.observation.name,
       description: data.observation.description,
+      videoPath:
+        data.observation.videoPath && data.observation.videoPath.trim() !== ''
+          ? data.observation.videoPath
+          : undefined,
+      mode: normalizeObservationMode(data.observation.mode),
     },
     protocol: data.protocol
       ? {

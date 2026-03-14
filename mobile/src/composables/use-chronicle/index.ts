@@ -3,6 +3,7 @@ import { observationService } from '@services/observation.service';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
 import type { IReadingEntity } from '@database/repositories/reading.repository';
 import { autoCorrectReadings } from '../use-readings-auto-correct';
+import { toAbsoluteTimeString } from '@utils/date-time';
 
 interface IChronicleObservation {
   id: number;
@@ -58,11 +59,7 @@ export const useChronicle = () => {
     if (isCalendarMode.value) {
       // Calendar mode: show current time HH:mm:ss
       const now = sharedState.currentDate || new Date();
-      return now.toLocaleTimeString('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
+      return toAbsoluteTimeString(now, false);
     } else {
       // Chronometer mode: show elapsed time HH:mm:ss.mmm
       const seconds = sharedState.elapsedTime;

@@ -46,6 +46,25 @@ export const useGraph = (options?: {
   // Récupération du composable d'observation pour accéder aux données
   const observation = useObservation();
 
+  const redrawFromObservation = (pixiApp: PixiApp): void => {
+    const obs = observation.sharedState.currentObservation as IObservation;
+    if (!obs) return;
+
+    const readings = observation.readings?.sharedState?.currentReadings ?? [];
+    const protocol = observation.protocol?.sharedState?.currentProtocol ?? null;
+    if (!protocol) return;
+
+    try {
+      obs.readings = readings as IReading[];
+      obs.protocol = protocol as IProtocol;
+      pixiApp.setData(obs as ICoreObservation);
+      pixiApp.draw();
+    } catch (error) {
+      // Guard rail: don't break the page on transient/partial data while editing.
+      console.warn('Graph redraw skipped due to inconsistent data:', error);
+    }
+  };
+
   // Si des options d'initialisation sont fournies, créer et initialiser PixiApp
   if (options?.init) {
     // Création de l'instance PixiApp qui gère tout le rendu graphique
@@ -73,34 +92,7 @@ export const useGraph = (options?: {
       });
 
       // Récupération de l'observation courante depuis le composable
-      const obs = observation.sharedState.currentObservation as IObservation;
-      if (!obs) {
-        throw new Error('No observation found (use-graph.ts)');
-      }
-
-      // Récupération des readings et du protocole depuis les états partagés
-      // Ces données sont nécessaires pour construire le graphique
-      const readings = observation.readings?.sharedState?.currentReadings ?? [];
-      const protocol = observation.protocol?.sharedState?.currentProtocol ?? null;
-      
-      // Vérification que le protocole est disponible
-      if (!protocol) {
-        console.warn('No protocol found, cannot draw graph');
-        return;
-      }
-      
-      // Enrichissement de l'observation avec les readings et le protocole
-      // (ces données peuvent ne pas être directement dans l'observation)
-      obs.readings = readings as IReading[];
-      obs.protocol = protocol as IProtocol;
-
-      // Configuration des données dans PixiApp
-      // Cette méthode prépare les données pour le rendu (calcul des positions, etc.)
-      pixiApp.setData(obs as ICoreObservation);
-
-      // Rendu du graphique
-      // Cette méthode dessine tous les éléments : axes, données, labels, etc.
-      pixiApp.draw();
+      redrawFromObservation(pixiApp);
 
       console.info('Pixi app initialized');
     });
@@ -110,20 +102,18 @@ export const useGraph = (options?: {
      */
     watch(
       () => observation.readings?.sharedState?.currentReadings ?? [],
-      (readings) => {
-        if (!sharedState.pixiApp || !readings.length) return;
+      () => {
+        if (!sharedState.pixiApp) return;
+        redrawFromObservation(sharedState.pixiApp);
+      },
+      { deep: true }
+    );
 
-        const obs = observation.sharedState.currentObservation as IObservation;
-        if (!obs) return;
-
-        const protocol = observation.protocol?.sharedState?.currentProtocol ?? null;
-        if (!protocol) return;
-
-        obs.readings = readings as IReading[];
-        obs.protocol = protocol as IProtocol;
-
-        sharedState.pixiApp.setData(obs as ICoreObservation);
-        sharedState.pixiApp.draw();
+    watch(
+      () => observation.protocol?.sharedState?.currentProtocol,
+      () => {
+        if (!sharedState.pixiApp) return;
+        redrawFromObservation(sharedState.pixiApp);
       },
       { deep: true }
     );

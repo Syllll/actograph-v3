@@ -9,7 +9,11 @@ import {
   ProtocolItem,
   IGraphPreferences,
 } from '@core/observations/entities/protocol.entity';
-import { ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@actograph/core';
+import {
+  DisplayModeEnum,
+  ProtocolItemActionEnum,
+  ProtocolItemTypeEnum,
+} from '@actograph/core';
 import { randomUUID } from 'node:crypto';
 import { UpdateProtocolItemGraphPreferencesDto } from '../../dtos/protocol-item-graph-preferences.dto';
 
@@ -207,6 +211,7 @@ export class Items {
      * et les autres champs de la catégorie restent inchangés.
      */
     const { categoryId, protocolId, ...categoryUpdates } = options;
+    delete (categoryUpdates as any).order;
     // Filter out undefined values to avoid overwriting existing values
     const filteredUpdates = Object.fromEntries(
       Object.entries(categoryUpdates).filter(([_, value]) => value !== undefined)
@@ -215,6 +220,15 @@ export class Items {
       ...categories[categoryIndex],
       ...filteredUpdates,
     };
+
+    // Coherence rule: discrete categories cannot use Background/Frieze display modes.
+    if (updatedCategory.action === ProtocolItemActionEnum.Discrete) {
+      updatedCategory.graphPreferences = {
+        ...(updatedCategory.graphPreferences || {}),
+        displayMode: DisplayModeEnum.Normal,
+        supportCategoryId: null,
+      };
+    }
 
     // Handle order change if specified
     if (options.order !== undefined && options.order !== categoryIndex) {
@@ -309,7 +323,7 @@ export class Items {
     await this.protocolRepository.save(protocol);
 
     // Return the added observable
-    return category.children[category.children.length - 1];
+    return category.children[order];
   }
 
   public async removeObservable(options: {
@@ -409,9 +423,16 @@ export class Items {
     }
 
     // Create a copy of the observable to edit
+    const { protocolId, observableId, ...observableUpdates } = options;
+    void protocolId;
+    void observableId;
+    delete (observableUpdates as any).order;
+    const filteredObservableUpdates = Object.fromEntries(
+      Object.entries(observableUpdates).filter(([_, value]) => value !== undefined),
+    );
     const updatedObservable = {
       ...category.children[observableIndex],
-      ...options,
+      ...filteredObservableUpdates,
     };
 
     // Handle order change if specified
@@ -469,65 +490,16 @@ export class Items {
     // Get the array of items
     const items = this.getItemsAsJson(protocol.items);
 
-    // Helper function to find and update an item recursively
-    const findAndUpdateItem = (
+    const findItem = (
       items: ProtocolItem[],
       itemId: string,
-      preferences: UpdateProtocolItemGraphPreferencesDto,
-    ): boolean => {
-      for (const item of items) {
-        if (item.id === itemId) {
-          // Update or create graphPreferences
-          if (!item.graphPreferences) {
-            item.graphPreferences = {};
-          }
-          // Merge preferences (only update provided fields)
-          if (preferences.color !== undefined) {
-            item.graphPreferences.color = preferences.color;
-          }
-          if (preferences.strokeWidth !== undefined) {
-            item.graphPreferences.strokeWidth = preferences.strokeWidth;
-          }
-          if (preferences.backgroundPattern !== undefined) {
-            item.graphPreferences.backgroundPattern =
-              preferences.backgroundPattern;
-          }
-          if (preferences.displayMode !== undefined) {
-            item.graphPreferences.displayMode = preferences.displayMode;
-          }
-          if (preferences.supportCategoryId !== undefined) {
-            item.graphPreferences.supportCategoryId = preferences.supportCategoryId;
-          }
-          return true;
-        }
-
-        // Check children if it's a category
-        if (item.children) {
-          if (findAndUpdateItem(item.children, itemId, preferences)) {
-            return true;
-          }
-        }
-      }
-      return false;
-    };
-
-    const found = findAndUpdateItem(items, options.itemId, options.preferences);
-    if (!found) {
-      throw new NotFoundException('Item was not found');
-    }
-
-    // Update the protocol with the new items
-    protocol.items = JSON.stringify(items);
-
-    // Save the protocol
-    await this.protocolRepository.save(protocol);
-
-    // Find and return the updated item
-    const findItem = (items: ProtocolItem[], itemId: string): ProtocolItem | null => {
+    ): ProtocolItem | null => {
       for (const item of items) {
         if (item.id === itemId) {
           return item;
         }
+
+        // Check children if it's a category
         if (item.children) {
           const found = findItem(item.children, itemId);
           if (found) {
@@ -537,6 +509,70 @@ export class Items {
       }
       return null;
     };
+
+    const targetItem = findItem(items, options.itemId);
+    if (!targetItem) {
+      throw new NotFoundException('Item was not found');
+    }
+
+    const normalizedPreferences: UpdateProtocolItemGraphPreferencesDto = {
+      ...options.preferences,
+    };
+    if (normalizedPreferences.supportCategoryId === '') {
+      normalizedPreferences.supportCategoryId = null;
+    }
+
+    // Coherence rule: supportCategoryId only applies to categories in Background mode.
+    if (targetItem.type === ProtocolItemTypeEnum.Category) {
+      if (targetItem.action === ProtocolItemActionEnum.Discrete) {
+        normalizedPreferences.displayMode = DisplayModeEnum.Normal;
+        normalizedPreferences.supportCategoryId = null;
+      }
+      const nextDisplayMode =
+        normalizedPreferences.displayMode ?? targetItem.graphPreferences?.displayMode;
+      if (nextDisplayMode !== DisplayModeEnum.Background) {
+        normalizedPreferences.supportCategoryId = null;
+      }
+      if (normalizedPreferences.supportCategoryId) {
+        if (normalizedPreferences.supportCategoryId === targetItem.id) {
+          normalizedPreferences.supportCategoryId = null;
+        } else {
+          const supportItem = findItem(items, normalizedPreferences.supportCategoryId);
+          if (!supportItem || supportItem.type !== ProtocolItemTypeEnum.Category) {
+            normalizedPreferences.supportCategoryId = null;
+          }
+        }
+      }
+    } else {
+      normalizedPreferences.supportCategoryId = undefined;
+    }
+
+    if (!targetItem.graphPreferences) {
+      targetItem.graphPreferences = {};
+    }
+    if (normalizedPreferences.color !== undefined) {
+      targetItem.graphPreferences.color = normalizedPreferences.color;
+    }
+    if (normalizedPreferences.strokeWidth !== undefined) {
+      targetItem.graphPreferences.strokeWidth = normalizedPreferences.strokeWidth;
+    }
+    if (normalizedPreferences.backgroundPattern !== undefined) {
+      targetItem.graphPreferences.backgroundPattern =
+        normalizedPreferences.backgroundPattern;
+    }
+    if (normalizedPreferences.displayMode !== undefined) {
+      targetItem.graphPreferences.displayMode = normalizedPreferences.displayMode;
+    }
+    if (normalizedPreferences.supportCategoryId !== undefined) {
+      targetItem.graphPreferences.supportCategoryId =
+        normalizedPreferences.supportCategoryId;
+    }
+
+    // Update the protocol with the new items
+    protocol.items = JSON.stringify(items);
+
+    // Save the protocol
+    await this.protocolRepository.save(protocol);
 
     const updatedItem = findItem(items, options.itemId);
     if (!updatedItem) {

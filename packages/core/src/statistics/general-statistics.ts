@@ -35,7 +35,9 @@ export function calculateGeneralStatistics(
 
   // Find START and STOP readings
   const startReading = sortedReadings.find((r) => r.type === ReadingTypeEnum.START);
-  const stopReading = sortedReadings.find((r) => r.type === ReadingTypeEnum.STOP);
+  const stopReading = [...sortedReadings]
+    .reverse()
+    .find((r) => r.type === ReadingTypeEnum.STOP);
 
   if (!startReading || !stopReading) {
     return {

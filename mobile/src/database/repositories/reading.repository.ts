@@ -1,5 +1,6 @@
 import { BaseRepository, IBaseEntity } from './base.repository';
 import { sqliteService } from '../sqlite.service';
+import { toAbsoluteDateTimeString } from '@utils/date-time';
 
 export type ReadingType = 'START' | 'STOP' | 'PAUSE_START' | 'PAUSE_END' | 'DATA';
 
@@ -82,7 +83,7 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
     const result = await sqliteService.run(sql, [
       observationId,
       type,
-      date.toISOString(),
+      toAbsoluteDateTimeString(date),
       name,
       description,
     ]);

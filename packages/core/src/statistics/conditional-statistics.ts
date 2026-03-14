@@ -191,7 +191,9 @@ export function calculateConditionalStatistics(
   if (request.conditionGroups.length === 0) {
     // No conditions: use entire observation period
     const startReading = sortedReadings.find((r) => r.type === ReadingTypeEnum.START);
-    const stopReading = sortedReadings.find((r) => r.type === ReadingTypeEnum.STOP);
+    const stopReading = [...sortedReadings]
+      .reverse()
+      .find((r) => r.type === ReadingTypeEnum.STOP);
     if (startReading && stopReading) {
       filteredPeriods = [
         {

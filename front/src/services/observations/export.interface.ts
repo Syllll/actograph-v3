@@ -1,3 +1,5 @@
+import { ObservationModeEnum } from './interface';
+
 /**
  * Format d'export d'une observation pour le fichier .jchronic
  * Cette interface correspond au format retourné par l'API backend
@@ -8,6 +10,8 @@ export interface IChronicExport {
   observation: {
     name: string;
     description?: string;
+    videoPath?: string;
+    mode?: ObservationModeEnum;
     createdAt: string;
     updatedAt: string;
   };

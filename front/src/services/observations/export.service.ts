@@ -164,7 +164,55 @@ export const exportService = {
       type: 'application/json',
     });
 
-    return await observationService.importObservation(file);
+    let duplicatedObservation = await observationService.importObservation(file);
+
+    // Bug 0.3: pour les observations vidéo, dupliquer aussi le fichier média
+    // afin que la copie ne dépende pas du même fichier source.
+    if (observation.videoPath && window.api?.copyFile && duplicatedObservation.id) {
+      try {
+        const sourcePath = observation.videoPath;
+        const separator = sourcePath.includes('\\') ? '\\' : '/';
+        const lastSeparatorIndex = Math.max(
+          sourcePath.lastIndexOf('/'),
+          sourcePath.lastIndexOf('\\')
+        );
+        const directory =
+          lastSeparatorIndex >= 0
+            ? sourcePath.slice(0, lastSeparatorIndex)
+            : '';
+        const extensionMatch = sourcePath.match(/(\.[^.\\/]+)$/);
+        const extension = extensionMatch ? extensionMatch[1] : '';
+        const safeBaseName = newName
+          .trim()
+          .replace(/[^a-z0-9]/gi, '_')
+          .toLowerCase()
+          .substring(0, 50);
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const targetFileName = `${safeBaseName}_${stamp}${extension}`;
+        const targetPath = directory
+          ? `${directory}${separator}${targetFileName}`
+          : targetFileName;
+
+        const copyResult = await window.api.copyFile(sourcePath, targetPath, {
+          overwrite: false,
+        });
+
+        if (copyResult.success && copyResult.targetPath) {
+          duplicatedObservation = await observationService.update(
+            duplicatedObservation.id,
+            {
+              videoPath: copyResult.targetPath,
+            }
+          );
+        } else {
+          console.warn('Video file copy failed during Save As:', copyResult.error);
+        }
+      } catch (error) {
+        console.warn('Error while duplicating video file during Save As:', error);
+      }
+    }
+
+    return duplicatedObservation;
   },
 };
 

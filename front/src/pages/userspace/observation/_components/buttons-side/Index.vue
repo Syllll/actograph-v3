@@ -131,10 +131,10 @@ export default defineComponent({
         return startStopReadings[startStopReadings.length - 1].type === ReadingTypeEnum.START;
       }),
       isPaused: computed(() => computedState.isRecordingStarted.value && !observation.sharedState.isPlaying),
-      isContinuousDisabled: computed(() => computedState.isPaused.value),
-      isDiscreteDisabled: computed(
-        () => !computedState.isRecordingStarted.value || computedState.isPaused.value
-      ),
+      // Bug 2.3 / 2.4: les boutons doivent rester utilisables
+      // même sans START explicite et en pause.
+      isContinuousDisabled: computed(() => false),
+      isDiscreteDisabled: computed(() => false),
       categories: computed(() => {
         if (!sharedState.currentProtocol || !sharedState.currentProtocol._items) {
           return [] as ProtocolItem[];
@@ -373,16 +373,6 @@ export default defineComponent({
         action: ProtocolItemActionEnum
       ) => {
         if (action === ProtocolItemActionEnum.Discrete && computedState.isDiscreteDisabled.value) {
-          return;
-        }
-
-        if (action === ProtocolItemActionEnum.Continuous) {
-          if (!computedState.isRecordingStarted.value || computedState.isPaused.value) {
-            return;
-          }
-        }
-
-        if (!computedState.isRecordingStarted.value || computedState.isPaused.value) {
           return;
         }
 

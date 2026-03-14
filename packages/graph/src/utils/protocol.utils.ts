@@ -7,13 +7,18 @@ export { ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@actograph/core';
  * Helper function to parse protocol items from JSON string
  */
 export function parseProtocolItems(protocol: IProtocol): IProtocolItem[] {
-  // Si _items existe déjà (déjà parsé), les retourner
-  if (protocol.items && Array.isArray(protocol.items)) {
-    return protocol.items;
+  // Si _items existe déjà (déjà parsé côté frontend), les retourner en priorité
+  const protocolAny = protocol as any;
+  if (Array.isArray(protocolAny._items)) {
+    return protocolAny._items;
+  }
+  // Compatibilité: items peut déjà être un tableau selon la source
+  if (Array.isArray(protocolAny.items)) {
+    return protocolAny.items;
   }
   
   // Sinon essayer de parser la string items (format legacy)
-  const itemsString = (protocol as any).items;
+  const itemsString = protocolAny.items;
   if (!itemsString || typeof itemsString !== 'string') {
     return [];
   }

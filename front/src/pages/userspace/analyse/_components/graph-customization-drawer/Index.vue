@@ -54,7 +54,7 @@
                 :style="isCompactMode ? { minWidth: '100px' } : { minWidth: '120px' }"
               >
                 <q-select
-                  :model-value="category.graphPreferences?.displayMode || DisplayModeEnum.Normal"
+                  :model-value="methods.getCategoryDisplayMode(category)"
                   :options="methods.getDisplayModeOptionsForCategory(category)"
                   option-label="label"
                   option-value="value"
@@ -117,14 +117,14 @@
                   outlined
                   emit-value
                   map-options
-                  :disable="category.graphPreferences?.displayMode === DisplayModeEnum.Normal"
+                  :disable="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Normal"
                   @update:model-value="(val) => methods.updateCategoryPreference(category.id, { backgroundPattern: val })"
                 />
               </div>
 
               <!-- Support (uniquement pour Background) - bug 3.5 : sélecteur "arrière-plan de quelle catégorie ?" -->
               <div 
-                v-if="category.graphPreferences?.displayMode === DisplayModeEnum.Background"
+                v-if="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Background"
                 class="col-auto"
                 :style="isCompactMode ? { minWidth: '120px' } : { minWidth: '140px' }"
               >
@@ -218,14 +218,14 @@
                     outlined
                     emit-value
                     map-options
-                    :disable="category.graphPreferences?.displayMode === DisplayModeEnum.Normal"
+                    :disable="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Normal"
                     @update:model-value="(val) => methods.updateObservablePreference(observable.id, { backgroundPattern: val })"
                   />
                 </div>
 
                 <!-- Support (espace réservé pour Background uniquement) -->
                 <div 
-                  v-if="category.graphPreferences?.displayMode === DisplayModeEnum.Background"
+                  v-if="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Background"
                   class="col-auto"
                   :style="isCompactMode ? { minWidth: '120px' } : { minWidth: '140px' }"
                 >
@@ -387,6 +387,44 @@ export default defineComponent({
       { immediate: false }
     );
 
+    const sanitizeGraphPreferencePatch = (
+      preference: Partial<IGraphPreferences>
+    ): Partial<IGraphPreferences> => {
+      const patch: Partial<IGraphPreferences> = {};
+
+      if (typeof preference.color === 'string' && preference.color.trim() !== '') {
+        patch.color = preference.color;
+      }
+      if (typeof preference.strokeWidth === 'number' && Number.isFinite(preference.strokeWidth)) {
+        patch.strokeWidth = preference.strokeWidth;
+      }
+      if (
+        preference.backgroundPattern !== undefined &&
+        Object.values(BackgroundPatternEnum).includes(preference.backgroundPattern)
+      ) {
+        patch.backgroundPattern = preference.backgroundPattern;
+      }
+      if (
+        preference.displayMode !== undefined &&
+        Object.values(DisplayModeEnum).includes(preference.displayMode)
+      ) {
+        patch.displayMode = preference.displayMode;
+      }
+
+      if (preference.supportCategoryId === '' || preference.supportCategoryId === null) {
+        patch.supportCategoryId = null;
+      } else if (typeof preference.supportCategoryId === 'string') {
+        patch.supportCategoryId = preference.supportCategoryId;
+      }
+
+      // Cohérence: hors mode Background, le support n'a pas de sens.
+      if (patch.displayMode !== undefined && patch.displayMode !== DisplayModeEnum.Background) {
+        patch.supportCategoryId = null;
+      }
+
+      return patch;
+    };
+
     const methods = {
       /**
        * Vérifie si un observable hérite des préférences de sa catégorie
@@ -437,6 +475,13 @@ export default defineComponent({
 
         const prefs = getObservableGraphPreferences(observableId, currentProtocol);
         return prefs?.backgroundPattern;
+      },
+
+      getCategoryDisplayMode: (category: ProtocolItem): DisplayModeEnum => {
+        if (category.action === ProtocolItemActionEnum.Discrete) {
+          return DisplayModeEnum.Normal;
+        }
+        return category.graphPreferences?.displayMode || DisplayModeEnum.Normal;
       },
 
       /**
@@ -490,6 +535,8 @@ export default defineComponent({
       ) => {
         const currentProtocol = protocol.sharedState.currentProtocol;
         if (!currentProtocol?.id) return;
+        const sanitizedPreference = sanitizeGraphPreferencePatch(preference);
+        if (Object.keys(sanitizedPreference).length === 0) return;
 
         // Sauvegarder l'état original pour rollback en cas d'erreur
         const originalProtocol = JSON.parse(JSON.stringify(currentProtocol));
@@ -501,7 +548,7 @@ export default defineComponent({
           if (category) {
             category.graphPreferences = {
               ...category.graphPreferences,
-              ...preference,
+              ...sanitizedPreference,
             };
             
             // Forcer la réactivité Vue en créant une nouvelle référence
@@ -527,7 +574,11 @@ export default defineComponent({
 
           // Si on change le mode d'affichage ou le support, redessiner tout
           // car la structure de l'axe Y change (nombre de ticks, positions, etc.)
-          if (graph.sharedState.pixiApp && (preference.displayMode !== undefined || preference.supportCategoryId !== undefined)) {
+          if (
+            graph.sharedState.pixiApp &&
+            (sanitizedPreference.displayMode !== undefined ||
+              sanitizedPreference.supportCategoryId !== undefined)
+          ) {
             // Attendre encore un tick pour s'assurer que setProtocol a bien propagé les changements
             // dans yAxis avant de redessiner (évite que les labels se placent sur l'origine)
             await nextTick();
@@ -537,7 +588,7 @@ export default defineComponent({
             for (const observable of category.children) {
               graph.sharedState.pixiApp.updateObservablePreference(
                 observable.id,
-                preference
+                sanitizedPreference
               );
             }
           }
@@ -546,7 +597,7 @@ export default defineComponent({
           await protocolService.updateItemGraphPreferences(
             currentProtocol.id,
             categoryId,
-            preference
+            sanitizedPreference
           );
 
           // Recharger le protocole depuis l'API pour garantir la persistance (bug 3.7)
@@ -590,6 +641,8 @@ export default defineComponent({
       ) => {
         const currentProtocol = protocol.sharedState.currentProtocol;
         if (!currentProtocol?.id) return;
+        const sanitizedPreference = sanitizeGraphPreferencePatch(preference);
+        if (Object.keys(sanitizedPreference).length === 0) return;
 
         // Sauvegarder l'état original pour rollback en cas d'erreur
         const originalProtocol = JSON.parse(JSON.stringify(currentProtocol));
@@ -607,7 +660,7 @@ export default defineComponent({
                     ...observable,
                     graphPreferences: {
                       ...observable.graphPreferences,
-                      ...preference,
+                      ...sanitizedPreference,
                     },
                   };
                 }
@@ -636,7 +689,7 @@ export default defineComponent({
           await protocolService.updateItemGraphPreferences(
             currentProtocol.id,
             observableId,
-            preference
+            sanitizedPreference
           );
 
           // Recharger le protocole depuis l'API pour garantir la persistance (bug 3.7)
@@ -697,7 +750,9 @@ export default defineComponent({
 
         // Ajouter les autres catégories en mode "normal"
         const otherCategories = currentProtocol._items.filter(
-          (cat) => cat.id !== categoryId && cat.graphPreferences?.displayMode !== DisplayModeEnum.Background
+          (cat) =>
+            cat.id !== categoryId &&
+            methods.getCategoryDisplayMode(cat as ProtocolItem) !== DisplayModeEnum.Background
         );
 
         otherCategories.forEach((cat) => {

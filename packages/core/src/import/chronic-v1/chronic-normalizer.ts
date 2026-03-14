@@ -2,6 +2,7 @@ import { IChronicV1 } from './types/chronic-v1.types';
 import { ProtocolV1Converter } from './converter/protocol-converter';
 import { ReadingV1Converter } from './converter/reading-converter';
 import { INormalizedImport } from '../types';
+import { ObservationModeEnum } from '../../enums';
 
 /**
  * Normalize chronic v1 data to common import format
@@ -33,6 +34,14 @@ export function normalizeChronicV1Data(chronic: IChronicV1): INormalizedImport {
     observation: {
       name: chronic.name || 'Chronique importée',
       description: undefined,
+      videoPath:
+        chronic.reading?.hasLinkedVideoFile && chronic.reading.mediaFilePath
+          ? chronic.reading.mediaFilePath
+          : undefined,
+      mode:
+        chronic.modeManager?.currentMode === ObservationModeEnum.Calendar
+          ? ObservationModeEnum.Calendar
+          : ObservationModeEnum.Chronometer,
     },
     protocol: protocolNormalized,
     readings: readingsNormalized,

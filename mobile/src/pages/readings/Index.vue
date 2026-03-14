@@ -95,6 +95,7 @@ import { useChronicle } from '@composables/use-chronicle';
 import { DPage } from '@components';
 import type { IReadingEntity, ReadingType } from '@database/repositories/reading.repository';
 import { QTableColumn } from 'quasar';
+import { toAbsoluteTimeString } from '@utils/date-time';
 
 const TYPE_LABELS: Record<ReadingType, string> = {
   START: 'Début',
@@ -179,12 +180,7 @@ export default defineComponent({
 
       formatDate: (dateStr: string): string => {
         if (!dateStr) return '-';
-        const date = new Date(dateStr);
-        return date.toLocaleTimeString('fr-FR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        });
+        return toAbsoluteTimeString(dateStr, true);
       },
     };
 

@@ -166,6 +166,8 @@ export class Import {
       userId,
       name: uniqueName,
       description: normalizedData.observation.description,
+      videoPath: normalizedData.observation.videoPath,
+      mode: normalizedData.observation.mode,
       protocol: normalizedData.protocol,
       readings: normalizedData.readings,
     });

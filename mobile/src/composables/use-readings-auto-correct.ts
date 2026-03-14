@@ -4,6 +4,7 @@ import {
   type IReading,
   ReadingTypeEnum,
 } from '@actograph/core';
+import { toAbsoluteDateTimeString } from '@utils/date-time';
 
 /**
  * Map ReadingType from mobile to ReadingTypeEnum from core
@@ -89,7 +90,7 @@ export async function autoCorrectReadings(observationId: number): Promise<void> 
   for (const action of result.actions) {
     if (action.type === 'reorder' && action.newStopDateTime && action.stopReadingId) {
       await readingRepository.update(action.stopReadingId, {
-        date: action.newStopDateTime.toISOString(),
+        date: toAbsoluteDateTimeString(action.newStopDateTime),
       });
     }
   }
@@ -157,7 +158,7 @@ export async function autoCorrectReadings(observationId: number): Promise<void> 
       
       if (originalDate.getTime() !== correctedDate.getTime()) {
         await readingRepository.update(correctedReading.id, {
-          date: correctedDate.toISOString(),
+          date: toAbsoluteDateTimeString(correctedDate),
         });
       }
     }

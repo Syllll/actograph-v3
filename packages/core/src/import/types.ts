@@ -1,4 +1,4 @@
-import { ReadingTypeEnum } from '../enums';
+import { ObservationModeEnum, ReadingTypeEnum } from '../enums';
 
 /**
  * Format d'import pour les fichiers .jchronic (v3)
@@ -15,6 +15,8 @@ export interface IJchronicImport {
   observation: {
     name: string;
     description?: string;
+    videoPath?: string | null;
+    mode?: ObservationModeEnum | null;
     createdAt?: string;
     updatedAt?: string;
   };
@@ -53,6 +55,8 @@ export interface INormalizedImport {
   observation: {
     name: string;
     description?: string;
+    videoPath?: string;
+    mode?: ObservationModeEnum;
   };
   protocol?: INormalizedProtocol;
   readings: INormalizedReading[];

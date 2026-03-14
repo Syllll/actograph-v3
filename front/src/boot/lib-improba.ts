@@ -34,6 +34,15 @@ declare global {
         data?: string; // base64 encoded
         error?: string;
       }>;
+      copyFile: (
+        sourcePath: string,
+        targetPath: string,
+        options?: { overwrite?: boolean }
+      ) => Promise<{
+        success: boolean;
+        targetPath?: string;
+        error?: string;
+      }>;
       getFileStats: (filePath: string) => Promise<{
         success: boolean;
         size?: number;

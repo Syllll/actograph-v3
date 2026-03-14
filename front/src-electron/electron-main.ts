@@ -39,10 +39,87 @@ let mainWindow: BrowserWindow | undefined;
 let serverProcess: any = null;
 let serverWorker: Worker | undefined;
 let serverPort: number | undefined;
+let isAutoUpdaterConfigured = false;
 const publicFolder = path.resolve(
   __dirname,
   <string>process.env.QUASAR_PUBLIC_FOLDER
 );
+
+function setupAutoUpdaterEventListeners() {
+  if (isAutoUpdaterConfigured) {
+    return;
+  }
+
+  // Configure autoUpdater BEFORE setting up event listeners
+  // Disable auto-download - user must approve first
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  // Auto-Update Event Listeners
+  autoUpdater.on('update-available', (info) => {
+    log.info('Update available:', info.version);
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // Send update info to renderer process
+      mainWindow.webContents.send('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+      });
+    }
+  });
+
+  // Add download progress event
+  autoUpdater.on('download-progress', (progressObj) => {
+    log.info(`Download progress: ${progressObj.percent.toFixed(2)}%`);
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const roundedPercent = Number(progressObj.percent.toFixed(2));
+      // Send progress to renderer process
+      mainWindow.webContents.send('update-download-progress', {
+        percent: roundedPercent,
+        transferred: progressObj.transferred,
+        total: progressObj.total,
+        bytesPerSecond: progressObj.bytesPerSecond,
+      });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info('Update downloaded');
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-downloaded');
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    log.error('Update error:', err);
+    log.error('Update error details:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name,
+    });
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-error', {
+        message: err.message,
+        name: err.name,
+        stack: err.stack,
+      });
+    }
+  });
+
+  // Add check-for-updates event listener
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for updates...');
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    log.info('Update not available:', info.version);
+  });
+
+  isAutoUpdaterConfigured = true;
+}
 
 async function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -97,72 +174,7 @@ async function createWindow() {
   // Wait for the window to be loaded before checking for updates
   await loadPromise;
 
-  // Configure autoUpdater BEFORE setting up event listeners
-  // Disable auto-download - user must approve first
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
-
-  // Auto-Update Event Listeners
-  autoUpdater.on('update-available', (info) => {
-    log.info('Update available:', info.version);
-
-    if (mainWindow) {
-      // Send update info to renderer process
-      mainWindow.webContents.send('update-available', {
-        version: info.version,
-        releaseNotes: info.releaseNotes,
-      });
-    }
-  });
-
-  // Add download progress event
-  autoUpdater.on('download-progress', (progressObj) => {
-    log.info(`Download progress: ${progressObj.percent.toFixed(2)}%`);
-
-    if (mainWindow) {
-      // Send progress to renderer process
-      mainWindow.webContents.send('update-download-progress', {
-        percent: progressObj.percent.toFixed(2),
-        transferred: progressObj.transferred,
-        total: progressObj.total,
-        bytesPerSecond: progressObj.bytesPerSecond,
-      });
-    }
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    log.info('Update downloaded');
-
-    if (mainWindow) {
-      mainWindow.webContents.send('update-downloaded');
-    }
-  });
-
-  autoUpdater.on('error', (err) => {
-    log.error('Update error:', err);
-    log.error('Update error details:', {
-      message: err.message,
-      stack: err.stack,
-      name: err.name,
-    });
-
-    if (mainWindow) {
-      mainWindow.webContents.send('update-error', {
-        message: err.message,
-        name: err.name,
-        stack: err.stack,
-      });
-    }
-  });
-
-  // Add check-for-updates event listener
-  autoUpdater.on('checking-for-update', () => {
-    log.info('Checking for updates...');
-  });
-
-  autoUpdater.on('update-not-available', (info) => {
-    log.info('Update not available:', info.version);
-  });
+  setupAutoUpdaterEventListeners();
 }
 
 /**
@@ -646,6 +658,50 @@ ipcMain.handle('read-file-binary', async (event, filePath: string) => {
     };
   }
 });
+
+ipcMain.handle(
+  'copy-file',
+  async (
+    event,
+    sourcePath: string,
+    targetPath: string,
+    options?: { overwrite?: boolean }
+  ) => {
+    try {
+      if (!sourcePath || !targetPath) {
+        return { success: false, error: 'Source or target path is missing' };
+      }
+
+      if (!fs.existsSync(sourcePath)) {
+        return { success: false, error: 'Source file not found' };
+      }
+
+      const sourceStats = fs.statSync(sourcePath);
+      if (!sourceStats.isFile()) {
+        return { success: false, error: 'Source path is not a file' };
+      }
+
+      const targetDir = path.dirname(targetPath);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+
+      const overwrite = options?.overwrite === true;
+      if (!overwrite && fs.existsSync(targetPath)) {
+        return { success: false, error: 'Target file already exists' };
+      }
+
+      fs.copyFileSync(sourcePath, targetPath);
+      return { success: true, targetPath };
+    } catch (error) {
+      log.error('Error copying file:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+);
 
 ipcMain.handle('get-file-stats', async (event, filePath: string) => {
   try {

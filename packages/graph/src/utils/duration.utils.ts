@@ -10,6 +10,10 @@ export interface DurationParts {
   milliseconds: number;
 }
 
+function pad2(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
 /**
  * Converts milliseconds to duration parts
  */
@@ -74,40 +78,29 @@ export function formatFromDate(date: Date, t0: Date): string {
  * @returns Le label formaté
  */
 export function formatAxisLabel(date: Date, totalDurationMs: number): string {
+  const dd = pad2(date.getDate());
+  const MM = pad2(date.getMonth() + 1);
+  const yyyy = String(date.getFullYear());
+  const HH = pad2(date.getHours());
+  const mm = pad2(date.getMinutes());
+  const ss = pad2(date.getSeconds());
+  const SSS = String(date.getMilliseconds()).padStart(3, '0');
+
   if (totalDurationMs >= 7 * 24 * 60 * 60 * 1000) {
-    // >= 7 jours : JJ/MM/AAAA
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    // >= 7 jours : date+heure complète (lisible grâce aux labels diagonaux).
+    return `${dd}/${MM}/${yyyy} ${HH}:${mm}`;
   } else if (totalDurationMs >= 24 * 60 * 60 * 1000) {
-    // >= 24h : JJ/MM HH:mm
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    // >= 24h : JJ/MM HH:mm:ss
+    return `${dd}/${MM} ${HH}:${mm}:${ss}`;
   } else if (totalDurationMs >= 60 * 60 * 1000) {
-    // >= 1h : HH:mm
-    return date.toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    // >= 1h : JJ/MM HH:mm:ss (évite l'ambiguïté entre jours)
+    return `${dd}/${MM} ${HH}:${mm}:${ss}`;
   } else if (totalDurationMs >= 60 * 1000) {
-    // >= 1min : HH:mm:ss
-    return date.toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
+    // >= 1min : HH:mm:ss.SSS
+    return `${HH}:${mm}:${ss}.${SSS}`;
   } else {
-    // < 1min : mm:ss.SSS
-    const mm = String(date.getMinutes()).padStart(2, '0');
-    const ss = String(date.getSeconds()).padStart(2, '0');
-    const ms = String(date.getMilliseconds()).padStart(3, '0');
-    return `${mm}:${ss}.${ms}`;
+    // < 1min : HH:mm:ss.SSS
+    return `${HH}:${mm}:${ss}.${SSS}`;
   }
 }
 

@@ -120,6 +120,30 @@
                         round
                         dense
                         size="xs"
+                        icon="arrow_upward"
+                        :disable="!methods.canMoveObservableUp(prop.node) || state.movingObservable"
+                        :loading="state.movingObservable"
+                        @click.stop="methods.moveObservableUp(prop.node)"
+                      >
+                        <q-tooltip>Monter</q-tooltip>
+                      </q-btn>
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        size="xs"
+                        icon="arrow_downward"
+                        :disable="!methods.canMoveObservableDown(prop.node) || state.movingObservable"
+                        :loading="state.movingObservable"
+                        @click.stop="methods.moveObservableDown(prop.node)"
+                      >
+                        <q-tooltip>Descendre</q-tooltip>
+                      </q-btn>
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        size="xs"
                         icon="drive_file_move_outline"
                         @click.stop="methods.openMoveObservableModal(prop.node)"
                       >
@@ -302,6 +326,7 @@ export default defineComponent({
 
       // Protection contre les doubles clics
       movingCategory: false,
+      movingObservable: false,
       duplicatingCategory: false,
     });
 
@@ -327,8 +352,82 @@ export default defineComponent({
     };
 
     const methods = {
+      getObservableLocation: (
+        observableId: string
+      ): { categoryId: string; index: number; total: number } | null => {
+        for (const category of state.treeData) {
+          if (category.type === ProtocolItemTypeEnum.Category && category.children) {
+            const index = category.children.findIndex((o: any) => o.id === observableId);
+            if (index !== -1) {
+              return {
+                categoryId: category.id,
+                index,
+                total: category.children.length,
+              };
+            }
+          }
+        }
+        return null;
+      },
+
       getCategoryIndex: (category: ProtocolItem): number => {
         return state.treeData.findIndex((c) => c.id === category.id);
+      },
+
+      canMoveObservableUp: (observable: ProtocolItem): boolean => {
+        const location = methods.getObservableLocation(observable.id);
+        return !!location && location.index > 0;
+      },
+
+      canMoveObservableDown: (observable: ProtocolItem): boolean => {
+        const location = methods.getObservableLocation(observable.id);
+        return !!location && location.index < location.total - 1;
+      },
+
+      moveObservableUp: async (observable: ProtocolItem) => {
+        if (state.movingObservable) return;
+        const location = methods.getObservableLocation(observable.id);
+        if (!location || location.index <= 0) return;
+        if (!protocol?.methods || !state.currentProtocol?.id) return;
+        state.movingObservable = true;
+        try {
+          await protocol.methods.editProtocolItem({
+            id: observable.id,
+            protocolId: state.currentProtocol.id,
+            type: ProtocolItemTypeEnum.Observable,
+            order: location.index - 1,
+          });
+          await methods.loadProtocol();
+          ensureCategoryExpanded(location.categoryId);
+        } catch (error) {
+          console.error('Failed to move observable up:', error);
+          $q.notify({ type: 'negative', message: "Échec du déplacement de l'observable" });
+        } finally {
+          state.movingObservable = false;
+        }
+      },
+
+      moveObservableDown: async (observable: ProtocolItem) => {
+        if (state.movingObservable) return;
+        const location = methods.getObservableLocation(observable.id);
+        if (!location || location.index >= location.total - 1) return;
+        if (!protocol?.methods || !state.currentProtocol?.id) return;
+        state.movingObservable = true;
+        try {
+          await protocol.methods.editProtocolItem({
+            id: observable.id,
+            protocolId: state.currentProtocol.id,
+            type: ProtocolItemTypeEnum.Observable,
+            order: location.index + 1,
+          });
+          await methods.loadProtocol();
+          ensureCategoryExpanded(location.categoryId);
+        } catch (error) {
+          console.error('Failed to move observable down:', error);
+          $q.notify({ type: 'negative', message: "Échec du déplacement de l'observable" });
+        } finally {
+          state.movingObservable = false;
+        }
       },
 
       moveCategoryUp: async (category: ProtocolItem) => {
@@ -570,22 +669,8 @@ export default defineComponent({
           return;
         }
 
-        // Trouver la catégorie parente et l'ordre (index) de l'observable
-        let categoryId = '';
-        let observableOrder = 0;
-        
-        for (const category of state.treeData) {
-          if (category.type === ProtocolItemTypeEnum.Category && category.children) {
-            const observableIndex = category.children.findIndex((o: any) => o.id === observable.id);
-            if (observableIndex !== -1) {
-              categoryId = category.id;
-              observableOrder = observableIndex;
-              break;
-            }
-          }
-        }
-
-        if (!categoryId) {
+        const location = methods.getObservableLocation(observable.id);
+        if (!location) {
           $q.notify({
             type: 'negative',
             message: "Impossible de trouver la catégorie parente de l'observable",
@@ -596,11 +681,11 @@ export default defineComponent({
         // Créer une copie de l'observable avec la propriété order ajoutée
         const observableWithOrder = { 
           ...observable, 
-          order: observableOrder 
+          order: location.index 
         };
 
         state.selectedObservable = observableWithOrder;
-        state.selectedObservableCategoryId = categoryId;
+        state.selectedObservableCategoryId = location.categoryId;
         state.editObservableModal = true;
       },
 
@@ -635,20 +720,8 @@ export default defineComponent({
           return;
         }
 
-        // Trouver la catégorie parente de l'observable
-        let categoryId = '';
-        
-        for (const category of state.treeData) {
-          if (category.type === ProtocolItemTypeEnum.Category && category.children) {
-            const observableIndex = category.children.findIndex((o: any) => o.id === observable.id);
-            if (observableIndex !== -1) {
-              categoryId = category.id;
-              break;
-            }
-          }
-        }
-
-        if (!categoryId) {
+        const location = methods.getObservableLocation(observable.id);
+        if (!location) {
           $q.notify({
             type: 'negative',
             message: "Impossible de trouver la catégorie parente de l'observable",
@@ -657,7 +730,7 @@ export default defineComponent({
         }
 
         state.selectedObservable = observable;
-        state.selectedObservableCategoryId = categoryId;
+        state.selectedObservableCategoryId = location.categoryId;
         state.removeObservableModal = true;
       },
 
@@ -691,19 +764,8 @@ export default defineComponent({
           return;
         }
 
-        // Trouver la catégorie parente de l'observable
-        let categoryId = '';
-        for (const category of state.treeData) {
-          if (category.type === ProtocolItemTypeEnum.Category && category.children) {
-            const found = category.children.findIndex((o: any) => o.id === observable.id);
-            if (found !== -1) {
-              categoryId = category.id;
-              break;
-            }
-          }
-        }
-
-        if (!categoryId) {
+        const location = methods.getObservableLocation(observable.id);
+        if (!location) {
           $q.notify({
             type: 'negative',
             message: "Impossible de trouver la catégorie parente de l'observable",
@@ -712,7 +774,7 @@ export default defineComponent({
         }
 
         state.selectedObservable = observable;
-        state.selectedObservableCategoryId = categoryId;
+        state.selectedObservableCategoryId = location.categoryId;
         state.moveObservableModal = true;
       },
     };

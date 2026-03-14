@@ -140,7 +140,13 @@ export class xAxis extends BaseGroup {
 
     const readings = observation.readings;
     if (!readings?.length) {
-      throw new Error('No readings found');
+      const now = Date.now();
+      this.readings = [];
+      this.minTimeInMsec = now;
+      this.maxTimeInMsec = now + 1;
+      this.totalDurationMs = 1;
+      this.ticks = [{ dateTime: new Date(now), label: '' }];
+      return;
     }
 
     this.readings = readings;
@@ -262,7 +268,11 @@ export class xAxis extends BaseGroup {
     const width = this.app.screen.width;
 
     const xAxisStart = this.yAxis.getAxisStart();
-    if (!xAxisStart || !xAxisStart.x || !xAxisStart.y) {
+    if (
+      !xAxisStart ||
+      typeof xAxisStart.x !== 'number' ||
+      typeof xAxisStart.y !== 'number'
+    ) {
       throw new Error('No x axis start found');
     }
     this.axisStart = xAxisStart as { x: number; y: number };
@@ -271,7 +281,11 @@ export class xAxis extends BaseGroup {
       x: width * 0.9,
       y: xAxisStart.y,
     };
-    if (!xAxisEnd || !xAxisEnd.x || !xAxisEnd.y) {
+    if (
+      !xAxisEnd ||
+      typeof xAxisEnd.x !== 'number' ||
+      typeof xAxisEnd.y !== 'number'
+    ) {
       throw new Error('No x axis end found');
     }
     this.axisEnd = xAxisEnd as { x: number; y: number };

@@ -350,19 +350,20 @@ export const useReadings = (options: {
       // NOTE: In chronometer mode, currentDate is already t0 + elapsedTime, so we should NOT
       // add elapsedTime again. We use currentDate directly if it exists, otherwise fallback
       // to using elapsedTime with t0 (if in chronometer mode).
-      if (options.currentDate && options.elapsedTime !== undefined) {
-        // In chronometer mode, currentDate is already t0 + elapsedTime, so use it directly
-        // In calendar mode, currentDate is the actual current date, and elapsedTime is the offset
-        // from the start of the observation, so we add elapsedTime to currentDate
+      if (options.elapsedTime !== undefined) {
+        // In chronometer mode, allow recording even if currentDate is not initialized
+        // (e.g. clicks before START or while paused).
         const isChronometerMode = observationSharedState?.currentObservation?.mode === 'chronometer';
-        
+
         if (isChronometerMode) {
-          // Bug 2b.1 : Clamp to t0 minimum - évite les horodatages négatifs (-2ms)
-          const dateTimeMs = options.currentDate.getTime();
           const t0Ms = CHRONOMETER_T0.getTime();
+          const dateTimeMs = options.currentDate
+            ? options.currentDate.getTime()
+            : t0Ms + (options.elapsedTime * 1000);
+          // Bug 2b.1 : Clamp to t0 minimum - évite les horodatages négatifs (-2ms)
           newReading.dateTime = new Date(Math.max(dateTimeMs, t0Ms));
-        } else {
-          // In calendar mode, add elapsedTime to currentDate
+        } else if (options.currentDate) {
+          // In calendar mode, add elapsedTime to currentDate when currentDate exists
           newReading.dateTime = new Date(
             options.currentDate.getTime() + (options.elapsedTime * 1000)
           );

@@ -561,6 +561,7 @@ import { useEditMode, useHaptics } from '@composables';
 import { protocolService } from '@services/protocol.service';
 import { observationService } from '@services/observation.service';
 import { DPage, DraggableCategory } from '@components';
+import { toAbsoluteTimeString } from '@utils/date-time';
 import type { IReadingEntity, ReadingType } from '@database/repositories/reading.repository';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
 
@@ -878,12 +879,7 @@ export default defineComponent({
 
       formatTime: (dateStr: string): string => {
         if (!dateStr) return '';
-        const date = new Date(dateStr);
-        return date.toLocaleTimeString('fr-FR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        });
+        return toAbsoluteTimeString(dateStr, true);
       },
 
       // Protocol management

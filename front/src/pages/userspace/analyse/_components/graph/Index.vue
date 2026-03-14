@@ -61,6 +61,16 @@
         >
           <q-tooltip>Exporter en JPEG</q-tooltip>
         </q-btn>
+        <q-btn
+          flat
+          round
+          dense
+          icon="mdi-format-list-bulleted-square"
+          color="grey-8"
+          @click="methods.exportLegendAsPng"
+        >
+          <q-tooltip>Exporter la légende (PNG)</q-tooltip>
+        </q-btn>
       </div>
     </div>
 
@@ -167,6 +177,76 @@ export default defineComponent({
           return;
         }
         await methods.saveImageFile(dataUrl, 'jpeg');
+      },
+      exportLegendAsPng: async () => {
+        const protocol = observation.protocol.sharedState.currentProtocol as any;
+        const items = protocol?._items || [];
+        if (!Array.isArray(items) || items.length === 0) {
+          $q.notify({
+            type: 'warning',
+            message: 'Aucune légende disponible à exporter',
+          });
+          return;
+        }
+
+        const rows: Array<{ label: string; color: string }> = [];
+        for (const category of items) {
+          if (category?.type !== 'category') continue;
+          const categoryColor = category?.graphPreferences?.color || '#10b981';
+          rows.push({ label: `[Catégorie] ${category.name}`, color: categoryColor });
+          for (const observable of category.children || []) {
+            if (observable?.type !== 'observable') continue;
+            rows.push({
+              label: `  - ${observable.name}`,
+              color: observable?.graphPreferences?.color || categoryColor,
+            });
+          }
+        }
+
+        if (rows.length === 0) {
+          $q.notify({
+            type: 'warning',
+            message: 'Aucune légende disponible à exporter',
+          });
+          return;
+        }
+
+        const rowHeight = 28;
+        const padding = 18;
+        const swatch = 14;
+        const width = 900;
+        const height = padding * 2 + rows.length * rowHeight;
+        const legendCanvas = document.createElement('canvas');
+        legendCanvas.width = width;
+        legendCanvas.height = height;
+        const ctx = legendCanvas.getContext('2d');
+        if (!ctx) {
+          $q.notify({
+            type: 'negative',
+            message: 'Impossible de générer l’image de légende',
+          });
+          return;
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = '#d1d5db';
+        ctx.strokeRect(0, 0, width, height);
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#111827';
+
+        rows.forEach((row, index) => {
+          const y = padding + index * rowHeight;
+          ctx.fillStyle = row.color;
+          ctx.fillRect(padding, y + 6, swatch, swatch);
+          ctx.strokeStyle = '#111827';
+          ctx.strokeRect(padding, y + 6, swatch, swatch);
+          ctx.fillStyle = '#111827';
+          ctx.fillText(row.label, padding + swatch + 12, y + 18);
+        });
+
+        const dataUrl = legendCanvas.toDataURL('image/png');
+        await methods.saveImageFile(dataUrl, 'png');
       },
       saveImageFile: async (dataUrl: string, format: 'png' | 'jpeg') => {
         const observationName =

@@ -83,24 +83,28 @@ export default defineComponent({
       //   // ... restoration logic ...
       // }
 
-      // Setup update checking
-      systemService.onUpdateAvailable(async () => {
-        const dialogResponse = await createDialog({
-          title: 'Mise à jour disponible',
-          message:
-            "Une mise à jour est disponible. Souhaitez-vous l'installer ?",
-          cancel: 'Non',
-          ok: 'Oui',
-          persistent: true,
+      // Setup update checking (Electron only)
+      if (process.env.MODE === 'electron' && window.api) {
+        systemService.onUpdateAvailable(async () => {
+          const dialogResponse = await createDialog({
+            title: 'Mise à jour disponible',
+            message:
+              "Une mise à jour est disponible. Souhaitez-vous l'installer ?",
+            cancel: 'Non',
+            ok: 'Oui',
+            persistent: true,
+          });
+          if (!dialogResponse) {
+            // Return and do nothing if the user clicks on cancel
+            return;
+          }
+          state.showUpdateModal = true;
         });
-        if (!dialogResponse) {
-          // Return and do nothing if the user clicks on cancel
-          return;
-        }
-        state.showUpdateModal = true;
-      });
 
-      systemService.readyToCheckUpdates();
+        void systemService.readyToCheckUpdates().catch((error) => {
+          console.error('Error while checking for updates', error);
+        });
+      }
     });
 
     // Set flag on normal exit (beforeunload is called when window closes normally)

@@ -3,6 +3,7 @@ import { ObservationRepository } from '../../repositories/obsavation.repository'
 import { ProtocolService } from '../protocol/index.service';
 import { ReadingService } from '../reading.service';
 import { NotFoundException } from '@nestjs/common';
+import { ObservationModeEnum } from '@actograph/core';
 
 /**
  * Format d'export d'une observation pour le fichier .jchronic
@@ -25,6 +26,8 @@ export interface IChronicExport {
   observation: {
     name: string;
     description?: string;
+    videoPath?: string;
+    mode?: ObservationModeEnum;
     createdAt: string;
     updatedAt: string;
   };
@@ -97,6 +100,8 @@ export class Export {
       observation: {
         name: observation.name,
         description: observation.description || undefined, // Convertir null en undefined pour JSON propre
+        videoPath: observation.videoPath || undefined,
+        mode: observation.mode || undefined,
         createdAt: observation.createdAt
           ? observation.createdAt.toISOString()
           : new Date().toISOString(), // Fallback si date manquante

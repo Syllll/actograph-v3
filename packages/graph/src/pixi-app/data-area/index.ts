@@ -233,10 +233,18 @@ export class DataArea extends BaseGroup {
 
     const readings = observation.readings;
     if (!readings?.length) {
-      throw new Error('No readings found');
+      // Keep axis/protocol visible even when there are temporarily no readings.
+      return;
     }
 
-    for (const reading of readings) {
+    const sortedReadings = [...readings]
+      .filter((reading) => Number.isFinite(new Date(reading.dateTime).getTime()))
+      .sort(
+        (a, b) =>
+          new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()
+      );
+
+    for (const reading of sortedReadings) {
       if (reading.type === ReadingTypeEnum.DATA) {
         const obsName = reading.name;
 
@@ -252,10 +260,15 @@ export class DataArea extends BaseGroup {
       }
     }
 
-    const lastReading = readings[readings.length - 1];
-    if (lastReading.type === ReadingTypeEnum.STOP) {
+    const stopReading = [...sortedReadings]
+      .reverse()
+      .find((reading) => reading.type === ReadingTypeEnum.STOP);
+
+    if (stopReading) {
       for (const categoryEntry of this.readingsPerCategory) {
-        categoryEntry.readings.push(lastReading);
+        if (categoryEntry.category.action === ProtocolItemActionEnum.Continuous) {
+          categoryEntry.readings.push(stopReading);
+        }
       }
     }
   }
@@ -321,8 +334,7 @@ export class DataArea extends BaseGroup {
     const normalCategories: Array<{ category: ProtocolItem; readings: IReading[] }> = [];
 
     for (const categoryEntry of this.readingsPerCategory) {
-      const displayMode =
-        categoryEntry.category.graphPreferences?.displayMode ?? DisplayModeEnum.Normal;
+      const displayMode = this.getEffectiveDisplayMode(categoryEntry.category);
       if (displayMode === DisplayModeEnum.Background) {
         backgroundCategories.push(categoryEntry);
       } else if (displayMode === DisplayModeEnum.Frieze) {
@@ -379,7 +391,7 @@ export class DataArea extends BaseGroup {
       for (const reading of readings) {
         if (reading.type === ReadingTypeEnum.DATA) {
           const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
-          const yPos = this.yAxis.getPosFromLabel(reading.name || '');
+          const yPos = this.getYPosForReading(category, reading.name || '');
           if (yPos < 0) continue;
 
           const prefs = this.getObservablePreferencesForReading(reading.name || '');
@@ -395,7 +407,7 @@ export class DataArea extends BaseGroup {
       const firstReading = readings[0];
       if (!firstReading) return;
 
-      const startY = this.yAxis.getPosFromLabel(firstReading.name || '');
+      const startY = this.getYPosForReading(category, firstReading.name || '');
       if (startY < 0) return;
 
       const start = {
@@ -420,7 +432,7 @@ export class DataArea extends BaseGroup {
         const yPos =
           reading.type === ReadingTypeEnum.STOP
             ? -1
-            : this.yAxis.getPosFromLabel(reading.name || '');
+            : this.getYPosForReading(category, reading.name || '');
 
         // Consecutive readings can share the same timestamp (mobile taps in same second).
         // Without a minimum spacing, segments collapse to zero width and look "missing".
@@ -492,8 +504,18 @@ export class DataArea extends BaseGroup {
       y: yAxisEnd.y,
     } as { x: number; y: number };
 
-    const zoneHeight = Math.abs(topRight.y - bottomLeft.y);
-    const zoneTopY = topRight.y;
+    const fullZoneTopY = topRight.y;
+    const fullZoneBottomY = bottomLeft.y;
+    const backgroundZone = this.getBackgroundZoneForCategory(
+      category,
+      fullZoneTopY,
+      fullZoneBottomY
+    );
+    const zoneTopY = backgroundZone.topY;
+    const zoneHeight = backgroundZone.height;
+    if (zoneHeight <= 0) {
+      return;
+    }
 
     for (let i = 0; i < readings.length; i++) {
       const reading = readings[i];
@@ -532,6 +554,89 @@ export class DataArea extends BaseGroup {
         }
       }
     }
+  }
+
+  private getBackgroundZoneForCategory(
+    category: ProtocolItem,
+    fullZoneTopY: number,
+    fullZoneBottomY: number
+  ): { topY: number; height: number } {
+    const supportCategoryId = category.graphPreferences?.supportCategoryId;
+    if (!supportCategoryId) {
+      return {
+        topY: fullZoneTopY,
+        height: Math.max(0, fullZoneBottomY - fullZoneTopY),
+      };
+    }
+
+    const supportCategory = this.getCategoryById(supportCategoryId);
+    if (!supportCategory) {
+      return {
+        topY: fullZoneTopY,
+        height: Math.max(0, fullZoneBottomY - fullZoneTopY),
+      };
+    }
+
+    if (supportCategory.graphPreferences?.displayMode === DisplayModeEnum.Frieze) {
+      const friezeInfo = this.yAxis.getFriezeInfo(supportCategory.id);
+      if (!friezeInfo) {
+        return {
+          topY: fullZoneTopY,
+          height: Math.max(0, fullZoneBottomY - fullZoneTopY),
+        };
+      }
+      const top = Math.min(friezeInfo.startY, friezeInfo.endY);
+      const bottom = Math.max(friezeInfo.startY, friezeInfo.endY);
+      const clampedTop = Math.max(fullZoneTopY, top);
+      const clampedBottom = Math.min(fullZoneBottomY, bottom);
+      return {
+        topY: clampedTop,
+        height: Math.max(0, clampedBottom - clampedTop),
+      };
+    }
+
+    const supportYPositions = (supportCategory.children || [])
+      .map((observable) => this.yAxis.getPosFromCategoryObservable(supportCategory.id, observable.name))
+      .filter((pos) => pos >= 0);
+    if (supportYPositions.length === 0) {
+      return {
+        topY: fullZoneTopY,
+        height: Math.max(0, fullZoneBottomY - fullZoneTopY),
+      };
+    }
+
+    const rowHalfHeight = 15; // Matches YAxis normal row spacing (~30px rows).
+    const top = Math.min(...supportYPositions) - rowHalfHeight;
+    const bottom = Math.max(...supportYPositions) + rowHalfHeight;
+    const clampedTop = Math.max(fullZoneTopY, top);
+    const clampedBottom = Math.min(fullZoneBottomY, bottom);
+    return {
+      topY: clampedTop,
+      height: Math.max(0, clampedBottom - clampedTop),
+    };
+  }
+
+  private getCategoryById(categoryId: string): ProtocolItem | null {
+    if (!this.protocol) {
+      return null;
+    }
+    const protocolAny = this.protocol as any;
+    const items: ProtocolItem[] = protocolAny._items || protocolAny.items || [];
+    for (const item of items) {
+      if (item.type === 'category' && item.id === categoryId) {
+        return item as ProtocolItem;
+      }
+    }
+    return null;
+  }
+
+  private getYPosForReading(category: ProtocolItem, observableName: string): number {
+    // Prefer category-aware lookup to avoid collisions when observables share labels.
+    const scopedPos = this.yAxis.getPosFromCategoryObservable(category.id, observableName);
+    if (scopedPos >= 0) {
+      return scopedPos;
+    }
+    return this.yAxis.getPosFromLabel(observableName);
   }
 
   private clearTilingSpritesForCategory(category: ProtocolItem): void {
@@ -716,7 +821,7 @@ export class DataArea extends BaseGroup {
       return;
     }
 
-    const displayMode = category.graphPreferences?.displayMode ?? DisplayModeEnum.Normal;
+    const displayMode = this.getEffectiveDisplayMode(category);
 
     switch (displayMode) {
       case DisplayModeEnum.Background:
@@ -729,6 +834,14 @@ export class DataArea extends BaseGroup {
         this.drawCategoryNormal(categoryEntry);
         break;
     }
+  }
+
+  private getEffectiveDisplayMode(category: ProtocolItem): DisplayModeEnum {
+    // Discrete categories are always rendered in Normal mode.
+    if (category.action === ProtocolItemActionEnum.Discrete) {
+      return DisplayModeEnum.Normal;
+    }
+    return category.graphPreferences?.displayMode ?? DisplayModeEnum.Normal;
   }
 }
 

@@ -153,7 +153,10 @@ export function findObservablePeriods(
 
   // Handle case where observable is still "on" at the end
   // We need to find the observation end time
-  const stopReading = readings.find((r) => r.type === ReadingTypeEnum.STOP);
+  const stopReading = [...readings]
+    .sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime())
+    .reverse()
+    .find((r) => r.type === ReadingTypeEnum.STOP);
   if (currentStart && currentObservable === observableName && stopReading) {
     periods.push({
       start: currentStart,
