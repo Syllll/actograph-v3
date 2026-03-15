@@ -308,7 +308,10 @@ export const useReadings = (options: {
     
     /**
      * Creates a new reading object with the specified properties
-     * 
+     *
+     * In calendar mode, if `elapsedTime` is provided, `currentDate` must also be provided
+     * for a correct `dateTime` computation.
+     *
      * @param options - Optional properties for the new reading
      * @returns A new reading object
      */

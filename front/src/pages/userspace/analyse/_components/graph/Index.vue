@@ -191,11 +191,11 @@ export default defineComponent({
 
         const rows: Array<{ label: string; color: string }> = [];
         for (const category of items) {
-          if (category?.type !== 'category') continue;
+          if (String(category?.type ?? '').toLowerCase() !== 'category') continue;
           const categoryColor = category?.graphPreferences?.color || '#10b981';
           rows.push({ label: `[Catégorie] ${category.name}`, color: categoryColor });
           for (const observable of category.children || []) {
-            if (observable?.type !== 'observable') continue;
+            if (String(observable?.type ?? '').toLowerCase() !== 'observable') continue;
             rows.push({
               label: `  - ${observable.name}`,
               color: observable?.graphPreferences?.color || categoryColor,

@@ -210,8 +210,8 @@ export class Items {
      * Exemple : Si options = { meta: { position: {...} } }, le nom, la description
      * et les autres champs de la catégorie restent inchangés.
      */
-    const { categoryId, protocolId, ...categoryUpdates } = options;
-    delete (categoryUpdates as any).order;
+    const { categoryId, protocolId, order, ...categoryUpdates } = options;
+    void order; // handled separately for reordering below
     // Filter out undefined values to avoid overwriting existing values
     const filteredUpdates = Object.fromEntries(
       Object.entries(categoryUpdates).filter(([_, value]) => value !== undefined)
@@ -423,10 +423,10 @@ export class Items {
     }
 
     // Create a copy of the observable to edit
-    const { protocolId, observableId, ...observableUpdates } = options;
+    const { protocolId, observableId, order, ...observableUpdates } = options;
     void protocolId;
     void observableId;
-    delete (observableUpdates as any).order;
+    void order; // handled separately for reordering below
     const filteredObservableUpdates = Object.fromEntries(
       Object.entries(observableUpdates).filter(([_, value]) => value !== undefined),
     );
@@ -574,12 +574,7 @@ export class Items {
     // Save the protocol
     await this.protocolRepository.save(protocol);
 
-    const updatedItem = findItem(items, options.itemId);
-    if (!updatedItem) {
-      throw new NotFoundException('Item was not found after update');
-    }
-
-    return updatedItem;
+    return targetItem;
   }
 
   /**
