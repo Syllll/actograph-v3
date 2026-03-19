@@ -121,19 +121,19 @@ export function unionPeriods(
   // Sort by start time
   allPeriods.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-  // Merge overlapping periods
-  const merged: IPeriod[] = [allPeriods[0]];
+  // Merge overlapping periods (clone to avoid mutating inputs)
+  const merged: IPeriod[] = [
+    { start: new Date(allPeriods[0].start.getTime()), end: new Date(allPeriods[0].end.getTime()) },
+  ];
 
   for (let i = 1; i < allPeriods.length; i++) {
     const current = allPeriods[i];
     const last = merged[merged.length - 1];
 
     if (current.start <= last.end) {
-      // Overlapping or adjacent, merge
       last.end = new Date(Math.max(last.end.getTime(), current.end.getTime()));
     } else {
-      // Non-overlapping, add as new period
-      merged.push(current);
+      merged.push({ start: new Date(current.start.getTime()), end: new Date(current.end.getTime()) });
     }
   }
 

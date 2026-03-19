@@ -41,7 +41,8 @@ export class UserRolesGuard implements CanActivate {
     if (!authorizedRoles) return true;
     const request = context.switchToHttp().getRequest();
 
-    // Request.user is the user, so we can directly access its roles
+    if (!request.user) return false;
+
     const roles = request.user.roles;
 
     return this.matchRoles(authorizedRoles, roles);

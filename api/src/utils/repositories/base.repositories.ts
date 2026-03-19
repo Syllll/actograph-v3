@@ -320,15 +320,17 @@ export class BaseRepository<
         // Special cases for: CONTAINS, IN, EXISTS, NOT EXISTS, IS NULL
         // We will override the standard case values
         if (cond.operator === OperatorEnum.CONTAINS && cond.key) {
-          // If the value is a string, we will cast the db array to text[] to avoid type issues
-          // If it is not, we do nothing and assume the user knows what he is doing
-          if (typeof cond.value === 'string') {
-            formattedTableNameAndCondKey = `${formattedTableNameAndCondKey}::text[]`;
+          const isSqlite = (process.env.DB_TYPE || '').includes('sqlite');
+          if (isSqlite) {
+            whereContent = `',' || ${formattedTableNameAndCondKey} || ',' LIKE :${myCondName}`;
+            whereOptions[myCondName] = `%,${cond.value},%`;
+          } else {
+            if (typeof cond.value === 'string') {
+              formattedTableNameAndCondKey = `${formattedTableNameAndCondKey}::text[]`;
+            }
+            whereContent = `${formattedTableNameAndCondKey} @> ARRAY [:${myCondName}]`;
+            whereOptions[myCondName] = cond.value;
           }
-
-          //whereContent = `${formattedTableNameAndCondKey} @> '{":${myCondName}"}'`;
-          whereContent = `${formattedTableNameAndCondKey} @> ARRAY [:${myCondName}]`;
-          whereOptions[myCondName] = cond.value;
         } else if (cond.operator === OperatorEnum.IN && cond.key) {
           if (!Array.isArray(cond.value)) {
             throw new Error('Value should be an array for IN operator');
@@ -336,12 +338,14 @@ export class BaseRepository<
 
           whereContent = `${formattedTableNameAndCondKey} IN (:...${myCondName})`;
           whereOptions[myCondName] = cond.value;
-        } else if (
-          cond.operator === OperatorEnum.EXISTS ||
-          cond.operator === OperatorEnum.NOT_EXISTS ||
-          cond.operator === OperatorEnum.IS_NULL
-        ) {
-          whereContent = `${formattedTableNameAndCondKey} ${cond.operator}`;
+        } else if (cond.operator === OperatorEnum.IS_NULL) {
+          whereContent = `${formattedTableNameAndCondKey} IS NULL`;
+          whereOptions = undefined;
+        } else if (cond.operator === OperatorEnum.EXISTS) {
+          whereContent = `${formattedTableNameAndCondKey} IS NOT NULL`;
+          whereOptions = undefined;
+        } else if (cond.operator === OperatorEnum.NOT_EXISTS) {
+          whereContent = `${formattedTableNameAndCondKey} IS NULL`;
           whereOptions = undefined;
         }
 

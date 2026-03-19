@@ -266,7 +266,9 @@ export class DataArea extends BaseGroup {
 
     if (stopReading) {
       for (const categoryEntry of this.readingsPerCategory) {
-        if (categoryEntry.category.action === ProtocolItemActionEnum.Continuous) {
+        const isContinuous = !categoryEntry.category.action ||
+          categoryEntry.category.action === ProtocolItemActionEnum.Continuous;
+        if (isContinuous) {
           categoryEntry.readings.push(stopReading);
         }
       }

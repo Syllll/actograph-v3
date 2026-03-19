@@ -83,6 +83,11 @@ export class UserService extends BaseService<User, UserRepository> {
     if (!user) {
       throw new NotFoundException("L`utilisateur n'a pas été trouvé");
     }
+    if (!user.userJwt) {
+      throw new InternalServerErrorException(
+        "L'association UserJwt est manquante pour cet utilisateur",
+      );
+    }
     const userJwt = user.userJwt;
 
     if (!user.resetPasswordOngoing) {
@@ -122,6 +127,11 @@ export class UserService extends BaseService<User, UserRepository> {
     const user = await this.findOne(userId);
     if (!user) {
       throw new NotFoundException("L`utilisateur n'a pas été trouvé");
+    }
+    if (!user.userJwt) {
+      throw new InternalServerErrorException(
+        "L'association UserJwt est manquante pour cet utilisateur",
+      );
     }
 
     const userJwt = user.userJwt;
@@ -336,8 +346,12 @@ export class UserService extends BaseService<User, UserRepository> {
     );
 
     // keep admin role for an admin, in case of mistake
-    if (isAdminUser && newUserHaveNotAdminRole)
-      dtoToBeUpdated.roles?.unshift(UserRoleEnum.Admin);
+    if (isAdminUser && newUserHaveNotAdminRole && dtoToBeUpdated.roles) {
+      dtoToBeUpdated = {
+        ...dtoToBeUpdated,
+        roles: [UserRoleEnum.Admin, ...dtoToBeUpdated.roles],
+      };
+    }
 
     const updatedDto = {
       ...existingDto,

@@ -120,10 +120,10 @@ export function validateReadings(readings: IReading[]): IValidationResult {
     );
   }
 
-  // Validate chronological order
+  // Validate chronological order (use last STOP, consistent with statistics)
   if (hasStart && hasStop) {
     const startReading = readings.find((r) => r.type === ReadingTypeEnum.START);
-    const stopReading = readings.find((r) => r.type === ReadingTypeEnum.STOP);
+    const stopReading = [...readings].reverse().find((r) => r.type === ReadingTypeEnum.STOP);
 
     if (startReading && stopReading && startReading.dateTime >= stopReading.dateTime) {
       errors.push(

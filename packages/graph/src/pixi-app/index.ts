@@ -4,6 +4,7 @@ import { YAxis } from './axis/y-axis';
 import { DataArea } from './data-area';
 import type { IObservation, IProtocol, IGraphPreferences, IProtocolItem } from '@actograph/core';
 import { getObservableGraphPreferences } from '../utils/protocol.utils';
+import { clearPatternTextureCache } from '../lib/pattern-textures';
 
 interface IPixiAppInitOptions {
   view: HTMLCanvasElement;
@@ -610,6 +611,7 @@ export class PixiApp {
       this.app.canvas.removeEventListener('touchend', handlers.touchend);
       this.app.canvas.removeEventListener('touchcancel', handlers.touchcancel);
     }
+    clearPatternTextureCache();
     this.app.destroy();
   }
 }

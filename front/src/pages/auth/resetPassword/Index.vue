@@ -71,6 +71,7 @@
                 size="1.0rem"
                 :label="'Appliquer le nouveau mot de passe'"
                 :loading="state.loading"
+                @click="methods.submitNewPassword"
               />
             </div>
           </q-form>
@@ -105,6 +106,7 @@ export default defineComponent({
       form: {
         login: null,
         password: null,
+        passwordConfirm: null,
       },
     });
 
@@ -153,7 +155,7 @@ export default defineComponent({
       },
     };
 
-    return { state, rules, i18n, props, stateless };
+    return { state, rules, i18n, props, stateless, methods };
   },
 });
 </script>
