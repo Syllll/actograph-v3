@@ -82,7 +82,7 @@ export class AuthJwtController extends BaseController {
       body.username,
       body.password,
     );
-    if (!user) throw new HttpException('Wrong credentials', 403);
+    if (!user) throw new UnauthorizedException('Wrong credentials');
 
     // Générer et retourner le token JWT
     const jwt = this.usersService.login(user);
