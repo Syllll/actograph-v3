@@ -9,7 +9,11 @@
 export { PixiApp } from './pixi-app';
 
 // Utilitaires
-export { getObservableGraphPreferences, parseProtocolItems } from './utils/protocol.utils';
+export {
+  getObservableGraphPreferences,
+  parseProtocolItems,
+  hydrateProtocolItemsFromStringIfNeeded,
+} from './utils/protocol.utils';
 export { formatCompact, formatFromDate, millisecondsToParts } from './utils/duration.utils';
 export { CHRONOMETER_T0 } from './utils/chronometer.constants';
 

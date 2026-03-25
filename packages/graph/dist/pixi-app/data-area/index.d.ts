@@ -28,10 +28,14 @@ export declare class DataArea extends BaseGroup {
     private getOrCreateGraphicForCategory;
     private drawCategoryNormal;
     private drawCategoryBackground;
+    private getBackgroundZoneForCategory;
+    private getCategoryById;
+    private getYPosForReading;
     private clearTilingSpritesForCategory;
     private addTilingSpriteForCategory;
     private drawCategoryFrieze;
     private getObservablePreferencesForReading;
     redrawObservable(observableId: string): void;
+    private getEffectiveDisplayMode;
 }
 //# sourceMappingURL=index.d.ts.map

@@ -3,7 +3,7 @@ import { xAxis } from './axis/x-axis';
 import { YAxis } from './axis/y-axis';
 import { DataArea } from './data-area';
 import type { IObservation, IProtocol, IGraphPreferences, IProtocolItem } from '@actograph/core';
-import { getObservableGraphPreferences } from '../utils/protocol.utils';
+import { getObservableGraphPreferences, hydrateProtocolItemsFromStringIfNeeded } from '../utils/protocol.utils';
 import { clearPatternTextureCache } from '../lib/pattern-textures';
 
 interface IPixiAppInitOptions {
@@ -165,15 +165,7 @@ export class PixiApp {
   }
 
   public setProtocol(protocol: IProtocol) {
-    const prot = protocol as any;
-    if (prot && prot.items && typeof prot.items === 'string') {
-      try {
-        prot._items = JSON.parse(prot.items);
-      } catch (e) {
-        console.error('Failed to parse protocol items:', e);
-        prot._items = [];
-      }
-    }
+    hydrateProtocolItemsFromStringIfNeeded(protocol);
 
     this.protocol = protocol;
 

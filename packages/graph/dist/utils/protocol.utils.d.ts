@@ -1,6 +1,7 @@
 import type { IProtocol, IProtocolItem, IGraphPreferences } from '@actograph/core';
 export { IProtocolItem as ProtocolItem };
 export { ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@actograph/core';
+export declare function hydrateProtocolItemsFromStringIfNeeded(protocol: unknown): void;
 /**
  * Helper function to parse protocol items from JSON string
  */

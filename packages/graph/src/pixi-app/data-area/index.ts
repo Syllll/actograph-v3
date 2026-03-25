@@ -17,7 +17,11 @@ import {
 } from '@actograph/core';
 import { YAxis } from '../axis/y-axis';
 import { xAxis } from '../axis/x-axis';
-import { parseProtocolItems, ProtocolItem } from '../../utils/protocol.utils';
+import {
+  parseProtocolItems,
+  ProtocolItem,
+  hydrateProtocolItemsFromStringIfNeeded,
+} from '../../utils/protocol.utils';
 import { formatFromDate } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 import { createTilingPatternSprite } from '../../lib/pattern-textures';
@@ -187,20 +191,12 @@ export class DataArea extends BaseGroup {
   }
 
   public setProtocol(protocol: IProtocol) {
-    const prot = protocol as any;
-    // Parse items si c'est une string JSON (format backend)
-    if (prot && prot.items && typeof prot.items === 'string') {
-      try {
-        prot._items = JSON.parse(prot.items);
-      } catch (e) {
-        console.error('Failed to parse protocol items:', e);
-        prot._items = [];
-      }
-    }
+    hydrateProtocolItemsFromStringIfNeeded(protocol);
 
     this.protocol = protocol;
 
     // Utilise _items en priorité (format frontend) ou items (format mobile/core)
+    const prot = protocol as any;
     const items = prot._items || prot.items || [];
     if (items.length > 0 && this.readingsPerCategory.length > 0) {
       for (const entry of this.readingsPerCategory) {

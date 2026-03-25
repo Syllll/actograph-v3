@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, reactive, watch } from 'vue';
+import { onMounted, onUnmounted, shallowReactive, watch } from 'vue';
 import { PixiApp } from '@actograph/graph';
 import { useObservation } from 'src/composables/use-observation';
 import { IObservation, IProtocol, IReading } from '@services/observations/interface';
@@ -9,7 +9,9 @@ import type { IObservation as ICoreObservation } from '@actograph/core';
  * Permet de conserver une référence à l'instance PixiApp entre les différents
  * composants qui utilisent le composable useGraph.
  */
-const sharedState = reactive({
+// shallowReactive : garder le type nominal PixiApp (reactive() applique UnwrapNestedRefs
+// et vue-tsc voit alors un simple objet de méthodes publiques, plus assignable à PixiApp).
+const sharedState = shallowReactive({
   pixiApp: null as PixiApp | null,
 });
 

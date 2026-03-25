@@ -2,7 +2,8 @@ import { Application, Container } from 'pixi.js';
 import { xAxis } from './axis/x-axis';
 import { YAxis } from './axis/y-axis';
 import { DataArea } from './data-area';
-import { getObservableGraphPreferences } from '../utils/protocol.utils';
+import { getObservableGraphPreferences, hydrateProtocolItemsFromStringIfNeeded } from '../utils/protocol.utils';
+import { clearPatternTextureCache } from '../lib/pattern-textures';
 /**
  * Classe principale gérant l'application PixiJS pour le graphique d'activité.
  *
@@ -131,16 +132,7 @@ export class PixiApp {
         }
     }
     setProtocol(protocol) {
-        const prot = protocol;
-        if (prot && prot.items && typeof prot.items === 'string') {
-            try {
-                prot._items = JSON.parse(prot.items);
-            }
-            catch (e) {
-                console.error('Failed to parse protocol items:', e);
-                prot._items = [];
-            }
-        }
+        hydrateProtocolItemsFromStringIfNeeded(protocol);
         this.protocol = protocol;
         if (this.yAxis) {
             this.yAxis.setProtocol(protocol);
@@ -513,6 +505,7 @@ export class PixiApp {
             this.app.canvas.removeEventListener('touchend', handlers.touchend);
             this.app.canvas.removeEventListener('touchcancel', handlers.touchcancel);
         }
+        clearPatternTextureCache();
         this.app.destroy();
     }
 }

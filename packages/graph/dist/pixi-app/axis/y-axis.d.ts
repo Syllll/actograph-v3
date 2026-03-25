@@ -15,6 +15,7 @@ export declare class YAxis extends BaseGroup {
     getAxisStart(): IPosition | null;
     getAxisEnd(): IPosition | null;
     getPosFromLabel(label: string): number;
+    getPosFromCategoryObservable(categoryId: string, observableName: string): number;
     getFriezeInfo(categoryId: string): {
         centerY: number;
         startY: number;
@@ -45,6 +46,7 @@ export declare class YAxis extends BaseGroup {
     private createLabel;
     private removeLabels;
     private computeAxisLengthAndTicks;
+    private getEffectiveDisplayMode;
     private convertTicksToAbsolutePositions;
     private assertTickHasPosition;
 }
