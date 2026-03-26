@@ -2,17 +2,6 @@
   <div class="first-steps fit column">
     <q-scroll-area class="col">
       <div class="column">
-        <!-- Section : Démarrage rapide -->
-        <div class="quick-start-section q-pa-md q-mb-md">
-          <div class="text-subtitle2 text-weight-bold text-primary q-mb-md">Démarrage rapide</div>
-          <div class="row justify-center">
-            <DSubmitBtn
-              label="Charger l'exemple"
-              @click="methods.cloneAndLoadExampleObservation()"
-            />
-          </div>
-        </div>
-
         <!-- Section : Documentation et aide -->
         <div class="help-section q-pa-md q-mb-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-md">
@@ -145,24 +134,11 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
-import { useObservation } from 'src/composables/use-observation';
-import { DSubmitBtn } from '@lib-improba/components';
 
 export default defineComponent({
   name: 'FirstSteps',
-  components: {
-    DSubmitBtn,
-  },
   setup() {
-    const observation = useObservation();
-
     const methods = {
-      cloneAndLoadExampleObservation: async () => {
-        const exampleObservation =
-          await observation.methods.cloneExampleObservation();
-        await observation.methods.loadObservation(exampleObservation.id);
-      },
-
       openExternalLink: (url: string) => {
         // Check if we're in Electron environment
         if (window.api && window.api.openExternal) {
@@ -175,7 +151,6 @@ export default defineComponent({
     };
 
     return {
-      observation,
       methods,
     };
   },
@@ -184,12 +159,6 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .first-steps {
-  .quick-start-section {
-    background-color: rgba(31, 41, 55, 0.03); // primary color with 3% opacity
-    border-left: 3px solid var(--primary);
-    border-radius: 0.5rem;
-  }
-
   .help-section {
     background-color: rgba(31, 41, 55, 0.03); // primary color with 3% opacity
     border-left: 3px solid var(--primary);

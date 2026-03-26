@@ -9,63 +9,77 @@
         <div class="text-body2 text-grey-7 q-mt-md">Chargement de la chronique...</div>
       </div>
 
-      <!-- Hero: only when a chronicle is loaded -->
-      <div v-if="hasCurrentObservation" class="col-auto q-pa-xs">
-        <div class="box">
-          <cTitle title="Chronique active" />
-          <ActiveChronicle />
+      <!-- ===== Layout A: No chronicle loaded ===== -->
+      <template v-if="!hasCurrentObservation">
+        <div class="col-auto q-pa-xs">
+          <WelcomeHero
+            :is-cloud-authenticated="cloud.sharedState.isAuthenticated"
+            @create="methods.createNewObservation"
+            @import="methods.importObservation"
+            @cloud="methods.openCloud"
+            @load-example="methods.loadExample"
+          />
         </div>
-      </div>
 
-      <!-- Main content row -->
-      <div class="col row" style="min-height: 0">
-        <div class="col-7 column q-pa-xs">
-          <div class="box col column">
-            <cTitle class="col-auto" title="Vos chroniques" />
-            <MyObservations class="col" mode="compact" />
-            <template v-if="!hasCurrentObservation">
-              <q-separator class="q-my-sm" />
-              <div class="col-auto row items-center justify-center q-gutter-sm q-pb-xs">
-                <DSubmitBtn
-                  label="Nouvelle chronique"
-                  icon="mdi-plus"
-                  @click="methods.createNewObservation"
-                />
-                <q-btn
-                  icon="mdi-file-import"
-                  label="Importer"
-                  outline
-                  color="primary"
-                  no-caps
-                  @click="methods.importObservation"
-                />
-              </div>
-            </template>
+        <div class="col row" style="min-height: 0">
+          <div class="col-7 column q-pa-xs">
+            <div class="box col column">
+              <cTitle class="col-auto" title="Vos chroniques" />
+              <MyObservations class="col" />
+            </div>
+          </div>
+          <div class="col-5 column q-pa-xs">
+            <div class="box col column">
+              <cTitle class="col-auto" title="Centre d'aide" />
+              <FirstSteps class="col" />
+            </div>
           </div>
         </div>
-        <div class="col-5 column q-pa-xs">
-          <div class="box col column">
-            <cTitle class="col-auto" title="Centre d'aide" />
-            <FirstSteps class="col" />
+      </template>
+
+      <!-- ===== Layout B: Chronicle loaded ===== -->
+      <template v-else>
+        <div class="col-auto q-pa-xs">
+          <div class="box">
+            <cTitle title="Chronique active" />
+            <ActiveChronicle />
           </div>
         </div>
-      </div>
+
+        <div class="col row" style="min-height: 0">
+          <div class="col-7 column q-pa-xs">
+            <div class="box col column">
+              <cTitle class="col-auto" title="Vos chroniques" />
+              <MyObservations class="col" />
+            </div>
+          </div>
+          <div class="col-5 column q-pa-xs">
+            <div class="box col column">
+              <cTitle class="col-auto" title="Centre d'aide" />
+              <FirstSteps class="col" />
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
   </DPage>
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, nextTick } from 'vue';
+import { defineComponent, computed, nextTick, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRouter } from 'vue-router';
 import cTitle from './_components/Title.vue';
 import MyObservations from './_components/my-observations/Index.vue';
 import FirstSteps from './_components/first-steps/Index.vue';
 import ActiveChronicle from './_components/active-chronicle/Index.vue';
-import { DSubmitBtn } from '@lib-improba/components';
+import WelcomeHero from './_components/welcome-hero/Index.vue';
 import { useObservation } from 'src/composables/use-observation';
+import { useCloud } from 'src/composables/use-cloud';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
 import CreateObservationDialog from './_components/active-chronicle/CreateObservationDialog.vue';
+import CloudLoginDialog from './_components/cloud/CloudLoginDialog.vue';
+import CloudSyncDialog from './_components/cloud/CloudSyncDialog.vue';
 import { ObservationModeEnum } from '@services/observations/interface';
 import { protocolService } from '@services/observations/protocol.service';
 import { importService } from '@services/observations/import.service';
@@ -76,12 +90,17 @@ export default defineComponent({
     MyObservations,
     FirstSteps,
     ActiveChronicle,
-    DSubmitBtn,
+    WelcomeHero,
   },
   setup() {
     const $q = useQuasar();
     const router = useRouter();
     const observation = useObservation();
+    const cloud = useCloud();
+
+    onMounted(async () => {
+      await cloud.methods.init();
+    });
 
     const hasCurrentObservation = computed(
       () => !!observation.sharedState.currentObservation
@@ -195,10 +214,50 @@ export default defineComponent({
           });
         }
       },
+
+      async openCloud() {
+        await cloud.methods.init();
+
+        if (!cloud.sharedState.isAuthenticated) {
+          $q.dialog({
+            component: CloudLoginDialog,
+          }).onOk(() => {
+            methods.openCloudSyncDialog();
+          });
+        } else {
+          methods.openCloudSyncDialog();
+        }
+      },
+
+      openCloudSyncDialog() {
+        $q.dialog({
+          component: CloudSyncDialog,
+        }).onOk((result: { action: string; observationId?: number }) => {
+          if (result.action === 'logout') {
+            methods.openCloud();
+          }
+        });
+      },
+
+      async loadExample() {
+        try {
+          const exampleObservation =
+            await observation.methods.cloneExampleObservation();
+          await observation.methods.loadObservation(exampleObservation.id);
+        } catch (error) {
+          console.error('Erreur lors du chargement de l\'exemple:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors du chargement de l\'exemple',
+            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+          });
+        }
+      },
     };
 
     return {
       observation,
+      cloud,
       hasCurrentObservation,
       methods,
     };
