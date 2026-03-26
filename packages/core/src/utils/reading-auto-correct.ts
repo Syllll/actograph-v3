@@ -90,6 +90,7 @@ export function autoCorrectReadings(
     actions.push({
       type: 'sort',
       description: 'Trier les relevés par ordre chronologique croissant',
+      reason: 'sort_chronological',
     });
   }
 
