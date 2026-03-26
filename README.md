@@ -74,7 +74,7 @@ actograph-v3/
 │   │   ├── pages/        # Pages de l'application
 │   │   ├── components/   # Composants Vue
 │   │   ├── services/     # Services API
-│   │   └── composables/  # Composables Vue
+│   │   └── composables/  # Composables Vue (ex. relevés, navigation / actions chronique, drawer)
 │   └── lib-improba/      # Bibliothèque partagée
 ├── mobile/                # Application mobile Capacitor
 │   ├── src/              # Code source mobile
@@ -96,11 +96,16 @@ Logique métier pure TypeScript, sans dépendance framework. Utilisé par :
 - `front/` - Frontend web
 - `mobile/` - Application mobile
 
-Contient : enums, types, statistiques, parsers de fichiers, validation.
+Contient notamment : enums, types, statistiques, parsers de fichiers (ex. chronic v1), validation, utilitaires (`reading-auto-correct` : correction automatique des relevés avec codes `reason` stables et `AUTO_CORRECT_SYNTH_NAMES` pour les libellés synthétiques — à traduire côté appli via i18n).
 
 ```bash
 # Build
 cd packages/core && yarn build
+```
+
+```bash
+# Tests unitaires (Jest)
+cd packages/core && yarn test
 ```
 
 ### @actograph/graph

@@ -554,6 +554,29 @@ Les readings créés en mode chronomètre utilisent automatiquement :
 
 Cela garantit que les readings sont correctement synchronisés avec la vidéo si elle est chargée.
 
+## Auto-correction des relevés
+
+La logique d’**auto-correction** (tri chronologique, dédoublonnage START/STOP, repositionnement du STOP, paires de pause, etc.) vit dans **`@actograph/core`**, module **`packages/core/src/utils/reading-auto-correct.ts`** (`autoCorrectReadings`).
+
+### Contrat core
+
+- Chaque action proposée est un **`IAutoCorrectAction`** : `type`, `description` (texte FR de secours pour logs / fallback), et quand c’est pertinent **`reason`** (code stable), **`count`**, **`relatedDate`**, **`newReading`**, etc.
+- Les relevés **créés** par l’auto-correct portent des noms **placeholders** exportés sous **`AUTO_CORRECT_SYNTH_NAMES`** (préfixe `__actograph/ac/…`). Ce ne sont pas des chaînes affichables : elles doivent être remplacées par les libellés i18n de l’application.
+
+### Frontend (Quasar)
+
+- **`front/src/composables/use-observation/use-readings.ts`** appelle le core puis :
+  - remplace les **`description`** affichées (dialogue, notifications) via **`localizeAutoCorrectAction`** dans **`auto-correct-i18n.ts`** (clés `readingsUi.autoCorrect*`, dates avec `d()`),
+  - à l’application des corrections, passe les noms synthétiques à **`localizeAutoCorrectReadingName`** pour les mapper vers **`readings.defaultChronicleEnd`**, **`defaultPauseStart`**, **`defaultPauseEnd`**, **`defaultNewReading`**.
+
+### Tests
+
+- **`packages/core/src/__tests__/utils/reading-auto-correct.test.ts`** : scénarios Jest sur le module auto-correct (tri, dedupe, STOP/pause manquants, `applyCorrections`).
+
+### Mobile et revue historique
+
+- Le mobile consomme la même logique core via son propre composable d’application ; des points d’attention ont été notés dans **`docs/reviews/20250115000000-auto-correct-shared-Sylvain-Meylan.md`** (snapshot — vérifier le code si besoin).
+
 ## Dépannage
 
 ### Readings non synchronisés
