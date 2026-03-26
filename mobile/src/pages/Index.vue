@@ -57,6 +57,15 @@
             unelevated
           />
           <q-btn
+            outline
+            color="secondary"
+            label="Partager"
+            icon="mdi-share-variant"
+            @click="methods.shareCurrentChronicle"
+            :loading="state.sharingId === chronicle.sharedState.currentChronicle?.id"
+            class="full-width q-mb-sm"
+          />
+          <q-btn
             flat
             color="grey-7"
             label="Charger une autre chronique"
@@ -249,6 +258,7 @@ import { useQuasar } from 'quasar';
 import { useChronicle } from '@composables/use-chronicle';
 import { useCloud } from '@composables/use-cloud';
 import { observationService } from '@services/observation.service';
+import { shareService } from '@services/share.service';
 import { DPage } from '@components';
 import CloudLoginDialog from '@components/CloudLoginDialog.vue';
 import CloudSyncDialog from '@components/CloudSyncDialog.vue';
@@ -273,6 +283,7 @@ export default defineComponent({
         description: '',
       },
       uploadingId: null as number | null,
+      sharingId: null as number | null,
     });
 
     const methods = {
@@ -398,6 +409,25 @@ export default defineComponent({
         const current = chronicle.sharedState.currentChronicle;
         if (current) {
           await methods.uploadChronicle(current.id, current.name);
+        }
+      },
+
+      shareCurrentChronicle: async () => {
+        const current = chronicle.sharedState.currentChronicle;
+        if (!current) return;
+
+        state.sharingId = current.id;
+        try {
+          const result = await shareService.shareChronicle(current.id);
+          if (!result.success) {
+            $q.notify({
+              type: 'negative',
+              message: 'Erreur de partage',
+              caption: result.error,
+            });
+          }
+        } finally {
+          state.sharingId = null;
         }
       },
     };

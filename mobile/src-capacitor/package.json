@@ -15,6 +15,7 @@
     "@capacitor/ios": "^6.0.0",
     "@capacitor/keyboard": "^6.0.0",
     "@capacitor/preferences": "^6.0.0",
+    "@capacitor/share": "^6.0.0",
     "@capacitor/splash-screen": "^6.0.0",
     "@capacitor/status-bar": "^6.0.0",
     "capacitor-secure-storage-plugin": "~0.10.0"

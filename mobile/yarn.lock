@@ -95,6 +95,11 @@
   resolved "https://registry.yarnpkg.com/@capacitor/preferences/-/preferences-6.0.4.tgz#1311497ffd06535454b4d732535d384c3d78b39f"
   integrity sha512-ziauSI1pgdyl+gduvvf8lInvzF3Wdyu/ok+u7NlnhKp8XOj9plJgtnXZWFiR8CiCK5wMvo+gFaNh3zhMyEUwpA==
 
+"@capacitor/share@^6.0.0":
+  version "6.0.4"
+  resolved "https://registry.yarnpkg.com/@capacitor/share/-/share-6.0.4.tgz#72cab5e3e1c42c8bd4b39edd7fbb2f68a28d9748"
+  integrity sha512-Ij8C3as4n6L+SUj3M1ko+DGIsrDw2VTkn5Y/pQnFRI9dRk6YoSpGKLN54yOyN7ew3N9bVa8Rko+dFwdcNg7ESA==
+
 "@capacitor/splash-screen@^6.0.0":
   version "6.0.4"
   resolved "https://registry.yarnpkg.com/@capacitor/splash-screen/-/splash-screen-6.0.4.tgz#a5d033440fbce2e230f4d163554c88c31bf8f326"

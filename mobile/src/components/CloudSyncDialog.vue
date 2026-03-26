@@ -132,6 +132,16 @@
                   disable
                 />
                 <q-btn
+                  v-if="chronicle.isJchronic"
+                  round
+                  flat
+                  color="secondary"
+                  icon="mdi-share-variant"
+                  aria-label="Partager"
+                  @click="methods.shareChronicle(chronicle)"
+                  :loading="state.sharingId === chronicle.id"
+                />
+                <q-btn
                   round
                   flat
                   color="negative"
@@ -160,7 +170,8 @@
 import { defineComponent, reactive, onMounted } from 'vue';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { useCloud } from '@composables/use-cloud';
-import type { ICloudChronicle } from '@services/actograph-cloud.service';
+import { shareService } from '@services/share.service';
+import { actographCloudService, type ICloudChronicle } from '@services/actograph-cloud.service';
 
 export default defineComponent({
   name: 'CloudSyncDialog',
@@ -173,6 +184,7 @@ export default defineComponent({
     const state = reactive({
       downloadingId: null as number | null,
       deletingId: null as number | null,
+      sharingId: null as number | null,
     });
 
     const formatDate = (dateString: string): string => {
@@ -250,6 +262,34 @@ export default defineComponent({
             color: 'negative',
           },
         }).onOk(() => methods.deleteChronicle(chronicle));
+      },
+
+      async shareChronicle(chronicle: ICloudChronicle) {
+        if (!chronicle.isJchronic) return;
+
+        state.sharingId = chronicle.id;
+        try {
+          const downloadResult = await actographCloudService.downloadChronicle(chronicle.id);
+          if (!downloadResult.success || !downloadResult.content) {
+            $q.notify({
+              type: 'negative',
+              message: 'Erreur de téléchargement',
+              caption: downloadResult.error || 'Impossible de récupérer le fichier',
+            });
+            return;
+          }
+
+          const result = await shareService.shareContent(downloadResult.content, chronicle.name);
+          if (!result.success) {
+            $q.notify({
+              type: 'negative',
+              message: 'Erreur de partage',
+              caption: result.error,
+            });
+          }
+        } finally {
+          state.sharingId = null;
+        }
       },
 
       async deleteChronicle(chronicle: ICloudChronicle) {
