@@ -2,7 +2,7 @@
   <DDialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    :title="'Modifier la catégorie'"
+    :title="t('protocolUi.modalEditCategoryTitle')"
   >
     <div>
       <div v-if="state.error" class="text-negative q-mb-md">
@@ -12,20 +12,20 @@
       <q-form @submit.prevent="editCategory" class="q-gutter-md">
         <q-input
           v-model="state.form.name"
-          label="Nom de la catégorie"
-          :rules="[(val: string) => !!val || 'Le nom est obligatoire']"
+          :label="t('protocolUi.fieldCategoryName')"
+          :rules="[(val: string) => !!val || t('protocolUi.formNameRequired')]"
           outlined
           dense
         />
 
         <q-input
           v-model.number="state.form.order"
-          label="Ordre d'affichage"
+          :label="t('protocolUi.fieldDisplayOrder')"
           type="number"
           min="0"
           :rules="[
-            (val: number) => val !== null && val !== undefined || 'L\'ordre est obligatoire',
-            (val: number) => val >= 0 || 'L\'ordre doit être positif'
+            (val: number) => val !== null && val !== undefined || t('protocolUi.formOrderRequired'),
+            (val: number) => val >= 0 || t('protocolUi.formOrderNonNegative')
           ]"
           outlined
           dense
@@ -33,7 +33,7 @@
 
         <q-input
           v-model="state.form.description"
-          label="Description (optionnelle)"
+          :label="t('protocolUi.fieldDescriptionOptional')"
           type="textarea"
           outlined
           dense
@@ -42,7 +42,7 @@
         <q-select
           v-model="state.form.action"
           :options="actionOptions"
-          label="Type d'action"
+          :label="t('protocolUi.fieldActionType')"
           outlined
           dense
           emit-value
@@ -53,11 +53,11 @@
     <template #actions>
       <DCancelBtn
         @click="$emit('update:modelValue', false)"
-        label="Annuler"
+        :label="t('dialogs.cancel')"
       />
       <DSubmitBtn
         @click="editCategory"
-        label="Enregistrer"
+        :label="t('components.DModal.save')"
         :disable="state.loading"
         :loading="state.loading"
       />
@@ -66,7 +66,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, watch, PropType } from 'vue';
+import { defineComponent, reactive, watch, PropType, computed } from 'vue';
 import { useQuasar } from 'quasar';
 import {
   ProtocolItem,
@@ -109,13 +109,14 @@ export default defineComponent({
 
   setup(props, { emit }) {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation();
     const protocol = observation.protocol;
 
-    const actionOptions = [
-      { label: 'Continue', value: ProtocolItemActionEnum.Continuous },
-      { label: 'Discret', value: ProtocolItemActionEnum.Discrete },
-    ];
+    const actionOptions = computed(() => [
+      { label: t('protocolUi.actionTypeContinuous'), value: ProtocolItemActionEnum.Continuous },
+      { label: t('protocolUi.actionTypeDiscrete'), value: ProtocolItemActionEnum.Discrete },
+    ]);
 
     const state = reactive({
       loading: false,
@@ -129,7 +130,6 @@ export default defineComponent({
       },
     });
 
-    // Update form when category prop changes
     watch(
       () => props.category,
       (category) => {
@@ -146,7 +146,6 @@ export default defineComponent({
       { immediate: true }
     );
 
-    // Reset error when modal opens
     watch(
       () => props.modelValue,
       (isOpen) => {
@@ -158,19 +157,17 @@ export default defineComponent({
 
     const editCategory = async () => {
       if (!state.form.name) {
-        state.error = 'Le nom de la catégorie est obligatoire';
+        state.error = t('protocolUi.errCategoryNameRequired');
         return;
       }
 
       if (!observation.protocol.sharedState.currentProtocol?.id) {
-        state.error =
-          'Impossible de modifier la catégorie : identifiant de protocole manquant';
+        state.error = t('protocolUi.errCannotEditCategoryNoProtocolId');
         return;
       }
 
       if (!state.form.id) {
-        state.error =
-          'Impossible de modifier la catégorie : identifiant de catégorie manquant';
+        state.error = t('protocolUi.errCannotEditCategoryNoCategoryId');
         return;
       }
 
@@ -179,7 +176,7 @@ export default defineComponent({
         !protocol.methods ||
         typeof protocol.methods.editProtocolItem !== 'function'
       ) {
-        state.error = 'Service de protocole non disponible';
+        state.error = t('protocolUi.serviceUnavailable');
         console.error('Protocol service is not properly initialized');
         return;
       }
@@ -205,12 +202,13 @@ export default defineComponent({
 
         emit('category-updated');
         emit('update:modelValue', false);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Failed to edit category:', error);
-        const apiMessage = error?.response?.data?.message;
+        const err = error as { response?: { data?: { message?: string | string[] } }; message?: string };
+        const apiMessage = err?.response?.data?.message;
         const message = Array.isArray(apiMessage)
           ? apiMessage.join('. ')
-          : apiMessage || error?.message || 'Échec de la modification de la catégorie';
+          : apiMessage || err?.message || t('protocolUi.errEditCategoryFailed');
         state.error = message;
       } finally {
         state.loading = false;
@@ -218,6 +216,7 @@ export default defineComponent({
     };
 
     return {
+      t,
       state,
       editCategory,
       actionOptions,

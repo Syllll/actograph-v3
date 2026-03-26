@@ -2,7 +2,7 @@
   <DDialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    :title="'Ajouter un observable'"
+    :title="t('protocolUi.modalAddObservableTitle')"
   >
     <div>
       <div v-if="state.error" class="text-negative q-mb-md">
@@ -12,20 +12,20 @@
       <q-form @submit.prevent="addObservable" class="q-gutter-md">
         <q-input
           v-model="state.form.name"
-          label="Nom de l'observable"
-          :rules="[(val: string) => !!val || 'Le nom est obligatoire']"
+          :label="t('protocolUi.fieldObservableName')"
+          :rules="[(val: string) => !!val || t('protocolUi.formNameRequired')]"
           outlined
           dense
         />
 
         <q-input
           v-model.number="state.form.order"
-          label="Ordre d'affichage"
+          :label="t('protocolUi.fieldDisplayOrder')"
           type="number"
           min="0"
           :rules="[
-            (val: number) => val !== null && val !== undefined || 'L\'ordre est obligatoire',
-            (val: number) => val >= 0 || 'L\'ordre doit être positif'
+            (val: number) => val !== null && val !== undefined || t('protocolUi.formOrderRequired'),
+            (val: number) => val >= 0 || t('protocolUi.formOrderNonNegative')
           ]"
           outlined
           dense
@@ -33,7 +33,7 @@
 
         <q-input
           v-model="state.form.description"
-          label="Description (optionnelle)"
+          :label="t('protocolUi.fieldDescriptionOptional')"
           type="textarea"
           outlined
           dense
@@ -43,18 +43,18 @@
     <template #actions>
       <DCancelBtn
         @click="$emit('update:modelValue', false)"
-        label="Annuler"
+        :label="t('dialogs.cancel')"
       />
       <DSubmitBtn
         @click="addObservable"
-        label="Ajouter"
+        :label="t('components.DModal.add')"
       />
     </template>
   </DDialog>
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, watch, PropType, ref } from 'vue';
+import { defineComponent, reactive, watch, PropType } from 'vue';
 import { useQuasar } from 'quasar';
 import {
   ProtocolItem,
@@ -110,7 +110,6 @@ export default defineComponent({
       },
     });
 
-    // Reset form when modal is opened
     watch(
       () => props.modelValue,
       (isOpen) => {
@@ -127,19 +126,17 @@ export default defineComponent({
 
     const addObservable = async () => {
       if (!state.form.name) {
-        state.error = "Le nom de l'observable est obligatoire";
+        state.error = t('protocolUi.errObservableNameRequired');
         return;
       }
 
       if (!observation.protocol.sharedState.currentProtocol?.id) {
-        state.error =
-          "Impossible d'ajouter un observable : identifiant de protocole manquant";
+        state.error = t('protocolUi.errCannotAddObservableNoProtocolId');
         return;
       }
 
       if (!props.category?.id) {
-        state.error =
-          "Impossible d'ajouter un observable : catégorie parente manquante";
+        state.error = t('protocolUi.errCannotAddObservableNoParent');
         return;
       }
 
@@ -148,7 +145,7 @@ export default defineComponent({
         !protocol.methods ||
         typeof protocol.methods.addObservable !== 'function'
       ) {
-        state.error = 'Service de protocole non disponible';
+        state.error = t('protocolUi.serviceUnavailable');
         console.error('Protocol service is not properly initialized');
         return;
       }
@@ -171,18 +168,18 @@ export default defineComponent({
           message: t('protocolUi.observableAdded'),
         });
 
-        // Emit with the category ID so the parent component knows which category to expand
         emit('observable-added', props.category.id);
         emit('update:modelValue', false);
       } catch (error) {
         console.error('Failed to add observable:', error);
-        state.error = "Échec de l'ajout de l'observable";
+        state.error = t('protocolUi.errAddObservableFailed');
       } finally {
         state.loading = false;
       }
     };
 
     return {
+      t,
       state,
       addObservable,
     };

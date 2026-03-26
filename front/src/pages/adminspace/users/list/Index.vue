@@ -3,7 +3,7 @@
     <DSearchInput v-model="state.search" style="width: 20rem" />
     <UserRoleSelect v-model="state.userRoleFilter" />
     <DSpace />
-    <DSubmitBtn label="Add a user" @click="state.triggerOpenModal = true">
+    <DSubmitBtn :label="t('adminUsers.addUser')" @click="state.triggerOpenModal = true">
       <AddUserModal
         v-model:triggerOpen="state.triggerOpenModal"
         @refresh="state.reload = true"
@@ -12,6 +12,7 @@
   </div>
   <DPaginationTable
     :columns="stateless.columns"
+    :key="locale"
     :fetchFunction="methods.fetch"
     v-model:triggerReload="state.reload"
   >
@@ -25,7 +26,7 @@
             })
           "
         />-->
-        -Actions-
+        {{ t('adminUsers.actionsPending') }}
       </div>
     </template>
     <!-- <template v-slot:expanded-row="scope">
@@ -35,9 +36,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, onMounted, watch } from 'vue';
+import { defineComponent, reactive, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { columns } from './columns';
+import { useI18n } from 'vue-i18n';
+import { createAdminUserColumns } from './columns';
 import { adminUserService } from '@services/users/admin/admin-user.service';
 import AddUserModal from './add-user-modal/Index.vue';
 import UserRoleSelect from './UserRoleSelect.vue';
@@ -49,10 +51,11 @@ export default defineComponent({
   },
   setup() {
     const router = useRouter();
+    const { t, locale } = useI18n();
 
-    const stateless = {
-      columns,
-    };
+    const stateless = computed(() => ({
+      columns: createAdminUserColumns(t),
+    }));
 
     const state = reactive({
       loading: false,
@@ -128,6 +131,8 @@ export default defineComponent({
       state,
       methods,
       router,
+      t,
+      locale,
     };
   },
 });

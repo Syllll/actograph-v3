@@ -1,11 +1,10 @@
-import { useRouter } from 'vue-router';
+import type { ComposerTranslation } from 'vue-i18n';
+import type { Router } from 'vue-router';
 
-export const menuItems = () => {
-  const router = useRouter();
-
+export function buildAdminDrawerMenu(t: ComposerTranslation, router: Router) {
   return [
     {
-      label: 'Users',
+      label: t('adminUsers.menuUsers'),
       action: () => {
         router.push({
           name: 'admin_users_list',
@@ -13,4 +12,4 @@ export const menuItems = () => {
       },
     },
   ];
-};
+}

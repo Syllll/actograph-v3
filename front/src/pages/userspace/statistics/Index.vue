@@ -2,9 +2,9 @@
   <DPage>
     <div v-if="!statistics.computedState.canCalculateStatistics.value" class="fit column items-center justify-center">
       <q-icon name="mdi-chart-box" size="64px" color="grey-6" class="q-mb-md" />
-      <div class="text-h4 text-grey-7">Aucun relevé disponible</div>
+      <div class="text-h4 text-grey-7">{{ t('statisticsUi.emptyTitle') }}</div>
       <div class="text-body1 text-grey-6 q-mt-sm">
-        Créez des relevés dans la page Observation pour voir les statistiques.
+        {{ t('statisticsUi.emptyHint') }}
       </div>
     </div>
 
@@ -17,9 +17,9 @@
         indicator-color="primary"
         align="left"
       >
-        <q-tab name="general" label="Vue globale" />
-        <q-tab name="category" label="Par catégorie" />
-        <q-tab name="advanced" label="Mode avancé" />
+        <q-tab name="general" :label="t('statisticsUi.tabGeneral')" />
+        <q-tab name="category" :label="t('statisticsUi.tabByCategory')" />
+        <q-tab name="advanced" :label="t('statisticsUi.tabAdvanced')" />
       </q-tabs>
 
       <q-separator />
@@ -46,6 +46,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useObservation } from 'src/composables/use-observation';
 import { DPage } from '@lib-improba/components';
@@ -61,6 +62,7 @@ export default defineComponent({
     ConditionalStatisticsView,
   },
   setup() {
+    const { t } = useI18n();
     const statistics = useStatistics();
     const observation = useObservation();
 
@@ -80,6 +82,7 @@ export default defineComponent({
     });
 
     return {
+      t,
       statistics,
       observation,
       state,

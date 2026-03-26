@@ -2,7 +2,7 @@
   <DDialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    :title="'Ajouter une catégorie'"
+    :title="t('protocolUi.addCategory')"
   >
     <div>
       <div v-if="state.error" class="text-negative q-mb-md">
@@ -12,20 +12,20 @@
       <q-form @submit.prevent="addCategory" class="q-gutter-md">
         <q-input
           v-model="state.form.name"
-          label="Nom de la catégorie"
-          :rules="[(val: string) => !!val || 'Le nom est obligatoire']"
+          :label="t('protocolUi.fieldCategoryName')"
+          :rules="[(val: string) => !!val || t('protocolUi.formNameRequired')]"
           outlined
           dense
         />
 
         <q-input
           v-model.number="state.form.order"
-          label="Ordre d'affichage"
+          :label="t('protocolUi.fieldDisplayOrder')"
           type="number"
           min="0"
           :rules="[
-            (val: number) => val !== null && val !== undefined || 'L\'ordre est obligatoire',
-            (val: number) => val >= 0 || 'L\'ordre doit être positif'
+            (val: number) => val !== null && val !== undefined || t('protocolUi.formOrderRequired'),
+            (val: number) => val >= 0 || t('protocolUi.formOrderNonNegative')
           ]"
           outlined
           dense
@@ -33,7 +33,7 @@
 
         <q-input
           v-model="state.form.description"
-          label="Description (optionnelle)"
+          :label="t('protocolUi.fieldDescriptionOptional')"
           type="textarea"
           outlined
           dense
@@ -42,7 +42,7 @@
         <q-select
           v-model="state.form.action"
           :options="actionOptions"
-          label="Type d'action"
+          :label="t('protocolUi.fieldActionType')"
           outlined
           dense
           emit-value
@@ -53,18 +53,18 @@
     <template #actions>
       <DCancelBtn
         @click="$emit('update:modelValue', false)"
-        label="Annuler"
+        :label="t('dialogs.cancel')"
       />
       <DSubmitBtn
         @click="addCategory"
-        label="Ajouter"
+        :label="t('components.DModal.add')"
       />
     </template>
   </DDialog>
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, watch, PropType } from 'vue';
+import { defineComponent, reactive, watch, computed } from 'vue';
 import { useQuasar } from 'quasar';
 import {
   ProtocolItemTypeEnum,
@@ -106,10 +106,10 @@ export default defineComponent({
     const observation = useObservation();
     const protocol = observation.protocol;
 
-    const actionOptions = [
-      { label: 'Continue', value: ProtocolItemActionEnum.Continuous },
-      { label: 'Discret', value: ProtocolItemActionEnum.Discrete },
-    ];
+    const actionOptions = computed(() => [
+      { label: t('protocolUi.actionTypeContinuous'), value: ProtocolItemActionEnum.Continuous },
+      { label: t('protocolUi.actionTypeDiscrete'), value: ProtocolItemActionEnum.Discrete },
+    ]);
 
     const state = reactive({
       loading: false,
@@ -122,7 +122,6 @@ export default defineComponent({
       },
     });
 
-    // Reset form when modal is opened
     watch(
       () => props.modelValue,
       (isOpen) => {
@@ -140,13 +139,12 @@ export default defineComponent({
 
     const addCategory = async () => {
       if (!state.form.name) {
-        state.error = 'Le nom de la catégorie est obligatoire';
+        state.error = t('protocolUi.errCategoryNameRequired');
         return;
       }
 
       if (!observation.protocol.sharedState.currentProtocol?.id) {
-        state.error =
-          "Impossible d'ajouter une catégorie : identifiant de protocole manquant";
+        state.error = t('protocolUi.errCannotAddCategoryNoProtocolId');
         return;
       }
 
@@ -155,7 +153,7 @@ export default defineComponent({
         !protocol.methods ||
         typeof protocol.methods.addCategory !== 'function'
       ) {
-        state.error = 'Service de protocole non disponible';
+        state.error = t('protocolUi.serviceUnavailable');
         console.error('Protocol service is not properly initialized');
         return;
       }
@@ -182,13 +180,14 @@ export default defineComponent({
         emit('update:modelValue', false);
       } catch (error) {
         console.error('Failed to add category:', error);
-        state.error = "Échec de l'ajout de la catégorie";
+        state.error = t('protocolUi.errAddCategoryFailed');
       } finally {
         state.loading = false;
       }
     };
 
     return {
+      t,
       state,
       addCategory,
       actionOptions,

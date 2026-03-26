@@ -2,7 +2,7 @@
   <DDialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    :title="'Supprimer la catégorie'"
+    :title="t('protocolUi.removeCategoryTitle')"
   >
     <div>
       <div v-if="state.error" class="text-negative q-mb-md">
@@ -10,21 +10,20 @@
       </div>
 
       <p>
-        Êtes-vous sûr de vouloir supprimer la catégorie "{{ category?.name }}" ?
+        {{ t('protocolUi.removeCategoryConfirm', { name: category?.name ?? '' }) }}
       </p>
       <p class="text-negative">
-        Attention : Cette action est irréversible et supprimera également tous
-        les observables associés à cette catégorie.
+        {{ t('protocolUi.removeCategoryWarningLong') }}
       </p>
     </div>
     <template #actions>
       <DCancelBtn
         @click="$emit('update:modelValue', false)"
-        label="Annuler"
+        :label="t('dialogs.cancel')"
       />
       <DSubmitBtn
         @click="removeCategory"
-        label="Supprimer"
+        :label="t('components.DModal.delete')"
         color="negative"
       />
     </template>
@@ -96,7 +95,6 @@ export default defineComponent({
         state.loading = true;
         state.error = '';
 
-        // Use the protocol composable directly
         const result = await protocol.methods.removeItem(props.category.id);
 
         $q.notify({
@@ -104,7 +102,6 @@ export default defineComponent({
           message: t('protocolUi.categoryRemoved'),
         });
 
-        // If a default template was created, show an informative message
         if (result && result.defaultTemplateCreated) {
           $q.notify({
             type: 'info',
@@ -124,6 +121,7 @@ export default defineComponent({
     };
 
     return {
+      t,
       state,
       removeCategory,
     };

@@ -2,7 +2,7 @@
   <DDialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    :title="'Supprimer l\'observable'"
+    :title="t('protocolUi.removeObservableTitle')"
   >
     <div>
       <div v-if="state.error" class="text-negative q-mb-md">
@@ -10,20 +10,20 @@
       </div>
 
       <p>
-        Êtes-vous sûr de vouloir supprimer l'observable "{{ observable?.name }}" ?
+        {{ t('protocolUi.removeObservableConfirm', { name: observable?.name ?? '' }) }}
       </p>
       <p class="text-negative">
-        Attention : Cette action est irréversible.
+        {{ t('protocolUi.removeIrreversibleShort') }}
       </p>
     </div>
     <template #actions>
       <DCancelBtn
         @click="$emit('update:modelValue', false)"
-        label="Annuler"
+        :label="t('dialogs.cancel')"
       />
       <DSubmitBtn
         @click="removeObservable"
-        label="Supprimer"
+        :label="t('components.DModal.delete')"
         color="negative"
       />
     </template>
@@ -33,7 +33,7 @@
 <script lang="ts">
 import { defineComponent, reactive, PropType } from 'vue';
 import { useQuasar } from 'quasar';
-import { ProtocolItem, protocolService } from '@services/observations/protocol.service';
+import { ProtocolItem } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
 
@@ -81,20 +81,18 @@ export default defineComponent({
 
     const removeObservable = async () => {
       if (!props.observable || !props.observable.id) {
-        state.error = 'Observable invalide ou identifiant manquant';
+        state.error = t('protocolUi.invalidObservable');
         return;
       }
 
       const protocolId = observation.protocol.sharedState.currentProtocol?.id;
       if (!protocolId) {
-        state.error =
-          "Impossible de supprimer l'observable : identifiant de protocole manquant";
+        state.error = t('protocolUi.errCannotRemoveObservableNoProtocolId');
         return;
       }
 
       if (!props.categoryId) {
-        state.error =
-          "Impossible de supprimer l'observable : identifiant de catégorie manquant";
+        state.error = t('protocolUi.errCannotRemoveObservableNoCategoryId');
         return;
       }
 
@@ -103,7 +101,7 @@ export default defineComponent({
         !protocol.methods ||
         typeof protocol.methods.removeItem !== 'function'
       ) {
-        state.error = 'Service de protocole non disponible';
+        state.error = t('protocolUi.serviceUnavailable');
         console.error('Protocol service is not properly initialized');
         return;
       }
@@ -119,7 +117,6 @@ export default defineComponent({
           message: t('protocolUi.observableRemoved'),
         });
 
-        // If a default template was created, show an informative message
         if (result && result.defaultTemplateCreated) {
           $q.notify({
             type: 'info',
@@ -132,16 +129,17 @@ export default defineComponent({
         emit('update:modelValue', false);
       } catch (error) {
         console.error('Failed to remove observable:', error);
-        state.error = "Échec de la suppression de l'observable";
+        state.error = t('protocolUi.errRemoveObservableFailed');
       } finally {
         state.loading = false;
       }
     };
 
     return {
+      t,
       state,
       removeObservable,
     };
   },
 });
-</script> 
+</script>

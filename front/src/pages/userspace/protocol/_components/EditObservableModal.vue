@@ -2,7 +2,7 @@
   <DDialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    :title="'Modifier l\'observable'"
+    :title="t('protocolUi.modalEditObservableTitle')"
   >
     <div>
       <div v-if="state.error" class="text-negative q-mb-md">
@@ -12,20 +12,20 @@
       <q-form @submit.prevent="editObservable" class="q-gutter-md">
         <q-input
           v-model="state.form.name"
-          label="Nom de l'observable"
-          :rules="[(val: string) => !!val || 'Le nom est obligatoire']"
+          :label="t('protocolUi.fieldObservableName')"
+          :rules="[(val: string) => !!val || t('protocolUi.formNameRequired')]"
           outlined
           dense
         />
 
         <q-input
           v-model.number="state.form.order"
-          label="Ordre d'affichage"
+          :label="t('protocolUi.fieldDisplayOrder')"
           type="number"
           min="0"
           :rules="[
-            (val: number) => val !== null && val !== undefined || 'L\'ordre est obligatoire',
-            (val: number) => val >= 0 || 'L\'ordre doit être positif'
+            (val: number) => val !== null && val !== undefined || t('protocolUi.formOrderRequired'),
+            (val: number) => val >= 0 || t('protocolUi.formOrderNonNegative')
           ]"
           outlined
           dense
@@ -33,7 +33,7 @@
 
         <q-input
           v-model="state.form.description"
-          label="Description (optionnelle)"
+          :label="t('protocolUi.fieldDescriptionOptional')"
           type="textarea"
           outlined
           dense
@@ -43,11 +43,11 @@
     <template #actions>
       <DCancelBtn
         @click="$emit('update:modelValue', false)"
-        label="Annuler"
+        :label="t('dialogs.cancel')"
       />
       <DSubmitBtn
         @click="editObservable"
-        label="Enregistrer"
+        :label="t('components.DModal.save')"
       />
     </template>
   </DDialog>
@@ -111,24 +111,21 @@ export default defineComponent({
       },
     });
 
-    // Update form when observable prop changes
     watch(
       () => props.observable,
       (observable) => {
         if (observable) {
-          // The observable now has the order property explicitly added in the parent component
           state.form = {
             id: observable.id,
             name: observable.name,
             description: observable.description || '',
-            order: (observable as any).order || 0, // Cast to any to access the dynamically added property
+            order: (observable as ProtocolItem & { order?: number }).order || 0,
           };
         }
       },
       { immediate: true }
     );
 
-    // Reset error when modal opens
     watch(
       () => props.modelValue,
       (isOpen) => {
@@ -140,25 +137,22 @@ export default defineComponent({
 
     const editObservable = async () => {
       if (!state.form.name) {
-        state.error = "Le nom de l'observable est obligatoire";
+        state.error = t('protocolUi.errObservableNameRequired');
         return;
       }
 
       if (!observation.protocol.sharedState.currentProtocol?.id) {
-        state.error =
-          "Impossible de modifier l'observable : identifiant de protocole manquant";
+        state.error = t('protocolUi.errCannotEditObservableNoProtocolId');
         return;
       }
 
       if (!state.form.id) {
-        state.error =
-          "Impossible de modifier l'observable : identifiant d'observable manquant";
+        state.error = t('protocolUi.errCannotEditObservableNoObservableId');
         return;
       }
 
       if (!props.categoryId) {
-        state.error =
-          "Impossible de modifier l'observable : identifiant de catégorie manquant";
+        state.error = t('protocolUi.errCannotEditObservableNoCategoryId');
         return;
       }
 
@@ -167,7 +161,7 @@ export default defineComponent({
         !protocol.methods ||
         typeof protocol.methods.editProtocolItem !== 'function'
       ) {
-        state.error = 'Service de protocole non disponible';
+        state.error = t('protocolUi.serviceUnavailable');
         console.error('Protocol service is not properly initialized');
         return;
       }
@@ -194,16 +188,17 @@ export default defineComponent({
         emit('update:modelValue', false);
       } catch (error) {
         console.error('Failed to edit observable:', error);
-        state.error = "Échec de la modification de l'observable";
+        state.error = t('protocolUi.errEditObservableFailed');
       } finally {
         state.loading = false;
       }
     };
 
     return {
+      t,
       state,
       editObservable,
     };
   },
 });
-</script> 
+</script>

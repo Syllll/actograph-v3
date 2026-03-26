@@ -5,20 +5,20 @@
       style="min-width: 700px; max-width: 900px"
       bgColor="background"
       innerHeader
-      title="Correction automatique des relevés"
+      :title="t('readingsUi.autoCorrectDialogTitle')"
     >
       <DCardSection>
         <div v-if="actions.length === 0" class="text-body1 text-center q-pa-md">
           <q-icon name="check_circle" color="positive" size="48px" />
-          <div class="q-mt-md">Aucune correction nécessaire</div>
+          <div class="q-mt-md">{{ t('readingsUi.autoCorrectNone') }}</div>
           <div class="text-caption text-grey-6 q-mt-xs">
-            Tous les relevés sont correctement ordonnés et structurés.
+            {{ t('readingsUi.autoCorrectNoneCaption') }}
           </div>
         </div>
         
         <div v-else class="column q-gutter-md">
           <div class="text-body2">
-            Les actions suivantes seront appliquées pour corriger les relevés :
+            {{ t('readingsUi.autoCorrectActionsIntro') }}
           </div>
           
           <q-list separator>
@@ -44,9 +44,9 @@
 
       <DCardSection v-if="actions.length > 0">
         <div class="row items-center justify-end full-width q-gutter-md">
-          <DCancelBtn @click="onCancelClick" />
+          <DCancelBtn @click="onCancelClick" :label="t('dialogs.cancel')" />
           <DSubmitBtn
-            label="Appliquer les corrections"
+            :label="t('readingsUi.autoCorrectApply')"
             @click="onOKClick"
             color="accent"
           />
@@ -56,7 +56,7 @@
       <DCardSection v-else>
         <div class="row items-center justify-end full-width">
           <DSubmitBtn
-            label="Fermer"
+            :label="t('help.close')"
             @click="onOKClick"
             color="primary"
           />
@@ -67,8 +67,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent } from 'vue';
 import { useDialogPluginComponent } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import { DCard, DCardSection, DCancelBtn, DSubmitBtn } from '@lib-improba/components';
 
 export interface AutoCorrectAction {
@@ -76,7 +77,7 @@ export interface AutoCorrectAction {
   description: string;
   readingIds?: number[];
   tempIds?: string[];
-  newReading?: any;
+  newReading?: unknown;
 }
 
 export default defineComponent({
@@ -98,7 +99,8 @@ export default defineComponent({
 
   emits: [...useDialogPluginComponent.emits],
 
-  setup(props) {
+  setup() {
+    const { t } = useI18n();
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent();
 
     const getActionIcon = (type: string): string => {
@@ -140,6 +142,7 @@ export default defineComponent({
     };
 
     return {
+      t,
       dialogRef,
       onDialogHide,
       onOKClick,
@@ -153,4 +156,3 @@ export default defineComponent({
 
 <style scoped>
 </style>
-

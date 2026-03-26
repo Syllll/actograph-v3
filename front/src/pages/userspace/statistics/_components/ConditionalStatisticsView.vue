@@ -2,11 +2,10 @@
   <div class="column q-gutter-md">
     <DCard bgColor="background">
       <DCardSection>
-        <div class="text-h6 q-mb-md">Statistiques conditionnelles</div>
+        <div class="text-h6 q-mb-md">{{ t('statisticsUi.conditionalTitle') }}</div>
         <div class="column q-gutter-md">
-          <!-- Étape 1: Sélection de la catégorie à étudier -->
           <div class="column q-gutter-sm">
-            <div class="text-subtitle2">1. Choisir la catégorie à étudier</div>
+            <div class="text-subtitle2">{{ t('statisticsUi.step1Title') }}</div>
             <q-select
               v-model="state.targetCategoryId"
               :options="categoryOptions"
@@ -16,16 +15,15 @@
               map-options
               outlined
               dense
-              placeholder="Sélectionner une catégorie"
+              :placeholder="t('statisticsUi.selectCategoryPlaceholder')"
               style="flex: 1;"
             />
           </div>
 
-          <!-- Étape 2: Ajout de conditions -->
           <div v-if="state.targetCategoryId" class="column q-gutter-sm">
-            <div class="text-subtitle2">2. Ajouter des conditions (optionnel)</div>
+            <div class="text-subtitle2">{{ t('statisticsUi.step2Title') }}</div>
             <div class="text-body2 text-grey-7 q-mb-sm">
-              Les statistiques seront calculées uniquement lorsque les conditions sont valides
+              {{ t('statisticsUi.step2Hint') }}
             </div>
             
             <div
@@ -42,10 +40,10 @@
                 map-options
                 outlined
                 dense
-                placeholder="Observable"
+                :placeholder="t('statisticsUi.observablePlaceholder')"
                 style="flex: 1;"
               />
-              <div class="text-body2">est</div>
+              <div class="text-body2">{{ t('statisticsUi.conditionIs') }}</div>
               <q-select
                 v-model="condition.state"
                 :options="stateOptions"
@@ -72,17 +70,16 @@
               flat
               dense
               icon="add"
-              label="Ajouter une condition"
+              :label="t('statisticsUi.addCondition')"
               @click="methods.addCondition"
               color="primary"
             />
           </div>
 
-          <!-- Bouton de calcul -->
           <div class="row items-center justify-end q-mt-md">
             <q-btn
               color="primary"
-              label="Calculer les statistiques"
+              :label="t('statisticsUi.calculate')"
               @click="methods.calculateConditionalStatistics"
               :disable="!methods.canCalculate"
               :loading="statistics.sharedState.loading"
@@ -100,11 +97,11 @@
       <DCard bgColor="background">
         <DCardSection>
           <div class="text-h6 q-mb-md">
-            Résultats pour la catégorie :
+            {{ t('statisticsUi.resultsForCategory') }}
             {{ statistics.sharedState.conditionalStatistics.targetCategory.categoryName }}
           </div>
           <div v-if="state.conditions.length > 0" class="text-body2 q-mb-md">
-            <div>Durée totale lorsque les conditions sont valides :</div>
+            <div>{{ t('statisticsUi.filteredDurationIntro') }}</div>
             <div class="text-h6 text-primary">
               {{ statistics.methods.formatDuration(statistics.sharedState.conditionalStatistics.filteredDuration) }}
             </div>
@@ -113,7 +110,7 @@
           <!-- Pie Chart -->
           <div class="q-mb-lg">
             <div class="text-subtitle2 q-mb-sm">
-              Répartition (%) des temps "on" des observables
+              {{ t('statisticsUi.pieShareTitle') }}
             </div>
             <AmChartsPieChart
               :data="pieChartData"
@@ -124,7 +121,7 @@
 
           <!-- Bar Chart -->
           <div>
-            <div class="text-subtitle2 q-mb-sm">Durées absolues d'état "on"</div>
+            <div class="text-subtitle2 q-mb-sm">{{ t('statisticsUi.barOnDurationTitle') }}</div>
             <AmChartsBarChart
               :data="barChartData"
               :colors="barChartColors"
@@ -139,6 +136,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useObservation } from 'src/composables/use-observation';
 import { DCard, DCardSection } from '@lib-improba/components';
@@ -158,6 +156,7 @@ export default defineComponent({
     AmChartsBarChart,
   },
   setup() {
+    const { t } = useI18n();
     const statistics = useStatistics();
     const observation = useObservation();
 
@@ -166,15 +165,15 @@ export default defineComponent({
       conditions: [] as IObservableCondition[],
     });
 
-    const operatorOptions = [
-      { label: 'ET', value: ConditionOperatorEnum.AND },
-      { label: 'OU', value: ConditionOperatorEnum.OR },
-    ];
+    const operatorOptions = computed(() => [
+      { label: t('statisticsUi.operatorAnd'), value: ConditionOperatorEnum.AND },
+      { label: t('statisticsUi.operatorOr'), value: ConditionOperatorEnum.OR },
+    ]);
 
-    const stateOptions = [
-      { label: 'On', value: ObservableStateEnum.ON },
-      { label: 'Off', value: ObservableStateEnum.OFF },
-    ];
+    const stateOptions = computed(() => [
+      { label: t('statisticsUi.stateOn'), value: ObservableStateEnum.ON },
+      { label: t('statisticsUi.stateOff'), value: ObservableStateEnum.OFF },
+    ]);
 
     // Observables filtrés : exclure ceux de la catégorie à étudier pour éviter
     // de combiner une catégorie avec elle-même dans les conditions
@@ -426,6 +425,7 @@ export default defineComponent({
     });
 
     return {
+      t,
       statistics,
       observation,
       state,

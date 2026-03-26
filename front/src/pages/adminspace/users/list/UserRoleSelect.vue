@@ -2,14 +2,15 @@
   <DSelect
     emit-value
     map-options
-    v-model="queryParamSearch.state.filterValues[stateless.queryParamName]"
-    :options="stateless.options"
+    v-model="queryParamSearch.state.filterValues[queryParamName]"
+    :options="roleFilterOptions"
   />
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, onUnmounted, reactive, watch } from 'vue';
+import { defineComponent, computed, watch } from 'vue';
 import { useQueryParamSearch } from '@lib-improba/composables/use-query-param-search';
+import { useI18n } from 'vue-i18n';
 
 const queryParamName = 'filterUserRole';
 
@@ -23,15 +24,13 @@ export default defineComponent({
   emits: ['update:modelValue'],
   setup(props, context) {
     const queryParamSearch = useQueryParamSearch([queryParamName]);
+    const { t } = useI18n();
 
-    const stateless = {
-      queryParamName,
-      options: [
-        { value: null, label: 'All' },
-        { value: 'admin', label: 'Admin' },
-        { value: 'user', label: 'User' },
-      ],
-    };
+    const roleFilterOptions = computed(() => [
+      { value: null, label: t('adminUsers.roleFilterAll') },
+      { value: 'admin', label: t('adminUsers.roleFilterAdmin') },
+      { value: 'user', label: t('adminUsers.roleFilterUser') },
+    ]);
 
     watch(
       () => queryParamSearch.state.filterValues,
@@ -44,7 +43,8 @@ export default defineComponent({
     );
 
     return {
-      stateless,
+      queryParamName,
+      roleFilterOptions,
       queryParamSearch,
     };
   },

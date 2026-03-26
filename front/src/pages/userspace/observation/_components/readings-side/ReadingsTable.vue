@@ -38,7 +38,7 @@
               {{ getReadingTypeLabel(props.row.type) }}
               <q-popup-edit 
                 v-model="props.row.type" 
-                title="Editer le type" 
+                :title="t('readingsUi.editTypeTitle')" 
                 buttons
                 @save="(val, initialVal) => handleTypeSave(props.row, val, initialVal)"
                 v-slot="scope"
@@ -66,7 +66,7 @@
               </span>
               <q-popup-edit 
                 :model-value="observation.isChronometerMode.value ? formatDurationForEditDisplay(props.row.dateTime) : formatDateTimeForEdit(props.row.dateTime)"
-                :title="observation.isChronometerMode.value ? 'Editer la durée' : 'Editer la date et l\'heure'" 
+                :title="observation.isChronometerMode.value ? t('readingsUi.editDurationTitle') : t('readingsUi.editDateTimeTitle')" 
                 buttons
                 @before-show="() => openDateTimeEditor(props.row)"
                 @hide="clearDateTimeEditTarget"
@@ -79,16 +79,16 @@
                   <q-input
                     :model-value="formatDurationCompact()"
                     @update:model-value="parseDurationFromText($event)"
-                    label="Durée (copier-coller)"
+                    :label="t('readingsUi.durationCopyPaste')"
                     dense
-                    placeholder="ex: 1h 30m 45s"
-                    hint="Formats: Xj Yh Zm Ws Vms"
+                    :placeholder="t('readingsUi.durationPlaceholder')"
+                    :hint="t('readingsUi.durationFormatsHint')"
                   />
                   <div class="row q-gutter-sm">
                     <q-input
                       v-model.number="durationEditState.days"
                       type="number"
-                      label="Jours"
+                      :label="t('readingsUi.colDays')"
                       dense
                       autofocus
                       :min="0"
@@ -97,7 +97,7 @@
                     <q-input
                       v-model.number="durationEditState.hours"
                       type="number"
-                      label="Heures"
+                      :label="t('readingsUi.colHours')"
                       dense
                       :min="0"
                       :max="23"
@@ -106,7 +106,7 @@
                     <q-input
                       v-model.number="durationEditState.minutes"
                       type="number"
-                      label="Minutes"
+                      :label="t('readingsUi.colMinutes')"
                       dense
                       :min="0"
                       :max="59"
@@ -117,7 +117,7 @@
                     <q-input
                       v-model.number="durationEditState.seconds"
                       type="number"
-                      label="Secondes"
+                      :label="t('readingsUi.colSeconds')"
                       dense
                       :min="0"
                       :max="59"
@@ -126,7 +126,7 @@
                     <q-input
                       v-model.number="durationEditState.milliseconds"
                       type="number"
-                      label="Millisecondes"
+                      :label="t('readingsUi.colMilliseconds')"
                       dense
                       :min="0"
                       :max="999"
@@ -142,8 +142,8 @@
                     fill-mask="_"
                     dense
                     autofocus
-                    hint="Format: DD/MM/YYYY HH:mm:ss.SSS"
-                    label="Date et heure"
+                    :hint="t('readingsUi.dateTimeMaskHint')"
+                    :label="t('readingsUi.dateTimeFieldLabel')"
                   >
                     <template v-slot:append>
                       <q-icon name="event" class="cursor-pointer">
@@ -154,7 +154,7 @@
                             mask="DD/MM/YYYY"
                           >
                             <div class="row items-center justify-end">
-                              <q-btn v-close-popup label="OK" color="primary" flat />
+                              <q-btn v-close-popup :label="t('common.ok')" color="primary" flat />
                             </div>
                           </q-date>
                         </q-popup-proxy>
@@ -168,7 +168,7 @@
                             format24h
                           >
                             <div class="row items-center justify-end">
-                              <q-btn v-close-popup label="OK" color="primary" flat />
+                              <q-btn v-close-popup :label="t('common.ok')" color="primary" flat />
                             </div>
                           </q-time>
                         </q-popup-proxy>
@@ -192,7 +192,7 @@
               </span>
               <q-popup-edit 
                 v-model="props.row.name" 
-                title="Editer le libellé" 
+                :title="t('readingsUi.editLabelTitle')" 
                 buttons
                 @save="(val, initialVal) => handleNameSave(props.row, val, initialVal)"
                 v-slot="scope"
@@ -214,7 +214,7 @@
                   autofocus
                   new-value-mode="add-unique"
                   @filter="filterObservables"
-                  :rules="[val => val && val.length > 0 || 'Le libellé ne peut pas être vide']"
+                  :rules="[val => val && val.length > 0 || t('readingsUi.labelRequired')]"
                   class="observable-autocomplete"
                 >
                   <template v-slot:option="optScope">
@@ -228,7 +228,7 @@
                   <template v-slot:no-option>
                     <q-item dense>
                       <q-item-section class="text-grey text-italic">
-                        Saisie libre — appuyez Entrée pour valider
+                        {{ t('readingsUi.freeLabelAutocompleteHint') }}
                       </q-item-section>
                     </q-item>
                   </template>
@@ -239,17 +239,17 @@
                   v-model="scope.value"
                   dense
                   autofocus
-                  :rules="[val => val && val.length > 0 || 'Le libellé ne peut pas être vide']"
+                  :rules="[val => val && val.length > 0 || t('readingsUi.labelRequired')]"
                 />
               </q-popup-edit>
             </div>
           </q-td>
           <q-td key="description" :props="props">
             <div class="editable-cell">
-              {{ props.row.description || '-' }}
+              {{ props.row.description || t('readingsUi.emptyCell') }}
               <q-popup-edit 
                 v-model="props.row.description" 
-                title="Editer la description" 
+                :title="t('readingsUi.editDescriptionTitle')" 
                 buttons
                 @save="(val, initialVal) => handleDescriptionSave(props.row, val, initialVal)"
                 v-slot="scope"
@@ -271,6 +271,7 @@
 
 <script lang="ts">
 import { defineComponent, computed, ref, watch, reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { QTableColumn } from 'quasar';
@@ -295,43 +296,45 @@ export default defineComponent({
   emits: ['update:selected'],
   
   setup(props, { emit }) {
-    const columns: QTableColumn[] = [
+    const { t } = useI18n();
+
+    const columns = computed((): QTableColumn[] => [
       {
         name: 'order',
-        label: 'N°',
+        label: t('readingsUi.colOrder'),
         field: 'order',
         align: 'left',
         sortable: false,
       },
       {
         name: 'type',
-        label: 'Type',
+        label: t('readingsUi.colType'),
         field: 'type',
         align: 'left',
         sortable: true,
       },
       {
         name: 'dateTime',
-        label: 'Date & heure',
+        label: t('readingsUi.colDateTime'),
         field: 'dateTime',
         align: 'left',
         sortable: true,
       },
       {
         name: 'name',
-        label: 'Libellé',
+        label: t('readingsUi.colLabel'),
         field: 'name',
         align: 'left',
         sortable: true,
       },
       {
         name: 'description',
-        label: 'Description',
+        label: t('readingsUi.colDescription'),
         field: 'description',
         align: 'left',
         sortable: false,
       },
-    ];
+    ]);
 
     const observation = useObservation();
     const duration = useDuration();
@@ -431,7 +434,9 @@ export default defineComponent({
     // Bug 2.6 : Titre tooltip pour un observable non reconnu
     const getUnrecognizedObservableTitle = (row: IReading): string | undefined => {
       if (!isUnrecognizedObservable(row)) return undefined;
-      return 'Observable non reconnu : "' + row.name + '" n\'existe pas dans le protocole actuel';
+      return t('readingsUi.unrecognizedObservableTooltip', {
+        name: row.name ?? '',
+      });
     };
 
     // Bug 2.6 : Vérifie si un relevé DATA a un observable non reconnu
@@ -722,27 +727,24 @@ export default defineComponent({
       scope.value = `${datePart || qDate.formatDate(new Date(), 'DD/MM/YYYY')} ${timeVal}.${msPart}`;
     };
     
-    // Get readable label for reading type
     const getReadingTypeLabel = (type: ReadingTypeEnum) => {
-      const labels = {
-        [ReadingTypeEnum.START]: 'Début',
-        [ReadingTypeEnum.STOP]: 'Fin',
-        [ReadingTypeEnum.PAUSE_START]: 'Déb pause',
-        [ReadingTypeEnum.PAUSE_END]: 'Fin pause',
-        [ReadingTypeEnum.DATA]: 'Data',
+      const labels: Partial<Record<ReadingTypeEnum, string>> = {
+        [ReadingTypeEnum.START]: t('readingsUi.readingTypeStart'),
+        [ReadingTypeEnum.STOP]: t('readingsUi.readingTypeStop'),
+        [ReadingTypeEnum.PAUSE_START]: t('readingsUi.readingTypePauseStart'),
+        [ReadingTypeEnum.PAUSE_END]: t('readingsUi.readingTypePauseEnd'),
+        [ReadingTypeEnum.DATA]: t('readingsUi.readingTypeData'),
       };
-      
-      return labels[type] || type;
+      return labels[type] ?? String(type);
     };
 
-    // Options for reading type select
-    const readingTypeOptions = [
-      { label: 'Début', value: ReadingTypeEnum.START },
-      { label: 'Fin', value: ReadingTypeEnum.STOP },
-      { label: 'Déb pause', value: ReadingTypeEnum.PAUSE_START },
-      { label: 'Fin pause', value: ReadingTypeEnum.PAUSE_END },
-      { label: 'Data', value: ReadingTypeEnum.DATA },
-    ];
+    const readingTypeOptions = computed(() => [
+      { label: t('readingsUi.readingTypeStart'), value: ReadingTypeEnum.START },
+      { label: t('readingsUi.readingTypeStop'), value: ReadingTypeEnum.STOP },
+      { label: t('readingsUi.readingTypePauseStart'), value: ReadingTypeEnum.PAUSE_START },
+      { label: t('readingsUi.readingTypePauseEnd'), value: ReadingTypeEnum.PAUSE_END },
+      { label: t('readingsUi.readingTypeData'), value: ReadingTypeEnum.DATA },
+    ]);
 
     // Retrouve la ligne réelle par id/tempId dans le tableau readings.
     // Nécessaire car le virtual-scroll de q-table peut recycler les références d'objets row.
@@ -839,6 +841,7 @@ export default defineComponent({
     };
     
     return {
+      t,
       observation,
       duration,
       isChronometerMode,
