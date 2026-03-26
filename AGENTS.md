@@ -63,7 +63,7 @@ Must be created from `.env.example` before first run. For local SQLite dev:
 ## Lint and tests
 
 - `cd front && yarn lint` — ESLint for frontend (passes clean)
-- `cd packages/core && yarn test` — Jest unit tests (50 tests ; `moduleFileExtensions` met `.ts` avant `.js` pour éviter de résoudre d’anciens `.js` voisins dans `src/`)
+- `cd packages/core && yarn test` — Jest unit tests (`@actograph/core` ; `moduleFileExtensions` met `.ts` avant `.js` pour éviter de résoudre d’anciens `.js` voisins dans `src/`)
 - `cd api && yarn test` — Jest unit tests (has a pre-existing failing stub test in `app.controller.spec.ts`)
 - API lint (`yarn lint:fix`) requires `eslint-plugin-prettier` which is missing from `package.json`. The API also has many pre-existing formatting issues.
 - `packages/core` lint has pre-existing errors in the vendored `qtdatastream` library.
