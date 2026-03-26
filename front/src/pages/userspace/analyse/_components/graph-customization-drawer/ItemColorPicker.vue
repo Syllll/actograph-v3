@@ -52,7 +52,7 @@
       style="min-width: 350px; min-height: 700px; max-height: 85vh; display: flex; flex-direction: column;"
       bgColor="background"
       innerHeader
-      title="Choisir une couleur"
+      :title="t('graphUi.chooseColorTitle')"
     >
       <DCardSection style="flex: 1; min-height: 550px; overflow: auto; display: flex; flex-direction: column;">
         <q-color
