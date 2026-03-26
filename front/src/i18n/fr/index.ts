@@ -143,6 +143,9 @@ export default {
     readyState: 'Prêt',
     tooltipSwitchToCalendar: 'Passer en mode calendrier',
     tooltipSwitchToChronometer: 'Passer en mode chronomètre',
+    noProtocolLoadedTitle: 'Aucun protocole chargé',
+    noProtocolLoadedHint:
+      'Veuillez sélectionner une observation pour afficher son protocole.',
   },
   readings: {
     defaultNewReading: 'Nouveau relevé',
@@ -398,6 +401,8 @@ export default {
     drawerTitleShort: 'Graphe',
     chooseColorTitle: 'Choisir une couleur',
     validate: 'Valider',
+    colorFieldLabel: 'Couleur',
+    colorInheritedHint: 'Hérite de la catégorie parente',
     patternNone: 'Aucun motif',
     patternHorizontal: 'Lignes horizontales',
     patternVertical: 'Lignes verticales',
@@ -444,6 +449,23 @@ export default {
     actionsPending: 'Actions',
     drawerTitle: 'Administration',
     menuUsers: 'Utilisateurs',
+    modalCreateUserTitle: 'Créer un utilisateur',
+    fieldUsername: 'Nom d\'utilisateur',
+    fieldPassword: 'Mot de passe',
+    fieldRoles: 'Rôles',
+  },
+  auth: {
+    resetPasswordTitle: 'Réinitialiser le mot de passe',
+    applyNewPassword: 'Appliquer le nouveau mot de passe',
+  },
+  autosave: {
+    dialogTitle: 'Restauration automatique',
+    intro:
+      'Des sauvegardes automatiques récentes ont été trouvées. Sélectionnez celle que vous souhaitez restaurer :',
+    noFiles: 'Aucun fichier disponible.',
+    savedOn: 'Sauvegardé le {dateTime}',
+    ignore: 'Ignorer',
+    restore: 'Restaurer',
   },
   preferences: {
     title: 'Préférences',

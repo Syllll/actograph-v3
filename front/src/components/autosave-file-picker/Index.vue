@@ -5,15 +5,15 @@
       style="min-width: 500px; max-width: 700px"
       bgColor="background"
       innerHeader
-      title="Restauration automatique"
+      :title="t('autosave.dialogTitle')"
     >
       <DCardSection>
         <div class="text-body2 q-mb-md">
-          Des sauvegardes automatiques récentes ont été trouvées. Sélectionnez celle que vous souhaitez restaurer :
+          {{ t('autosave.intro') }}
         </div>
 
         <div v-if="state.files.length === 0" class="text-body1 text-grey-7 q-pa-md">
-          Aucun fichier disponible.
+          {{ t('autosave.noFiles') }}
         </div>
 
         <div v-else>
@@ -30,7 +30,7 @@
               <q-item-section>
                 <q-item-label>{{ methods.getObservationName(file.name) }}</q-item-label>
                 <q-item-label caption>
-                  Sauvegardé le {{ methods.formatDate(file.modified, file.name) }}
+                  {{ t('autosave.savedOn', { dateTime: methods.formatDate(file.modified, file.name) }) }}
                   <span v-if="file.size"> • {{ methods.formatFileSize(file.size) }}</span>
                 </q-item-label>
               </q-item-section>
@@ -47,11 +47,11 @@
           <q-btn
             flat
             no-caps
-            label="Ignorer"
+            :label="t('autosave.ignore')"
             @click="methods.onCancelClick"
           />
           <DSubmitBtn
-            label="Restaurer"
+            :label="t('autosave.restore')"
             @click="methods.onOKClick"
             :disable="state.selectedFileIndex === null"
           />
@@ -64,14 +64,20 @@
 <script lang="ts">
 import { defineComponent, reactive, PropType } from 'vue';
 import { useDialogPluginComponent } from 'quasar';
-import { DCard, DCardSection, DCancelBtn, DSubmitBtn } from '@lib-improba/components';
+import { useI18n } from 'vue-i18n';
+import { DCard, DCardSection, DSubmitBtn } from '@lib-improba/components';
+
+function localeToBcp47(locale: string): string {
+  if (locale === 'fr') return 'fr-FR';
+  if (locale.startsWith('en')) return 'en-US';
+  return locale.replace(/_/g, '-') || 'en-US';
+}
 
 export default defineComponent({
   name: 'AutosaveFilePicker',
   components: {
     DCard,
     DCardSection,
-    DCancelBtn,
     DSubmitBtn,
   },
   props: {
@@ -87,26 +93,23 @@ export default defineComponent({
   },
   emits: [...useDialogPluginComponent.emits],
   setup(props) {
+    const { t, locale } = useI18n();
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
       useDialogPluginComponent();
 
     const state = reactive({
       files: props.files,
-      selectedFileIndex: props.files.length > 0 ? 0 : null as number | null, // Auto-select first file if available
+      selectedFileIndex: props.files.length > 0 ? 0 : null as number | null,
     });
 
     const methods = {
       getObservationName: (fileName: string): string => {
-        // Extract observation name from filename
-        // Format: autosave_{id}_{name}_{timestamp}.jchronic
         const match = fileName.match(/autosave_\d+_(.+?)_\d{4}-\d{2}-\d{2}/);
         if (match && match[1]) {
-          // Replace underscores with spaces and capitalize
           return match[1]
             .replace(/_/g, ' ')
             .replace(/\b\w/g, (l) => l.toUpperCase());
         }
-        // Fallback: use filename without extension
         return fileName.replace(/\.jchronic$/, '').replace(/autosave_\d+_/, '');
       },
 
@@ -120,7 +123,7 @@ export default defineComponent({
           }
         }
         if (isNaN(date.getTime())) return dateString;
-        return date.toLocaleString('fr-FR', {
+        return date.toLocaleString(localeToBcp47(locale.value), {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
@@ -148,6 +151,7 @@ export default defineComponent({
     };
 
     return {
+      t,
       dialogRef,
       onDialogHide,
       state,
@@ -156,4 +160,3 @@ export default defineComponent({
   },
 });
 </script>
-

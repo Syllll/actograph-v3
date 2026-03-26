@@ -142,6 +142,9 @@ export default {
     readyState: 'Ready',
     tooltipSwitchToCalendar: 'Switch to calendar mode',
     tooltipSwitchToChronometer: 'Switch to chronometer mode',
+    noProtocolLoadedTitle: 'No protocol loaded',
+    noProtocolLoadedHint:
+      'Select an observation to display its protocol.',
   },
   readings: {
     defaultNewReading: 'New reading',
@@ -393,6 +396,8 @@ export default {
     drawerTitleShort: 'Chart',
     chooseColorTitle: 'Choose a color',
     validate: 'Apply',
+    colorFieldLabel: 'Color',
+    colorInheritedHint: 'Inherited from parent category',
     patternNone: 'No pattern',
     patternHorizontal: 'Horizontal lines',
     patternVertical: 'Vertical lines',
@@ -438,6 +443,23 @@ export default {
     actionsPending: 'Actions',
     drawerTitle: 'Admin',
     menuUsers: 'Users',
+    modalCreateUserTitle: 'Create user',
+    fieldUsername: 'Username',
+    fieldPassword: 'Password',
+    fieldRoles: 'Roles',
+  },
+  auth: {
+    resetPasswordTitle: 'Reset password',
+    applyNewPassword: 'Apply new password',
+  },
+  autosave: {
+    dialogTitle: 'Automatic restore',
+    intro:
+      'Recent automatic backups were found. Choose the one you want to restore:',
+    noFiles: 'No files available.',
+    savedOn: 'Saved on {dateTime}',
+    ignore: 'Skip',
+    restore: 'Restore',
   },
   preferences: {
     title: 'Preferences',

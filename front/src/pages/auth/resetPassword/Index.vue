@@ -1,7 +1,7 @@
 <template>
   <DPage>
     <div class="fit column items-center">
-      <div class="q-mb-md text-bold text-h3 text-center">Reset password</div>
+      <div class="q-mb-md text-bold text-h3 text-center">{{ i18n.t('auth.resetPasswordTitle') }}</div>
       <div class="row justify-center full-width">
         <div
           class="col-12 col-sm-10 col-md-6 col-lg-4 bg-secondary-medium q-pa-md rounded-borders"
@@ -69,7 +69,7 @@
                 rounded
                 no-caps
                 size="1.0rem"
-                :label="'Appliquer le nouveau mot de passe'"
+                :label="i18n.t('auth.applyNewPassword')"
                 :loading="state.loading"
                 @click="methods.submitNewPassword"
               />

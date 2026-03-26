@@ -41,8 +41,8 @@
         </template>
         <div v-else class="no-data text-center q-pa-lg">
           <q-icon name="info" size="2rem" color="grey-7" />
-          <div class="text-subtitle1 q-mt-sm">Aucun protocole chargé</div>
-          <div class="text-caption q-mt-xs">Veuillez sélectionner une observation pour afficher son protocole.</div>
+          <div class="text-subtitle1 q-mt-sm">{{ $t('observation.noProtocolLoadedTitle') }}</div>
+          <div class="text-caption q-mt-xs">{{ $t('observation.noProtocolLoadedHint') }}</div>
         </div>
       </div>
     </DScrollArea>

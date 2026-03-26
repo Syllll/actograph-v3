@@ -43,7 +43,13 @@
             :icon="currentMode === 'chronometer' ? 'timer' : 'event'"
             size="sm"
           >
-            {{ currentMode === 'chronometer' ? 'Mode Chronomètre' : currentMode === 'calendar' ? 'Mode Calendrier' : 'Mode non défini' }}
+            {{
+              currentMode === 'chronometer'
+                ? $t('readingsUi.modeChronometerChip')
+                : currentMode === 'calendar'
+                  ? $t('readingsUi.modeCalendarChip')
+                  : $t('readingsUi.modeUndefinedChip')
+            }}
           </q-chip>
           
           <!-- Mode toggle buttons (only if observation not started) -->

@@ -1,6 +1,6 @@
 <template>
   <DDialog
-    :title="`Create user`"
+    :title="$t('adminUsers.modalCreateUserTitle')"
     :width="'50vw'"
     :maxHeight="'45rem'"
     :model-value="props.triggerOpen"
@@ -14,18 +14,18 @@
           :errorInForm="state.errorInForm"
         >
           <d-form-input
-            :label="`Username`"
+            :label="$t('adminUsers.fieldUsername')"
             v-model="state.form.username"
             :rules="[...rules.email]"
           />
           <d-form-input
-            :label="`Password`"
+            :label="$t('adminUsers.fieldPassword')"
             v-model="state.form.password"
             :rules="[...rules.password]"
           />
           <d-form-input
             type="options"
-            :label="`Roles`"
+            :label="$t('adminUsers.fieldRoles')"
             v-model="state.form.roles"
             :options="['user', 'admin']"
             :rules="[...rules.exist]"

@@ -1,6 +1,6 @@
 <template>
   <div class="column q-gutter-xs">
-    <div class="text-caption text-grey-7">Couleur</div>
+    <div class="text-caption text-grey-7">{{ t('graphUi.colorFieldLabel') }}</div>
     <div class="row items-center q-gutter-sm">
       <div
         class="color-preview"
@@ -42,7 +42,7 @@
       </div>
     </div>
     <div v-if="props.isInherited" class="text-caption text-grey-6">
-      Hérite de la catégorie parente
+      {{ t('graphUi.colorInheritedHint') }}
     </div>
   </div>
 
@@ -65,8 +65,8 @@
 
       <DCardSection>
         <div class="row items-center justify-center full-width q-gutter-md">
-          <DCancelBtn @click="methods.cancelColor" />
-          <DSubmitBtn label="Valider" @click="methods.confirmColor" />
+          <DCancelBtn @click="methods.cancelColor" :label="t('dialogs.cancel')" />
+          <DSubmitBtn :label="t('graphUi.validate')" @click="methods.confirmColor" />
         </div>
       </DCardSection>
     </DCard>
@@ -75,6 +75,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { IGraphPreferences } from '@services/observations/interface';
 import {
   DCard,
@@ -112,6 +113,7 @@ export default defineComponent({
   },
   emits: ['update'],
   setup(props, { emit }) {
+    const { t } = useI18n();
     const state = reactive({
       showColorDialog: false,
       selectedColor: props.currentColor || '#10b981',
@@ -143,6 +145,7 @@ export default defineComponent({
     };
 
     return {
+      t,
       props,
       state,
       displayColor,

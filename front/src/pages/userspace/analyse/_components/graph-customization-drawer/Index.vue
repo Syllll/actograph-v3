@@ -239,9 +239,9 @@
 
       <div v-else class="q-pa-md text-center text-grey-7">
         <q-icon name="info" size="2rem" color="grey-7" class="q-mb-sm" />
-        <div class="text-subtitle1 q-mt-sm">Aucun protocole chargé</div>
+        <div class="text-subtitle1 q-mt-sm">{{ $t('observation.noProtocolLoadedTitle') }}</div>
         <div class="text-caption q-mt-xs">
-          Veuillez sélectionner une observation pour afficher son protocole.
+          {{ $t('observation.noProtocolLoadedHint') }}
         </div>
       </div>
     </DScrollArea>
