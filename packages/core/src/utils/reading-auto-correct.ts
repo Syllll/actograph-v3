@@ -2,6 +2,17 @@ import { IReading } from '../types';
 import { ReadingTypeEnum } from '../enums';
 
 /**
+ * Machine-readable placeholders for readings synthesized by auto-correct.
+ * Apps should map these to localized labels (e.g. readings.defaultChronicleEnd).
+ */
+export const AUTO_CORRECT_SYNTH_NAMES = {
+  chronicleEnd: '__actograph/ac/chronicle_end',
+  pauseStart: '__actograph/ac/pause_start',
+  pauseEnd: '__actograph/ac/pause_end',
+  newReading: '__actograph/ac/new_reading',
+} as const;
+
+/**
  * Action type for auto-correction
  */
 export type AutoCorrectActionType = 'sort' | 'remove_duplicate' | 'reorder' | 'add_missing_pause';
@@ -195,7 +206,7 @@ export function autoCorrectReadings(
         reason: 'add_missing_stop',
         relatedDate: newStopDate,
         newReading: {
-          name: 'Fin de la chronique',
+          name: AUTO_CORRECT_SYNTH_NAMES.chronicleEnd,
           type: ReadingTypeEnum.STOP,
           dateTime: newStopDate,
         },
@@ -275,7 +286,7 @@ export function autoCorrectReadings(
       reason: 'add_missing_pause_start',
       relatedDate: pauseEndDate,
       newReading: {
-        name: 'Début de pause',
+        name: AUTO_CORRECT_SYNTH_NAMES.pauseStart,
         type: ReadingTypeEnum.PAUSE_START,
         dateTime: pauseStartDate,
       },
@@ -299,7 +310,7 @@ export function autoCorrectReadings(
           reason: 'add_missing_pause_end',
           relatedDate: pauseStartDate,
           newReading: {
-            name: 'Fin de pause',
+            name: AUTO_CORRECT_SYNTH_NAMES.pauseEnd,
             type: ReadingTypeEnum.PAUSE_END,
             dateTime: pauseEndDate,
           },
@@ -347,7 +358,7 @@ export function autoCorrectReadings(
     actions.forEach(action => {
       if (action.type === 'add_missing_pause' && action.newReading) {
         const newReading: IReading = {
-          name: action.newReading.name || 'Nouveau relevé',
+          name: action.newReading.name || AUTO_CORRECT_SYNTH_NAMES.newReading,
           type: action.newReading.type || ReadingTypeEnum.DATA,
           dateTime: action.newReading.dateTime || new Date(),
           tempId: `temp-${Date.now()}-${Math.random()}`,

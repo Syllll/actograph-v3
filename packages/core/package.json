@@ -44,6 +44,7 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "rootDir": "src",
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node", "mjs", "cjs"],
     "testMatch": ["**/__tests__/**/*.test.ts"],
     "collectCoverageFrom": [
       "src/**/*.ts",

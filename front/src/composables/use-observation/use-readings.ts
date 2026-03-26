@@ -16,7 +16,10 @@ import {
   autoCorrectReadings as coreAutoCorrectReadings,
   type IAutoCorrectAction,
 } from '@actograph/core';
-import { localizeAutoCorrectAction } from './auto-correct-i18n';
+import {
+  localizeAutoCorrectAction,
+  localizeAutoCorrectReadingName,
+} from './auto-correct-i18n';
 
 // Stateless object to store the initial readings (used for comparison during sync)
 const stateless = {
@@ -583,17 +586,10 @@ export const useReadings = (options: {
      * @param applyCorrections - Si true, applique les corrections directement. Si false, retourne seulement les actions proposées
      * @returns Objet contenant la liste des actions proposées et les relevés corrigés (si applyCorrections est true)
      */
-    autoCorrectReadings: (applyCorrections = false): {
-      actions: Array<{
-        type: 'sort' | 'remove_duplicate' | 'reorder' | 'add_missing_pause';
-        description: string;
-        readingIds?: number[];
-        tempIds?: string[];
-        newReading?: Partial<IReading>;
-        stopReadingId?: number;
-        stopReadingTempId?: string;
-        newStopDateTime?: Date;
-      }>;
+    autoCorrectReadings: (
+      applyCorrections = false
+    ): {
+      actions: IAutoCorrectAction[];
       correctedReadings: IReading[];
     } => {
       const readings = [...sharedState.currentReadings];
@@ -643,7 +639,7 @@ export const useReadings = (options: {
           } else {
             // This is a new reading, create it using methods.createReading
             const newReading = methods.createReading({
-              name: correctedReading.name || t('readings.defaultNewReading'),
+              name: localizeAutoCorrectReadingName(correctedReading.name, t),
               type: correctedReading.type,
               dateTime: correctedReading.dateTime instanceof Date 
                 ? correctedReading.dateTime 
