@@ -38,6 +38,7 @@ import ReadingsToolbar from './ReadingsToolbar.vue';
 import ReadingsTable from './ReadingsTable.vue';
 import { useObservation } from 'src/composables/use-observation';
 import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
 import { Dialog } from 'quasar';
 import AutoCorrectReadingsDialog from './AutoCorrectReadingsDialog.vue';
@@ -53,6 +54,7 @@ export default defineComponent({
 
   setup() {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation();
     // Use the readings composable to access shared state and methods
     const { sharedState, methods } = observation.readings;
@@ -169,20 +171,23 @@ export default defineComponent({
     // Uses current observation timestamp (currentDate + elapsedTime)
     const handleAddComment = async () => {
       if (!observation.sharedState.currentObservation) {
-        $q.notify({ type: 'negative', message: 'Aucune chronique chargée' });
+        $q.notify({
+          type: 'negative',
+          message: t('chronicleActions.saveAsNoChronicle'),
+        });
         return;
       }
 
       const commentText = await createDialog({
-        title: 'Ajouter un commentaire',
-        message: 'Votre commentaire...',
+        title: t('readingsUi.addCommentTitle'),
+        message: t('readingsUi.addCommentPrompt'),
         prompt: {
           model: '',
           type: 'text',
         },
-        cancel: 'Annuler',
+        cancel: t('dialogs.cancel'),
         ok: {
-          label: 'Ajouter',
+          label: t('readingsUi.addCommentOk'),
           color: 'primary',
         },
         persistent: true,
@@ -248,8 +253,8 @@ export default defineComponent({
       if (result.actions.length === 0) {
         $q.notify({
           type: 'positive',
-          message: 'Aucune correction nécessaire',
-          caption: 'Tous les relevés sont correctement ordonnés et structurés.',
+          message: t('readingsUi.autoCorrectNone'),
+          caption: t('readingsUi.autoCorrectNoneCaption'),
         });
         return;
       }
@@ -266,8 +271,10 @@ export default defineComponent({
         
         $q.notify({
           type: 'positive',
-          message: 'Corrections appliquées',
-          caption: `${result.actions.length} correction(s) ont été appliquée(s) avec succès.`,
+          message: t('readingsUi.autoCorrectApplied'),
+          caption: t('readingsUi.autoCorrectAppliedCaption', {
+            count: result.actions.length,
+          }),
         });
       });
     };
@@ -303,19 +310,19 @@ export default defineComponent({
       if (!canActivateChronometerMode.value) {
         $q.notify({
           type: 'negative',
-          message: 'Impossible de passer en mode chronomètre',
-          caption: 'L\'observation a déjà été démarrée ou est en mode calendrier',
+          message: t('observation.chronometerBlocked'),
+          caption: t('observation.chronometerBlockedCaption'),
         });
         return;
       }
       
       // Confirm action
       const dialog = await createDialog({
-        title: 'Activer le mode chronomètre',
-        message: 'Voulez-vous passer cette observation en mode chronomètre ? Cette action est irréversible.',
-        cancel: 'Annuler',
+        title: t('observation.activateChronometerTitle'),
+        message: t('observation.activateChronometerMessage'),
+        cancel: t('components.DModal.cancel'),
         ok: {
-          label: 'Activer',
+          label: t('observation.activateChronometerOk'),
           color: 'primary',
         },
         persistent: true,
@@ -328,8 +335,8 @@ export default defineComponent({
       if (!observationId) {
         $q.notify({
           type: 'negative',
-          message: 'Erreur',
-          caption: 'Observation introuvable',
+          message: t('observation.errorShort'),
+          caption: t('observation.observationNotFoundCaption'),
         });
         return;
       }
@@ -341,14 +348,14 @@ export default defineComponent({
         
         $q.notify({
           type: 'positive',
-          message: 'Mode chronomètre activé',
-          caption: 'L\'observation est maintenant en mode chronomètre',
+          message: t('observation.chronometerActivated'),
+          caption: t('observation.chronometerActivatedCaption'),
         });
       } catch (error: any) {
         $q.notify({
           type: 'negative',
-          message: 'Erreur lors de l\'activation du mode chronomètre',
-          caption: error.message || 'Une erreur est survenue',
+          message: t('observation.chronometerActivateError'),
+          caption: error.message || t('observation.unknownErrorCaption'),
         });
       }
     };

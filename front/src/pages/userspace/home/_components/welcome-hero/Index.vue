@@ -2,10 +2,10 @@
   <div class="welcome-hero column items-center">
     <div class="text-center q-mb-lg">
       <div class="text-h4 text-weight-bold text-primary q-mb-xs">
-        Bienvenue sur ActoGraph
+        {{ $t('chronicle.welcomeTitle') }}
       </div>
       <div class="text-body1 text-grey-7">
-        Créez ou chargez une chronique pour commencer votre observation
+        {{ $t('chronicle.welcomeTagline') }}
       </div>
     </div>
 
@@ -16,8 +16,12 @@
         @click="$emit('create')"
       >
         <q-icon name="mdi-plus-circle-outline" size="40px" color="accent" class="q-mb-sm" />
-        <div class="text-subtitle1 text-weight-bold">Nouvelle chronique</div>
-        <div class="text-caption text-grey-6">Créer une chronique vierge</div>
+        <div class="text-subtitle1 text-weight-bold">
+          {{ $t('chronicle.newChronicle') }}
+        </div>
+        <div class="text-caption text-grey-6">
+          {{ $t('chronicle.newChronicleBlank') }}
+        </div>
       </div>
 
       <div
@@ -26,8 +30,12 @@
         @click="$emit('import')"
       >
         <q-icon name="mdi-file-import-outline" size="40px" color="accent" class="q-mb-sm" />
-        <div class="text-subtitle1 text-weight-bold">Importer</div>
-        <div class="text-caption text-grey-6">Depuis un fichier .jchronic</div>
+        <div class="text-subtitle1 text-weight-bold">
+          {{ $t('chronicle.importShort') }}
+        </div>
+        <div class="text-caption text-grey-6">
+          {{ $t('chronicle.importFromJchronic') }}
+        </div>
       </div>
 
       <div
@@ -41,9 +49,15 @@
           :color="isCloudAuthenticated ? 'positive' : 'accent'"
           class="q-mb-sm"
         />
-        <div class="text-subtitle1 text-weight-bold">Cloud</div>
+        <div class="text-subtitle1 text-weight-bold">
+          {{ $t('chronicle.cloudCardTitle') }}
+        </div>
         <div class="text-caption text-grey-6">
-          {{ isCloudAuthenticated ? 'Synchroniser vos chroniques' : 'Se connecter au cloud' }}
+          {{
+            isCloudAuthenticated
+              ? $t('chronicle.cloudSyncCaption')
+              : $t('chronicle.cloudLoginCaption')
+          }}
         </div>
       </div>
     </div>
@@ -56,7 +70,7 @@
       @click="$emit('load-example')"
     >
       <q-icon name="mdi-play-circle-outline" size="xs" class="q-mr-xs" />
-      Découvrir avec l'exemple intégré
+      {{ $t('chronicle.loadExample') }}
     </q-btn>
   </div>
 </template>

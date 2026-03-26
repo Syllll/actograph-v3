@@ -2,10 +2,12 @@ import { createDialog } from '@lib-improba/utils/dialog.utils';
 import { useLicense } from './use-license';
 import securityService from '@services/security/index.service';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 
 export const useStartupLoading = () => {
   const license = useLicense();
   const router = useRouter();
+  const { t } = useI18n();
 
   const methods = {
     processLoadingAtStartup: async () => {
@@ -31,9 +33,8 @@ export const useStartupLoading = () => {
         const licenseEntity = await securityService.findEnabledLicense();
         if (!licenseEntity) {
           await createDialog({
-            title: 'Aucune licence activée',
-            message:
-              "Aucune licence activée n'a été détectée sur votre ordinateur. Veuillez en créer une nouvelle.",
+            title: t('startup.noEnabledLicenseTitle'),
+            message: t('startup.noEnabledLicenseMessage'),
             persistent: true,
           });
 
@@ -59,7 +60,7 @@ export const useStartupLoading = () => {
         });
       } else if (access.nextStep === 'invalid-license') {
         await createDialog({
-          title: 'License invalide',
+          title: t('startup.invalidLicenseTitle'),
           message: access.message,
           persistent: true,
         });

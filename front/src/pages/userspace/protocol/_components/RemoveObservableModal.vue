@@ -35,6 +35,7 @@ import { defineComponent, reactive, PropType } from 'vue';
 import { useQuasar } from 'quasar';
 import { ProtocolItem, protocolService } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
+import { useI18n } from 'vue-i18n';
 
 import {
   DDialog,
@@ -69,6 +70,7 @@ export default defineComponent({
 
   setup(props, { emit }) {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation();
     const protocol = observation.protocol;
 
@@ -114,14 +116,14 @@ export default defineComponent({
 
         $q.notify({
           type: 'positive',
-          message: 'Observable supprimé avec succès',
+          message: t('protocolUi.observableRemoved'),
         });
 
         // If a default template was created, show an informative message
         if (result && result.defaultTemplateCreated) {
           $q.notify({
             type: 'info',
-            message: 'Un template par défaut a été créé automatiquement (1 catégorie + 1 observable)',
+            message: t('protocolUi.defaultTemplateCreated'),
             timeout: 5000,
           });
         }

@@ -61,6 +61,7 @@ import {
   ProtocolItemTypeEnum,
 } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
+import { useI18n } from 'vue-i18n';
 
 import {
   DDialog,
@@ -95,6 +96,7 @@ export default defineComponent({
 
   setup(props, { emit }) {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation();
     const protocol = observation.protocol;
 
@@ -166,7 +168,7 @@ export default defineComponent({
 
         $q.notify({
           type: 'positive',
-          message: 'Observable ajouté avec succès',
+          message: t('protocolUi.observableAdded'),
         });
 
         // Emit with the category ID so the parent component knows which category to expand

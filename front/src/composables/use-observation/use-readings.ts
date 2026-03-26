@@ -8,6 +8,7 @@
 
 import { IReading, IObservation, ReadingTypeEnum } from '@services/observations/interface';
 import { reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { readingService } from '@services/observations/reading.service';
 import { v4 as uuidv4 } from 'uuid';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
@@ -32,6 +33,7 @@ let syncTimeoutId: number | null = null;
 export const useReadings = (options: {
   sharedStateFromObservation: any,
 }) => {
+  const { t } = useI18n();
   const observationSharedState = options.sharedStateFromObservation;
   
   const methods = {
@@ -329,7 +331,7 @@ export const useReadings = (options: {
       // Create base reading with default values
       const newReading: Partial<IReading> = {
         tempId: uuidv4(),
-        name: options.name || 'Nouveau relevé',
+        name: options.name || t('readings.defaultNewReading'),
         description: options.description || '',
         type: options.type || ReadingTypeEnum.DATA,
         dateTime: options.dateTime || new Date(),
@@ -519,14 +521,14 @@ export const useReadings = (options: {
         // CHRONOMETER_T0 est la date de référence définie dans @utils/chronometer.constants.ts
         // (9 février 1989 à 00:00:00.000 UTC)
         methods.addReading({
-          name: 'Début de la chronique',
+          name: t('readings.defaultChronicleStart'),
           type: ReadingTypeEnum.START,
           dateTime: CHRONOMETER_T0, // Utiliser t0 directement pour garantir une durée de 0
         });
       } else {
         // En mode calendrier, utiliser currentDate et elapsedTime normalement
         methods.addReading({
-          name: 'Début de la chronique',
+          name: t('readings.defaultChronicleStart'),
           type: ReadingTypeEnum.START,
           currentDate: observationSharedState.currentDate || new Date(),
           elapsedTime: observationSharedState.elapsedTime || 0,
@@ -535,7 +537,7 @@ export const useReadings = (options: {
     },
     addStopReading: async () => {
       methods.addReading({
-        name: 'Fin de la chronique',
+        name: t('readings.defaultChronicleEnd'),
         type: ReadingTypeEnum.STOP,
         currentDate: observationSharedState.currentDate || new Date(),
         elapsedTime: observationSharedState.elapsedTime || 0,
@@ -547,7 +549,7 @@ export const useReadings = (options: {
         && !!observationSharedState?.currentObservation?.videoPath;
       if (isVideoMode) return;
       methods.addReading({
-        name: 'Début de pause',
+        name: t('readings.defaultPauseStart'),
         type: ReadingTypeEnum.PAUSE_START,
         currentDate: observationSharedState.currentDate || new Date(),
         elapsedTime: observationSharedState.elapsedTime || 0,
@@ -558,7 +560,7 @@ export const useReadings = (options: {
         && !!observationSharedState?.currentObservation?.videoPath;
       if (isVideoMode) return;
       methods.addReading({
-        name: 'Fin de pause',
+        name: t('readings.defaultPauseEnd'),
         type: ReadingTypeEnum.PAUSE_END,
         currentDate: observationSharedState.currentDate || new Date(),
         elapsedTime: observationSharedState.elapsedTime || 0,
@@ -643,7 +645,7 @@ export const useReadings = (options: {
           } else {
             // This is a new reading, create it using methods.createReading
             const newReading = methods.createReading({
-              name: correctedReading.name || 'Nouveau relevé',
+              name: correctedReading.name || t('readings.defaultNewReading'),
               type: correctedReading.type,
               dateTime: correctedReading.dateTime instanceof Date 
                 ? correctedReading.dateTime 

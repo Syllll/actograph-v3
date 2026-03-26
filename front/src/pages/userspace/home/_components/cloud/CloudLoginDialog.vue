@@ -5,23 +5,26 @@
       style="min-width: 400px"
       bgColor="background"
       innerHeader
-      title="Connexion au Cloud"
+      :title="$t('cloud.loginTitle')"
       icon="mdi-cloud"
     >
       <DCardSection>
         <div class="text-caption text-grey-7 q-mb-md">
-          Connectez-vous à votre compte actograph.io pour synchroniser vos chroniques.
+          {{ $t('cloud.loginIntro') }}
         </div>
         
         <div class="column q-gutter-md">
           <q-input
             v-model="state.email"
-            placeholder="Email"
+            :placeholder="$t('cloud.email')"
             type="email"
             outlined
             dense
             autofocus
-            :rules="[(val) => !!val || 'Email requis', (val) => isValidEmail(val) || 'Email invalide']"
+            :rules="[
+              (val) => !!val || $t('cloud.emailRequired'),
+              (val) => isValidEmail(val) || $t('cloud.emailInvalid'),
+            ]"
             :disable="state.isLoading"
           >
             <template v-slot:prepend>
@@ -31,11 +34,11 @@
 
           <q-input
             v-model="state.password"
-            placeholder="Mot de passe"
+            :placeholder="$t('cloud.password')"
             :type="state.showPassword ? 'text' : 'password'"
             outlined
             dense
-            :rules="[(val) => !!val || 'Mot de passe requis']"
+            :rules="[(val) => !!val || $t('cloud.passwordRequired')]"
             :disable="state.isLoading"
             @keyup.enter="methods.submit"
           >
@@ -64,7 +67,7 @@
         <div class="row items-center justify-end full-width q-gutter-md">
           <DCancelBtn @click="onCancelClick" :disable="state.isLoading" />
           <DSubmitBtn
-            label="Se connecter"
+            :label="$t('cloud.signIn')"
             @click="methods.submit"
             :loading="state.isLoading"
             :disable="!state.email || !state.password"
@@ -77,6 +80,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useDialogPluginComponent } from 'quasar';
 import { useCloud } from 'src/composables/use-cloud';
 import {
@@ -96,6 +100,7 @@ export default defineComponent({
   },
   emits: [...useDialogPluginComponent.emits],
   setup() {
+    const { t } = useI18n();
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent();
     const cloud = useCloud();
 
@@ -125,10 +130,10 @@ export default defineComponent({
           if (result.success) {
             onDialogOK();
           } else {
-            state.error = result.error || 'Identifiants invalides';
+            state.error = result.error || t('cloud.invalidCredentials');
           }
         } catch (error) {
-          state.error = 'Erreur de connexion. Vérifiez votre connexion internet.';
+          state.error = t('cloud.connectionError');
         } finally {
           state.isLoading = false;
         }

@@ -74,7 +74,7 @@ import ThemeToggler from '../../theme-toggler/ThemeToggler.vue';
 import { useAuth } from 'src/../lib-improba/composables/use-auth';
 import { useLicense } from 'src/composables/use-license';
 import License from './license/Index.vue';
-import { useDrawer } from 'src/pages/userspace/_components/drawer/use-drawer';
+import { useDrawer } from 'src/composables/use-drawer';
 
 export default defineComponent({
   components: {

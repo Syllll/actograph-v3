@@ -5,7 +5,7 @@
         <!-- Section : Documentation et aide -->
         <div class="help-section q-pa-md q-mb-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-md">
-            Documentation
+            {{ $t('helpLinks.docSection') }}
           </div>
           <div class="column q-gutter-sm">
             <q-item
@@ -18,7 +18,7 @@
                 <q-icon name="mdi-book-open-variant" color="primary" />
               </q-item-section>
               <q-item-section>
-                <q-item-label>Didacticiel "Premiers pas"</q-item-label>
+                <q-item-label>{{ $t('helpLinks.tutorialFirstSteps') }}</q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-icon name="open_in_new" size="xs" color="primary" />
@@ -35,7 +35,7 @@
                 <q-icon name="mdi-file-document-outline" color="primary" />
               </q-item-section>
               <q-item-section>
-                <q-item-label>Documentation</q-item-label>
+                <q-item-label>{{ $t('helpLinks.documentation') }}</q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-icon name="open_in_new" size="xs" color="primary" />
@@ -52,7 +52,7 @@
                 <q-icon name="mdi-school-outline" color="primary" />
               </q-item-section>
               <q-item-section>
-                <q-item-label>Tutoriels</q-item-label>
+                <q-item-label>{{ $t('helpLinks.tutorials') }}</q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-icon name="open_in_new" size="xs" color="primary" />
@@ -69,7 +69,7 @@
                 <q-icon name="mdi-help-circle-outline" color="primary" />
               </q-item-section>
               <q-item-section>
-                <q-item-label>FAQ</q-item-label>
+                <q-item-label>{{ $t('helpLinks.faq') }}</q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-icon name="open_in_new" size="xs" color="primary" />
@@ -81,7 +81,7 @@
         <!-- Section : Liens externes -->
         <div class="help-section q-pa-md q-mb-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-md">
-            En savoir plus
+            {{ $t('helpLinks.learnMore') }}
           </div>
           <div class="column q-gutter-sm">
             <q-item
@@ -94,7 +94,7 @@
                 <q-icon name="mdi-web" color="primary" />
               </q-item-section>
               <q-item-section>
-                <q-item-label>Site ActoGraph.io</q-item-label>
+                <q-item-label>{{ $t('helpLinks.actographSite') }}</q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-icon name="open_in_new" size="xs" color="primary" />
@@ -119,7 +119,7 @@
                 <q-icon name="mdi-email-outline" size="sm" color="primary" />
               </q-item-section>
               <q-item-section>
-                <q-item-label class="text-body2">Contact</q-item-label>
+                <q-item-label class="text-body2">{{ $t('helpLinks.contact') }}</q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-icon name="open_in_new" size="xs" color="primary" />

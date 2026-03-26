@@ -2,7 +2,7 @@
   <div class="fit">
     <div v-if="state.loading" class="fit column items-center justify-center">
       <q-spinner color="primary" size="48px" />
-      <div class="text-body2 q-mt-md text-grey">Chargement...</div>
+      <div class="text-body2 q-mt-md text-grey">{{ $t('observation.popupLoading') }}</div>
     </div>
     <div v-else-if="state.error" class="fit column items-center justify-center">
       <q-icon name="error" size="48px" color="negative" />
@@ -12,7 +12,7 @@
     <ButtonsSideIndex v-else-if="componentName === 'buttons'" />
     <div v-else class="fit column items-center justify-center">
       <q-icon name="error" size="48px" color="negative" />
-      <div class="text-body1 q-mt-md">Composant non trouvé</div>
+      <div class="text-body1 q-mt-md">{{ $t('observation.popupComponentNotFound') }}</div>
     </div>
   </div>
 </template>
@@ -23,6 +23,7 @@ import { useRoute } from 'vue-router';
 import VideoPlayer from './_components/VideoPlayer.vue';
 import ButtonsSideIndex from './_components/buttons-side/Index.vue';
 import { useObservation } from 'src/composables/use-observation';
+import { useI18n } from 'vue-i18n';
 
 export default defineComponent({
   name: 'PopupView',
@@ -41,6 +42,7 @@ export default defineComponent({
 
   setup(props) {
     const route = useRoute();
+    const { t } = useI18n();
     const observation = useObservation();
     const componentName = computed(() => props.component || '');
 
@@ -52,13 +54,13 @@ export default defineComponent({
     onMounted(async () => {
       const observationId = route.query.observationId;
       if (!observationId) {
-        state.error = 'Identifiant de chronique manquant';
+        state.error = t('observation.popupMissingChronicleId');
         return;
       }
 
       const id = Number(observationId);
       if (!Number.isFinite(id) || id <= 0) {
-        state.error = 'Identifiant de chronique invalide';
+        state.error = t('observation.popupInvalidChronicleId');
         return;
       }
 
@@ -67,7 +69,7 @@ export default defineComponent({
         await observation.methods.loadObservation(id);
       } catch (error) {
         console.error('Erreur lors du chargement de la chronique:', error);
-        state.error = 'Impossible de charger la chronique';
+        state.error = t('observation.popupChronicleLoadError');
       } finally {
         state.loading = false;
       }

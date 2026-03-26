@@ -2,25 +2,25 @@
   <div class="fit row justify-center items-start q-pt-xl">
     <DCard style="max-width: 60rem">
       <div class="row justify-center items-center">
-        <h1>Bienvenue sur l'application ActoGraph.</h1>
-        <p>Veuillez choisir une version afin d'accéder à l'application.</p>
+        <h1>{{ $t('gateway.chooseVersionTitle') }}</h1>
+        <p>{{ $t('gateway.chooseVersionSubtitle') }}</p>
       </div>
       <div class="row justify-center q-col-gutter-md">
         <VersionCard
           class="col-6"
-          title="Version étudiante"
-          subtitle="Gratuite"
-          description="Cette version est gratuite et réservée aux étudiants opérant dans un contexte académique."
-          buttonLabel="Je suis étudiant"
+          :title="$t('gateway.studentVersionTitle')"
+          :subtitle="$t('gateway.studentVersionSubtitle')"
+          :description="$t('gateway.studentVersionDescription')"
+          :buttonLabel="$t('gateway.studentVersionButton')"
           :loading="loadingStudent"
           @activate="methods.activateStudent"
         />
         <VersionCard
           class="col-6"
-          title="Version professionnelle"
-          subtitle="Sous licence : pro ou ultimate"
-          description="Cette version est complète et sécurisée. Elle est destinée à un usage professionnel."
-          buttonLabel="Je suis un pro"
+          :title="$t('gateway.proVersionTitle')"
+          :subtitle="$t('gateway.proVersionSubtitle')"
+          :description="$t('gateway.proVersionDescription')"
+          :buttonLabel="$t('gateway.proVersionButton')"
           @activate="methods.activatePro"
         />
       </div>
@@ -30,6 +30,7 @@
 
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import EmptyLayout from '@lib-improba/components/layouts/empty/Index.vue';
 import VersionCard from './_components/VersionCard.vue';
 import { useRouter } from 'vue-router';
@@ -42,6 +43,7 @@ export default defineComponent({
   setup() {
     const router = useRouter();
     const $q = useQuasar();
+    const { t } = useI18n();
     const auth = useAuth(router);
 
     const loadingStudent = ref(false);
@@ -58,7 +60,7 @@ export default defineComponent({
           console.error('Error activating student:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de l\'activation de la version étudiante',
+            message: t('gateway.activateStudentError'),
           });
         } finally {
           loadingStudent.value = false;

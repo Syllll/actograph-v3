@@ -103,7 +103,7 @@ export default defineComponent({
           savePreferences({ locale: value, darkMode: state.darkMode });
         } catch (e) {
           console.error('Erreur sauvegarde préférences:', e);
-          $q.notify({ type: 'negative', message: 'Impossible de sauvegarder les préférences' });
+          $q.notify({ type: 'negative', message: i18n.t('preferences.saveFailed') });
         }
       },
       onThemeChange: (value: boolean) => {
@@ -112,7 +112,7 @@ export default defineComponent({
           savePreferences({ locale: state.locale, darkMode: value });
         } catch (e) {
           console.error('Erreur sauvegarde préférences:', e);
-          $q.notify({ type: 'negative', message: 'Impossible de sauvegarder les préférences' });
+          $q.notify({ type: 'negative', message: i18n.t('preferences.saveFailed') });
         }
       },
     };

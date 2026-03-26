@@ -1,7 +1,7 @@
 import { observationService } from './index.service';
 import { IObservation } from './interface';
-import { IChronicExport } from './export.interface';
 import { autosaveService } from './autosave.service';
+import { serviceT } from 'src/i18n/service-translate';
 
 /**
  * Service pour exporter une observation au format .jchronic via le backend
@@ -34,15 +34,13 @@ export const exportService = {
     // VÉRIFICATION 1 : L'API Electron doit être disponible pour sauvegarder le fichier
     // Cette fonctionnalité nécessite Electron car elle utilise les APIs natives du système
     if (!window.api || !window.api.showSaveDialog || !window.api.writeFile) {
-      throw new Error(
-        'L\'API Electron n\'est pas disponible. Cette fonctionnalité nécessite Electron.'
-      );
+      throw new Error(serviceT('services.electronRequired'));
     }
 
     // VÉRIFICATION 2 : L'observation doit avoir un ID pour être exportée
     // L'ID est nécessaire pour appeler l'API backend
     if (!observation.id) {
-      throw new Error('Observation ID is required');
+      throw new Error(serviceT('services.observationIdRequired'));
     }
 
     // ÉTAPE 1 : Récupérer les données d'export depuis le backend
@@ -86,8 +84,8 @@ export const exportService = {
     const dialogResult = await window.api.showSaveDialog({
       defaultPath: defaultFileName,
       filters: [
-        { name: 'Fichiers Chronique', extensions: ['jchronic'] }, // Filtre principal
-        { name: 'Tous les fichiers', extensions: ['*'] }, // Option pour forcer l'extension
+        { name: serviceT('cloud.chronicFiles'), extensions: ['jchronic'] },
+        { name: serviceT('dialogs.createObservation.allFiles'), extensions: ['*'] },
       ],
     });
 
@@ -108,7 +106,7 @@ export const exportService = {
     // Vérification du résultat de l'écriture
     if (!writeResult.success) {
       throw new Error(
-        writeResult.error || 'Erreur lors de l\'écriture du fichier'
+        writeResult.error || serviceT('services.fileWriteFailed'),
       );
     }
 
@@ -148,7 +146,7 @@ export const exportService = {
     newName: string
   ): Promise<IObservation> {
     if (!observation.id) {
-      throw new Error('Observation ID is required');
+      throw new Error(serviceT('services.observationIdRequired'));
     }
 
     const exportData = await observationService.exportObservation(observation.id);

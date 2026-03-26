@@ -3,9 +3,7 @@
     <DCard style="width: 40rem">
       <div class="column items-center">
         <p class="introText">
-          Lors de l'achat de votre licence, vous avez reçu une clé de licence
-          par email. Cette clé vous permet de profiter de l'ensemble des
-          fonctionnalités de l'application.
+          {{ $t('gateway.activateProIntro') }}
         </p>
 
         <div ref="topAnchor"></div>
@@ -24,7 +22,7 @@
         <form>
           <div class="text-center column items-center">
             <p class="text-bold" style="font-size: 1.2em; line-height: 1.1em">
-              Veuillez saisir votre clé de licence
+              {{ $t('gateway.activateProEnterKey') }}
             </p>
             <q-input
               v-model="activationKey"
@@ -43,12 +41,12 @@
               class="q-ma-sm"
               @click="$router.back()"
               icon="chevron_left"
-              :label="'Retour'"
+              :label="$t('gateway.back')"
             />
             <d-submit-btn
               class="q-ma-sm"
               @click="methods.activatePro"
-              :label="'Activer'"
+              :label="$t('gateway.activate')"
               :loading="loading"
             />
           </div>
@@ -61,12 +59,14 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import securityService from 'src/services/security/index.service';
 
 export default defineComponent({
   name: 'ActivatePro',
   setup() {
     const router = useRouter();
+    const { t } = useI18n();
 
     const loading = ref(false);
     const errorInForm = ref('');
@@ -87,10 +87,10 @@ export default defineComponent({
               name: 'gateway_loading',
             });
           } else {
-            errorInForm.value = 'Clé de licence invalide';
+            errorInForm.value = t('gateway.invalidLicenseKey');
           }
         } catch (error) {
-          errorInForm.value = 'Clé de licence invalide';
+          errorInForm.value = t('gateway.invalidLicenseKey');
         } finally {
           loading.value = false;
         }

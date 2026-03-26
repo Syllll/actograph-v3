@@ -3,7 +3,7 @@
     <!-- First-launch extraction indicator -->
     <div v-if="state.isExtracting" class="column items-center q-gutter-md extraction-container">
       <q-icon name="mdi-package-variant" size="64px" color="primary" class="package-icon" />
-      <div class="text-h5 text-center">Première utilisation</div>
+      <div class="text-h5 text-center">{{ $t('gateway.loadingFirstUse') }}</div>
       <div class="text-body1 text-center text-grey-7">
         {{ state.extractionMessage }}
       </div>
@@ -24,13 +24,13 @@
       </div>
       
       <div class="text-caption text-grey-5 q-mt-sm">
-        Veuillez patienter, cette opération est nécessaire uniquement au premier lancement.
+        {{ $t('gateway.loadingPleaseWait') }}
       </div>
     </div>
     
     <!-- Normal loading -->
     <DInnerLoading v-else-if="state.loading">
-      Chargement de l'application...
+      {{ $t('gateway.loadingApp') }}
     </DInnerLoading>
     
     <!-- Error banner -->
@@ -42,6 +42,7 @@
 
 <script lang="ts">
 import { defineComponent, onMounted, reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 import EmptyLayout from '@lib-improba/components/layouts/empty/Index.vue';
 import { useRouter } from 'vue-router';
 import { useAuth } from '@lib-improba/composables/use-auth';
@@ -56,12 +57,13 @@ export default defineComponent({
     const router = useRouter();
     const auth = useAuth(router);
     const startupLoading = useStartupLoading();
+    const { t } = useI18n();
 
     const state = reactive({
       loading: true,
       error: null as string | null,
       isExtracting: false,
-      extractionMessage: 'Préparation de l\'application...',
+      extractionMessage: t('gateway.preparingApp'),
       extractionProgress: 0,
     });
 
@@ -135,8 +137,7 @@ export default defineComponent({
         }
       }
       if (!isServerRunning) {
-        state.error =
-          "Erreur lors de l'initialisation du backend de l'application, code=1";
+        state.error = t('gateway.initBackendError');
         state.loading = false;
         state.isExtracting = false;
         return;
@@ -150,8 +151,7 @@ export default defineComponent({
       try {
         await auth.methods.login(localUserName, localUserName.split('-')[1]);
       } catch (error) {
-        state.error =
-          "Erreur lors de l'initialisation de l'authentification de l'utilisateur, code=2";
+        state.error = t('gateway.initAuthError');
         state.loading = false;
         return;
       }

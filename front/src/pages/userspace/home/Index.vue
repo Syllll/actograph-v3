@@ -6,7 +6,9 @@
         class="loading-overlay column items-center justify-center"
       >
         <q-spinner-dots size="48px" color="primary" />
-        <div class="text-body2 text-grey-7 q-mt-md">Chargement de la chronique...</div>
+        <div class="text-body2 text-grey-7 q-mt-md">
+          {{ $t('homePage.loadingChronicle') }}
+        </div>
       </div>
 
       <!-- ===== Layout A: No chronicle loaded ===== -->
@@ -14,23 +16,23 @@
         <div class="col-auto q-pa-xs">
           <WelcomeHero
             :is-cloud-authenticated="cloud.sharedState.isAuthenticated"
-            @create="methods.createNewObservation"
-            @import="methods.importObservation"
-            @cloud="methods.openCloud"
-            @load-example="methods.loadExample"
+            @create="chronicleActions.createObservation"
+            @import="chronicleActions.importObservation"
+            @cloud="chronicleActions.openCloud"
+            @load-example="chronicleActions.loadExample"
           />
         </div>
 
         <div class="col row" style="min-height: 0">
           <div class="col-7 column q-pa-xs">
             <div class="box col column">
-              <cTitle class="col-auto" title="Vos chroniques" />
+              <cTitle class="col-auto" :title="$t('homePage.yourChronicles')" />
               <MyObservations class="col" />
             </div>
           </div>
           <div class="col-5 column q-pa-xs">
             <div class="box col column">
-              <cTitle class="col-auto" title="Centre d'aide" />
+              <cTitle class="col-auto" :title="$t('homePage.helpCenter')" />
               <FirstSteps class="col" />
             </div>
           </div>
@@ -41,7 +43,7 @@
       <template v-else>
         <div class="col-auto q-pa-xs">
           <div class="box">
-            <cTitle title="Chronique active" />
+            <cTitle :title="$t('homePage.activeChronicle')" />
             <ActiveChronicle />
           </div>
         </div>
@@ -49,13 +51,13 @@
         <div class="col row" style="min-height: 0">
           <div class="col-7 column q-pa-xs">
             <div class="box col column">
-              <cTitle class="col-auto" title="Vos chroniques" />
+              <cTitle class="col-auto" :title="$t('homePage.yourChronicles')" />
               <MyObservations class="col" />
             </div>
           </div>
           <div class="col-5 column q-pa-xs">
             <div class="box col column">
-              <cTitle class="col-auto" title="Centre d'aide" />
+              <cTitle class="col-auto" :title="$t('homePage.helpCenter')" />
               <FirstSteps class="col" />
             </div>
           </div>
@@ -66,9 +68,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, nextTick, onMounted } from 'vue';
-import { useQuasar } from 'quasar';
-import { useRouter } from 'vue-router';
+import { defineComponent, computed, onMounted } from 'vue';
 import cTitle from './_components/Title.vue';
 import MyObservations from './_components/my-observations/Index.vue';
 import FirstSteps from './_components/first-steps/Index.vue';
@@ -76,13 +76,7 @@ import ActiveChronicle from './_components/active-chronicle/Index.vue';
 import WelcomeHero from './_components/welcome-hero/Index.vue';
 import { useObservation } from 'src/composables/use-observation';
 import { useCloud } from 'src/composables/use-cloud';
-import { createDialog } from '@lib-improba/utils/dialog.utils';
-import CreateObservationDialog from './_components/active-chronicle/CreateObservationDialog.vue';
-import CloudLoginDialog from './_components/cloud/CloudLoginDialog.vue';
-import CloudSyncDialog from './_components/cloud/CloudSyncDialog.vue';
-import { ObservationModeEnum } from '@services/observations/interface';
-import { protocolService } from '@services/observations/protocol.service';
-import { importService } from '@services/observations/import.service';
+import { useChronicleActions } from 'src/composables/use-chronicle-actions';
 
 export default defineComponent({
   components: {
@@ -93,173 +87,23 @@ export default defineComponent({
     WelcomeHero,
   },
   setup() {
-    const $q = useQuasar();
-    const router = useRouter();
     const observation = useObservation();
     const cloud = useCloud();
+    const chronicleActions = useChronicleActions();
 
     onMounted(async () => {
       await cloud.methods.init();
     });
 
     const hasCurrentObservation = computed(
-      () => !!observation.sharedState.currentObservation
+      () => !!observation.sharedState.currentObservation,
     );
-
-    const methods = {
-      async createNewObservation() {
-        const diagRes = await createDialog({
-          component: CreateObservationDialog,
-          componentProps: {},
-          persistent: true,
-        });
-
-        if (!diagRes || diagRes === false) {
-          return;
-        }
-
-        await new Promise(resolve => {
-          setTimeout(() => {
-            resolve(undefined);
-          }, 200);
-        });
-
-        const createOptions: {
-          name: string;
-          description?: string;
-          mode: ObservationModeEnum;
-          videoPath?: string;
-        } = {
-          name: diagRes.name,
-          description: diagRes.description,
-          mode: diagRes.mode,
-        };
-
-        if (diagRes.videoPath) {
-          createOptions.videoPath = diagRes.videoPath;
-        }
-
-        try {
-          await observation.methods.createObservation(createOptions);
-
-          if (diagRes.sourceObservationId && observation.sharedState.currentObservation?.id) {
-            await protocolService.cloneProtocol(
-              diagRes.sourceObservationId,
-              observation.sharedState.currentObservation.id
-            );
-            await observation.protocol.methods.loadProtocol(
-              observation.sharedState.currentObservation
-            );
-          }
-
-          await nextTick();
-          await new Promise(resolve => setTimeout(resolve, 100));
-          await router.push({ name: 'user_home' });
-        } catch (error) {
-          console.error('Erreur lors de la création de l\'observation:', error);
-          $q.notify({
-            type: 'negative',
-            message: 'Erreur lors de la création de la chronique',
-            caption: error instanceof Error ? error.message : 'Erreur inconnue',
-          });
-        }
-      },
-
-      async importObservation() {
-        if (!window.api || !window.api.showOpenDialog || !window.api.readFile) {
-          $q.notify({
-            type: 'negative',
-            message: 'L\'API Electron n\'est pas disponible. Cette fonctionnalité nécessite Electron.',
-          });
-          return;
-        }
-
-        try {
-          let defaultPath = '';
-          if (window.api?.getActographFolder) {
-            defaultPath = await window.api.getActographFolder();
-          }
-
-          const dialogResult = await window.api.showOpenDialog({
-            defaultPath: defaultPath || undefined,
-            filters: [
-              { name: 'Fichiers Chronique', extensions: ['jchronic', 'chronic'] },
-              { name: 'Tous les fichiers', extensions: ['*'] },
-            ],
-          });
-
-          if (dialogResult.canceled || !dialogResult.filePaths || dialogResult.filePaths.length === 0) {
-            return;
-          }
-
-          const filePath = dialogResult.filePaths[0];
-          const newObservation = await importService.importFromFile(filePath);
-          await observation.methods.loadObservation(newObservation.id);
-
-          $q.notify({
-            type: 'positive',
-            message: 'Chronique importée avec succès',
-            caption: newObservation.name,
-          });
-        } catch (error: any) {
-          console.error('Erreur lors de l\'import:', error);
-          const errorMessage =
-            error?.response?.data?.message ||
-            error?.message ||
-            'Erreur inconnue lors de l\'import';
-          $q.notify({
-            type: 'negative',
-            message: 'Erreur lors de l\'import de la chronique',
-            caption: errorMessage,
-          });
-        }
-      },
-
-      async openCloud() {
-        await cloud.methods.init();
-
-        if (!cloud.sharedState.isAuthenticated) {
-          $q.dialog({
-            component: CloudLoginDialog,
-          }).onOk(() => {
-            methods.openCloudSyncDialog();
-          });
-        } else {
-          methods.openCloudSyncDialog();
-        }
-      },
-
-      openCloudSyncDialog() {
-        $q.dialog({
-          component: CloudSyncDialog,
-        }).onOk((result: { action: string; observationId?: number }) => {
-          if (result.action === 'logout') {
-            methods.openCloud();
-          }
-        });
-      },
-
-      async loadExample() {
-        try {
-          const exampleObservation =
-            await observation.methods.cloneExampleObservation();
-          await observation.methods.loadObservation(exampleObservation.id);
-        } catch (error) {
-          console.error('Erreur lors du chargement de l\'exemple:', error);
-          $q.notify({
-            type: 'negative',
-            message: 'Erreur lors du chargement de l\'exemple',
-            caption: error instanceof Error ? error.message : 'Erreur inconnue',
-          });
-        }
-      },
-    };
 
     return {
       observation,
       cloud,
       hasCurrentObservation,
-      methods,
+      chronicleActions,
     };
   },
 });

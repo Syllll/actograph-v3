@@ -1,7 +1,7 @@
 <template>
   <DChip class="full-height" style="min-width: 15rem">
     <div class="full-width text-center">
-      <strong> Accès Professionel </strong>
+      <strong>{{ $t('licenseUi.accessProfessional') }}</strong>
     </div>
   </DChip>
 </template>

@@ -4,6 +4,7 @@
  */
 
 import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 
 export type NotificationType = 'info' | 'warning' | 'error' | 'success' | 'negative' | 'positive';
 
@@ -27,6 +28,7 @@ export interface NotificationOptions {
  */
 export const useNotifications = () => {
   const $q = useQuasar();
+  const { t } = useI18n();
 
   const methods = {
     /**
@@ -120,7 +122,7 @@ export const useNotifications = () => {
      * @param reason - Reason why the feature is disabled
      */
     showFeatureWarning: (feature: string, reason: string) => {
-      methods.warning(`${feature} indisponible`, {
+      methods.warning(t('notifications.featureUnavailable', { feature }), {
         caption: reason,
         timeout: 7000,
       });
@@ -131,8 +133,8 @@ export const useNotifications = () => {
      */
     showGraphWarning: () => {
       methods.showFeatureWarning(
-        'Graphique d\'activité',
-        'Aucun relevé disponible. Créez des relevés dans la page Observation.'
+        t('notifications.graphFeature'),
+        t('notifications.graphDisabledReason'),
       );
     },
 
@@ -141,8 +143,8 @@ export const useNotifications = () => {
      */
     showStatsWarning: () => {
       methods.showFeatureWarning(
-        'Statistiques',
-        'Aucun relevé disponible. Créez des relevés dans la page Observation.'
+        t('notifications.statsFeature'),
+        t('notifications.statsDisabledReason'),
       );
     },
   };

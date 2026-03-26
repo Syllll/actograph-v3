@@ -34,12 +34,12 @@
       </div>
     </div>
     <template #actions>
-      <DCancelBtn class="q-mx-sm" @click="$emit('update:triggerOpen', false)" label="Annuler" />
+      <DCancelBtn class="q-mx-sm" @click="$emit('update:triggerOpen', false)" :label="$t('dialogs.cancel')" />
       <DSubmitBtn
         :loading="state.loading"
         class="q-mx-sm"
         @click="methods.submit"
-        label="Créer"
+        :label="$t('adminUsers.create')"
       />
     </template>
   </DDialog>

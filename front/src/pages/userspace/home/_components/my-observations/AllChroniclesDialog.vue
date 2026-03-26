@@ -2,7 +2,9 @@
   <q-dialog v-model="localShow" @hide="methods.handleHide">
     <q-card class="all-chronicles-dialog column">
       <q-card-section class="col-auto row items-center q-pb-none">
-        <div class="text-h5 text-weight-bold">Toutes vos chroniques</div>
+        <div class="text-h5 text-weight-bold">
+          {{ $t('observationsList.dialogTitle') }}
+        </div>
         <q-space />
         <q-btn icon="close" flat round dense @click="methods.handleHide" />
       </q-card-section>
@@ -12,13 +14,13 @@
           <DSearchInput
             class="col"
             v-model:searchText="state.searchText"
-            placeholder="Rechercher une chronique..."
+            :placeholder="$t('observationsList.searchPlaceholder')"
             @update:searchText="methods.handleSearch"
           />
           <q-select
             v-model="state.sortField"
-            :options="stateless.sortOptions"
-            label="Trier par"
+            :options="sortOptions"
+            :label="$t('observationsList.sortBy')"
             dense
             outlined
             emit-value
@@ -36,7 +38,7 @@
           flat
           dense
           :rows="state.rows"
-          :columns="stateless.columns"
+          :columns="tableColumns"
           row-key="id"
           virtual-scroll
           :virtual-scroll-sticky-size-start="40"
@@ -87,7 +89,7 @@
           <template v-slot:no-data>
             <div class="full-width column items-center q-pa-lg text-grey-6">
               <q-icon name="mdi-magnify" size="48px" class="q-mb-md" />
-              <div class="text-body1">Aucune chronique trouvée</div>
+              <div class="text-body1">{{ $t('observationsList.noResults') }}</div>
             </div>
           </template>
         </q-table>
@@ -96,9 +98,19 @@
       <q-card-section class="col-auto q-pt-none">
         <div class="row items-center justify-between">
           <div class="text-body2 text-grey-7">
-            {{ state.totalCount }} chronique{{ state.totalCount > 1 ? 's' : '' }}
+            {{ state.totalCount }}
+            {{
+              state.totalCount === 1
+                ? $t('observationsList.chronicleWordSingular')
+                : $t('observationsList.chronicleWordPlural')
+            }}
           </div>
-          <q-btn flat label="Fermer" color="primary" @click="methods.handleHide" />
+          <q-btn
+            flat
+            :label="$t('observationsList.close')"
+            color="primary"
+            @click="methods.handleHide"
+          />
         </div>
       </q-card-section>
     </q-card>
@@ -108,6 +120,7 @@
 <script lang="ts">
 import { defineComponent, reactive, watch, computed, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import { observationService } from '@services/observations/index.service';
 import { IObservation } from '@services/observations/interface';
 import { DSearchInput } from '@lib-improba/components/app/inputs';
@@ -129,36 +142,42 @@ export default defineComponent({
   setup(props, { emit }) {
     const $q = useQuasar();
     const observation = useObservation();
+    const { t, locale } = useI18n();
 
-    const stateless = {
-      columns: [
+    const tableColumns = computed(() => {
+      void locale.value;
+      return [
         {
           name: 'name',
           align: 'left' as const,
-          label: 'Nom',
+          label: t('observationsList.colName'),
           field: 'name',
         },
         {
           name: 'mode',
           align: 'center' as const,
-          label: 'Mode',
+          label: t('observationsList.colMode'),
           field: 'mode',
           style: 'width: 120px',
         },
         {
           name: 'updatedAt',
           align: 'left' as const,
-          label: 'Dernière modification',
+          label: t('observationsList.colUpdatedAt'),
           field: 'updatedAt',
           style: 'width: 200px',
         },
-      ],
-      sortOptions: [
-        { label: 'Dernière modification', value: 'updatedAt' },
-        { label: 'Nom', value: 'name' },
-        { label: 'Date de création', value: 'createdAt' },
-      ],
-    };
+      ];
+    });
+
+    const sortOptions = computed(() => {
+      void locale.value;
+      return [
+        { label: t('observationsList.sortUpdatedAt'), value: 'updatedAt' },
+        { label: t('observationsList.sortName'), value: 'name' },
+        { label: t('observationsList.sortCreatedAt'), value: 'createdAt' },
+      ];
+    });
 
     const state = reactive({
       rows: [] as IObservation[],
@@ -208,7 +227,7 @@ export default defineComponent({
           console.error('Error fetching all observations:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors du chargement des chroniques',
+            message: t('observationsList.loadError'),
           });
           state.rows = [];
           state.totalCount = 0;
@@ -230,9 +249,9 @@ export default defineComponent({
       },
 
       formatMode(mode: string | null | undefined): string {
-        if (mode === 'chronometer') return 'Chronomètre';
-        if (mode === 'calendar') return 'Calendrier';
-        return 'N/A';
+        if (mode === 'chronometer') return t('observationsList.modeChronometer');
+        if (mode === 'calendar') return t('observationsList.modeCalendar');
+        return t('observationsList.modeNa');
       },
 
       formatDate(val: string): string {
@@ -258,7 +277,8 @@ export default defineComponent({
     });
 
     return {
-      stateless,
+      tableColumns,
+      sortOptions,
       state,
       localShow,
       methods,

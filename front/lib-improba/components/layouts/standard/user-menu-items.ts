@@ -1,24 +1,25 @@
 export const userMenuItems = (i18n: any, router: any, onAutosaveRestore?: () => void | Promise<void>) => {
+  const t = i18n.t.bind(i18n);
   return [
     {
       name: 'theme',
-      label: 'Thème',
+      label: t('layout.menuTheme'),
       action: undefined,
     },
     {
       name: 'lang',
-      label: 'Langue',
+      label: t('layout.menuLang'),
       class: 'q-pa-none',
       action: undefined,
     },
     {
       name: 'license',
-      label: 'Licence',
+      label: t('layout.menuLicense'),
       route: { name: 'user_license' },
     },
     ...(onAutosaveRestore ? [{
       name: 'autosave',
-      label: 'Sauvegardes automatiques',
+      label: t('layout.menuAutosave'),
       action: onAutosaveRestore,
     }] : []),
     /*{
@@ -37,7 +38,7 @@ export const userMenuItems = (i18n: any, router: any, onAutosaveRestore?: () => 
   },*/
     {
       name: 'quit',
-      label: 'Quitter',
+      label: t('layout.menuQuit'),
       clickable: false,
       action: undefined, // Will be handled in ToolbarContent
     },

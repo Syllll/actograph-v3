@@ -5,7 +5,7 @@
       style="min-width: 500px"
       bgColor="background"
       innerHeader
-      title="Fusionner deux chroniques"
+      :title="$t('dialogs.mergeObservation.title')"
     >
       <DCardSection>
         <div class="column q-gutter-md">
@@ -18,10 +18,10 @@
             map-options
             outlined
             dense
-            placeholder="Première chronique"
+            :placeholder="$t('dialogs.mergeObservation.firstPlaceholder')"
             :loading="state.observationsLoading"
             :disable="state.observationsLoading"
-            :rules="[(val) => val !== null && val !== undefined || 'Sélectionnez la première chronique']"
+            :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.mergeObservation.firstRequired')]"
           />
           <q-select
             v-model="state.sourceObservationId2"
@@ -32,21 +32,21 @@
             map-options
             outlined
             dense
-            placeholder="Deuxième chronique"
+            :placeholder="$t('dialogs.mergeObservation.secondPlaceholder')"
             :loading="state.observationsLoading"
             :disable="state.observationsLoading"
-            :rules="[(val) => val !== null && val !== undefined || 'Sélectionnez la deuxième chronique']"
+            :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.mergeObservation.secondRequired')]"
           />
           <q-input
             v-model="state.name"
-            placeholder="Nom de la chronique fusionnée"
+            :placeholder="$t('dialogs.mergeObservation.mergedNamePlaceholder')"
             outlined
             dense
-            :rules="[(val) => (val && val.length > 0) || 'Le nom est requis']"
+            :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.mergeObservation.nameRequired')]"
           />
           <q-input
             v-model="state.description"
-            placeholder="Description (optionnel)"
+            :placeholder="$t('dialogs.mergeObservation.descriptionPlaceholder')"
             outlined
             dense
             type="textarea"
@@ -57,9 +57,13 @@
 
       <DCardSection class="q-mt-md">
         <div class="row items-center justify-end full-width q-gutter-md">
-          <DCancelBtn @click="onCancelClick" label="Annuler" :disable="state.merging" />
+          <DCancelBtn
+            @click="onCancelClick"
+            :label="$t('dialogs.cancel')"
+            :disable="state.merging"
+          />
           <DSubmitBtn
-            label="Fusionner"
+            :label="$t('dialogs.mergeObservation.submit')"
             @click="onOKClick"
             :disable="!methods.isValid || state.merging"
             :loading="state.merging"
@@ -72,6 +76,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive, nextTick, ref, onMounted, onUnmounted, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import {
   DCard,
@@ -92,6 +97,7 @@ export default defineComponent({
   },
   setup() {
     const $q = useQuasar();
+    const { t } = useI18n();
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
       useDialogPluginComponent();
 
@@ -104,14 +110,15 @@ export default defineComponent({
         const observations = await observationService.findAllForCurrentUser();
         state.observations = observations.map((obs) => ({
           id: obs.id,
-          name: obs.name || `Chronique ${obs.id}`,
+          name: obs.name || t('chronicle.fallbackName', { id: obs.id }),
         }));
       } catch (error) {
-        console.error('Erreur lors du chargement des observations:', error);
+        console.error('Failed to load observations for merge dialog:', error);
         $q.notify({
           type: 'negative',
-          message: 'Impossible de charger les chroniques',
-          caption: error instanceof Error ? error.message : 'Erreur inconnue',
+          message: t('dialogs.mergeObservation.loadError'),
+          caption:
+            error instanceof Error ? error.message : t('common.unknownError'),
         });
       } finally {
         state.observationsLoading = false;
@@ -178,7 +185,7 @@ export default defineComponent({
         if (state.sourceObservationId1 === state.sourceObservationId2) {
           $q.notify({
             type: 'negative',
-            message: 'Veuillez sélectionner deux chroniques différentes',
+            message: t('dialogs.mergeObservation.pickTwoDifferent'),
           });
           return;
         }
@@ -193,11 +200,12 @@ export default defineComponent({
           });
           onDialogOK(mergedObservation);
         } catch (error) {
-          console.error('Erreur lors de la fusion:', error);
+          console.error('MergeObservationsDialog: merge failed', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de la fusion des chroniques',
-            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+            message: t('dialogs.mergeObservation.mergeError'),
+            caption:
+              error instanceof Error ? error.message : t('common.unknownError'),
           });
         } finally {
           state.merging = false;

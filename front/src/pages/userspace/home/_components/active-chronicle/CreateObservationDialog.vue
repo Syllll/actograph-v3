@@ -5,20 +5,20 @@
       style="min-width: 400px"
       bgColor="background"
       innerHeader
-      title="Créer une chronique"
+      :title="$t('dialogs.createObservation.title')"
     >
       <DCardSection>
         <div class="column q-gutter-md">
           <q-input
             v-model="state.name"
-            placeholder="Nom de la chronique"
+            :placeholder="$t('dialogs.createObservation.namePlaceholder')"
             outlined
             dense
-            :rules="[(val) => (val && val.length > 0) || 'Le nom est requis']"
+            :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.createObservation.nameRequired')]"
           />
           <q-input
             v-model="state.description"
-            placeholder="Description (optionnel)"
+            :placeholder="$t('dialogs.createObservation.descriptionPlaceholder')"
             outlined
             dense
             type="textarea"
@@ -35,9 +35,9 @@
             map-options
             outlined
             dense
-            label="Type d'observation"
-            hint="Choisissez comment vous souhaitez observer"
-            :rules="[(val) => val !== null && val !== undefined || 'Le type d\'observation est requis']"
+            :label="$t('dialogs.createObservation.observationTypeLabel')"
+            :hint="$t('dialogs.createObservation.observationTypeHint')"
+            :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.createObservation.observationTypeRequired')]"
           >
             <template v-slot:option="scope">
               <q-item v-bind="scope.itemProps">
@@ -55,7 +55,7 @@
               v-if="!state.videoPath"
               color="primary"
               icon="videocam"
-              label="Sélectionner une vidéo"
+              :label="$t('dialogs.createObservation.selectVideo')"
               outline
               @click="methods.selectVideoFile"
           />
@@ -78,7 +78,7 @@
           <div class="column q-gutter-sm">
             <q-toggle
               v-model="state.copyProtocol"
-              label="Copier un protocole existant"
+              :label="$t('dialogs.createObservation.copyProtocol')"
               color="primary"
             />
             <q-select
@@ -91,10 +91,10 @@
               map-options
               outlined
               dense
-              placeholder="Choisir une chronique source"
+              :placeholder="$t('dialogs.createObservation.sourcePlaceholder')"
               :loading="state.observationsLoading"
               :disable="state.observationsLoading"
-              hint="Copie le protocole (catégories, observables) depuis une chronique existante"
+              :hint="$t('dialogs.createObservation.sourceHint')"
             />
           </div>
           
@@ -109,9 +109,9 @@
             map-options
             outlined
             dense
-            label="Mode de la chronique"
-            hint="Le mode ne pourra pas être modifié après la création"
-            :rules="[(val) => val !== null && val !== undefined || 'Le mode est requis']"
+            :label="$t('dialogs.createObservation.modeLabel')"
+            :hint="$t('dialogs.createObservation.modeHint')"
+            :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.createObservation.modeRequired')]"
           >
             <template v-slot:option="scope">
               <q-item v-bind="scope.itemProps">
@@ -127,9 +127,9 @@
 
       <DCardSection class="q-mt-md">
         <div class="row items-center justify-end full-width q-gutter-md">
-          <DCancelBtn @click="onCancelClick" label="Annuler" />
+          <DCancelBtn @click="onCancelClick" :label="$t('dialogs.cancel')" />
           <DSubmitBtn
-            label="Créer"
+            :label="$t('dialogs.createObservation.submit')"
             @click="onOKClick"
             :disable="!methods.isValid || state.creating"
             :loading="state.creating"
@@ -141,7 +141,16 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, nextTick, ref, onMounted, onUnmounted, computed } from 'vue';
+import {
+  defineComponent,
+  reactive,
+  nextTick,
+  ref,
+  onMounted,
+  onUnmounted,
+  computed,
+} from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import {
   DCard,
@@ -163,6 +172,7 @@ export default defineComponent({
   },
   setup() {
     const $q = useQuasar();
+    const { t, locale } = useI18n();
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
       useDialogPluginComponent();
 
@@ -176,10 +186,10 @@ export default defineComponent({
         const observations = await observationService.findAllForCurrentUser();
         state.observations = observations.map((obs) => ({
           id: obs.id,
-          name: obs.name || `Chronique ${obs.id}`,
+          name: obs.name || t('chronicle.fallbackName', { id: obs.id }),
         }));
       } catch (error) {
-        console.error('Erreur lors du chargement des observations:', error);
+        console.error('CreateObservationDialog: failed to load observations', error);
       } finally {
         state.observationsLoading = false;
       }
@@ -209,31 +219,37 @@ export default defineComponent({
       }))
     );
 
-    const observationTypeOptions = [
-      {
-        label: 'Observer en direct',
-        value: 'direct',
-        description: 'Observation en temps réel sans vidéo',
-      },
-      {
-        label: 'Observer sur une vidéo',
-        value: 'video',
-        description: 'Analyse d\'une vidéo enregistrée (mode chronomètre automatique)',
-      },
-    ];
+    const observationTypeOptions = computed(() => {
+      void locale.value;
+      return [
+        {
+          label: t('dialogs.createObservation.typeDirect'),
+          value: 'direct',
+          description: t('dialogs.createObservation.typeDirectDesc'),
+        },
+        {
+          label: t('dialogs.createObservation.typeVideo'),
+          value: 'video',
+          description: t('dialogs.createObservation.typeVideoDesc'),
+        },
+      ];
+    });
 
-    const modeOptions = [
-      {
-        label: 'Calendrier',
-        value: ObservationModeEnum.Calendar,
-        description: 'Les dates sont affichées comme des dates calendaires',
-      },
-      {
-        label: 'Chronomètre',
-        value: ObservationModeEnum.Chronometer,
-        description: 'Les dates sont affichées comme des durées depuis un point de référence (t0)',
-      },
-    ];
+    const modeOptions = computed(() => {
+      void locale.value;
+      return [
+        {
+          label: t('dialogs.createObservation.modeCalendar'),
+          value: ObservationModeEnum.Calendar,
+          description: t('dialogs.createObservation.modeCalendarDesc'),
+        },
+        {
+          label: t('dialogs.createObservation.modeChronometer'),
+          value: ObservationModeEnum.Chronometer,
+          description: t('dialogs.createObservation.modeChronometerDesc'),
+        },
+      ];
+    });
 
     // Wrapper pour onDialogHide avec protection contre les erreurs de démontage
     // Vérifier que le composant est encore monté avant d'appeler onDialogHide
@@ -276,7 +292,7 @@ export default defineComponent({
         if (!window.api || !window.api.showOpenDialog) {
           $q.notify({
             type: 'negative',
-            message: 'L\'API Electron n\'est pas disponible. Cette fonctionnalité nécessite Electron.',
+            message: t('dialogs.createObservation.electronUnavailable'),
           });
           return;
         }
@@ -284,8 +300,14 @@ export default defineComponent({
         try {
           const dialogResult = await window.api.showOpenDialog({
             filters: [
-              { name: 'Fichiers vidéo', extensions: ['mp4', 'webm', 'ogg', 'mov', 'avi'] },
-              { name: 'Tous les fichiers', extensions: ['*'] },
+              {
+                name: t('dialogs.createObservation.videoFiles'),
+                extensions: ['mp4', 'webm', 'ogg', 'mov', 'avi'],
+              },
+              {
+                name: t('dialogs.createObservation.allFiles'),
+                extensions: ['*'],
+              },
             ],
           });
 
@@ -297,7 +319,7 @@ export default defineComponent({
         } catch (error: any) {
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de la sélection de la vidéo',
+            message: t('dialogs.createObservation.videoSelectError'),
             caption: error.message,
           });
         }

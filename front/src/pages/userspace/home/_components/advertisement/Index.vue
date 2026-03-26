@@ -5,7 +5,7 @@
         <!-- Version du logiciel -->
         <div class="version-card q-pa-md q-mb-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-sm">
-            Version
+            {{ $t('licenseUi.version') }}
           </div>
           <div class="text-body1">
             ActoGraph v{{ stateless.appVersion }}
@@ -15,7 +15,7 @@
         <!-- Votre licence -->
         <div class="license-card q-pa-md q-mb-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-sm">
-            Votre licence
+            {{ $t('licenseUi.yourLicense') }}
           </div>
           <div class="text-body1 text-weight-medium q-mb-xs">
             {{ licenseName }}
@@ -28,15 +28,13 @@
         <!-- Introduction ActoGraph -->
         <div class="intro-card q-pa-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-sm">
-            À propos d'ActoGraph
+            {{ $t('licenseUi.aboutTitle') }}
           </div>
           <div class="text-body2 text-grey-8">
-            ActoGraph est un logiciel d'analyse et de visualisation de données d'observation comportementale. 
-            Il permet de créer des observations, de collecter des données structurées et de visualiser vos résultats 
-            sous forme de graphiques interactifs.
+            {{ $t('licenseUi.aboutBody1') }}
           </div>
           <div class="text-body2 text-grey-8 q-mt-sm">
-            Le code source d'ActoGraph est open-source, mais l'usage en entreprise doit faire l'objet d'une licence professionnelle.
+            {{ $t('licenseUi.aboutBody2') }}
           </div>
         </div>
       </div>
@@ -46,6 +44,7 @@
 
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useLicense } from 'src/composables/use-license';
 import { LicenseTypeEnum } from '@services/security/interface';
 
@@ -53,42 +52,45 @@ export default defineComponent({
   name: 'Advertisement',
   setup() {
     const license = useLicense();
+    const { t, locale } = useI18n();
 
     const stateless = {
       appVersion: process.env.APP_VERSION,
     };
 
     const licenseName = computed(() => {
+      void locale.value;
       if (!license.sharedState.license) {
-        return 'Accès étudiant';
+        return t('licenseUi.typeStudentAccess');
       }
       const type = license.sharedState.license.type;
       switch (type) {
         case LicenseTypeEnum.Ultimate:
-          return 'Licence Ultimate';
+          return t('licenseUi.typeUltimate');
         case LicenseTypeEnum.Support:
-          return 'Licence Support';
+          return t('licenseUi.typeSupport');
         case LicenseTypeEnum.Student:
-          return 'Accès étudiant';
+          return t('licenseUi.typeStudentAccess');
         default:
-          return 'Licence professionnelle';
+          return t('licenseUi.typeProfessionalDefault');
       }
     });
 
     const licenseDescription = computed(() => {
+      void locale.value;
       if (!license.sharedState.license) {
-        return 'Valable tant que vous êtes étudiant. Cette licence est gratuite et réservée aux étudiants opérant dans un contexte académique.';
+        return t('licenseUi.descStudentDefault');
       }
       const type = license.sharedState.license.type;
       switch (type) {
         case LicenseTypeEnum.Ultimate:
-          return 'Licence complète avec toutes les fonctionnalités avancées et le support prioritaire.';
+          return t('licenseUi.descUltimate');
         case LicenseTypeEnum.Support:
-          return 'Licence professionnelle avec support technique et mises à jour.';
+          return t('licenseUi.descSupport');
         case LicenseTypeEnum.Student:
-          return 'Valable tant que vous êtes étudiant. Cette licence est gratuite et réservée aux étudiants opérant dans un contexte académique.';
+          return t('licenseUi.descStudent');
         default:
-          return 'Licence professionnelle pour usage en entreprise.';
+          return t('licenseUi.descProfessional');
       }
     });
 

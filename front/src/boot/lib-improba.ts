@@ -3,6 +3,8 @@ import { boot as bootGlobalComponent } from 'src/../lib-improba/boot/global-comp
 import { boot as bootI18n } from 'src/../lib-improba/boot/i18n';
 import { boot as bootAxios } from 'src/../lib-improba/boot/axios';
 import { useImprobaInit } from 'src/../lib-improba/composables/use-improba-init';
+import type { Composer } from 'vue-i18n';
+import { setI18nComposerForServices } from 'src/i18n/service-translate';
 
 declare global {
   interface Window {
@@ -77,6 +79,9 @@ declare global {
 
 export default boot(async ({ app, router }) => {
   bootI18n({ app });
+  const i18nRoot = (app.config.globalProperties as { $i18n_?: { global?: Composer } })
+    .$i18n_;
+  setI18nComposerForServices(i18nRoot?.global);
   bootAxios({ app });
   bootGlobalComponent({ app });
 

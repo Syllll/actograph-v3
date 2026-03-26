@@ -17,6 +17,7 @@ export default defineComponent({
   components: { StandardLayout, Drawer },
   setup() {
     const i18n = useI18n();
+    const { locale } = i18n;
     const router = useRouter();
     
     // Inject the autosave restore function from parent
@@ -24,6 +25,7 @@ export default defineComponent({
 
     // Create menu items with autosave restore function
     const profileMenuItems = computed(() => {
+      void locale.value;
       return userMenuItems(i18n, router, autosaveRestore);
     });
 

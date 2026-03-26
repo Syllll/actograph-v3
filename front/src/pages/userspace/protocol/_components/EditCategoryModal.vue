@@ -74,6 +74,7 @@ import {
   ProtocolItemActionEnum,
 } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
+import { useI18n } from 'vue-i18n';
 
 import {
   DDialog,
@@ -199,7 +200,7 @@ export default defineComponent({
 
         $q.notify({
           type: 'positive',
-          message: 'Catégorie modifiée avec succès',
+          message: t('protocolUi.categoryEdited'),
         });
 
         emit('category-updated');

@@ -36,6 +36,7 @@ import { defineComponent, reactive, PropType } from 'vue';
 import { useQuasar } from 'quasar';
 import { ProtocolItem } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
+import { useI18n } from 'vue-i18n';
 
 import {
   DDialog,
@@ -66,6 +67,7 @@ export default defineComponent({
 
   setup(props, { emit }) {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation();
     const protocol = observation.protocol;
 
@@ -76,7 +78,7 @@ export default defineComponent({
 
     const removeCategory = async () => {
       if (!props.category) {
-        state.error = 'Catégorie introuvable';
+        state.error = t('protocolUi.categoryNotFound');
         return;
       }
 
@@ -85,7 +87,7 @@ export default defineComponent({
         !protocol.methods ||
         typeof protocol.methods.removeItem !== 'function'
       ) {
-        state.error = 'Service de protocole non disponible';
+        state.error = t('protocolUi.serviceUnavailable');
         console.error('Protocol service is not properly initialized');
         return;
       }
@@ -99,14 +101,14 @@ export default defineComponent({
 
         $q.notify({
           type: 'positive',
-          message: 'Catégorie supprimée avec succès',
+          message: t('protocolUi.categoryRemoved'),
         });
 
         // If a default template was created, show an informative message
         if (result && result.defaultTemplateCreated) {
           $q.notify({
             type: 'info',
-            message: 'Un template par défaut a été créé automatiquement (1 catégorie + 1 observable)',
+            message: t('protocolUi.defaultTemplateCreated'),
             timeout: 5000,
           });
         }
@@ -115,7 +117,7 @@ export default defineComponent({
         emit('update:modelValue', false);
       } catch (error) {
         console.error('Failed to remove category:', error);
-        state.error = 'Échec de la suppression de la catégorie';
+        state.error = t('protocolUi.categoryRemoveFailed');
       } finally {
         state.loading = false;
       }

@@ -35,7 +35,7 @@ import { userMenuItems } from './user-menu-items';
 import { useAuth } from 'src/../lib-improba/composables/use-auth';
 import { useI18n } from 'vue-i18n';
 import ElectronBar from './../electron-bar/Index.vue';
-import { useDrawer } from 'src/pages/userspace/_components/drawer/use-drawer';
+import { useDrawer } from 'src/composables/use-drawer';
 
 export default defineComponent({
   components: {
@@ -65,6 +65,7 @@ export default defineComponent({
   setup(props) {
     const router = useRouter();
     const i18n = useI18n();
+    const { locale } = i18n;
     const auth = useAuth(router);
     const drawer = useDrawer();
 
@@ -75,6 +76,7 @@ export default defineComponent({
         return process.env.APP_VERSION;
       }),
       userMenuItems: computed(() => {
+        void locale.value;
         if (props.profileMenuItems) {
           return props.profileMenuItems;
         }

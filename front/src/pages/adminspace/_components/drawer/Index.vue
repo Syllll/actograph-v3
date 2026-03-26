@@ -25,7 +25,7 @@
 <script lang="ts">
 import { defineComponent, ref, reactive } from 'vue';
 import { menuItems } from './menu-items';
-import { useDrawer } from 'src/pages/userspace/_components/drawer/use-drawer';
+import { useDrawer } from 'src/composables/use-drawer';
 
 export default defineComponent({
   components: {},

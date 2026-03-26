@@ -16,7 +16,7 @@
           @click="methods.zoomIn"
           :disable="state.zoomLevel >= 5"
         >
-          <q-tooltip>Zoom avant</q-tooltip>
+          <q-tooltip>{{ $t('graphUi.tooltipZoomIn') }}</q-tooltip>
         </q-btn>
         <q-btn
           flat
@@ -38,7 +38,7 @@
           color="grey-8"
           @click="methods.resetView"
         >
-          <q-tooltip>Réinitialiser la vue</q-tooltip>
+          <q-tooltip>{{ $t('graphUi.tooltipResetView') }}</q-tooltip>
         </q-btn>
         <q-separator v-if="showSeparatorBeforeReset" vertical />
         <q-btn
@@ -49,7 +49,7 @@
           color="grey-8"
           @click="methods.exportAsPng"
         >
-          <q-tooltip>Exporter en PNG</q-tooltip>
+          <q-tooltip>{{ $t('graphUi.tooltipExportPng') }}</q-tooltip>
         </q-btn>
         <q-btn
           flat
@@ -59,7 +59,7 @@
           color="grey-8"
           @click="methods.exportAsJpeg"
         >
-          <q-tooltip>Exporter en JPEG</q-tooltip>
+          <q-tooltip>{{ $t('graphUi.tooltipExportJpeg') }}</q-tooltip>
         </q-btn>
         <q-btn
           flat
@@ -69,7 +69,7 @@
           color="grey-8"
           @click="methods.exportLegendAsPng"
         >
-          <q-tooltip>Exporter la légende (PNG)</q-tooltip>
+          <q-tooltip>{{ $t('graphUi.tooltipExportLegendPng') }}</q-tooltip>
         </q-btn>
       </div>
     </div>
@@ -90,6 +90,7 @@ import { useQuasar } from 'quasar';
 import { useGraph } from './use-graph';
 import { useGraphCustomization } from '../graph-customization-drawer/use-graph-customization';
 import { useObservation } from 'src/composables/use-observation';
+import { useI18n } from 'vue-i18n';
 
 /**
  * Composant principal du graphique d'activité.
@@ -116,6 +117,7 @@ export default defineComponent({
   },
   setup(props) {
     const $q = useQuasar();
+    const { t } = useI18n();
 
     // Référence au canvas HTML qui sera utilisé par PixiJS pour le rendu WebGL
     const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -164,7 +166,7 @@ export default defineComponent({
         if (!graph.sharedState.pixiApp) return;
         const dataUrl = graph.sharedState.pixiApp.exportAsImage('png');
         if (!dataUrl) {
-          $q.notify({ type: 'warning', message: 'Le graphique n\'est pas encore prêt pour l\'export' });
+          $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
           return;
         }
         await methods.saveImageFile(dataUrl, 'png');
@@ -173,7 +175,7 @@ export default defineComponent({
         if (!graph.sharedState.pixiApp) return;
         const dataUrl = graph.sharedState.pixiApp.exportAsImage('jpeg', 0.92);
         if (!dataUrl) {
-          $q.notify({ type: 'warning', message: 'Le graphique n\'est pas encore prêt pour l\'export' });
+          $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
           return;
         }
         await methods.saveImageFile(dataUrl, 'jpeg');
@@ -184,7 +186,7 @@ export default defineComponent({
         if (!Array.isArray(items) || items.length === 0) {
           $q.notify({
             type: 'warning',
-            message: 'Aucune légende disponible à exporter',
+            message: t('graphUi.noLegendToExport'),
           });
           return;
         }
@@ -193,7 +195,10 @@ export default defineComponent({
         for (const category of items) {
           if (String(category?.type ?? '').toLowerCase() !== 'category') continue;
           const categoryColor = category?.graphPreferences?.color || '#10b981';
-          rows.push({ label: `[Catégorie] ${category.name}`, color: categoryColor });
+          rows.push({
+            label: t('graphUi.legendCategoryPrefix', { name: category.name }),
+            color: categoryColor,
+          });
           for (const observable of category.children || []) {
             if (String(observable?.type ?? '').toLowerCase() !== 'observable') continue;
             rows.push({
@@ -206,7 +211,7 @@ export default defineComponent({
         if (rows.length === 0) {
           $q.notify({
             type: 'warning',
-            message: 'Aucune légende disponible à exporter',
+            message: t('graphUi.noLegendToExport'),
           });
           return;
         }
@@ -223,7 +228,7 @@ export default defineComponent({
         if (!ctx) {
           $q.notify({
             type: 'negative',
-            message: 'Impossible de générer l’image de légende',
+            message: t('graphUi.legendImageFailed'),
           });
           return;
         }
@@ -262,7 +267,7 @@ export default defineComponent({
 
         $q.notify({
           type: 'positive',
-          message: `Graphe exporté en ${format.toUpperCase()}`,
+          message: t('graphUi.exportedFormat', { format: format.toUpperCase() }),
           timeout: 3000,
         });
       },

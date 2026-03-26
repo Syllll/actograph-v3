@@ -15,6 +15,7 @@ import { useAutosave } from 'src/composables/use-autosave';
 import { autosaveService } from '@services/observations/autosave.service';
 import { importService } from '@services/observations/import.service';
 import { observationService } from '@services/observations/index.service';
+import { useI18n } from 'vue-i18n';
 
 export default defineComponent({
   components: {
@@ -23,6 +24,7 @@ export default defineComponent({
   },
   setup() {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation({
       init: true,
     });
@@ -87,11 +89,10 @@ export default defineComponent({
       if (process.env.MODE === 'electron' && window.api) {
         systemService.onUpdateAvailable(async () => {
           const dialogResponse = await createDialog({
-            title: 'Mise à jour disponible',
-            message:
-              "Une mise à jour est disponible. Souhaitez-vous l'installer ?",
-            cancel: 'Non',
-            ok: 'Oui',
+            title: t('appRoot.updateAvailableTitle'),
+            message: t('appRoot.updateAvailableMessage'),
+            cancel: t('appRoot.updateCancel'),
+            ok: t('appRoot.updateOk'),
             persistent: true,
           });
           if (!dialogResponse) {
@@ -205,7 +206,9 @@ export default defineComponent({
           // Rename the restored observation with prefix
           if (restoredObservation.id) {
             const originalName = restoredObservation.name;
-            const restoredName = `Restauration auto - ${originalName}`;
+            const restoredName = t('appRoot.autosaveRestoreNamePrefix', {
+              name: originalName,
+            });
             
             await observationService.update(restoredObservation.id, {
               name: restoredName,
@@ -220,15 +223,18 @@ export default defineComponent({
 
           $q.notify({
             type: 'positive',
-            message: 'Restauration réussie',
-            caption: `L'observation "${restoredObservation.name}" a été restaurée`,
+            message: t('appRoot.restoreSuccess'),
+            caption: t('appRoot.restoreSuccessCaption', {
+              name: restoredObservation.name,
+            }),
           });
         } catch (error) {
           console.error('Error restoring autosave:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de la restauration',
-            caption: error instanceof Error ? error.message : 'Erreur inconnue',
+            message: t('appRoot.restoreError'),
+            caption:
+              error instanceof Error ? error.message : t('common.unknownError'),
           });
         }
       } catch (error) {

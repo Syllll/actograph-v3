@@ -10,8 +10,8 @@
         class="text-h6 text-weight-medium"
         :class="{ 'text-caption': isCompactMode }"
       >
-        <span v-if="!isCompactMode">Personnalisation du graphe</span>
-        <span v-else class="text-weight-bold">Graphe</span>
+        <span v-if="!isCompactMode">{{ $t('graphUi.drawerTitleFull') }}</span>
+        <span v-else class="text-weight-bold">{{ $t('graphUi.drawerTitleShort') }}</span>
       </div>
       <q-space />
     </div>
@@ -137,7 +137,7 @@
                   outlined
                   emit-value
                   map-options
-                  placeholder="Arrière-plan de..."
+                  :placeholder="$t('graphUi.placeholderBgCategory')"
                   @update:model-value="(val) => methods.updateCategoryPreference(category.id, { supportCategoryId: val === '' ? null : val })"
                 />
               </div>
@@ -253,7 +253,7 @@
         style="min-width: 350px; min-height: 700px; max-height: 85vh; display: flex; flex-direction: column;"
         bgColor="background"
         innerHeader
-        title="Choisir une couleur"
+        :title="$t('graphUi.chooseColorTitle')"
       >
         <DCardSection style="flex: 1; min-height: 550px; overflow: auto; display: flex; flex-direction: column;">
           <q-color
@@ -267,7 +267,7 @@
         <DCardSection>
           <div class="row items-center justify-center full-width q-gutter-md">
             <DCancelBtn @click="methods.cancelColor" />
-            <DSubmitBtn label="Valider" @click="methods.confirmColor" />
+            <DSubmitBtn :label="$t('graphUi.validate')" @click="methods.confirmColor" />
           </div>
         </DCardSection>
       </DCard>
@@ -284,6 +284,7 @@ import { IGraphPreferences, BackgroundPatternEnum, DisplayModeEnum } from '@serv
 import { getObservableGraphPreferences } from '@services/observations/protocol-graph-preferences.utils';
 import { protocolService, ProtocolItemActionEnum, ProtocolItem } from '@services/observations/protocol.service';
 import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import { useGraph } from '../graph/use-graph';
 import { DScrollArea, DCard, DCardSection, DCancelBtn, DSubmitBtn } from '@lib-improba/components';
 
@@ -314,6 +315,7 @@ export default defineComponent({
     });
     const graph = useGraph(); // Récupère l'instance PixiApp partagée
     const $q = useQuasar();
+    const { t, locale } = useI18n();
 
     const state = reactive({
       saveTimeout: null as ReturnType<typeof setTimeout> | null,
@@ -325,20 +327,26 @@ export default defineComponent({
       },
     });
 
-    const patternOptions = [
-      { label: 'Aucun motif', value: BackgroundPatternEnum.Solid },
-      { label: 'Lignes horizontales', value: BackgroundPatternEnum.Horizontal },
-      { label: 'Lignes verticales', value: BackgroundPatternEnum.Vertical },
-      { label: 'Diagonales', value: BackgroundPatternEnum.Diagonal },
-      { label: 'Grille', value: BackgroundPatternEnum.Grid },
-      { label: 'Pointillés', value: BackgroundPatternEnum.Dots },
-    ];
+    const patternOptions = computed(() => {
+      void locale.value;
+      return [
+        { label: t('graphUi.patternNone'), value: BackgroundPatternEnum.Solid },
+        { label: t('graphUi.patternHorizontal'), value: BackgroundPatternEnum.Horizontal },
+        { label: t('graphUi.patternVertical'), value: BackgroundPatternEnum.Vertical },
+        { label: t('graphUi.patternDiagonal'), value: BackgroundPatternEnum.Diagonal },
+        { label: t('graphUi.patternGrid'), value: BackgroundPatternEnum.Grid },
+        { label: t('graphUi.patternDots'), value: BackgroundPatternEnum.Dots },
+      ];
+    });
 
-    const displayModeOptions = [
-      { label: 'Normal', value: DisplayModeEnum.Normal },
-      { label: 'Arrière-plan', value: DisplayModeEnum.Background },
-      { label: 'Frise', value: DisplayModeEnum.Frieze },
-    ];
+    const displayModeOptions = computed(() => {
+      void locale.value;
+      return [
+        { label: t('graphUi.displayNormal'), value: DisplayModeEnum.Normal },
+        { label: t('graphUi.displayBackground'), value: DisplayModeEnum.Background },
+        { label: t('graphUi.displayFrieze'), value: DisplayModeEnum.Frieze },
+      ];
+    });
 
     // Mode compact activé quand la largeur est inférieure au seuil
     const isCompactMode = computed(() => {
@@ -367,7 +375,7 @@ export default defineComponent({
           console.error('Failed to load protocol:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors du chargement du protocole',
+            message: t('graphUi.protocolLoadError'),
           });
         }
       }
@@ -622,7 +630,7 @@ export default defineComponent({
           const validationErrors = error?.response?.data?.errors;
           const message = Array.isArray(validationErrors)
             ? validationErrors.join(', ')
-            : apiMessage || 'Erreur lors de la mise à jour des préférences';
+            : apiMessage || t('graphUi.prefsUpdateFailed');
           
           console.error('Error updating category preference:', error);
           $q.notify({
@@ -714,7 +722,7 @@ export default defineComponent({
           const validationErrors = error?.response?.data?.errors;
           const message = Array.isArray(validationErrors)
             ? validationErrors.join(', ')
-            : apiMessage || 'Erreur lors de la mise à jour des préférences';
+            : apiMessage || t('graphUi.prefsUpdateFailed');
           
           console.error('Error updating observable preference:', error);
           $q.notify({
@@ -745,7 +753,7 @@ export default defineComponent({
         if (!currentProtocol?._items) return [];
 
         const options: { label: string; value: string | null }[] = [
-          { label: 'Arrière-plan du graph', value: null },
+          { label: t('graphUi.graphBackgroundOption'), value: null },
         ];
 
         // Ajouter les autres catégories en mode "normal"
@@ -772,9 +780,9 @@ export default defineComponent({
       getDisplayModeOptionsForCategory: (category: ProtocolItem) => {
         // Les catégories discrètes ne peuvent être qu'en mode Normal
         if (category.action === ProtocolItemActionEnum.Discrete) {
-          return [{ label: 'Normal', value: DisplayModeEnum.Normal }];
+          return [{ label: t('graphUi.displayNormal'), value: DisplayModeEnum.Normal }];
         }
-        return displayModeOptions;
+        return displayModeOptions.value;
       },
     };
 

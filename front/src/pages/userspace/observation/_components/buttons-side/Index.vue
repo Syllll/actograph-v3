@@ -2,7 +2,7 @@
   <div class="buttons-side-container q-pa-sm column fit">
     <div class="col-auto text-h6 q-mb-sm row">
       <div class="col-auto">
-        Tableau de bord d'observation
+        {{ $t('observation.observationDashboardTitle') }}
       </div>
       <q-space />
       <div class="col-auto">
@@ -13,7 +13,7 @@
           round
           dense
           :disable="state.isResetting"
-          tooltip="Réinitialiser la position des catégories et observables"
+          :tooltip="$t('observation.resetCategoriesTooltip')"
           @click="methods.resetPositions()"
         />
       </div>
@@ -56,6 +56,7 @@ import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@ser
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import Category from './Category.vue';
 import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import { DScrollArea } from '@lib-improba/components/app/scroll-areas';
 
 export default defineComponent({
@@ -68,6 +69,7 @@ export default defineComponent({
 
   setup() {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation();
     const protocol = observation.protocol;
     const readings = observation.readings;
@@ -441,7 +443,7 @@ export default defineComponent({
           console.error('Failed to save category position:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de la sauvegarde de la position',
+            message: t('observation.positionSaveError'),
             position: 'top-right'
           });
         }
@@ -505,7 +507,7 @@ export default defineComponent({
             state.isDraggingCategoryId = null;
             $q.notify({
               type: 'positive',
-              message: 'Les catégories ont été réinitialisées',
+              message: t('observation.categoriesResetSuccess'),
               position: 'top-right',
               timeout: 2000,
             });
@@ -516,7 +518,7 @@ export default defineComponent({
           state.isResetting = false;
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de la réinitialisation',
+            message: t('observation.resetCategoriesError'),
             position: 'top-right'
           });
         });

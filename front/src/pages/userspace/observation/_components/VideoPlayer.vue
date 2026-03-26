@@ -3,10 +3,10 @@
   <!-- If videoPath exists, show video container (even if loading) -->
   <div v-if="observation.isChronometerMode.value && !observation.sharedState.currentObservation?.videoPath" class="no-video-message column items-center justify-center q-pa-lg">
     <q-icon name="videocam_off" size="48px" color="grey-6" />
-    <div class="text-h6 q-mt-md text-grey-6">Aucune vidéo chargée</div>
-    <div class="text-caption q-mt-xs text-grey-6">En mode chronomètre, vous pouvez analyser une vidéo enregistrée</div>
+    <div class="text-h6 q-mt-md text-grey-6">{{ $t('observation.noVideoLoaded') }}</div>
+    <div class="text-caption q-mt-xs text-grey-6">{{ $t('observation.noVideoHint') }}</div>
     <q-btn
-      label="Sélectionner une vidéo"
+      :label="$t('dialogs.createObservation.selectVideo')"
       color="primary"
       icon="videocam"
       @click="methods.selectVideoFile"
@@ -32,7 +32,7 @@
         @error="methods.handleVideoError"
         @loadstart="state.isLoading = true"
       >
-        Votre navigateur ne supporte pas la lecture de vidéos.
+        {{ $t('observation.videoBrowserUnsupported') }}
       </video>
       
               <!-- Error message overlay -->
@@ -40,10 +40,10 @@
                 <q-icon name="error_outline" size="48px" color="negative" />
                 <div class="text-h6 q-mt-md text-center">{{ state.videoError }}</div>
                 <div v-if="state.currentVideoPath" class="text-caption text-grey-6 q-mt-xs text-center">
-                  Fichier attendu : {{ getFileName(state.currentVideoPath) }}
+                  {{ $t('observation.videoExpectedFile') }} {{ getFileName(state.currentVideoPath) }}
                 </div>
                 <q-btn
-                  label="Sélectionner un nouveau fichier"
+                  :label="$t('observation.selectNewVideoFile')"
                   color="primary"
                   @click="methods.selectVideoFile"
                   class="q-mt-md"
@@ -53,7 +53,7 @@
       <!-- Loading indicator -->
       <div v-if="state.isLoading && !state.videoError" class="video-loading-overlay column items-center justify-center">
         <q-spinner color="primary" size="48px" />
-        <div class="text-subtitle1 q-mt-md">Chargement de la vidéo...</div>
+        <div class="text-subtitle1 q-mt-md">{{ $t('observation.videoLoadingLabel') }}</div>
       </div>
       
       <!-- Custom timeline with notches - Unique clickable timeline -->
@@ -104,7 +104,7 @@
           size="sm"
           :disable="!isObservationActive"
         >
-          <q-tooltip>Arrêter l'observation</q-tooltip>
+          <q-tooltip>{{ $t('observation.stopObservationTooltip') }}</q-tooltip>
         </q-btn>
         
         <!-- Volume controls -->
@@ -161,6 +161,7 @@ import { defineComponent, reactive, ref, computed, watch, onMounted, onUnmounted
 import { useObservation } from 'src/composables/use-observation';
 import { IReading, ObservationModeEnum, ReadingTypeEnum } from '@services/observations/interface';
 import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import ModeToggle from './ModeToggle.vue';
 
 export default defineComponent({
@@ -172,6 +173,7 @@ export default defineComponent({
 
   setup() {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation();
     const { sharedState: readingsState, methods: readingsMethods } = observation.readings;
     const videoRef = ref<HTMLVideoElement | null>(null);
@@ -305,18 +307,17 @@ export default defineComponent({
           
           if (!statsResult.success || !statsResult.exists) {
             videoSrc.value = '';
-            state.videoError = `Le fichier vidéo "${fileName}" est introuvable à l'emplacement enregistré.`;
+            state.videoError = t('observation.videoMissingAtPath', { fileName });
             state.isLoading = false;
-            
-            // Proposer de sélectionner un nouveau fichier
+
             $q.notify({
               type: 'negative',
-              message: 'Fichier vidéo introuvable',
-              caption: `Le fichier "${fileName}" n'existe plus à l'emplacement enregistré. Veuillez sélectionner un nouveau fichier.`,
+              message: t('observation.videoNotFoundTitle'),
+              caption: t('observation.videoNotFoundCaption', { fileName }),
               timeout: 5000,
               actions: [
                 {
-                  label: 'Sélectionner un nouveau fichier',
+                  label: t('observation.selectNewVideoFile'),
                   handler: () => {
                     methods.selectVideoFile();
                   },
@@ -328,18 +329,17 @@ export default defineComponent({
 
           if (!statsResult.isFile) {
             videoSrc.value = '';
-            state.videoError = `Le chemin spécifié pour "${fileName}" n'est pas un fichier`;
+            state.videoError = t('observation.videoPathNotFile', { fileName });
             state.isLoading = false;
             return;
           }
 
-          // Warn if file is very large
           if (statsResult.size && statsResult.size > MAX_FILE_SIZE_WARNING) {
             const sizeStr = formatFileSize(statsResult.size);
             $q.notify({
               type: 'warning',
-              message: `Fichier volumineux détecté (${sizeStr})`,
-              caption: 'Le chargement peut prendre du temps',
+              message: t('observation.largeVideoFile', { size: sizeStr }),
+              caption: t('observation.largeVideoFileCaption'),
               timeout: 3000,
             });
           }
@@ -352,18 +352,17 @@ export default defineComponent({
         state.videoError = null; // Réinitialiser l'erreur si le chargement réussit
       } catch (error: any) {
         videoSrc.value = '';
-        state.videoError = `Erreur lors du chargement de la vidéo "${fileName}"`;
+        state.videoError = t('observation.videoLoadFailedState', { fileName });
         state.isLoading = false;
-        
-        // Proposer de sélectionner un nouveau fichier
+
         $q.notify({
           type: 'negative',
-          message: 'Erreur lors du chargement de la vidéo',
-          caption: `Le fichier "${fileName}" est inaccessible. Veuillez sélectionner un nouveau fichier.`,
+          message: t('observation.videoLoadFailedNotify'),
+          caption: t('observation.videoLoadFailedCaption', { fileName }),
           timeout: 5000,
           actions: [
             {
-              label: 'Sélectionner un nouveau fichier',
+              label: t('observation.selectNewVideoFile'),
               handler: () => {
                 methods.selectVideoFile();
               },
@@ -385,7 +384,7 @@ export default defineComponent({
         if (!window.api || !window.api.showOpenDialog) {
           $q.notify({
             type: 'negative',
-            message: 'L\'API Electron n\'est pas disponible. Cette fonctionnalité nécessite Electron.',
+            message: t('dialogs.createObservation.electronUnavailable'),
           });
           return;
         }
@@ -393,8 +392,8 @@ export default defineComponent({
         try {
           const dialogResult = await window.api.showOpenDialog({
             filters: [
-              { name: 'Fichiers vidéo', extensions: ['mp4', 'webm', 'ogg', 'mov', 'avi'] },
-              { name: 'Tous les fichiers', extensions: ['*'] },
+              { name: t('dialogs.createObservation.videoFiles'), extensions: ['mp4', 'webm', 'ogg', 'mov', 'avi'] },
+              { name: t('dialogs.createObservation.allFiles'), extensions: ['*'] },
             ],
           });
 
@@ -414,7 +413,7 @@ export default defineComponent({
         } catch (error: any) {
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de la sélection de la vidéo',
+            message: t('dialogs.createObservation.videoSelectError'),
             caption: error.message,
           });
         }
@@ -431,17 +430,19 @@ export default defineComponent({
       },
 
       handleVideoError: () => {
-        const fileName = state.currentVideoPath ? getFileName(state.currentVideoPath) : 'le fichier vidéo';
-        state.videoError = `Impossible de charger la vidéo "${fileName}". Le fichier n'existe peut-être plus.`;
+        const fileName = state.currentVideoPath
+          ? getFileName(state.currentVideoPath)
+          : t('observation.videoGenericFile');
+        state.videoError = t('observation.videoDecodeFailedState', { fileName });
         state.isLoading = false;
         $q.notify({
           type: 'negative',
-          message: 'Erreur de chargement de la vidéo',
-          caption: `Le fichier "${fileName}" est introuvable ou inaccessible. Veuillez sélectionner un nouveau fichier.`,
+          message: t('observation.videoDecodeFailedTitle'),
+          caption: t('observation.videoDecodeFailedCaption', { fileName }),
           timeout: 5000,
           actions: [
             {
-              label: 'Sélectionner un nouveau fichier',
+              label: t('observation.selectNewVideoFile'),
               handler: () => {
                 methods.selectVideoFile();
               },

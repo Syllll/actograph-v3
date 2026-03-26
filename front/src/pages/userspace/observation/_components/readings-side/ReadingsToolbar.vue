@@ -2,7 +2,7 @@
   <div class="readings-toolbar q-pb-md">
     <div class="row justify-between items-center">
       <div class="row items-center q-gutter-md">
-        <div class="text-h6">Relevés</div>
+        <div class="text-h6">{{ $t('readingsUi.toolbarTitle') }}</div>
         <!-- Mode indicator - Always visible -->
         <q-chip
           :color="currentMode === 'chronometer' ? 'primary' : 'grey-7'"
@@ -10,7 +10,13 @@
           :icon="currentMode === 'chronometer' ? 'timer' : 'event'"
           size="sm"
         >
-          {{ currentMode === 'chronometer' ? 'Mode Chronomètre' : currentMode === 'calendar' ? 'Mode Calendrier' : 'Mode non défini' }}
+          {{
+            currentMode === 'chronometer'
+              ? $t('readingsUi.modeChronometerChip')
+              : currentMode === 'calendar'
+                ? $t('readingsUi.modeCalendarChip')
+                : $t('readingsUi.modeUndefinedChip')
+          }}
         </q-chip>
       </div>
       
@@ -21,7 +27,7 @@
             :modelValue="search"
             outlined
             dense
-            placeholder="Rechercher des relevés..."
+            :placeholder="$t('readingsUi.searchReadingsPlaceholder')"
             class="q-mr-sm"
             style="min-width: 200px"
             clearable
@@ -42,7 +48,7 @@
             dense
             @click="state.showReplace = !state.showReplace"
           >
-            <q-tooltip>Rechercher et remplacer</q-tooltip>
+            <q-tooltip>{{ $t('readingsUi.findReplaceTooltip') }}</q-tooltip>
           </q-btn>
         
         <!-- Action buttons -->
@@ -55,7 +61,7 @@
           round
           dense
         >
-          <q-tooltip>Ajouter un relevé</q-tooltip>
+          <q-tooltip>{{ $t('readingsUi.addReadingTooltip') }}</q-tooltip>
         </q-btn>
 
         <q-btn
@@ -66,31 +72,31 @@
           round
           dense
         >
-          <q-tooltip>Ajouter un commentaire horodaté</q-tooltip>
+          <q-tooltip>{{ $t('readingsUi.addCommentTooltip') }}</q-tooltip>
         </q-btn>
 
         <q-btn
           color="negative"
           icon="delete"
-          label="Supprimer"
+          :label="$t('readingsUi.deleteReading')"
           :disable="!hasSelected"
           @click="methods.removeReading()"
           flat
           rounded
           dense
         >
-          <q-tooltip>Supprimer le relevé sélectionné</q-tooltip>
+          <q-tooltip>{{ $t('readingsUi.deleteReadingTooltip') }}</q-tooltip>
         </q-btn>
         <q-separator vertical />
         <q-btn
           color="negative"
           icon="mdi-delete-sweep"
-          label="Tout effacer"
+          :label="$t('readingsUi.clearAllReadings')"
           @click="methods.removeAllReadings()"
           outline
           dense
         >
-          <q-tooltip>Effacer toute la liste des relevés</q-tooltip>
+          <q-tooltip>{{ $t('readingsUi.clearAllReadingsTooltip') }}</q-tooltip>
         </q-btn>
         
         <!-- Auto-correct readings button -->
@@ -102,7 +108,7 @@
           round
           dense
         >
-          <q-tooltip>Corriger automatiquement les relevés</q-tooltip>
+          <q-tooltip>{{ $t('readingsUi.autoCorrectTooltip') }}</q-tooltip>
         </q-btn>
         
         <!-- Activate chronometer mode button -->
@@ -110,12 +116,12 @@
           v-if="canActivateChronometerMode"
           color="primary"
           icon="timer"
-          label="Mode chronomètre"
+          :label="$t('readingsUi.chronometerModeButton')"
           @click="$emit('activate-chronometer-mode')"
           flat
           dense
         >
-          <q-tooltip>Passer en mode chronomètre (iéo)</q-tooltip>
+          <q-tooltip>{{ $t('readingsUi.chronometerModeButtonTooltip') }}</q-tooltip>
         </q-btn>
         </div>
 
@@ -123,7 +129,7 @@
         <div v-if="state.showReplace" class="row items-center q-gutter-sm q-mt-xs">
           <q-input
             v-model="state.replaceValue"
-            placeholder="Remplacer par..."
+            :placeholder="$t('readingsUi.replaceByPlaceholder')"
             dense
             outlined
             class="col"
@@ -134,12 +140,12 @@
             </template>
           </q-input>
           <span v-if="search" class="text-caption text-grey">
-            {{ matchCount }} résultat(s) trouvé(s)
+            {{ $t('readingsUi.matchCountFound', { count: matchCount }) }}
           </span>
           <q-btn
             flat
             dense
-            label="Remplacer"
+            :label="$t('readingsUi.replaceOne')"
             color="primary"
             :disable="!hasSelected || !state.replaceValue"
             @click="$emit('replace-selected', state.replaceValue)"
@@ -147,7 +153,7 @@
           <q-btn
             flat
             dense
-            label="Tout remplacer"
+            :label="$t('readingsUi.replaceAll')"
             color="primary"
             :disable="!search || !state.replaceValue"
             @click="$emit('replace-all', { search: search, replace: state.replaceValue })"
@@ -161,6 +167,7 @@
 <script lang="ts">
 import { createDialog } from '@lib-improba/utils/dialog.utils';
 import { defineComponent, reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 export default defineComponent({
   name: 'ReadingsToolbar',
@@ -208,6 +215,7 @@ export default defineComponent({
   ],
 
   setup(props, { emit }) {
+    const { t } = useI18n();
     const state = reactive({
       showReplace: false,
       replaceValue: '',
@@ -225,11 +233,11 @@ export default defineComponent({
     const methods = {
       removeReading: async () => {
         const confirmed = await createDialog({
-          title: 'Supprimer ce relevé ?',
-          message: 'Voulez-vous supprimer le relevé sélectionné ?',
-          cancel: 'Annuler',
+          title: t('readingsUi.deleteReadingTitle'),
+          message: t('readingsUi.deleteReadingMessage'),
+          cancel: t('dialogs.cancel'),
           ok: {
-            label: 'Supprimer',
+            label: t('readingsUi.deleteReadingOk'),
             color: 'negative',
           }
         });
@@ -240,11 +248,11 @@ export default defineComponent({
       },
       removeAllReadings: async () => {
         const confirmed = await createDialog({
-          title: 'Effacer toute la liste',
-          message: 'Voulez-vous effacer toute la liste des relevés ? Cette action est irréversible.',
-          cancel: 'Annuler',
+          title: t('readingsUi.clearAllTitle'),
+          message: t('readingsUi.clearAllMessage'),
+          cancel: t('dialogs.cancel'),
           ok: {
-            label: 'Tout effacer',
+            label: t('readingsUi.clearAllOk'),
             color: 'negative',
           }
         });

@@ -1,6 +1,6 @@
 <template>
   <DDialog
-    title="Mise à jour disponible"
+    :title="$t('updateModal.title')"
     :width="'50vw'"
     :useInnerPadding="false"
     :model-value="$props.triggerOpen"
@@ -10,10 +10,10 @@
       <div v-if="!state.updateDownloaded" class="column items-center">
         <p>
           <template v-if="state.isDownloading">
-            Une mise à jour est disponible. Téléchargement en cours...
+            {{ $t('updateModal.downloading') }}
           </template>
           <template v-else>
-            Une mise à jour est prête à etre telechargee.
+            {{ $t('updateModal.readyToDownload') }}
           </template>
         </p>
         <DProgressBar
@@ -25,15 +25,13 @@
       </div>
       <div v-else>
         <p>
-          Mise à jour téléchargée. Veuillez redémarrer l'application pour
-          l'installer.
+          {{ $t('updateModal.downloadedBody') }}
         </p>
       </div>
 
       <div v-if="state.error">
         <p>
-          Une erreur est survenue lors du téléchargement de la mise à jour.
-          Vous pouvez réessayer ou fermer cette fenêtre et continuer.
+          {{ $t('updateModal.errorIntro') }}
         </p>
         <p>{{ state.error }}</p>
       </div>
@@ -41,18 +39,18 @@
 
     <template #actions>
       <DCancelBtn
-        label="Plus tard"
+        :label="$t('updateModal.later')"
         class="q-mx-sm"
         @click="methods.close"
       />
       <DSubmitBtn
         v-if="state.error && !state.updateDownloaded"
-        label="Réessayer"
+        :label="$t('updateModal.retry')"
         class="q-mx-sm"
         @click="methods.retryDownload"
       />
       <DSubmitBtn
-        label="Redémarrer et installer"
+        :label="$t('updateModal.restartInstall')"
         :disabled="!state.updateDownloaded"
         class="q-mx-sm"
         @click="methods.submit"
@@ -63,6 +61,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import systemService from '@services/system/index.service';
 import { DDialog, DSubmitBtn, DCancelBtn, DScrollArea, DProgressBar } from '@lib-improba/components';
 
@@ -76,6 +75,7 @@ export default defineComponent({
   },
   emits: ['update:triggerOpen'],
   setup(props, { emit }) {
+    const { t } = useI18n();
     const state = reactive({
       progress: 0.0,
       progressPercentage: '0.00%',
@@ -98,7 +98,7 @@ export default defineComponent({
           await systemService.downloadUpdate();
         } catch (error) {
           state.isDownloading = false;
-          state.error = error instanceof Error ? error.message : 'Erreur inconnue';
+          state.error = error instanceof Error ? error.message : t('common.unknownError');
           console.error('Error while starting update download', error);
         }
       },
@@ -127,7 +127,7 @@ export default defineComponent({
         });
         systemService.onUpdateError((error) => {
           state.isDownloading = false;
-          state.error = error?.message || 'Erreur inconnue';
+          state.error = error?.message || t('common.unknownError');
           console.error('Error while downloading update', error);
         });
 

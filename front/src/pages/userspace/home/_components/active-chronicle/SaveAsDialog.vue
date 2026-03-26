@@ -5,16 +5,16 @@
       style="min-width: 400px"
       bgColor="background"
       innerHeader
-      title="Enregistrer sous un autre nom"
+      :title="$t('dialogs.saveAs.title')"
     >
       <DCardSection>
         <div class="column q-gutter-md">
           <q-input
             v-model="state.newName"
-            placeholder="Nouveau nom de la chronique"
+            :placeholder="$t('dialogs.saveAs.namePlaceholder')"
             outlined
             dense
-            :rules="[(val) => (val && val.trim().length > 0) || 'Le nom est requis']"
+            :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.saveAs.nameRequired')]"
             @keyup.enter="onOKClick"
           />
         </div>
@@ -24,7 +24,7 @@
         <div class="row items-center justify-end full-width q-gutter-md">
           <DCancelBtn @click="onCancelClick" />
           <DSubmitBtn
-            label="Enregistrer"
+            :label="$t('dialogs.saveAs.submit')"
             @click="onOKClick"
             :disable="!isValid"
           />
@@ -36,6 +36,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useDialogPluginComponent } from 'quasar';
 import {
   DCard,
@@ -60,11 +61,14 @@ export default defineComponent({
   },
   emits: [...useDialogPluginComponent.emits],
   setup(props, { emit }) {
+    const { t } = useI18n();
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
       useDialogPluginComponent();
 
     const state = reactive({
-      newName: props.currentName ? `${props.currentName} (copie)` : '',
+      newName: props.currentName
+        ? `${props.currentName} (${t('dialogs.saveAs.copySuffix')})`
+        : '',
     });
 
     const isValid = computed(() => {

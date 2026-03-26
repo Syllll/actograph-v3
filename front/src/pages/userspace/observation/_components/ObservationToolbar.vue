@@ -8,7 +8,9 @@
             :class="{ 'recording-active': observation.sharedState.isPlaying }"
           ></div>
           <span class="q-ml-sm">{{
-            observation.sharedState.isPlaying ? 'Enregistrement en cours' : 'Prêt'
+            observation.sharedState.isPlaying
+              ? $t('observation.recordingInProgress')
+              : $t('observation.readyState')
           }}</span>
         </div>
       </div>
@@ -50,23 +52,23 @@
               :color="currentMode === 'calendar' ? 'primary' : 'grey-5'"
               :outline="currentMode !== 'calendar'"
               icon="event"
-              label="Calendrier"
+              :label="$t('observationsList.modeCalendar')"
               size="sm"
               dense
               @click="handleSwitchMode('calendar')"
             >
-              <q-tooltip>Passer en mode calendrier</q-tooltip>
+              <q-tooltip>{{ $t('observation.tooltipSwitchToCalendar') }}</q-tooltip>
             </q-btn>
             <q-btn
               :color="currentMode === 'chronometer' ? 'primary' : 'grey-5'"
               :outline="currentMode !== 'chronometer'"
               icon="timer"
-              label="Chronomètre"
+              :label="$t('observationsList.modeChronometer')"
               size="sm"
               dense
               @click="handleSwitchMode('chronometer')"
             >
-              <q-tooltip>Passer en mode chronomètre</q-tooltip>
+              <q-tooltip>{{ $t('observation.tooltipSwitchToChronometer') }}</q-tooltip>
             </q-btn>
           </div>
           
@@ -85,6 +87,7 @@ import { useObservation } from 'src/composables/use-observation';
 import { ObservationModeEnum, ReadingTypeEnum } from '@services/observations/interface';
 import { useQuasar } from 'quasar';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
+import { useI18n } from 'vue-i18n';
 
 export default defineComponent({
   name: 'ObservationToolbar',
@@ -92,6 +95,7 @@ export default defineComponent({
 
   setup(props, { emit }) {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation();
     
     const isChronometerMode = computed(() => observation.isChronometerMode.value);
@@ -131,20 +135,22 @@ export default defineComponent({
       if (!canChangeMode.value) {
         $q.notify({
           type: 'negative',
-          message: 'Impossible de changer de mode',
-          caption: 'L\'observation a déjà été démarrée',
+          message: t('observation.modeChangeImpossible'),
+          caption: t('observation.modeSwitchBlockedStarted'),
         });
         return;
       }
-      
-      // Confirm action
-      const modeLabel = newMode === 'chronometer' ? 'chronomètre' : 'calendrier';
+
+      const modeLabel =
+        newMode === 'chronometer'
+          ? t('observation.modeLabelChronometer')
+          : t('observation.modeLabelCalendar');
       const dialog = await createDialog({
-        title: `Passer en mode ${modeLabel}`,
-        message: `Voulez-vous passer cette observation en mode ${modeLabel} ? Cette action est irréversible.`,
-        cancel: 'Annuler',
+        title: t('observation.switchToModeTitle', { mode: modeLabel }),
+        message: t('observation.switchToModeMessage', { mode: modeLabel }),
+        cancel: t('dialogs.cancel'),
         ok: {
-          label: 'Changer',
+          label: t('observation.switchModeConfirm'),
           color: 'primary',
         },
         persistent: true,
@@ -157,27 +163,27 @@ export default defineComponent({
       if (!observationId) {
         $q.notify({
           type: 'negative',
-          message: 'Erreur',
-          caption: 'Observation introuvable',
+          message: t('observation.errorShort'),
+          caption: t('observation.observationNotFoundCaption'),
         });
         return;
       }
-      
+
       try {
         await observation.methods.updateObservation(observationId, {
           mode: newMode === 'chronometer' ? ObservationModeEnum.Chronometer : ObservationModeEnum.Calendar,
         });
-        
+
         $q.notify({
           type: 'positive',
-          message: `Mode ${modeLabel} activé`,
-          caption: `L'observation est maintenant en mode ${modeLabel}`,
+          message: t('observation.modeActivated', { mode: modeLabel }),
+          caption: t('observation.modeActivatedCaption', { mode: modeLabel }),
         });
       } catch (error: any) {
         $q.notify({
           type: 'negative',
-          message: 'Erreur lors du changement de mode',
-          caption: error.message || 'Une erreur est survenue',
+          message: t('observation.modeChangeError'),
+          caption: error.message || t('observation.unknownErrorCaption'),
         });
       }
     };

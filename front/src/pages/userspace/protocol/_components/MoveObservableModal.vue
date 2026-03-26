@@ -2,7 +2,7 @@
   <DDialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
-    :title="'Déplacer vers une autre catégorie'"
+    :title="$t('protocolUi.moveObservableTitle')"
   >
     <div>
       <div v-if="state.error" class="text-negative q-mb-md">
@@ -11,29 +11,29 @@
 
       <q-form @submit.prevent="moveObservable" class="q-gutter-md">
         <p v-if="categoryOptions.length === 0" class="text-body2">
-          Aucune autre catégorie disponible pour le déplacement.
+          {{ $t('protocolUi.noOtherCategoryForMove') }}
         </p>
         <q-select
           v-else
           v-model="state.selectedCategoryId"
           :options="categoryOptions"
-          label="Catégorie de destination"
+          :label="$t('protocolUi.targetCategoryLabel')"
           outlined
           dense
           emit-value
           map-options
-          :rules="[(val: string) => !!val || 'Sélectionnez une catégorie']"
+          :rules="[(val: string) => !!val || $t('protocolUi.selectTargetCategory')]"
         />
       </q-form>
     </div>
     <template #actions>
       <DCancelBtn
         @click="$emit('update:modelValue', false)"
-        label="Annuler"
+        :label="$t('dialogs.cancel')"
       />
       <DSubmitBtn
         @click="moveObservable"
-        label="Déplacer"
+        :label="$t('protocolUi.moveSubmit')"
         :disable="state.loading || !state.selectedCategoryId || categoryOptions.length === 0"
         :loading="state.loading"
       />
@@ -88,6 +88,7 @@ export default defineComponent({
 
   setup(props, { emit }) {
     const $q = useQuasar();
+    const { t } = useI18n();
     const observation = useObservation();
     const protocol = observation.protocol;
 
@@ -119,29 +120,28 @@ export default defineComponent({
 
     const moveObservable = async () => {
       if (!state.selectedCategoryId) {
-        state.error = 'Sélectionnez une catégorie de destination';
+        state.error = t('protocolUi.moveSelectError');
         return;
       }
 
       if (!props.observable?.id) {
-        state.error = 'Observable invalide ou identifiant manquant';
+        state.error = t('protocolUi.invalidObservable');
         return;
       }
 
       if (!observation.protocol.sharedState.currentProtocol?.id) {
-        state.error =
-          'Impossible de déplacer : identifiant de protocole manquant';
+        state.error = t('protocolUi.moveMissingProtocolId');
         return;
       }
 
       if (!protocol || !protocol.methods) {
-        state.error = 'Service de protocole non disponible';
+        state.error = t('protocolUi.serviceUnavailable');
         return;
       }
 
       const currentObservation = observation.sharedState.currentObservation;
       if (!currentObservation) {
-        state.error = 'Aucune observation chargée';
+        state.error = t('protocolUi.moveNoObservation');
         return;
       }
 
@@ -170,14 +170,14 @@ export default defineComponent({
 
         $q.notify({
           type: 'positive',
-          message: 'Observable déplacé avec succès',
+          message: t('protocolUi.moveObservableSuccess'),
         });
 
         emit('observable-moved', state.selectedCategoryId);
         emit('update:modelValue', false);
       } catch (error) {
         console.error('Failed to move observable:', error);
-        state.error = "Échec du déplacement de l'observable";
+        state.error = t('protocolUi.moveObservableFailedModal');
       } finally {
         state.loading = false;
       }

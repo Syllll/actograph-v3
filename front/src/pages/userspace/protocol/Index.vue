@@ -13,7 +13,7 @@
               <q-btn
                 color="primary"
                 icon="add"
-                label="Ajouter une catégorie"
+                :label="$t('protocolUi.addCategory')"
                 @click="state.addCategoryModal = true"
                 :disable="!state.currentProtocol?.id"
               />
@@ -270,6 +270,7 @@ import {
 import { useRoute } from 'vue-router';
 import { useObservation } from 'src/composables/use-observation';
 import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import AddCategoryModal from './_components/AddCategoryModal.vue';
 import EditCategoryModal from './_components/EditCategoryModal.vue';
 import RemoveCategoryModal from './_components/RemoveCategoryModal.vue';
@@ -294,6 +295,7 @@ export default defineComponent({
     const observation = useObservation();
     const protocol = observation.protocol;
     const $q = useQuasar();
+    const { t } = useI18n();
 
     // Validate protocol service
     if (!protocol || !protocol.methods) {
@@ -401,7 +403,7 @@ export default defineComponent({
           ensureCategoryExpanded(location.categoryId);
         } catch (error) {
           console.error('Failed to move observable up:', error);
-          $q.notify({ type: 'negative', message: "Échec du déplacement de l'observable" });
+          $q.notify({ type: 'negative', message: t('protocolUi.moveObservableFailed') });
         } finally {
           state.movingObservable = false;
         }
@@ -424,7 +426,7 @@ export default defineComponent({
           ensureCategoryExpanded(location.categoryId);
         } catch (error) {
           console.error('Failed to move observable down:', error);
-          $q.notify({ type: 'negative', message: "Échec du déplacement de l'observable" });
+          $q.notify({ type: 'negative', message: t('protocolUi.moveObservableFailed') });
         } finally {
           state.movingObservable = false;
         }
@@ -446,7 +448,7 @@ export default defineComponent({
           await methods.loadProtocol();
         } catch (error) {
           console.error('Failed to move category up:', error);
-          $q.notify({ type: 'negative', message: 'Échec du déplacement de la catégorie' });
+          $q.notify({ type: 'negative', message: t('protocolUi.moveCategoryFailed') });
         } finally {
           state.movingCategory = false;
         }
@@ -469,7 +471,7 @@ export default defineComponent({
           await methods.loadProtocol();
         } catch (error) {
           console.error('Failed to move category down:', error);
-          $q.notify({ type: 'negative', message: 'Échec du déplacement de la catégorie' });
+          $q.notify({ type: 'negative', message: t('protocolUi.moveCategoryFailed') });
         } finally {
           state.movingCategory = false;
         }
@@ -488,7 +490,7 @@ export default defineComponent({
 
           const newCategory = await protocolService.addCategory({
             protocolId,
-            name: category.name + ' (copie)',
+            name: `${category.name} (${t('dialogs.saveAs.copySuffix')})`,
             description: category.description,
             action: category.action,
             order: newOrder,
@@ -514,13 +516,13 @@ export default defineComponent({
 
           $q.notify({
             type: 'positive',
-            message: 'Catégorie dupliquée avec succès',
+            message: t('protocolUi.duplicateCategorySuccess'),
           });
         } catch (error) {
           console.error('Failed to duplicate category:', error);
           $q.notify({
             type: 'negative',
-            message: 'Échec de la duplication de la catégorie',
+            message: t('protocolUi.duplicateCategoryFailed'),
           });
         } finally {
           state.duplicatingCategory = false;
@@ -566,8 +568,7 @@ export default defineComponent({
         if (!state.currentProtocol?.id) {
           $q.notify({
             type: 'negative',
-            message:
-              'Impossible de modifier la catégorie : protocole non chargé',
+            message: t('protocolUi.cannotEditCategory'),
           });
           return;
         }
@@ -575,7 +576,7 @@ export default defineComponent({
         if (!protocol || !protocol.methods) {
           $q.notify({
             type: 'negative',
-            message: 'Service de protocole non disponible',
+            message: t('protocolUi.serviceUnavailable'),
           });
           console.error(
             'Protocol service is not properly initialized:',
@@ -598,8 +599,7 @@ export default defineComponent({
         if (!state.currentProtocol?.id) {
           $q.notify({
             type: 'negative',
-            message:
-              'Impossible de supprimer la catégorie : protocole non chargé',
+            message: t('protocolUi.cannotRemoveCategory'),
           });
           return;
         }
@@ -607,7 +607,7 @@ export default defineComponent({
         if (!protocol || !protocol.methods) {
           $q.notify({
             type: 'negative',
-            message: 'Service de protocole non disponible',
+            message: t('protocolUi.serviceUnavailable'),
           });
           console.error(
             'Protocol service is not properly initialized:',
@@ -624,8 +624,7 @@ export default defineComponent({
         if (!state.currentProtocol?.id) {
           $q.notify({
             type: 'negative',
-            message:
-              "Impossible d'ajouter un observable : protocole non chargé",
+            message: t('protocolUi.cannotAddObservable'),
           });
           return;
         }
@@ -633,7 +632,7 @@ export default defineComponent({
         if (!protocol || !protocol.methods) {
           $q.notify({
             type: 'negative',
-            message: 'Service de protocole non disponible',
+            message: t('protocolUi.serviceUnavailable'),
           });
           console.error(
             'Protocol service is not properly initialized:',
@@ -651,8 +650,7 @@ export default defineComponent({
         if (!state.currentProtocol?.id) {
           $q.notify({
             type: 'negative',
-            message:
-              "Impossible de modifier l'observable : protocole non chargé",
+            message: t('protocolUi.cannotEditObservable'),
           });
           return;
         }
@@ -660,7 +658,7 @@ export default defineComponent({
         if (!protocol || !protocol.methods) {
           $q.notify({
             type: 'negative',
-            message: 'Service de protocole non disponible',
+            message: t('protocolUi.serviceUnavailable'),
           });
           console.error(
             'Protocol service is not properly initialized:',
@@ -673,7 +671,7 @@ export default defineComponent({
         if (!location) {
           $q.notify({
             type: 'negative',
-            message: "Impossible de trouver la catégorie parente de l'observable",
+            message: t('protocolUi.parentCategoryNotFound'),
           });
           return;
         }
@@ -694,7 +692,7 @@ export default defineComponent({
         if (!observable || !observable.id) {
           $q.notify({
             type: 'negative',
-            message: 'Observable invalide ou identifiant manquant',
+            message: t('protocolUi.invalidObservable'),
           });
           return;
         }
@@ -702,8 +700,7 @@ export default defineComponent({
         if (!state.currentProtocol?.id) {
           $q.notify({
             type: 'negative',
-            message:
-              "Impossible de supprimer l'observable : protocole non chargé",
+            message: t('protocolUi.cannotRemoveObservable'),
           });
           return;
         }
@@ -711,7 +708,7 @@ export default defineComponent({
         if (!protocol || !protocol.methods) {
           $q.notify({
             type: 'negative',
-            message: 'Service de protocole non disponible',
+            message: t('protocolUi.serviceUnavailable'),
           });
           console.error(
             'Protocol service is not properly initialized:',
@@ -724,7 +721,7 @@ export default defineComponent({
         if (!location) {
           $q.notify({
             type: 'negative',
-            message: "Impossible de trouver la catégorie parente de l'observable",
+            message: t('protocolUi.parentCategoryNotFound'),
           });
           return;
         }
@@ -738,7 +735,7 @@ export default defineComponent({
         if (!observable || !observable.id) {
           $q.notify({
             type: 'negative',
-            message: 'Observable invalide ou identifiant manquant',
+            message: t('protocolUi.invalidObservable'),
           });
           return;
         }
@@ -746,8 +743,7 @@ export default defineComponent({
         if (!state.currentProtocol?.id) {
           $q.notify({
             type: 'negative',
-            message:
-              "Impossible de déplacer l'observable : protocole non chargé",
+            message: t('protocolUi.cannotMoveObservable'),
           });
           return;
         }
@@ -755,7 +751,7 @@ export default defineComponent({
         if (!protocol || !protocol.methods) {
           $q.notify({
             type: 'negative',
-            message: 'Service de protocole non disponible',
+            message: t('protocolUi.serviceUnavailable'),
           });
           console.error(
             'Protocol service is not properly initialized:',
@@ -768,7 +764,7 @@ export default defineComponent({
         if (!location) {
           $q.notify({
             type: 'negative',
-            message: "Impossible de trouver la catégorie parente de l'observable",
+            message: t('protocolUi.parentCategoryNotFound'),
           });
           return;
         }

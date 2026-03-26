@@ -24,7 +24,7 @@
 
         <q-item v-if="!state.loading && state.recentObservations.length === 0">
           <q-item-section class="text-grey-6 text-center q-pa-md">
-            Aucune chronique
+            {{ $t('observationsList.none') }}
           </q-item-section>
         </q-item>
       </q-list>
@@ -43,7 +43,7 @@
           class="text-body2"
         />
         <div class="text-caption text-grey-6">
-          {{ state.totalCount }} au total
+          {{ $t('observationsList.totalCount', { count: state.totalCount }) }}
         </div>
       </div>
     </div>
@@ -57,6 +57,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive, watch, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { observationService } from '@services/observations/index.service';
 import { IObservation } from '@services/observations/interface';
@@ -74,6 +75,7 @@ export default defineComponent({
   setup() {
     const $q = useQuasar();
     const observation = useObservation();
+    const { t, locale } = useI18n();
 
     const state = reactive({
       recentObservations: [] as IObservation[],
@@ -83,10 +85,13 @@ export default defineComponent({
     });
 
     const viewAllLabel = computed(() => {
+      void locale.value;
       if (state.totalCount > MAX_RECENT_ITEMS) {
-        return `Voir toutes les chroniques (${state.totalCount})`;
+        return t('observationsList.viewAllWithCount', {
+          count: state.totalCount,
+        });
       }
-      return 'Rechercher une chronique';
+      return t('observationsList.searchChronicle');
     });
 
     const methods = {
@@ -105,7 +110,7 @@ export default defineComponent({
           console.error('Error fetching recent observations:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors du chargement des chroniques',
+            message: t('observationsList.loadError'),
           });
           state.recentObservations = [];
           state.totalCount = 0;

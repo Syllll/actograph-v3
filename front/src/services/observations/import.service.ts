@@ -1,5 +1,6 @@
 import { observationService } from './index.service';
 import { IObservation } from './interface';
+import { serviceT } from 'src/i18n/service-translate';
 
 /**
  * Service pour importer une observation depuis un fichier .jchronic ou .chronic via le backend
@@ -31,9 +32,7 @@ export const importService = {
     // VÉRIFICATION 1 : L'API Electron doit être disponible pour lire le fichier
     // Cette fonctionnalité nécessite Electron car elle utilise les APIs natives du système
     if (!window.api || !window.api.readFile) {
-      throw new Error(
-        'L\'API Electron n\'est pas disponible. Cette fonctionnalité nécessite Electron.'
-      );
+      throw new Error(serviceT('services.electronRequired'));
     }
 
     // ÉTAPE 1 : Lire le fichier depuis le système de fichiers
@@ -43,14 +42,14 @@ export const importService = {
     // Vérification du résultat de la lecture
     if (!readResult.success || !readResult.data) {
       throw new Error(
-        readResult.error || 'Erreur lors de la lecture du fichier'
+        readResult.error || serviceT('services.fileReadFailed'),
       );
     }
 
     // ÉTAPE 2 : Créer un objet File à partir du contenu lu
     // L'objet File est nécessaire pour l'envoi via FormData au backend
     // On extrait le nom du fichier depuis le chemin complet
-    const fileName = filePath.split(/[/\\]/).pop() || 'chronique.jchronic';
+    const fileName = filePath.split(/[/\\]/).pop() || 'file.jchronic';
     const file = new File([readResult.data], fileName, {
       type: 'application/json', // Type MIME pour les fichiers JSON
     });

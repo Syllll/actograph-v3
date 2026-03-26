@@ -1,98 +1,12 @@
 import { Router } from 'vue-router';
+import type { ComposerTranslation } from 'vue-i18n';
 
-export const menu = (router: Router) => [
+export const menu = (router: Router, t: ComposerTranslation) => [
   {
-    label: 'Accueil',
+    label: t('chronicle.home'),
     icon: 'home',
     separator: false,
     action: () => router.push({ name: 'user_home' }),
     isActive: () => router.currentRoute.value.name === 'user_home',
-  },
-];
-
-export const chronicleSubMenu = (router: Router) => [
-  {
-    label: 'Protocole',
-    icon: 'mdi-flask-outline',
-    separator: false,
-    action: () => router.push({ name: 'user_protocol' }),
-    isActive: () => router.currentRoute.value.name === 'user_protocol',
-    disabled: (observation: any) => !observation.sharedState.currentObservation,
-  },
-  {
-    label: 'Observation',
-    icon: 'mdi-binoculars',
-    separator: false,
-    action: () => router.push({ name: 'user_observation' }),
-    isActive: () => router.currentRoute.value.name === 'user_observation',
-    disabled: (observation: any) => !observation.sharedState.currentObservation,
-  },
-  {
-    label: 'Graphe',
-    icon: 'mdi-chart-line',
-    separator: false,
-    action: () => router.push({ name: 'user_analyse' }),
-    isActive: () => router.currentRoute.value.name === 'user_analyse',
-    disabled: (observation: any) => {
-      return !observation.sharedState.currentObservation || 
-             observation.readings.sharedState.currentReadings.length === 0;
-    },
-    tooltip: (observation: any) => {
-      if (!observation.sharedState.currentObservation) {
-        return 'Aucune chronique chargée';
-      }
-      if (observation.readings.sharedState.currentReadings.length === 0) {
-        return 'Aucun relevé disponible. Veuillez d\'abord enregistrer des observations.';
-      }
-      return '';
-    },
-  },
-  {
-    label: 'Statistiques',
-    icon: 'mdi-chart-box',
-    separator: false,
-    action: () => router.push({ name: 'user_statistics' }),
-    isActive: () => router.currentRoute.value.name === 'user_statistics',
-    disabled: (observation: any) => {
-      return !observation.sharedState.currentObservation || 
-             observation.readings.sharedState.currentReadings.length === 0;
-    },
-    tooltip: (observation: any) => {
-      if (!observation.sharedState.currentObservation) {
-        return 'Aucune chronique chargée';
-      }
-      if (observation.readings.sharedState.currentReadings.length === 0) {
-        return 'Aucun relevé disponible. Veuillez d\'abord enregistrer des observations.';
-      }
-      return '';
-    },
-  },
-  {
-    label: 'Exporter la chronique',
-    icon: 'mdi-download',
-    separator: false,
-    action: null, // Sera géré dans le template
-    isActive: () => false,
-    disabled: (observation: any) => !observation.sharedState.currentObservation,
-    tooltip: (observation: any) => {
-      if (!observation.sharedState.currentObservation) {
-        return 'Aucune chronique chargée';
-      }
-      return '';
-    },
-  },
-  {
-    label: 'Enregistrer sous...',
-    icon: 'mdi-content-save-as',
-    separator: false,
-    action: null, // Sera géré dans le template
-    isActive: () => false,
-    disabled: (observation: any) => !observation.sharedState.currentObservation,
-    tooltip: (observation: any) => {
-      if (!observation.sharedState.currentObservation) {
-        return 'Aucune chronique chargée';
-      }
-      return 'Créer une copie avec un nouveau nom';
-    },
   },
 ];

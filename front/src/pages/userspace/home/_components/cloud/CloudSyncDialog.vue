@@ -5,7 +5,7 @@
       style="width: 600px; max-width: 90vw; max-height: 80vh"
       bgColor="background"
       innerHeader
-      title="Cloud ActoGraph"
+      :title="$t('cloud.syncTitle')"
       icon="mdi-cloud"
       :verticalShrink="false"
     >
@@ -29,7 +29,7 @@
               dense
               color="primary"
               icon="mdi-refresh"
-              label="Actualiser"
+              :label="$t('cloud.refresh')"
               @click="methods.refresh"
               :loading="cloud.sharedState.isLoading"
               no-caps
@@ -39,7 +39,7 @@
               dense
               color="grey-7"
               icon="mdi-account-switch"
-              label="Changer de compte"
+              :label="$t('cloud.changeAccount')"
               @click="methods.changeAccount"
               no-caps
             />
@@ -53,20 +53,20 @@
           </template>
           {{ cloud.sharedState.error }}
           <template v-slot:action>
-            <q-btn flat label="OK" @click="cloud.methods.clearError()" />
+            <q-btn flat :label="$t('common.ok')" @click="cloud.methods.clearError()" />
           </template>
         </q-banner>
 
         <!-- Actions : Upload -->
         <div class="q-pa-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-sm">
-            Envoyer vers le cloud
+            {{ $t('cloud.uploadSection') }}
           </div>
           <div class="row items-center q-gutter-md">
             <q-btn
               color="primary"
               icon="mdi-cloud-upload"
-              label="Envoyer un fichier .jchronic"
+              :label="$t('cloud.uploadJchronic')"
               @click="methods.uploadFile"
               :loading="state.uploading"
               :disable="cloud.isCloudFull.value"
@@ -75,7 +75,7 @@
             />
             <span v-if="cloud.isCloudFull.value" class="text-caption text-warning">
               <q-icon name="mdi-alert" size="xs" class="q-mr-xs" />
-              Cloud plein ({{ cloud.cloudLimit }} fichiers max)
+              {{ $t('cloud.cloudFull', { limit: cloud.cloudLimit }) }}
             </span>
           </div>
         </div>
@@ -85,7 +85,7 @@
         <!-- Liste des fichiers cloud -->
         <div class="q-pa-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-sm">
-            Fichiers dans le cloud
+            {{ $t('cloud.filesSection') }}
           </div>
           
           <q-scroll-area style="height: 300px">
@@ -95,9 +95,9 @@
               class="text-center q-pa-xl text-grey"
             >
               <q-icon name="mdi-cloud-off-outline" size="64px" class="q-mb-md" />
-              <div class="text-h6">Aucun fichier dans le cloud</div>
+              <div class="text-h6">{{ $t('cloud.emptyCloudTitle') }}</div>
               <div class="text-body2 q-mt-sm">
-                Envoyez vos chroniques vers le cloud pour les synchroniser entre vos appareils.
+                {{ $t('cloud.emptyCloudHint') }}
               </div>
             </div>
 
@@ -107,7 +107,7 @@
               class="text-center q-pa-xl"
             >
               <q-spinner-dots size="40px" color="primary" />
-              <div class="q-mt-md text-grey">Chargement...</div>
+              <div class="q-mt-md text-grey">{{ $t('cloud.loadingList') }}</div>
             </div>
 
             <!-- Chronicle items -->
@@ -156,7 +156,7 @@
                       @click="methods.downloadChronicle(chronicle)"
                       :loading="state.downloadingId === chronicle.id"
                     >
-                      <q-tooltip>Télécharger et importer</q-tooltip>
+                      <q-tooltip>{{ $t('cloud.downloadTooltip') }}</q-tooltip>
                     </q-btn>
 
                     <!-- Delete button -->
@@ -168,7 +168,7 @@
                       @click="methods.confirmDelete(chronicle)"
                       :loading="state.deletingId === chronicle.id"
                     >
-                      <q-tooltip>Supprimer du cloud</q-tooltip>
+                      <q-tooltip>{{ $t('cloud.deleteTooltip') }}</q-tooltip>
                     </q-btn>
                   </div>
                 </q-item-section>
@@ -181,9 +181,9 @@
       <DCardSection>
         <div class="row items-center justify-between full-width">
           <div class="text-caption text-grey-7">
-            Limite : {{ cloud.cloudLimit }} fichiers par compte
+            {{ $t('cloud.limitLabel', { limit: cloud.cloudLimit }) }}
           </div>
-          <DCancelBtn @click="onCloseClick" label="Fermer" />
+          <DCancelBtn @click="onCloseClick" :label="$t('cloud.close')" />
         </div>
       </DCardSection>
     </DCard>
@@ -192,6 +192,7 @@
 
 <script lang="ts">
 import { defineComponent, reactive } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { useCloud } from 'src/composables/use-cloud';
 import { useObservation } from 'src/composables/use-observation';
@@ -213,6 +214,7 @@ export default defineComponent({
   setup() {
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent();
     const $q = useQuasar();
+    const { t, locale } = useI18n();
     const cloud = useCloud();
     const observation = useObservation();
 
@@ -225,7 +227,8 @@ export default defineComponent({
     const formatDate = (dateString: string): string => {
       try {
         const date = new Date(dateString);
-        return date.toLocaleDateString('fr-FR', {
+        const loc = locale.value === 'en-US' ? 'en-US' : 'fr-FR';
+        return date.toLocaleDateString(loc, {
           day: '2-digit',
           month: 'short',
           year: 'numeric',
@@ -242,8 +245,8 @@ export default defineComponent({
 
       async changeAccount() {
         $q.dialog({
-          title: 'Changer de compte',
-          message: 'Voulez-vous vous déconnecter et utiliser un autre compte ?',
+          title: t('cloud.changeAccountTitle'),
+          message: t('cloud.changeAccountMessage'),
           cancel: true,
           persistent: true,
         }).onOk(async () => {
@@ -257,7 +260,7 @@ export default defineComponent({
         if (!window.api || !window.api.showOpenDialog || !window.api.readFile) {
           $q.notify({
             type: 'negative',
-            message: 'Cette fonctionnalité nécessite l\'application desktop.',
+            message: t('cloud.desktopOnly'),
           });
           return;
         }
@@ -272,8 +275,8 @@ export default defineComponent({
           const dialogResult = await window.api.showOpenDialog({
             defaultPath: defaultPath || undefined,
             filters: [
-              { name: 'Fichiers Chronique', extensions: ['jchronic'] },
-              { name: 'Tous les fichiers', extensions: ['*'] },
+              { name: t('cloud.chronicFiles'), extensions: ['jchronic'] },
+              { name: t('dialogs.createObservation.allFiles'), extensions: ['*'] },
             ],
           });
 
@@ -287,8 +290,8 @@ export default defineComponent({
           if (!filePath.toLowerCase().endsWith('.jchronic')) {
             $q.notify({
               type: 'warning',
-              message: 'Seuls les fichiers .jchronic peuvent être envoyés vers le cloud.',
-              caption: 'Les fichiers .chronic ne sont pas supportés pour l\'upload.',
+              message: t('cloud.jchronicOnly'),
+              caption: t('cloud.chronicUploadNotSupported'),
             });
             return;
           }
@@ -298,21 +301,21 @@ export default defineComponent({
           // Lire le contenu du fichier
           const readResult = await window.api.readFile(filePath);
           if (!readResult.success || !readResult.data) {
-            throw new Error(readResult.error || 'Erreur de lecture du fichier');
+            throw new Error(readResult.error || t('cloud.readFileError'));
           }
 
           // Extraire le nom du fichier
-          const fileName = filePath.split(/[/\\]/).pop() || 'chronique.jchronic';
+          const fileName = filePath.split(/[/\\]/).pop() || 'file.jchronic';
 
           // Upload vers le cloud via le service
           const token = localStorage.getItem('actograph_cloud_token');
           if (!token) {
-            throw new Error('Non authentifié');
+            throw new Error(t('cloud.notAuthenticated'));
           }
 
           const formData = new FormData();
           formData.append('name', fileName.replace('.jchronic', ''));
-          formData.append('description', 'Uploaded from desktop');
+          formData.append('description', t('cloud.uploadDescriptionDefault'));
           const blob = new Blob([readResult.data], { type: 'application/json' });
           formData.append('chronic', blob, fileName);
 
@@ -326,7 +329,10 @@ export default defineComponent({
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Erreur serveur: ${response.status}`);
+            throw new Error(
+              errorData.message ||
+                t('cloud.serverError', { status: String(response.status) }),
+            );
           }
 
           // Rafraîchir la liste
@@ -334,15 +340,15 @@ export default defineComponent({
 
           $q.notify({
             type: 'positive',
-            message: 'Fichier envoyé !',
-            caption: `${fileName} a été envoyé vers le cloud.`,
+            message: t('cloud.uploadSuccess'),
+            caption: t('cloud.uploadSuccessCaption', { fileName }),
           });
         } catch (error: any) {
           console.error('Upload error:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur d\'envoi',
-            caption: error.message || 'Erreur inconnue',
+            message: t('cloud.uploadError'),
+            caption: error.message || t('common.unknownError'),
           });
         } finally {
           state.uploading = false;
@@ -358,8 +364,8 @@ export default defineComponent({
           if (result.success && result.observation) {
             $q.notify({
               type: 'positive',
-              message: 'Chronique importée !',
-              caption: `${chronicle.name} a été importée dans l'application.`,
+              message: t('cloud.importSuccess'),
+              caption: t('cloud.importSuccessCaption', { name: chronicle.name }),
             });
             
             // Charger l'observation importée
@@ -369,7 +375,7 @@ export default defineComponent({
           } else {
             $q.notify({
               type: 'negative',
-              message: 'Erreur de téléchargement',
+              message: t('cloud.downloadError'),
               caption: result.error,
             });
           }
@@ -380,12 +386,12 @@ export default defineComponent({
 
       confirmDelete(chronicle: ICloudChronicle) {
         $q.dialog({
-          title: 'Supprimer du cloud',
-          message: `Voulez-vous supprimer "${chronicle.name}" du cloud ? Cette action est irréversible.`,
+          title: t('cloud.deleteTitle'),
+          message: t('cloud.deleteMessage', { name: chronicle.name }),
           cancel: true,
           persistent: true,
           ok: {
-            label: 'Supprimer',
+            label: t('cloud.deleteConfirm'),
             color: 'negative',
           },
         }).onOk(() => methods.deleteChronicle(chronicle));
@@ -400,13 +406,13 @@ export default defineComponent({
           if (result.success) {
             $q.notify({
               type: 'positive',
-              message: 'Fichier supprimé',
-              caption: `${chronicle.name} a été supprimé du cloud.`,
+              message: t('cloud.deleteSuccess'),
+              caption: t('cloud.deleteSuccessCaption', { name: chronicle.name }),
             });
           } else {
             $q.notify({
               type: 'negative',
-              message: 'Erreur de suppression',
+              message: t('cloud.deleteError'),
               caption: result.error,
             });
           }
