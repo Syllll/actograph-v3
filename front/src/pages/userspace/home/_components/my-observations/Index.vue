@@ -1,138 +1,157 @@
 <template>
   <div class="my-observations fit column">
-    <div class="col-auto row q-mb-md items-center">
-      <div class="col-12">
-        <DSearchInput class="full-width"
-          v-model:searchText="state.searchText"
-          placeholder="Rechercher une chronique"
-          @update:searchText="methods.handleSearch"
+    <q-scroll-area class="col">
+      <q-list dense separator>
+        <q-item
+          v-for="obs in state.recentObservations"
+          :key="obs.id"
+          clickable
+          v-ripple
+          @click="methods.loadObservation(obs.id)"
+          :active="methods.isActive(obs.id)"
+          active-class="active-item"
+          class="observation-item"
+        >
+          <q-item-section>
+            <q-item-label :class="{ 'text-weight-bold': methods.isActive(obs.id) }">
+              {{ obs.name }}
+            </q-item-label>
+          </q-item-section>
+          <q-item-section side>
+            <q-item-label caption>{{ methods.formatDate(obs.updatedAt) }}</q-item-label>
+          </q-item-section>
+        </q-item>
+
+        <q-item v-if="!state.loading && state.recentObservations.length === 0">
+          <q-item-section class="text-grey-6 text-center q-pa-md">
+            Aucune chronique
+          </q-item-section>
+        </q-item>
+      </q-list>
+    </q-scroll-area>
+
+    <div class="col-auto q-pa-sm">
+      <div class="row items-center justify-between">
+        <q-btn
+          flat
+          dense
+          no-caps
+          color="primary"
+          :label="viewAllLabel"
+          icon="mdi-magnify"
+          @click="methods.openAllChronicles"
+          class="text-body2"
         />
+        <div class="text-caption text-grey-6">
+          {{ state.totalCount }} au total
+        </div>
       </div>
     </div>
 
-    <q-scroll-area class="col">
-      <div class="fit">
-        <DPaginationTable
-          class="table fit"
-          flat
-          :columns="stateless.columns"
-          :fetchFunction="methods.fetchObservations"
-          v-model:triggerReload="state.reload"
-          row-key="id"
-          @row-click="methods.loadObservation"
-          hide-bottom-select
-        >
-          <template v-slot:table-col-name="scope">
-            <DTextLink @click="methods.loadObservation(scope.row.id)">
-              {{ scope.row.name }}
-            </DTextLink>
-          </template>
-
-          <!-- Custom action column -->
-          <template v-slot:table-col-actions="">
-            <div class="row items-center justify-end">
-              <DActionViewBtn flat size="sm" class="q-mr-xs" />
-            </div>
-          </template>
-        </DPaginationTable>
-      </div>
-    </q-scroll-area>
+    <AllChroniclesDialog
+      v-model="state.showAllDialog"
+      @selected="methods.onChronicleSelected"
+    />
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, watch, onUnmounted } from 'vue';
+import { defineComponent, reactive, watch, computed, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { observationService } from '@services/observations/index.service';
-import { columns } from './columns';
-import { PaginationResponse } from '@lib-improba/utils/pagination.utils';
 import { IObservation } from '@services/observations/interface';
-import { DSearchInput } from '@lib-improba/components/app/inputs';
-import { DPaginationTable } from '@lib-improba/components';
 import { useObservation } from 'src/composables/use-observation';
+import { relativeDay } from '@lib-improba/utils/date-format.utils';
+import AllChroniclesDialog from './AllChroniclesDialog.vue';
+
+const MAX_RECENT_ITEMS = 8;
 
 export default defineComponent({
+  name: 'MyObservations',
   components: {
-    DSearchInput,
+    AllChroniclesDialog,
   },
   setup() {
     const $q = useQuasar();
     const observation = useObservation();
 
-    const stateless = {
-      columns,
-    };
-
     const state = reactive({
-      reload: false,
-      searchText: '',
-      searchDebounceTimeout: null as NodeJS.Timeout | null,
+      recentObservations: [] as IObservation[],
+      totalCount: 0,
+      loading: false,
+      showAllDialog: false,
+    });
+
+    const viewAllLabel = computed(() => {
+      if (state.totalCount > MAX_RECENT_ITEMS) {
+        return `Voir toutes les chroniques (${state.totalCount})`;
+      }
+      return 'Rechercher une chronique';
     });
 
     const methods = {
-      handleSearch(value: string) {
-        // Debounce search to avoid too many API calls
-        if (state.searchDebounceTimeout) {
-          clearTimeout(state.searchDebounceTimeout);
-        }
-
-        state.searchDebounceTimeout = setTimeout(() => {
-          state.reload = true;
-        }, 300);
-      },
-
-      fetchObservations: async (
-        limit: number,
-        offset: number,
-        orderBy = 'id',
-        order = 'DESC'
-      ): Promise<PaginationResponse<IObservation>> => {
+      async fetchRecent() {
+        state.loading = true;
         try {
-          const response = await observationService.findWithPagination(
-            {
-              limit,
-              offset,
-              orderBy,
-              order,
-            },
-            {
-              searchString: state.searchText || undefined,
-            }
-          );
-          return response;
+          const response = await observationService.findWithPagination({
+            limit: MAX_RECENT_ITEMS,
+            offset: 0,
+            orderBy: 'updatedAt',
+            order: 'DESC',
+          });
+          state.recentObservations = response.results;
+          state.totalCount = response.count;
         } catch (error) {
-          console.error('Error fetching observations:', error);
+          console.error('Error fetching recent observations:', error);
           $q.notify({
             type: 'negative',
             message: 'Erreur lors du chargement des chroniques',
           });
-          return { count: 0, results: [] };
+          state.recentObservations = [];
+          state.totalCount = 0;
+        } finally {
+          state.loading = false;
         }
       },
 
-      loadObservation: async (id: number) => {
+      async loadObservation(id: number) {
         await observation.methods.loadObservation(id);
       },
+
+      openAllChronicles() {
+        state.showAllDialog = true;
+      },
+
+      async onChronicleSelected(id: number) {
+        state.showAllDialog = false;
+        await observation.methods.loadObservation(id);
+      },
+
+      isActive(id: number): boolean {
+        return observation.sharedState.currentObservation?.id === id;
+      },
+
+      formatDate(val: string): string {
+        return relativeDay(val);
+      },
     };
+
+    onMounted(() => {
+      methods.fetchRecent();
+    });
 
     watch(
       () => observation.sharedState.loading,
       (newVal) => {
         if (!newVal) {
-          state.reload = true;
+          methods.fetchRecent();
         }
       }
     );
 
-    onUnmounted(() => {
-      if (state.searchDebounceTimeout) {
-        clearTimeout(state.searchDebounceTimeout);
-      }
-    });
-
     return {
-      stateless,
       state,
+      viewAllLabel,
       methods,
     };
   },
@@ -141,17 +160,16 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .my-observations {
-  h5 {
-    font-weight: 500;
+  .observation-item {
+    border-radius: 0.25rem;
+    transition: background 0.15s ease;
+    min-height: 40px;
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
-}
 
-.table {
-  &:deep() {
-    .q-table__select {
-      // Hide the bottom select used to increase the number of rows per page
-      display: none;
-    }
+  .active-item {
+    background: rgba(31, 41, 55, 0.08);
   }
 }
 </style>
