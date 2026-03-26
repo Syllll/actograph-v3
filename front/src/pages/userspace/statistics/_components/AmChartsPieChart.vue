@@ -4,6 +4,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, watch, PropType } from 'vue';
+import { useI18n } from 'vue-i18n';
 import * as am5 from '@amcharts/amcharts5';
 import * as am5percent from '@amcharts/amcharts5/percent';
 import am5themes_Animated from '@amcharts/amcharts5/themes/Animated';
@@ -70,8 +71,7 @@ export default defineComponent({
       if (props.data && props.data.length > 0 && props.data.some((d) => d.value > 0)) {
         series.data.setAll(props.data);
       } else {
-        // Show empty state
-        series.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
+        series.data.setAll([emptySlice()]);
       }
 
       // Add labels
@@ -111,7 +111,7 @@ export default defineComponent({
         if (props.data && props.data.length > 0 && props.data.some((d) => d.value > 0)) {
           series.data.setAll(props.data);
         } else {
-          series.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
+          series.data.setAll([emptySlice()]);
         }
 
         // Update legend
@@ -157,6 +157,10 @@ export default defineComponent({
       },
       { deep: true }
     );
+
+    watch(locale, () => {
+      updateChart();
+    });
 
     return {
       chartContainer,

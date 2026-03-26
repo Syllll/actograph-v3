@@ -4,6 +4,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, watch, PropType } from 'vue';
+import { useI18n } from 'vue-i18n';
 import * as am5 from '@amcharts/amcharts5';
 import * as am5xy from '@amcharts/amcharts5/xy';
 import am5themes_Animated from '@amcharts/amcharts5/themes/Animated';
@@ -98,7 +99,7 @@ export default defineComponent({
       // Create series
       const series = chart.series.push(
         am5xy.ColumnSeries.new(root, {
-          name: 'Duration',
+          name: t('statisticsUi.chartSeriesOccurrences'),
           xAxis: xAxis,
           yAxis: yAxis,
           valueYField: 'value',
@@ -113,9 +114,9 @@ export default defineComponent({
         xAxis.data.setAll(props.data);
         series.data.setAll(props.data);
       } else {
-        // Show empty state
-        xAxis.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
-        series.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
+        const row = emptyRow();
+        xAxis.data.setAll([row]);
+        series.data.setAll([row]);
       }
 
       // Configure tooltip with adapter for formattedValue
@@ -204,8 +205,9 @@ export default defineComponent({
           xAxis.data.setAll(props.data);
           series.data.setAll(props.data);
         } else {
-          xAxis.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
-          series.data.setAll([{ label: 'Aucune donnée', value: 1 }]);
+          const row = emptyRow();
+          xAxis.data.setAll([row]);
+          series.data.setAll([row]);
         }
       }
     };
@@ -244,6 +246,10 @@ export default defineComponent({
         }
       }
     );
+
+    watch(locale, () => {
+      updateChart();
+    });
 
     return {
       chartContainer,

@@ -5,13 +5,13 @@
     </div>
 
     <div v-else-if="statistics.sharedState.error" class="text-negative q-pa-md">
-      Erreur : {{ statistics.sharedState.error }}
+      {{ t('statisticsUi.errorPrefix') }} {{ statistics.sharedState.error }}
     </div>
 
     <div v-else-if="statistics.sharedState.generalStatistics" class="column q-gutter-md">
       <DCard bgColor="background">
         <DCardSection>
-          <div class="text-h6 q-mb-md">Statistiques générales</div>
+          <div class="text-h6 q-mb-md">{{ t('statisticsUi.generalSectionTitle') }}</div>
           
           <q-table
             :rows="tableRows"
@@ -27,7 +27,7 @@
 
       <DCard v-if="statistics.sharedState.generalStatistics.categories.length > 0" bgColor="background">
         <DCardSection>
-          <div class="text-h6 q-mb-md">Statistiques par catégorie</div>
+          <div class="text-h6 q-mb-md">{{ t('statisticsUi.generalPerCategoryTitle') }}</div>
           
           <q-table
             :rows="categoryRows"
@@ -46,50 +46,52 @@
 
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useStatistics } from 'src/composables/use-statistics';
 import { DCard, DCardSection } from '@lib-improba/components';
 
 export default defineComponent({
   name: 'GeneralStatisticsView',
   setup() {
+    const { t } = useI18n();
     const statistics = useStatistics();
 
-    const tableColumns = [
+    const tableColumns = computed(() => [
       {
         name: 'label',
-        label: 'Métrique',
+        label: t('statisticsUi.colMetric'),
         field: 'label',
         align: 'left' as const,
       },
       {
         name: 'value',
-        label: 'Valeur',
+        label: t('statisticsUi.colValue'),
         field: 'value',
         align: 'right' as const,
       },
-    ];
+    ]);
 
-    const categoryColumns = [
+    const categoryColumns = computed(() => [
       {
         name: 'categoryName',
-        label: 'Catégorie',
+        label: t('statisticsUi.colCategory'),
         field: 'categoryName',
         align: 'left' as const,
       },
       {
         name: 'activeObservablesCount',
-        label: 'Observables actifs',
+        label: t('statisticsUi.colActiveObservables'),
         field: 'activeObservablesCount',
         align: 'center' as const,
       },
       {
         name: 'totalDuration',
-        label: 'Durée totale',
+        label: t('statisticsUi.colTotalDuration'),
         field: 'totalDuration',
         align: 'right' as const,
         format: (val: number) => statistics.methods.formatDuration(val),
       },
-    ];
+    ]);
 
     const tableRows = computed(() => {
       const stats = statistics.sharedState.generalStatistics;
@@ -99,23 +101,23 @@ export default defineComponent({
 
       return [
         {
-          label: 'Durée totale d\'observation',
+          label: t('statisticsUi.metricTotalObservationDuration'),
           value: statistics.methods.formatDuration(stats.totalDuration),
         },
         {
-          label: 'Durée d\'observation (sans pauses)',
+          label: t('statisticsUi.metricObservationDurationExclPauses'),
           value: statistics.methods.formatDuration(stats.observationDuration),
         },
         {
-          label: 'Nombre total de relevés',
+          label: t('statisticsUi.metricTotalReadings'),
           value: stats.totalReadings.toString(),
         },
         {
-          label: 'Nombre de pauses',
+          label: t('statisticsUi.metricPauseCount'),
           value: stats.pauseCount.toString(),
         },
         {
-          label: 'Durée totale des pauses',
+          label: t('statisticsUi.metricTotalPauseDuration'),
           value: statistics.methods.formatDuration(stats.pauseDuration),
         },
       ];
@@ -136,6 +138,7 @@ export default defineComponent({
     });
 
     return {
+      t,
       statistics,
       tableColumns,
       categoryColumns,
@@ -145,4 +148,3 @@ export default defineComponent({
   },
 });
 </script>
-
