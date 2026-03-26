@@ -220,6 +220,22 @@ export default {
     autoCorrectActionsIntro:
       'The following actions will be applied to fix the readings:',
     autoCorrectApply: 'Apply corrections',
+    autoCorrectSortChronological: 'Sort readings in ascending chronological order',
+    autoCorrectDedupeStart:
+      'Remove {count} duplicate “start” reading(s) (keep the first)',
+    autoCorrectDedupeStop:
+      'Remove {count} duplicate “end” reading(s) (keep the last)',
+    autoCorrectMoveStartFront: 'Move the “start” reading to the beginning of the list',
+    autoCorrectRepositionStop:
+      'Reposition the “end” reading after the last reading ({dateTime})',
+    autoCorrectAddStopAfterLast:
+      'Add missing “end” reading after the last reading ({dateTime})',
+    autoCorrectRemoveUnpairedPauseStarts:
+      'Remove {count} unpaired “pause start” reading(s)',
+    autoCorrectAddPauseStartBefore:
+      'Add missing “pause start” before the “pause end” at {dateTime}',
+    autoCorrectAddPauseEndAfter:
+      'Add missing “pause end” after the “pause start” at {dateTime}',
   },
   protocolUi: {
     addCategory: 'Add a category',

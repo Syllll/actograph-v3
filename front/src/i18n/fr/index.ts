@@ -223,6 +223,24 @@ export default {
     autoCorrectActionsIntro:
       'Les actions suivantes seront appliquées pour corriger les relevés :',
     autoCorrectApply: 'Appliquer les corrections',
+    autoCorrectSortChronological:
+      'Trier les relevés par ordre chronologique croissant',
+    autoCorrectDedupeStart:
+      'Supprimer {count} doublon(s) de relevé « Début » (garder le premier)',
+    autoCorrectDedupeStop:
+      'Supprimer {count} doublon(s) de relevé « Fin » (garder le dernier)',
+    autoCorrectMoveStartFront:
+      'Déplacer le relevé « Début » au début de la liste',
+    autoCorrectRepositionStop:
+      'Repositionner le relevé « Fin » après le dernier relevé ({dateTime})',
+    autoCorrectAddStopAfterLast:
+      'Ajouter un relevé « Fin » manquant après le dernier relevé ({dateTime})',
+    autoCorrectRemoveUnpairedPauseStarts:
+      'Supprimer {count} relevé(s) « Début de pause » non apparié(s)',
+    autoCorrectAddPauseStartBefore:
+      'Ajouter un relevé « Début de pause » manquant avant la « Fin de pause » du {dateTime}',
+    autoCorrectAddPauseEndAfter:
+      'Ajouter un relevé « Fin de pause » manquant après le « Début de pause » du {dateTime}',
   },
   protocolUi: {
     addCategory: 'Ajouter une catégorie',

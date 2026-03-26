@@ -7,11 +7,31 @@ import { ReadingTypeEnum } from '../enums';
 export type AutoCorrectActionType = 'sort' | 'remove_duplicate' | 'reorder' | 'add_missing_pause';
 
 /**
+ * Stable reason codes for UI i18n (descriptions in this module stay FR as fallback for logs/tests).
+ */
+export type AutoCorrectReason =
+  | 'sort_chronological'
+  | 'dedupe_start'
+  | 'dedupe_stop'
+  | 'move_start_to_front'
+  | 'reposition_stop_after_last'
+  | 'add_missing_stop'
+  | 'remove_unpaired_pause_starts'
+  | 'add_missing_pause_start'
+  | 'add_missing_pause_end';
+
+/**
  * Action to be performed during auto-correction
  */
 export interface IAutoCorrectAction {
   type: AutoCorrectActionType;
+  /** French fallback text */
   description: string;
+  reason?: AutoCorrectReason;
+  /** For dedupe / unpaired pause actions */
+  count?: number;
+  /** Single timestamp shown in user-facing messages */
+  relatedDate?: Date;
   readingIds?: number[];
   tempIds?: string[];
   newReading?: Partial<IReading>;
@@ -86,6 +106,8 @@ export function autoCorrectReadings(
     actions.push({
       type: 'remove_duplicate',
       description: `Supprimer ${toRemove.length} doublon(s) de relevé "Début" (garder le premier)`,
+      reason: 'dedupe_start',
+      count: toRemove.length,
       readingIds: toRemoveIds.length > 0 ? toRemoveIds : undefined,
       tempIds: toRemoveTempIds.length > 0 ? toRemoveTempIds : undefined,
     });
@@ -99,6 +121,8 @@ export function autoCorrectReadings(
     actions.push({
       type: 'remove_duplicate',
       description: `Supprimer ${toRemove.length} doublon(s) de relevé "Fin" (garder le dernier)`,
+      reason: 'dedupe_stop',
+      count: toRemove.length,
       readingIds: toRemoveIds.length > 0 ? toRemoveIds : undefined,
       tempIds: toRemoveTempIds.length > 0 ? toRemoveTempIds : undefined,
     });
@@ -114,6 +138,7 @@ export function autoCorrectReadings(
     actions.push({
       type: 'reorder',
       description: 'Déplacer le relevé "Début" au début de la liste',
+      reason: 'move_start_to_front',
     });
   }
 
@@ -147,6 +172,8 @@ export function autoCorrectReadings(
         actions.push({
           type: 'reorder',
           description: `Repositionner le relevé "Fin" après le dernier relevé (${newStopDate.toLocaleString()})`,
+          reason: 'reposition_stop_after_last',
+          relatedDate: newStopDate,
           stopReadingId: latestStopReading.id,
           stopReadingTempId: latestStopReading.tempId || undefined,
           newStopDateTime: newStopDate,
@@ -164,6 +191,8 @@ export function autoCorrectReadings(
       actions.push({
         type: 'add_missing_pause',
         description: `Ajouter un relevé "Fin" manquant après le dernier relevé (${newStopDate.toLocaleString()})`,
+        reason: 'add_missing_stop',
+        relatedDate: newStopDate,
         newReading: {
           name: 'Fin de la chronique',
           type: ReadingTypeEnum.STOP,
@@ -224,6 +253,8 @@ export function autoCorrectReadings(
     actions.push({
       type: 'remove_duplicate',
       description: `Supprimer ${unpairedStarts.length} relevé(s) "Début de pause" non apparié(s)`,
+      reason: 'remove_unpaired_pause_starts',
+      count: unpairedStarts.length,
       readingIds: toRemoveIds.length > 0 ? toRemoveIds : undefined,
       tempIds: toRemoveTempIds.length > 0 ? toRemoveTempIds : undefined,
     });
@@ -240,6 +271,8 @@ export function autoCorrectReadings(
     actions.push({
       type: 'add_missing_pause',
       description: `Ajouter un relevé "Début de pause" manquant avant le relevé "Fin de pause" à ${pauseEndDate.toLocaleString()}`,
+      reason: 'add_missing_pause_start',
+      relatedDate: pauseEndDate,
       newReading: {
         name: 'Début de pause',
         type: ReadingTypeEnum.PAUSE_START,
@@ -262,6 +295,8 @@ export function autoCorrectReadings(
         actions.push({
           type: 'add_missing_pause',
           description: `Ajouter un relevé "Fin de pause" manquant après le relevé "Début de pause" à ${pauseStartDate.toLocaleString()}`,
+          reason: 'add_missing_pause_end',
+          relatedDate: pauseStartDate,
           newReading: {
             name: 'Fin de pause',
             type: ReadingTypeEnum.PAUSE_END,

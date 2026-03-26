@@ -12,7 +12,11 @@ import { useI18n } from 'vue-i18n';
 import { readingService } from '@services/observations/reading.service';
 import { v4 as uuidv4 } from 'uuid';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
-import { autoCorrectReadings as coreAutoCorrectReadings } from '@actograph/core';
+import {
+  autoCorrectReadings as coreAutoCorrectReadings,
+  type IAutoCorrectAction,
+} from '@actograph/core';
+import { localizeAutoCorrectAction } from './auto-correct-i18n';
 
 // Stateless object to store the initial readings (used for comparison during sync)
 const stateless = {
@@ -33,7 +37,7 @@ let syncTimeoutId: number | null = null;
 export const useReadings = (options: {
   sharedStateFromObservation: any,
 }) => {
-  const { t } = useI18n();
+  const { t, d } = useI18n();
   const observationSharedState = options.sharedStateFromObservation;
   
   const methods = {
@@ -596,17 +600,11 @@ export const useReadings = (options: {
       
       // Use shared auto-correction function
       const result = coreAutoCorrectReadings(readings, applyCorrections);
-      
-      const actions = result.actions as Array<{
-        type: 'sort' | 'remove_duplicate' | 'reorder' | 'add_missing_pause';
-        description: string;
-        readingIds?: number[];
-        tempIds?: string[];
-        newReading?: Partial<IReading>;
-        stopReadingId?: number;
-        stopReadingTempId?: string;
-        newStopDateTime?: Date;
-      }>;
+
+      const actions = (result.actions as IAutoCorrectAction[]).map((action) => ({
+        ...action,
+        description: localizeAutoCorrectAction(action, t, d),
+      }));
 
       // If applyCorrections is true, apply the corrections using the corrected readings from core
       let correctedReadings: IReading[] = [];
