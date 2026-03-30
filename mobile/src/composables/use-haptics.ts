@@ -7,6 +7,7 @@
  * @author Sylvain Meylan
  */
 import { Capacitor } from '@capacitor/core';
+import { ImpactStyle, NotificationType } from '@capacitor/haptics';
 
 let Haptics: typeof import('@capacitor/haptics').Haptics | null = null;
 
@@ -26,7 +27,7 @@ export function useHaptics() {
     const h = await getHaptics();
     if (h) {
       try {
-        await h.impact({ style: 'light' });
+        await h.impact({ style: ImpactStyle.Light });
       } catch {
         // Ignore haptics errors (e.g. unsupported device)
       }
@@ -37,7 +38,7 @@ export function useHaptics() {
     const h = await getHaptics();
     if (h) {
       try {
-        await h.impact({ style: 'medium' });
+        await h.impact({ style: ImpactStyle.Medium });
       } catch {
         // Ignore
       }
@@ -48,7 +49,7 @@ export function useHaptics() {
     const h = await getHaptics();
     if (h) {
       try {
-        await h.notification({ type: 'success' });
+        await h.notification({ type: NotificationType.Success });
       } catch {
         // Ignore
       }
@@ -59,7 +60,7 @@ export function useHaptics() {
     const h = await getHaptics();
     if (h) {
       try {
-        await h.notification({ type: 'warning' });
+        await h.notification({ type: NotificationType.Warning });
       } catch {
         // Ignore
       }

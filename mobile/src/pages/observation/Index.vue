@@ -1,107 +1,49 @@
 <template>
   <DPage>
-    <!-- Timer toolbar (header fixe) -->
-    <div class="timer-toolbar q-pa-md">
-      <div class="row items-center justify-between q-mb-sm">
-        <template v-if="!editMode.sharedState.isEditing">
-          <q-btn
-            flat
-            dense
-            icon="mdi-clipboard-list"
-            color="white"
-            size="sm"
-            label="Protocole"
-            aria-label="Ouvrir le protocole"
-            @click="state.showProtocolSheet = true"
-          />
-          <div class="text-caption text-white text-center col">
-            {{ state.categories.length }} catégorie(s)
-          </div>
-          <q-btn
-            v-if="canEnterEditMode"
-            flat
-            dense
-            icon="mdi-pencil"
-            color="white"
-            size="sm"
-            aria-label="Éditer les positions"
-            @click="methods.enterEditMode"
-          />
-          <div v-else style="width: 40px"></div>
-        </template>
-        <template v-else>
-          <q-btn
-            flat
-            dense
-            icon="mdi-close"
-            color="negative"
-            size="sm"
-            aria-label="Annuler les changements"
-            @click="methods.cancelEditMode"
-          />
-          <div class="text-caption text-white text-center col">Édition des positions</div>
-          <div class="row items-center no-wrap q-gutter-xs">
-            <q-btn
-              flat
-              dense
-              icon="mdi-refresh"
-              color="white"
-              size="sm"
-              aria-label="Réinitialiser les positions"
-              @click="methods.resetCategoryPositions"
-            />
-            <q-btn
-              flat
-              dense
-              icon="mdi-check"
-              color="positive"
-              size="sm"
-              :loading="editMode.sharedState.isSaving"
-              aria-label="Valider les positions"
-              @click="methods.exitEditMode"
-            />
-          </div>
-        </template>
-      </div>
+    <!-- Header compact -->
+    <div class="timer-toolbar q-py-xs q-px-sm">
+      <div class="row items-center no-wrap q-gutter-x-sm">
+        <!-- Left: Edit or Cancel -->
+        <q-btn
+          v-if="editMode.sharedState.isEditing"
+          flat dense round icon="mdi-close" color="negative" size="sm"
+          @click="methods.cancelEditMode"
+        />
+        <q-btn
+          v-else-if="canEnterEditMode"
+          flat dense round icon="mdi-pencil" color="white" size="sm"
+          @click="methods.enterEditMode"
+        />
+        <div v-else style="width: 36px" />
 
-      <div class="row items-center justify-center">
-        <div 
-          class="timer-display text-h4 text-weight-bold" 
+        <!-- Center: Timer -->
+        <div
+          class="timer-display text-h5 text-weight-bold col text-center"
           :class="chronicle.sharedState.isPaused ? 'text-warning blink' : 'text-accent'"
         >
           {{ chronicle.formattedTime.value }}
         </div>
-      </div>
 
-      <div class="row items-center justify-center q-mt-md q-gutter-md">
-        <q-btn
-          v-if="!state.isRecording"
-          round
-          color="positive"
-          icon="mdi-play"
-          size="lg"
-          aria-label="Démarrer l'enregistrement"
-          @click="methods.startRecording"
-        />
-
+        <!-- Right: Edit mode actions OR Record controls -->
+        <template v-if="editMode.sharedState.isEditing">
+          <q-btn flat dense round icon="mdi-refresh" color="white" size="sm" @click="methods.resetCategoryPositions" />
+          <q-btn flat dense round icon="mdi-check" color="positive" size="sm" :loading="editMode.sharedState.isSaving" @click="methods.exitEditMode" />
+        </template>
         <template v-else>
           <q-btn
-            round
-            :color="chronicle.sharedState.isPaused ? 'positive' : 'warning'"
-            :icon="chronicle.sharedState.isPaused ? 'mdi-play' : 'mdi-pause'"
-            size="lg"
-            :aria-label="chronicle.sharedState.isPaused ? 'Reprendre' : 'Pause'"
-            @click="methods.togglePause"
+            v-if="!state.isRecording"
+            round color="positive" icon="mdi-play" size="md"
+            @click="methods.startRecording"
           />
-
-          <q-btn
-            round
-            color="negative"
-            icon="mdi-stop"
-            size="lg"
-            aria-label="Arrêter l'enregistrement"
-            @click="methods.stopRecording"
-          />
+          <template v-else>
+            <q-btn
+              round size="md"
+              :color="chronicle.sharedState.isPaused ? 'positive' : 'warning'"
+              :icon="chronicle.sharedState.isPaused ? 'mdi-play' : 'mdi-pause'"
+              @click="methods.togglePause"
+            />
+            <q-btn round color="negative" icon="mdi-stop" size="md" @click="methods.stopRecording" />
+          </template>
         </template>
       </div>
     </div>
@@ -135,12 +77,6 @@
           class="positioned-container"
           :style="{ minHeight: editMode.methods.getMinContainerHeight() + 'px' }"
         >
-          <!-- Message d'aide en mode édition -->
-          <div v-if="editMode.sharedState.isEditing" class="edit-hint q-pa-sm text-center text-caption text-grey-6">
-            <q-icon name="mdi-gesture-swipe" class="q-mr-xs" />
-            Glissez les catégories pour les repositionner
-          </div>
-
           <!-- Catégories : même composant pour les deux modes -->
           <DraggableCategory
             v-for="category in state.categories"
@@ -154,7 +90,6 @@
             :discrete-observables-disabled="editMode.sharedState.isEditing || !state.isRecording || chronicle.sharedState.isPaused"
             :on-toggle-observable="editMode.sharedState.isEditing ? undefined : methods.toggleObservable"
             :on-press-observable="editMode.sharedState.isEditing ? undefined : methods.pressObservable"
-            :on-add-observable="editMode.sharedState.isEditing ? undefined : methods.openAddObservableForCategory"
             :style="editMode.sharedState.isEditing 
               ? editMode.methods.getCategoryStyle(category.id)
               : methods.getCategoryPositionStyle(category.id)"
@@ -162,12 +97,19 @@
             @drag-move="methods.handleDragMove"
             @drag-end="editMode.methods.endDrag"
           />
+
         </div>
       </q-scroll-area>
     </div>
 
+    <!-- Bandeau "Éditer protocole" en mode édition -->
+    <div v-if="editMode.sharedState.isEditing" class="edit-protocol-banner" @click="state.showProtocolSheet = true">
+      <q-icon name="mdi-clipboard-edit-outline" size="18px" class="q-mr-xs" />
+      Éditer protocole
+    </div>
+
     <!-- FAB pour ajouter un commentaire -->
-    <q-page-sticky v-if="state.isRecording" position="bottom-left" :offset="[18, 18]">
+    <q-page-sticky v-if="state.isRecording && !editMode.sharedState.isEditing" position="bottom-left" :offset="[18, 18]">
       <q-btn
         round
         color="info"
@@ -258,42 +200,6 @@
             @click="methods.addCategory"
             :disable="!state.newCategory.name"
           />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
-    <!-- Dialog sélection catégorie pour ajout observable -->
-    <q-dialog v-model="state.showSelectCategoryDialog">
-      <q-card style="min-width: 320px">
-        <q-card-section class="bg-primary text-white">
-          <div class="text-h6">Choisir une catégorie</div>
-        </q-card-section>
-
-        <q-list separator>
-          <q-item
-            v-for="category in state.categories"
-            :key="category.id"
-            clickable
-            v-close-popup
-            @click="methods.selectCategoryForObservable(category)"
-          >
-            <q-item-section avatar>
-              <q-icon name="mdi-folder" color="primary" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>{{ category.name }}</q-item-label>
-              <q-item-label caption>
-                {{ category.children?.length || 0 }} observable(s)
-              </q-item-label>
-            </q-item-section>
-            <q-item-section side>
-              <q-icon name="mdi-chevron-right" color="grey" />
-            </q-item-section>
-          </q-item>
-        </q-list>
-
-        <q-card-actions align="right" class="q-px-md q-pb-md">
-          <q-btn flat label="Annuler" v-close-popup />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -394,31 +300,19 @@
       </q-card>
     </q-dialog>
 
-    <!-- Recent readings - section toujours visible quand des relevés existent -->
-    <div v-if="state.recentReadings.length > 0" class="recent-readings-section">
-      <div class="recent-readings-header row items-center q-pa-sm">
-        <q-icon name="mdi-history" color="primary" size="20px" class="q-mr-sm" />
-        <span class="text-subtitle2 text-weight-medium">Derniers relevés</span>
-        <q-badge color="primary" :label="state.recentReadings.length" class="q-ml-sm" />
-      </div>
-      <q-list dense separator class="recent-readings-list">
-        <q-item v-for="reading in state.recentReadings" :key="reading.id">
-          <q-item-section avatar>
-            <q-icon
-              :name="methods.getReadingIcon(reading.type)"
-              :color="methods.getReadingColor(reading.type)"
-              size="sm"
-            />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>{{ reading.name || methods.getReadingLabel(reading.type) }}</q-item-label>
-            <q-item-label caption>
-              {{ methods.formatTime(reading.date) }}
-            </q-item-label>
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </div>
+    <!-- Readings counter badge -->
+    <q-page-sticky v-if="state.totalReadingsCount > 0 && !editMode.sharedState.isEditing" position="bottom-right" :offset="[18, 18]">
+      <q-btn
+        round
+        color="primary"
+        size="md"
+        :class="{ 'readings-counter-pulse': state.readingsCountAnimating }"
+        @click="$router.push({ name: 'readings' })"
+      >
+        <q-icon name="mdi-table" size="20px" />
+        <q-badge floating color="accent" :label="state.totalReadingsCount" />
+      </q-btn>
+    </q-page-sticky>
 
     <!-- Bottom sheet pour gérer le protocole -->
     <q-dialog v-model="state.showProtocolSheet" position="bottom" full-width>
@@ -561,8 +455,6 @@ import { useEditMode, useHaptics } from '@composables';
 import { protocolService } from '@services/protocol.service';
 import { observationService } from '@services/observation.service';
 import { DPage, DraggableCategory } from '@components';
-import { toAbsoluteTimeString } from '@utils/date-time';
-import type { IReadingEntity, ReadingType } from '@database/repositories/reading.repository';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
 
 export default defineComponent({
@@ -581,10 +473,10 @@ export default defineComponent({
       categories: [] as IProtocolItemWithChildren[],
       isRecording: false,
       activeObservableByCategory: {} as Record<number, string>,
-      recentReadings: [] as IReadingEntity[],
+      totalReadingsCount: 0,
+      readingsCountAnimating: false,
       // Dialogs
       showAddCategoryDialog: false,
-      showSelectCategoryDialog: false,
       showAddObservableDialog: false,
       showAddCommentDialog: false,
       showProtocolSheet: false,
@@ -629,30 +521,6 @@ export default defineComponent({
     const canEnterEditMode = computed(() => 
       !state.isRecording && !chronicle.sharedState.isPaused
     );
-
-    const READING_ICONS: Record<ReadingType, string> = {
-      START: 'mdi-play-circle',
-      STOP: 'mdi-stop-circle',
-      PAUSE_START: 'mdi-pause-circle',
-      PAUSE_END: 'mdi-play-circle-outline',
-      DATA: 'mdi-circle',
-    };
-
-    const READING_COLORS: Record<ReadingType, string> = {
-      START: 'positive',
-      STOP: 'negative',
-      PAUSE_START: 'warning',
-      PAUSE_END: 'positive',
-      DATA: 'accent',
-    };
-
-    const READING_LABELS: Record<ReadingType, string> = {
-      START: 'Début',
-      STOP: 'Fin',
-      PAUSE_START: 'Pause',
-      PAUSE_END: 'Reprise',
-      DATA: 'Data',
-    };
 
     const methods = {
       getDefaultContinuousObservableName: (category: IProtocolItemWithChildren): string | null => {
@@ -743,18 +611,19 @@ export default defineComponent({
 
       loadRecentReadings: () => {
         const readings = chronicle.sharedState.currentReadings;
-        state.recentReadings = readings.slice(-5).reverse();
+        const newCount = readings.length;
+        
+        if (newCount > state.totalReadingsCount && state.totalReadingsCount > 0) {
+          state.readingsCountAnimating = true;
+          setTimeout(() => { state.readingsCountAnimating = false; }, 600);
+        }
+        state.totalReadingsCount = newCount;
 
-        // Determine if recording is currently active
-        // We look at the LAST reading of type START or STOP to handle multiple sessions correctly
-        // Example: START -> STOP -> START -> STOP -> START means recording is active (last is START)
-        // Example: START -> STOP -> START -> STOP means recording is stopped (last is STOP)
         const startStopReadings = readings.filter((r) => r.type === 'START' || r.type === 'STOP');
         if (startStopReadings.length > 0) {
           const lastStartStop = startStopReadings[startStopReadings.length - 1];
           state.isRecording = lastStartStop.type === 'START';
         } else {
-          // No START/STOP readings yet - not recording
           state.isRecording = false;
         }
 
@@ -871,23 +740,7 @@ export default defineComponent({
         methods.loadRecentReadings();
       },
 
-      getReadingIcon: (type: ReadingType): string => READING_ICONS[type] || 'mdi-circle',
-
-      getReadingColor: (type: ReadingType): string => READING_COLORS[type] || 'grey',
-
-      getReadingLabel: (type: ReadingType): string => READING_LABELS[type] || type,
-
-      formatTime: (dateStr: string): string => {
-        if (!dateStr) return '';
-        return toAbsoluteTimeString(dateStr, true);
-      },
-
       // Protocol management
-      selectCategoryForObservable: (category: IProtocolItemWithChildren) => {
-        state.selectedCategory = category;
-        state.showAddObservableDialog = true;
-      },
-
       addCategory: async () => {
         if (!state.newCategory.name.trim()) {
           $q.notify({
@@ -1335,13 +1188,14 @@ export default defineComponent({
 .timer-toolbar {
   flex: 0 0 auto;
   background: linear-gradient(135deg, var(--primary) 0%, #161d27 100%);
-  border-bottom: 3px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
 }
 
 .timer-display {
   font-family: 'Roboto Mono', 'Courier New', monospace;
-  letter-spacing: 2px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  letter-spacing: 1px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  line-height: 1.2;
 
   &.blink {
     animation: blink-animation 1s ease-in-out infinite;
@@ -1371,105 +1225,25 @@ export default defineComponent({
   min-height: 100%;
 }
 
-.positioned-category {
-  border-radius: 12px;
-  overflow: hidden;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  
-  &.continuous {
-    .category-header {
-      background: var(--accent);
-    }
-  }
-
-  .category-header {
-    background: var(--primary);
-    color: white;
-    min-height: 36px;
-  }
-
-  .category-content {
-    min-height: 50px;
-  }
-}
-
-.observables-list {
+.edit-protocol-banner {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  background: var(--primary);
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
 
-.observable-btn-small {
-  font-size: 13px;
-  padding: 6px 12px;
-  min-height: 40px;
-}
-
-.edit-hint {
-  position: relative;
-  z-index: 0;
-  margin-bottom: 8px;
-}
-
-.categories-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-.category-card {
-  border-radius: 12px;
-  border-left: 4px solid var(--primary);
-  transition: all 0.2s ease;
-  
-  &.continuous {
-    border-left-color: var(--accent);
-  }
-  
-  &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-}
-
-.category-header {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  background: linear-gradient(135deg, rgba(31, 41, 55, 0.03) 0%, transparent 100%);
-}
-
-.category-content {
-  padding-top: 12px;
-}
-
-.observables-container {
-  &.row {
-    flex-wrap: wrap;
-  }
-}
-
-.observable-btn {
-  min-width: 80px;
-  transition: all 0.2s ease;
-  
-  &.switch-btn {
-    border-radius: 20px;
-    
-    &:not(.disabled) {
-      &:active {
-        transform: scale(0.95);
-      }
-    }
-  }
-  
-  &.press-btn {
-    border-radius: 8px;
-    
-    &:not(.disabled) {
-      &:active {
-        transform: translateY(2px);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      }
-    }
+  &:active {
+    background: color-mix(in srgb, var(--primary) 85%, black);
   }
 }
 
@@ -1481,23 +1255,14 @@ export default defineComponent({
   justify-content: center;
 }
 
-.recent-readings-section {
-  flex: 0 0 auto;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  background: linear-gradient(135deg, rgba(31, 41, 55, 0.04) 0%, rgba(31, 41, 55, 0.02) 100%);
-  border-radius: 8px;
-  margin: 8px;
-  overflow: hidden;
+.readings-counter-pulse {
+  animation: counter-pulse 0.6s ease-out;
 }
 
-.recent-readings-header {
-  background: rgba(31, 41, 55, 0.06);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.recent-readings-list {
-  max-height: 160px;
-  overflow-y: auto;
+@keyframes counter-pulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.3); }
+  100% { transform: scale(1); }
 }
 
 // Protocol sheet styles
@@ -1523,21 +1288,4 @@ export default defineComponent({
   background: rgba(0, 0, 0, 0.02);
 }
 
-.edit-container {
-  position: relative;
-  flex: 1;
-  overflow: auto;
-  background: 
-    linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px),
-    linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px);
-  background-size: 20px 20px;
-}
-
-.edit-hint {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(4px);
-}
 </style>

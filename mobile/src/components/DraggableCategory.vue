@@ -11,7 +11,6 @@
     @touchend="methods.handleTouchEnd"
     @touchcancel="methods.handleTouchEnd"
   >
-    <!-- Header avec icône de drag (seulement en mode édition) -->
     <q-card-section class="category-header q-py-xs q-px-sm">
       <div class="row items-center no-wrap">
         <q-icon 
@@ -27,22 +26,9 @@
       </div>
     </q-card-section>
 
-    <!-- Contenu : liste des observables (identique au mode normal) -->
     <q-card-section class="category-content q-py-sm q-px-sm">
-      <!-- Empty category message -->
-      <div v-if="!category.children || category.children.length === 0" class="text-center">
-        <div class="text-caption text-grey q-mb-xs">Vide</div>
-        <q-btn
-          v-if="onAddObservable && !draggable"
-          icon="mdi-plus"
-          label="Ajouter un observable"
-          color="primary"
-          size="sm"
-          dense
-          unelevated
-          no-caps
-          @click="onAddObservable(category)"
-        />
+      <div v-if="!category.children || category.children.length === 0" class="text-center text-caption text-grey">
+        Vide
       </div>
 
       <!-- Continuous category: Switch buttons (toggle) -->
@@ -167,13 +153,6 @@ export default defineComponent({
      */
     onPressObservable: {
       type: Function as PropType<(observable: IProtocolItemWithChildren) => void>,
-      default: undefined,
-    },
-    /**
-     * Handler to add an observable directly in an empty category
-     */
-    onAddObservable: {
-      type: Function as PropType<(category: IProtocolItemWithChildren) => void>,
       default: undefined,
     },
   },
@@ -371,5 +350,6 @@ export default defineComponent({
     padding: 6px 12px;
     min-height: 40px;
   }
+
 }
 </style>

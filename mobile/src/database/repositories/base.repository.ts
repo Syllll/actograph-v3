@@ -82,7 +82,7 @@ export abstract class BaseRepository<T extends IBaseEntity> {
  * Repository for tables with soft delete (deleted_at column).
  * Extends BaseRepository and overrides find/delete/count to filter by deleted_at.
  */
-export class SoftDeleteRepository<T extends IBaseEntity> extends BaseRepository<T> {
+export abstract class SoftDeleteRepository<T extends IBaseEntity> extends BaseRepository<T> {
   /**
    * Find all non-deleted entities
    */

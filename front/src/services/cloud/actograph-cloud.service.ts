@@ -43,8 +43,8 @@ interface ICloudChronicleRaw {
   id: number;
   name: string;
   description?: string;
-  createdAt: string;
-  updatedAt: string;
+  date: string;
+  file?: { id: number; name: string };
 }
 
 /**
@@ -124,17 +124,24 @@ class ActographCloudService {
 
       const data = await response.json();
 
-      // Transformer les données et déterminer le format
-      const chronicles: ICloudChronicle[] = (Array.isArray(data) ? data : []).map(
-        (item: ICloudChronicleRaw) => ({
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-          isJchronic: item.name?.toLowerCase().endsWith('.jchronic') ?? false,
+      const chronicles: ICloudChronicle[] = (Array.isArray(data) ? data : [])
+        .map((item: ICloudChronicleRaw) => {
+          const itemName = item.name ?? '';
+          const fileName = item.file?.name ?? '';
+          const isJchronic =
+            itemName.toLowerCase().endsWith('.jchronic') ||
+            fileName.toLowerCase().endsWith('.jchronic');
+
+          return {
+            id: item.id,
+            name: itemName,
+            description: item.description,
+            createdAt: item.date,
+            updatedAt: item.date,
+            isJchronic,
+          };
         })
-      );
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       return {
         success: true,
@@ -183,7 +190,7 @@ class ActographCloudService {
       // S'assurer que le nom a l'extension .jchronic
       const fileName = name.endsWith('.jchronic') ? name : `${name}.jchronic`;
       
-      formData.append('name', fileName.replace('.jchronic', ''));
+      formData.append('name', fileName);
       formData.append('description', description || 'Uploaded from desktop');
       
       // Créer un Blob pour le fichier

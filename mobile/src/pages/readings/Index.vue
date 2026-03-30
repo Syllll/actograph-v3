@@ -1,7 +1,7 @@
 <template>
   <DPage>
     <!-- Header avec compteur -->
-    <div class="readings-header row items-center q-pa-md bg-grey-1">
+    <div class="readings-header row items-center q-pa-md">
       <div class="text-subtitle1 text-weight-medium">
         {{ readings.length }} relevé{{ readings.length > 1 ? 's' : '' }}
       </div>
@@ -51,7 +51,7 @@
 
         <template v-slot:body-cell-date="props">
           <q-td :props="props">
-            <span class="text-caption">
+            <span class="text-caption" style="color: var(--text, #000)">
               {{ methods.formatDate(props.row.date) }}
             </span>
           </q-td>
@@ -60,6 +60,7 @@
         <template v-slot:body-cell-name="props">
           <q-td :props="props">
             <span 
+              class="reading-name"
               :class="{ 
                 'text-grey-6': !props.row.name,
                 'comment-reading': props.row.name?.startsWith('#')
@@ -204,6 +205,8 @@ export default defineComponent({
   flex-wrap: wrap;
   gap: 8px;
   min-height: 56px;
+  background-color: var(--background, #fff);
+  color: var(--text, #000);
 }
 
 .search-input {
@@ -245,7 +248,8 @@ export default defineComponent({
     position: sticky;
     top: 0;
     z-index: 1;
-    background-color: white;
+    background-color: var(--background, #fff);
+    color: var(--text, #000);
   }
 }
 
@@ -256,9 +260,13 @@ export default defineComponent({
   padding: 2rem;
 }
 
-/* Style for comment readings (name starting with "#") */
+.reading-name {
+  color: var(--text, #000);
+  font-weight: 500;
+}
+
 .comment-reading {
-  color: #3b82f6; /* Blue color */
+  color: #3b82f6 !important;
   font-weight: 500;
 }
 
@@ -274,7 +282,8 @@ export default defineComponent({
 
 .readings-table {
   :deep(.q-table__middle) {
-    background-color: #fff;
+    background-color: var(--background, #fff);
+    color: var(--text, #000);
   }
 
   :deep(.q-table tbody tr) {

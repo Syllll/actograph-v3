@@ -74,6 +74,14 @@ body.body--dark {
     color: #{$white};
   }
 
+  .readings-table tbody td {
+    color: #{$white};
+  }
+
+  .reading-name {
+    color: #{$white};
+  }
+
   .bg-grey-1 {
     background-color: #283141 !important;
   }
@@ -81,6 +89,11 @@ body.body--dark {
   .bg-grey-2 {
     background-color: #2d3748 !important;
   }
+}
+
+// Disable native Android WebView tap highlight and focus outlines
+* {
+  -webkit-tap-highlight-color: transparent;
 }
 
 // Global styles
@@ -137,6 +150,18 @@ body {
 
 .q-field__control {
   min-height: 44px;
+}
+
+// Fix outlined input focus: Quasar only hides ::before on :hover, but on
+// mobile there is no hover, so both the 1px ::before and 2px ::after borders
+// are visible simultaneously, creating a "double border" effect.
+.q-field--outlined.q-field--highlighted .q-field__control:before {
+  border-color: transparent !important;
+}
+
+// Use accent color for focus border instead of primary (which is near-black)
+.q-field--outlined.q-field--highlighted .q-field__control:after {
+  border-color: $orange !important;
 }
 
 // Touch target sizing for common interactive elements

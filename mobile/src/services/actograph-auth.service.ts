@@ -1,5 +1,6 @@
 import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin';
 import { Preferences } from '@capacitor/preferences';
+import { CapacitorHttp } from '@capacitor/core';
 
 const ACTOGRAPH_API_URL = 'https://actograph.io/api';
 
@@ -113,36 +114,28 @@ class ActographAuthService {
    */
   async login(email: string, password: string): Promise<ILoginResult> {
     try {
-      const response = await fetch(`${ACTOGRAPH_API_URL}/auth-tokens`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          login: email,
-          password: password,
-        }),
+      const response = await CapacitorHttp.post({
+        url: `${ACTOGRAPH_API_URL}/auth-tokens`,
+        headers: { 'Content-Type': 'application/json' },
+        data: { login: email, password },
       });
 
-      let data;
-      try {
-        data = await response.json();
-      } catch {
+      const data = response.data;
+
+      if (response.status >= 500) {
         return {
           success: false,
           error: `Erreur serveur (${response.status}). Veuillez réessayer.`,
         };
       }
 
-      // Vérifier les erreurs
-      if (data.code || data.message === 'Invalid credentials' || !data.value) {
+      if (data?.code || data?.message === 'Invalid credentials' || !data?.value) {
         return {
           success: false,
-          error: data.message || 'Identifiants invalides',
+          error: data?.message || 'Identifiants invalides',
         };
       }
 
-      // Sauvegarder les credentials
       await this.saveCredentials(email, password, data.value);
 
       return { success: true };

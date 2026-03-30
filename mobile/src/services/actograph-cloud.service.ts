@@ -1,3 +1,4 @@
+import { CapacitorHttp, type HttpResponse } from '@capacitor/core';
 import { actographAuthService } from './actograph-auth.service';
 
 const ACTOGRAPH_API_URL = 'https://actograph.io/api';
@@ -43,8 +44,8 @@ interface ICloudChronicleRaw {
   id: number;
   name: string;
   description?: string;
-  createdAt: string;
-  updatedAt: string;
+  date: string;
+  file?: { id: number; name: string };
 }
 
 /**
@@ -60,28 +61,27 @@ class ActographCloudService {
   private reconnectPromise: Promise<boolean> | null = null;
 
   /**
-   * Effectue une requête authentifiée avec reconnexion automatique si token expiré
+   * Effectue une requête authentifiée via CapacitorHttp (bypass CORS)
+   * avec reconnexion automatique si token expiré
    */
-  private async authenticatedFetch(
-    url: string,
-    options: RequestInit = {}
-  ): Promise<Response> {
+  private async authenticatedRequest(options: {
+    url: string;
+    method: string;
+    headers?: Record<string, string>;
+    data?: unknown;
+    responseType?: 'arraybuffer' | 'blob' | 'json' | 'text' | 'document';
+  }): Promise<HttpResponse> {
     const token = actographAuthService.getToken();
 
     if (!token) {
       throw new Error('Non authentifié');
     }
 
-    // Première tentative
-    let response = await fetch(url, {
+    let response = await CapacitorHttp.request({
       ...options,
-      headers: {
-        ...options.headers,
-        'X-Auth-Token': token,
-      },
+      headers: { ...options.headers, 'X-Auth-Token': token },
     });
 
-    // Si token expiré (401), tenter reconnexion auto
     if (response.status === 401) {
       const reconnected = await this.doAutoReconnect();
 
@@ -90,12 +90,9 @@ class ActographCloudService {
         if (!newToken) {
           throw new Error('Token manquant après reconnexion');
         }
-        response = await fetch(url, {
+        response = await CapacitorHttp.request({
           ...options,
-          headers: {
-            ...options.headers,
-            'X-Auth-Token': newToken,
-          },
+          headers: { ...options.headers, 'X-Auth-Token': newToken },
         });
       } else {
         throw new Error('Session expirée. Veuillez vous reconnecter.');
@@ -122,36 +119,39 @@ class ActographCloudService {
    */
   async listChronicles(): Promise<ICloudListResult> {
     try {
-      const response = await this.authenticatedFetch(
-        `${ACTOGRAPH_API_URL}/cloud/chronics`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await this.authenticatedRequest({
+        url: `${ACTOGRAPH_API_URL}/cloud/chronics`,
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-      if (!response.ok) {
+      if (response.status < 200 || response.status >= 300) {
         return {
           success: false,
           error: `Erreur serveur: ${response.status}`,
         };
       }
 
-      const data = await response.json();
+      const data = response.data;
 
-      // Transformer les données et déterminer le format
-      const chronicles: ICloudChronicle[] = (Array.isArray(data) ? data : []).map(
-        (item: ICloudChronicleRaw) => ({
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-          isJchronic: item.name?.toLowerCase().endsWith('.jchronic') ?? false,
+      const chronicles: ICloudChronicle[] = (Array.isArray(data) ? data : [])
+        .map((item: ICloudChronicleRaw) => {
+          const itemName = item.name ?? '';
+          const fileName = item.file?.name ?? '';
+          const isJchronic =
+            itemName.toLowerCase().endsWith('.jchronic') ||
+            fileName.toLowerCase().endsWith('.jchronic');
+
+          return {
+            id: item.id,
+            name: itemName,
+            description: item.description,
+            createdAt: item.date,
+            updatedAt: item.date,
+            isJchronic,
+          };
         })
-      );
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       return {
         success: true,
@@ -175,7 +175,6 @@ class ActographCloudService {
     content: string
   ): Promise<ICloudUploadResult> {
     try {
-      // Vérifier la limite
       const listResult = await this.listChronicles();
       if (listResult.success && listResult.chronicles) {
         if (listResult.chronicles.length >= CLOUD_LIMIT) {
@@ -194,36 +193,31 @@ class ActographCloudService {
         };
       }
 
-      // Créer le FormData pour multipart upload
-      const formData = new FormData();
-      
-      // S'assurer que le nom a l'extension .jchronic
       const fileName = name.endsWith('.jchronic') ? name : `${name}.jchronic`;
-      
-      formData.append('name', fileName.replace('.jchronic', ''));
-      formData.append('description', description || 'Uploaded from mobile');
-      
-      // Créer un Blob pour le fichier
-      const blob = new Blob([content], { type: 'application/json' });
-      formData.append('chronic', blob, fileName);
+      const boundary = `----CapacitorBoundary${Date.now()}`;
 
-      const response = await this.authenticatedFetch(
-        `${ACTOGRAPH_API_URL}/cloud/chronic`,
-        {
-          method: 'POST',
-          body: formData,
-        }
-      );
+      let body = '';
+      body += `--${boundary}\r\nContent-Disposition: form-data; name="name"\r\n\r\n${fileName}\r\n`;
+      body += `--${boundary}\r\nContent-Disposition: form-data; name="description"\r\n\r\n${description || 'Uploaded from mobile'}\r\n`;
+      body += `--${boundary}\r\nContent-Disposition: form-data; name="chronic"; filename="${fileName}"\r\nContent-Type: application/json\r\n\r\n${content}\r\n`;
+      body += `--${boundary}--\r\n`;
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      const response = await this.authenticatedRequest({
+        url: `${ACTOGRAPH_API_URL}/cloud/chronic`,
+        method: 'POST',
+        headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+        data: body,
+      });
+
+      if (response.status < 200 || response.status >= 300) {
+        const errorData = typeof response.data === 'object' ? response.data : {};
         return {
           success: false,
-          error: errorData.message || `Erreur serveur: ${response.status}`,
+          error: errorData?.message || `Erreur serveur: ${response.status}`,
         };
       }
 
-      const data = await response.json();
+      const data = response.data;
 
       return {
         success: true,
@@ -251,21 +245,22 @@ class ActographCloudService {
    */
   async downloadChronicle(id: number): Promise<ICloudDownloadResult> {
     try {
-      const response = await this.authenticatedFetch(
-        `${ACTOGRAPH_API_URL}/cloud/chronic/${id}`,
-        {
-          method: 'GET',
-        }
-      );
+      const response = await this.authenticatedRequest({
+        url: `${ACTOGRAPH_API_URL}/cloud/chronic/${id}`,
+        method: 'GET',
+        responseType: 'text',
+      });
 
-      if (!response.ok) {
+      if (response.status < 200 || response.status >= 300) {
         return {
           success: false,
           error: `Erreur serveur: ${response.status}`,
         };
       }
 
-      const content = await response.text();
+      const content = typeof response.data === 'string'
+        ? response.data
+        : JSON.stringify(response.data);
 
       return {
         success: true,
@@ -285,21 +280,17 @@ class ActographCloudService {
    */
   async deleteChronicle(id: number): Promise<ICloudDeleteResult> {
     try {
-      const response = await this.authenticatedFetch(
-        `${ACTOGRAPH_API_URL}/cloud/chronic/${id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await this.authenticatedRequest({
+        url: `${ACTOGRAPH_API_URL}/cloud/chronic/${id}`,
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      if (response.status < 200 || response.status >= 300) {
+        const errorData = typeof response.data === 'object' ? response.data : {};
         return {
           success: false,
-          error: errorData.message || `Erreur serveur: ${response.status}`,
+          error: errorData?.message || `Erreur serveur: ${response.status}`,
         };
       }
 
