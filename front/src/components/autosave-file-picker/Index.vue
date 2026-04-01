@@ -1,63 +1,51 @@
 <template>
-  <q-dialog ref="dialogRef" @hide="onDialogHide">
-    <DCard
-      class="q-dialog-plugin"
-      style="min-width: 500px; max-width: 700px"
-      bgColor="background"
-      innerHeader
+  <q-dialog ref="dialogRef" class="actograph-dialog" @hide="onDialogHide">
+    <DDialogCard
       :title="t('autosave.dialogTitle')"
+      size="md"
     >
-      <DCardSection>
-        <div class="text-body2 q-mb-md">
-          {{ t('autosave.intro') }}
-        </div>
+      <div class="text-body2 q-mb-md">
+        {{ t('autosave.intro') }}
+      </div>
 
-        <div v-if="state.files.length === 0" class="text-body1 text-grey-7 q-pa-md">
-          {{ t('autosave.noFiles') }}
-        </div>
+      <div v-if="state.files.length === 0" class="text-body1 text-neutral-high q-pa-md">
+        {{ t('autosave.noFiles') }}
+      </div>
 
-        <div v-else>
-          <q-list separator>
-            <q-item
-              v-for="(file, index) in state.files"
-              :key="index"
-              clickable
-              v-ripple
-              :active="state.selectedFileIndex === index"
-              active-class="bg-primary text-white"
-              @click="state.selectedFileIndex = index"
-            >
-              <q-item-section>
-                <q-item-label>{{ methods.getObservationName(file.name) }}</q-item-label>
-                <q-item-label caption>
-                  {{ t('autosave.savedOn', { dateTime: methods.formatDate(file.modified, file.name) }) }}
-                  <span v-if="file.size"> • {{ methods.formatFileSize(file.size) }}</span>
-                </q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <q-icon name="mdi-file-document-outline" size="24px" />
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </div>
-      </DCardSection>
+      <div v-else>
+        <q-list separator>
+          <q-item
+            v-for="(file, index) in state.files"
+            :key="index"
+            clickable
+            v-ripple
+            :active="state.selectedFileIndex === index"
+            active-class="bg-primary text-white"
+            @click="state.selectedFileIndex = index"
+          >
+            <q-item-section>
+              <q-item-label>{{ methods.getObservationName(file.name) }}</q-item-label>
+              <q-item-label caption>
+                {{ t('autosave.savedOn', { dateTime: methods.formatDate(file.modified, file.name) }) }}
+                <span v-if="file.size"> • {{ methods.formatFileSize(file.size) }}</span>
+              </q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-icon name="mdi-file-document-outline" size="24px" />
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </div>
 
-      <DCardSection>
-        <div class="row items-center justify-end full-width q-gutter-md">
-          <q-btn
-            flat
-            no-caps
-            :label="t('autosave.ignore')"
-            @click="methods.onCancelClick"
-          />
-          <DSubmitBtn
-            :label="t('autosave.restore')"
-            @click="methods.onOKClick"
-            :disable="state.selectedFileIndex === null"
-          />
-        </div>
-      </DCardSection>
-    </DCard>
+      <template #actions>
+        <DCancelBtn :label="t('autosave.ignore')" @click="methods.onCancelClick" />
+        <DSubmitBtn
+          :label="t('autosave.restore')"
+          @click="methods.onOKClick"
+          :disable="state.selectedFileIndex === null"
+        />
+      </template>
+    </DDialogCard>
   </q-dialog>
 </template>
 
@@ -65,7 +53,7 @@
 import { defineComponent, reactive, PropType } from 'vue';
 import { useDialogPluginComponent } from 'quasar';
 import { useI18n } from 'vue-i18n';
-import { DCard, DCardSection, DSubmitBtn } from '@lib-improba/components';
+import { DDialogCard, DCancelBtn, DSubmitBtn } from '@lib-improba/components';
 
 function localeToBcp47(locale: string): string {
   if (locale === 'fr') return 'fr-FR';
@@ -75,11 +63,7 @@ function localeToBcp47(locale: string): string {
 
 export default defineComponent({
   name: 'AutosaveFilePicker',
-  components: {
-    DCard,
-    DCardSection,
-    DSubmitBtn,
-  },
+  components: { DDialogCard, DCancelBtn, DSubmitBtn },
   props: {
     files: {
       type: Array as PropType<Array<{
@@ -140,8 +124,7 @@ export default defineComponent({
 
       onOKClick: () => {
         if (state.selectedFileIndex !== null) {
-          const selectedFile = state.files[state.selectedFileIndex];
-          onDialogOK(selectedFile);
+          onDialogOK(state.files[state.selectedFileIndex]);
         }
       },
 

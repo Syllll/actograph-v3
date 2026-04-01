@@ -1,76 +1,62 @@
 <template>
-  <q-dialog ref="dialogRef" @hide="handleDialogHide">
-    <DCard
-      class="q-dialog-plugin"
-      style="min-width: 500px"
-      bgColor="background"
-      innerHeader
+  <q-dialog ref="dialogRef" class="actograph-dialog" @hide="handleDialogHide">
+    <DDialogCard
       :title="$t('dialogs.mergeObservation.title')"
+      size="md"
+      :cancelLabel="$t('dialogs.cancel')"
+      :submitLabel="$t('dialogs.mergeObservation.submit')"
+      :cancelDisable="state.merging"
+      :submitDisable="!methods.isValid || state.merging"
+      :submitLoading="state.merging"
+      @cancel="onCancelClick"
+      @submit="onOKClick"
     >
-      <DCardSection>
-        <div class="column q-gutter-md">
-          <q-select
-            v-model="state.sourceObservationId1"
-            :options="observationOptions"
-            option-label="label"
-            option-value="value"
-            emit-value
-            map-options
-            outlined
-            dense
-            :placeholder="$t('dialogs.mergeObservation.firstPlaceholder')"
-            :loading="state.observationsLoading"
-            :disable="state.observationsLoading"
-            :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.mergeObservation.firstRequired')]"
-          />
-          <q-select
-            v-model="state.sourceObservationId2"
-            :options="observationOptions"
-            option-label="label"
-            option-value="value"
-            emit-value
-            map-options
-            outlined
-            dense
-            :placeholder="$t('dialogs.mergeObservation.secondPlaceholder')"
-            :loading="state.observationsLoading"
-            :disable="state.observationsLoading"
-            :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.mergeObservation.secondRequired')]"
-          />
-          <q-input
-            v-model="state.name"
-            :placeholder="$t('dialogs.mergeObservation.mergedNamePlaceholder')"
-            outlined
-            dense
-            :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.mergeObservation.nameRequired')]"
-          />
-          <q-input
-            v-model="state.description"
-            :placeholder="$t('dialogs.mergeObservation.descriptionPlaceholder')"
-            outlined
-            dense
-            type="textarea"
-            :rows="4"
-          />
-        </div>
-      </DCardSection>
-
-      <DCardSection class="q-mt-md">
-        <div class="row items-center justify-end full-width q-gutter-md">
-          <DCancelBtn
-            @click="onCancelClick"
-            :label="$t('dialogs.cancel')"
-            :disable="state.merging"
-          />
-          <DSubmitBtn
-            :label="$t('dialogs.mergeObservation.submit')"
-            @click="onOKClick"
-            :disable="!methods.isValid || state.merging"
-            :loading="state.merging"
-          />
-        </div>
-      </DCardSection>
-    </DCard>
+      <div class="column q-gutter-md">
+        <q-select
+          v-model="state.sourceObservationId1"
+          :options="observationOptions"
+          option-label="label"
+          option-value="value"
+          emit-value
+          map-options
+          outlined
+          dense
+          :placeholder="$t('dialogs.mergeObservation.firstPlaceholder')"
+          :loading="state.observationsLoading"
+          :disable="state.observationsLoading"
+          :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.mergeObservation.firstRequired')]"
+        />
+        <q-select
+          v-model="state.sourceObservationId2"
+          :options="observationOptions"
+          option-label="label"
+          option-value="value"
+          emit-value
+          map-options
+          outlined
+          dense
+          :placeholder="$t('dialogs.mergeObservation.secondPlaceholder')"
+          :loading="state.observationsLoading"
+          :disable="state.observationsLoading"
+          :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.mergeObservation.secondRequired')]"
+        />
+        <q-input
+          v-model="state.name"
+          :placeholder="$t('dialogs.mergeObservation.mergedNamePlaceholder')"
+          outlined
+          dense
+          :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.mergeObservation.nameRequired')]"
+        />
+        <q-input
+          v-model="state.description"
+          :placeholder="$t('dialogs.mergeObservation.descriptionPlaceholder')"
+          outlined
+          dense
+          type="textarea"
+          :rows="4"
+        />
+      </div>
+    </DDialogCard>
   </q-dialog>
 </template>
 
@@ -78,23 +64,13 @@
 import { defineComponent, reactive, nextTick, ref, onMounted, onUnmounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
-import {
-  DCard,
-  DCardSection,
-  DCancelBtn,
-  DSubmitBtn,
-} from '@lib-improba/components';
+import { DDialogCard } from '@lib-improba/components';
 import { observationService } from '@services/observations/index.service';
 
 export default defineComponent({
   name: 'MergeObservationsDialog',
   emits: [...useDialogPluginComponent.emits],
-  components: {
-    DCard,
-    DCardSection,
-    DCancelBtn,
-    DSubmitBtn,
-  },
+  components: { DDialogCard },
   setup() {
     const $q = useQuasar();
     const { t } = useI18n();
@@ -117,8 +93,7 @@ export default defineComponent({
         $q.notify({
           type: 'negative',
           message: t('dialogs.mergeObservation.loadError'),
-          caption:
-            error instanceof Error ? error.message : t('common.unknownError'),
+          caption: error instanceof Error ? error.message : t('common.unknownError'),
         });
       } finally {
         state.observationsLoading = false;
@@ -147,20 +122,11 @@ export default defineComponent({
     );
 
     const handleDialogHide = async () => {
-      if (!isMounted.value) {
-        return;
-      }
-
+      if (!isMounted.value) return;
       try {
         await nextTick();
-
-        if (!isMounted.value) {
-          return;
-        }
-
-        if (onDialogHide) {
-          onDialogHide();
-        }
+        if (!isMounted.value) return;
+        if (onDialogHide) onDialogHide();
       } catch (error) {
         console.debug('Dialog hide error (ignored):', error);
       }
@@ -183,10 +149,7 @@ export default defineComponent({
         if (!methods.isValid || state.merging) return;
 
         if (state.sourceObservationId1 === state.sourceObservationId2) {
-          $q.notify({
-            type: 'negative',
-            message: t('dialogs.mergeObservation.pickTwoDifferent'),
-          });
+          $q.notify({ type: 'negative', message: t('dialogs.mergeObservation.pickTwoDifferent') });
           return;
         }
 
@@ -204,16 +167,11 @@ export default defineComponent({
           $q.notify({
             type: 'negative',
             message: t('dialogs.mergeObservation.mergeError'),
-            caption:
-              error instanceof Error ? error.message : t('common.unknownError'),
+            caption: error instanceof Error ? error.message : t('common.unknownError'),
           });
         } finally {
           state.merging = false;
         }
-      },
-
-      onCancelClick: () => {
-        onDialogCancel();
       },
     };
 
@@ -224,7 +182,7 @@ export default defineComponent({
       methods,
       handleDialogHide,
       onOKClick: methods.onOKClick,
-      onCancelClick: methods.onCancelClick,
+      onCancelClick: onDialogCancel,
     };
   },
 });

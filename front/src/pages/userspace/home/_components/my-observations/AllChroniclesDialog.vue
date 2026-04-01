@@ -1,6 +1,6 @@
 <template>
-  <q-dialog v-model="localShow" @hide="methods.handleHide">
-    <q-card class="all-chronicles-dialog column">
+  <q-dialog v-model="localShow" class="actograph-dialog" @hide="methods.handleHide">
+    <q-card class="q-dialog-plugin d-dialog-card d-dialog-card--wide all-chronicles-dialog column">
       <q-card-section class="col-auto row items-center q-pb-none">
         <div class="text-h5 text-weight-bold">
           {{ $t('observationsList.dialogTitle') }}
@@ -87,7 +87,7 @@
           </template>
 
           <template v-slot:no-data>
-            <div class="full-width column items-center q-pa-lg text-grey-6">
+            <div class="full-width column items-center q-pa-lg text-neutral-high">
               <q-icon name="mdi-magnify" size="48px" class="q-mb-md" />
               <div class="text-body1">{{ $t('observationsList.noResults') }}</div>
             </div>
@@ -97,7 +97,7 @@
 
       <q-card-section class="col-auto q-pt-none">
         <div class="row items-center justify-between">
-          <div class="text-body2 text-grey-7">
+          <div class="text-body2 text-neutral-high">
             {{ state.totalCount }}
             {{
               state.totalCount === 1
@@ -289,10 +289,6 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .all-chronicles-dialog {
-  width: 90vw;
-  max-width: 900px;
-  height: 85vh;
-
   .virtual-table {
     :deep(.q-table__middle) {
       max-height: 100%;
@@ -301,14 +297,14 @@ export default defineComponent({
     :deep(thead tr th) {
       position: sticky;
       z-index: 1;
-      background: white;
+      background: var(--neutral-lowest);
     }
 
     :deep(tbody tr) {
       cursor: pointer;
 
       &:hover td {
-        background: rgba(0, 0, 0, 0.03);
+        background: var(--neutral-lower);
       }
     }
   }

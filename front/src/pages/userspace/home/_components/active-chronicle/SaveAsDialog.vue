@@ -1,36 +1,25 @@
 <template>
-  <q-dialog ref="dialogRef" @hide="onDialogHide">
-    <DCard
-      class="q-dialog-plugin"
-      style="min-width: 400px"
-      bgColor="background"
-      innerHeader
+  <q-dialog ref="dialogRef" class="actograph-dialog" @hide="onDialogHide">
+    <DDialogCard
       :title="$t('dialogs.saveAs.title')"
+      size="sm"
+      :cancelLabel="$t('dialogs.cancel')"
+      :submitLabel="$t('dialogs.saveAs.submit')"
+      :submitDisable="!isValid"
+      @cancel="onCancelClick"
+      @submit="onOKClick"
     >
-      <DCardSection>
-        <div class="column q-gutter-md">
-          <q-input
-            v-model="state.newName"
-            :placeholder="$t('dialogs.saveAs.namePlaceholder')"
-            outlined
-            dense
-            :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.saveAs.nameRequired')]"
-            @keyup.enter="onOKClick"
-          />
-        </div>
-      </DCardSection>
-
-      <DCardSection>
-        <div class="row items-center justify-end full-width q-gutter-md">
-          <DCancelBtn @click="onCancelClick" />
-          <DSubmitBtn
-            :label="$t('dialogs.saveAs.submit')"
-            @click="onOKClick"
-            :disable="!isValid"
-          />
-        </div>
-      </DCardSection>
-    </DCard>
+      <div class="column q-gutter-md">
+        <q-input
+          v-model="state.newName"
+          :placeholder="$t('dialogs.saveAs.namePlaceholder')"
+          outlined
+          dense
+          :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.saveAs.nameRequired')]"
+          @keyup.enter="onOKClick"
+        />
+      </div>
+    </DDialogCard>
   </q-dialog>
 </template>
 
@@ -38,29 +27,16 @@
 import { defineComponent, reactive, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useDialogPluginComponent } from 'quasar';
-import {
-  DCard,
-  DCardSection,
-  DCancelBtn,
-  DSubmitBtn,
-} from '@lib-improba/components';
+import { DDialogCard } from '@lib-improba/components';
 
 export default defineComponent({
   name: 'SaveAsDialog',
-  components: {
-    DCard,
-    DCardSection,
-    DCancelBtn,
-    DSubmitBtn,
-  },
+  components: { DDialogCard },
   props: {
-    currentName: {
-      type: String,
-      default: '',
-    },
+    currentName: { type: String, default: '' },
   },
   emits: [...useDialogPluginComponent.emits],
-  setup(props, { emit }) {
+  setup(props) {
     const { t } = useI18n();
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
       useDialogPluginComponent();
@@ -81,17 +57,13 @@ export default defineComponent({
       }
     };
 
-    const onCancelClick = () => {
-      onDialogCancel();
-    };
-
     return {
       dialogRef,
       onDialogHide,
       state,
       isValid,
       onOKClick,
-      onCancelClick,
+      onCancelClick: onDialogCancel,
     };
   },
 });

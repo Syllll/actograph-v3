@@ -247,30 +247,24 @@
     </DScrollArea>
 
     <!-- Dialog de sélection de couleur -->
-    <q-dialog v-model="state.showColorDialog" @hide="methods.onColorDialogHide">
-      <DCard
-        class="q-dialog-plugin"
-        style="min-width: 350px; min-height: 700px; max-height: 85vh; display: flex; flex-direction: column;"
-        bgColor="background"
-        innerHeader
+    <q-dialog v-model="state.showColorDialog" class="actograph-dialog" @hide="methods.onColorDialogHide">
+      <DDialogCard
         :title="$t('graphUi.chooseColorTitle')"
+        size="auto"
+        :cancelLabel="$t('dialogs.cancel')"
+        :submitLabel="$t('graphUi.validate')"
+        @cancel="methods.cancelColor"
+        @submit="methods.confirmColor"
       >
-        <DCardSection style="flex: 1; min-height: 550px; overflow: auto; display: flex; flex-direction: column;">
+        <div style="min-height: 400px; display: flex; flex-direction: column;">
           <q-color
             v-model="state.selectedColor"
             format-model="hex"
             no-header-tabs
             style="flex: 1;"
           />
-        </DCardSection>
-
-        <DCardSection>
-          <div class="row items-center justify-center full-width q-gutter-md">
-            <DCancelBtn @click="methods.cancelColor" />
-            <DSubmitBtn :label="$t('graphUi.validate')" @click="methods.confirmColor" />
-          </div>
-        </DCardSection>
-      </DCard>
+        </div>
+      </DDialogCard>
     </q-dialog>
   </div>
 </template>
@@ -286,7 +280,7 @@ import { protocolService, ProtocolItemActionEnum, ProtocolItem } from '@services
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { useGraph } from '../graph/use-graph';
-import { DScrollArea, DCard, DCardSection, DCancelBtn, DSubmitBtn } from '@lib-improba/components';
+import { DScrollArea, DDialogCard } from '@lib-improba/components';
 
 const COMPACT_MODE_THRESHOLD = 400; // Largeur en pixels pour activer le mode compact
 const MIN_CONTENT_WIDTH = 700; // Largeur minimale du contenu pour le scroll horizontal
@@ -296,10 +290,7 @@ export default defineComponent({
   name: 'GraphCustomizationDrawer',
   components: {
     DScrollArea,
-    DCard,
-    DCardSection,
-    DCancelBtn,
-    DSubmitBtn,
+    DDialogCard,
   },
   props: {
     drawerWidth: {

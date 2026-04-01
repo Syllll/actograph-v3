@@ -1,6 +1,7 @@
 <template>
   <q-dialog
     v-model="state.opened"
+    class="actograph-dialog"
     @show="emit('dialog-show')"
     @hide="emit('dialog-hide')"
     :transition-show="openAnimation"
@@ -9,6 +10,7 @@
     <q-layout
       view="Lhh lpR fff"
       container
+      class="d-dialog-card"
       :class="bgColor.includes('bg-') ? bgColor : 'bg-' + bgColor"
       :style="
         'padding: 1em; minWidth: ' +

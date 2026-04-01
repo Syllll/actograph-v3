@@ -1,62 +1,48 @@
 <template>
-  <q-dialog ref="dialogRef" @hide="onDialogHide">
-    <DCard
-      class="q-dialog-plugin"
-      style="min-width: 400px"
-      bgColor="background"
-      innerHeader
+  <q-dialog ref="dialogRef" class="actograph-dialog" @hide="onDialogHide">
+    <DDialogCard
       :title="$t('preferences.title')"
+      size="sm"
+      :cancelLabel="$t('preferences.close')"
+      @cancel="onCancelClick"
     >
-      <DCardSection>
-        <div class="column q-gutter-md">
-          <!-- Langue -->
-          <div class="column q-gutter-sm">
-            <div class="text-subtitle2 text-weight-medium">{{ $t('preferences.language') }}</div>
-            <q-btn-toggle
-              v-model="state.locale"
-              :options="localeOptions"
-              spread
-              no-caps
-              toggle-color="accent"
-              toggle-text-color="white"
-              :color="$q.dark.isActive ? 'grey-8' : 'grey-3'"
-              :text-color="$q.dark.isActive ? 'white' : 'grey-8'"
-              @update:model-value="methods.onLocaleChange"
-            />
-          </div>
-
-          <q-separator />
-
-          <!-- Thème -->
-          <div class="column q-gutter-sm">
-            <div class="text-subtitle2 text-weight-medium">{{ $t('preferences.theme') }}</div>
-            <q-toggle
-              v-model="state.darkMode"
-              :label="$t('preferences.darkMode')"
-              color="accent"
-              @update:model-value="methods.onThemeChange"
-            />
-          </div>
+      <div class="column q-gutter-md">
+        <div class="column q-gutter-sm">
+          <div class="text-subtitle2 text-weight-medium">{{ $t('preferences.language') }}</div>
+          <q-btn-toggle
+            v-model="state.locale"
+            :options="localeOptions"
+            spread
+            no-caps
+            toggle-color="accent"
+            toggle-text-color="white"
+            :color="$q.dark.isActive ? 'grey-8' : 'grey-3'"
+            :text-color="$q.dark.isActive ? 'white' : 'grey-8'"
+            @update:model-value="methods.onLocaleChange"
+          />
         </div>
-      </DCardSection>
-      <DCardSection>
-        <div class="row justify-end">
-          <q-btn flat no-caps :label="$t('preferences.close')" color="accent" @click="onCancelClick" />
+
+        <q-separator />
+
+        <div class="column q-gutter-sm">
+          <div class="text-subtitle2 text-weight-medium">{{ $t('preferences.theme') }}</div>
+          <q-toggle
+            v-model="state.darkMode"
+            :label="$t('preferences.darkMode')"
+            color="accent"
+            @update:model-value="methods.onThemeChange"
+          />
         </div>
-      </DCardSection>
-    </DCard>
+      </div>
+    </DDialogCard>
   </q-dialog>
 </template>
 
 <script lang="ts">
 import { defineComponent, reactive, onMounted } from 'vue';
-import { useDialogPluginComponent } from 'quasar';
+import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
-import { useQuasar } from 'quasar';
-import {
-  DCard,
-  DCardSection,
-} from '@lib-improba/components';
+import { DDialogCard } from '@lib-improba/components';
 import {
   loadPreferences,
   savePreferences,
@@ -64,10 +50,7 @@ import {
 
 export default defineComponent({
   name: 'PreferencesDialog',
-  components: {
-    DCard,
-    DCardSection,
-  },
+  components: { DDialogCard },
   emits: [...useDialogPluginComponent.emits],
   setup() {
     const { dialogRef, onDialogHide, onDialogCancel } = useDialogPluginComponent();
@@ -94,10 +77,6 @@ export default defineComponent({
       }
     });
 
-    const onCancelClick = () => {
-      onDialogCancel();
-    };
-
     const methods = {
       onLocaleChange: (value: string) => {
         try {
@@ -122,7 +101,7 @@ export default defineComponent({
     return {
       dialogRef,
       onDialogHide,
-      onCancelClick,
+      onCancelClick: onDialogCancel,
       state,
       localeOptions,
       methods,

@@ -1,6 +1,6 @@
 <template>
   <div class="column q-gutter-xs">
-    <div class="text-caption text-grey-7">{{ t('graphUi.colorFieldLabel') }}</div>
+    <div class="text-caption text-neutral-high">{{ t('graphUi.colorFieldLabel') }}</div>
     <div class="row items-center q-gutter-sm">
       <div
         class="color-preview"
@@ -9,7 +9,7 @@
           width: '40px',
           height: '40px',
           borderRadius: '4px',
-          border: '1px solid rgba(0,0,0,0.2)',
+          border: '1px solid var(--neutral-low)',
           cursor: 'pointer',
         }"
         @click="methods.openColorPicker"
@@ -41,35 +41,29 @@
         </q-input>
       </div>
     </div>
-    <div v-if="props.isInherited" class="text-caption text-grey-6">
+    <div v-if="props.isInherited" class="text-caption text-neutral-high">
       {{ t('graphUi.colorInheritedHint') }}
     </div>
   </div>
 
-  <q-dialog v-model="state.showColorDialog" @hide="methods.onColorDialogHide">
-    <DCard
-      class="q-dialog-plugin"
-      style="min-width: 350px; min-height: 700px; max-height: 85vh; display: flex; flex-direction: column;"
-      bgColor="background"
-      innerHeader
+  <q-dialog v-model="state.showColorDialog" class="actograph-dialog" @hide="methods.onColorDialogHide">
+    <DDialogCard
       :title="t('graphUi.chooseColorTitle')"
+      size="auto"
+      :cancelLabel="t('dialogs.cancel')"
+      :submitLabel="t('graphUi.validate')"
+      @cancel="methods.cancelColor"
+      @submit="methods.confirmColor"
     >
-      <DCardSection style="flex: 1; min-height: 550px; overflow: auto; display: flex; flex-direction: column;">
+      <div style="min-height: 400px; display: flex; flex-direction: column;">
         <q-color
           v-model="state.selectedColor"
           format-model="hex"
           no-header-tabs
           style="flex: 1;"
         />
-      </DCardSection>
-
-      <DCardSection>
-        <div class="row items-center justify-center full-width q-gutter-md">
-          <DCancelBtn @click="methods.cancelColor" :label="t('dialogs.cancel')" />
-          <DSubmitBtn :label="t('graphUi.validate')" @click="methods.confirmColor" />
-        </div>
-      </DCardSection>
-    </DCard>
+      </div>
+    </DDialogCard>
   </q-dialog>
 </template>
 
@@ -77,21 +71,11 @@
 import { defineComponent, reactive, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { IGraphPreferences } from '@services/observations/interface';
-import {
-  DCard,
-  DCardSection,
-  DCancelBtn,
-  DSubmitBtn,
-} from '@lib-improba/components';
+import { DDialogCard } from '@lib-improba/components';
 
 export default defineComponent({
   name: 'ItemColorPicker',
-  components: {
-    DCard,
-    DCardSection,
-    DCancelBtn,
-    DSubmitBtn,
-  },
+  components: { DDialogCard },
   props: {
     itemId: {
       type: String,
@@ -139,7 +123,6 @@ export default defineComponent({
         state.showColorDialog = false;
       },
       onColorDialogHide: () => {
-        // Reset to current color if dialog is closed without confirming
         state.selectedColor = displayColor.value;
       },
     };

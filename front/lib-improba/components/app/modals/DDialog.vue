@@ -1,78 +1,61 @@
 <template>
-  <q-dialog ref="dialogRef" @hide="onDialogHide">
-    <DCard
-      class="q-dialog-plugin"
-      :style="{ minWidth: width, maxHeight: maxHeight }"
-      :bgColor="bgColor"
-      :innerHeader="!!title"
+  <q-dialog ref="dialogRef" class="actograph-dialog" @hide="onDialogHide">
+    <DDialogCard
       :title="title"
+      :icon="icon"
+      :size="size"
       :useInnerPadding="useInnerPadding"
+      :cancelLabel="cancelLabel"
+      :cancelDisable="cancelDisable"
+      :submitLabel="submitLabel"
+      :submitDisable="submitDisable"
+      :submitLoading="submitLoading"
+      @cancel="onCancelClick"
+      @submit="onOKClick"
     >
-      <DCardSection>
-        <slot></slot>
-      </DCardSection>
+      <slot />
 
-      <DCardSection v-if="$slots.actions" class="q-mt-md">
-        <div class="row items-center justify-end full-width q-gutter-md">
-          <slot name="actions"></slot>
-        </div>
-      </DCardSection>
-    </DCard>
+      <template v-if="$slots.actions" #actions>
+        <slot name="actions" />
+      </template>
+
+      <template v-if="$slots['inner-header-actions']" #inner-header-actions>
+        <slot name="inner-header-actions" />
+      </template>
+    </DDialogCard>
   </q-dialog>
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue';
 import { useDialogPluginComponent } from 'quasar';
-import { DCard, DCardSection } from '@lib-improba/components';
+import DDialogCard from './DDialogCard.vue';
 
 export default defineComponent({
   name: 'DDialog',
-  components: {
-    DCard,
-    DCardSection,
-  },
+  components: { DDialogCard },
   props: {
-    title: {
-      type: String,
-      default: '',
-    },
-    width: {
-      type: String,
-      default: '400px',
-    },
-    maxHeight: {
-      type: String,
-      default: undefined,
-    },
-    bgColor: {
-      type: String,
-      default: 'background',
-    },
-    useInnerPadding: {
-      type: Boolean,
-      default: true,
-    },
+    title: { type: String, default: '' },
+    icon: { type: String, default: '' },
+    size: { type: String, default: 'sm' },
+    width: { type: String, default: undefined },
+    maxHeight: { type: String, default: undefined },
+    bgColor: { type: String, default: 'background' },
+    useInnerPadding: { type: Boolean, default: true },
+    cancelLabel: { type: String, default: undefined },
+    cancelDisable: { type: Boolean, default: false },
+    submitLabel: { type: String, default: undefined },
+    submitDisable: { type: Boolean, default: false },
+    submitLoading: { type: Boolean, default: false },
   },
-  emits: [
-    // REQUIRED; need to specify some events that your
-    // component will emit through useDialogPluginComponent()
-    ...useDialogPluginComponent.emits,
-  ],
+  emits: [...useDialogPluginComponent.emits],
   setup() {
-    // REQUIRED; must be called inside of setup()
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
       useDialogPluginComponent();
 
     return {
-      // This is REQUIRED;
-      // Need to inject these (from useDialogPluginComponent() call)
-      // into the template and the component instance
       dialogRef,
       onDialogHide,
-
-      // other methods that we used in our vue html template;
-      // these are part of our example (so not required)
       onOKClick: onDialogOK,
       onCancelClick: onDialogCancel,
     };

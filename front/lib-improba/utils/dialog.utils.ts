@@ -61,9 +61,11 @@ export const createDialog = (
   };
 
   const _actions = { ...defaultActions, ...actions };
+  const existingClass = typeof options.class === 'string' ? options.class : '';
+  const dialogClass = `${existingClass} actograph-dialog`.trim();
 
   return new Promise((resolve, reject) => {
-    Dialog.create({ ...options, color: 'accent-medium' })
+    Dialog.create({ ...options, class: dialogClass, color: 'accent-medium' })
       .onOk(async (data: any) => {
         const res = await _actions.onOk(data);
         resolve(res);
