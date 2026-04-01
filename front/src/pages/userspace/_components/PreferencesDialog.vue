@@ -17,8 +17,10 @@
               :options="localeOptions"
               spread
               no-caps
-              toggle-color="primary"
-              :color="$q.dark.isActive ? 'white' : 'grey-3'"
+              toggle-color="accent"
+              toggle-text-color="white"
+              :color="$q.dark.isActive ? 'grey-8' : 'grey-3'"
+              :text-color="$q.dark.isActive ? 'white' : 'grey-8'"
               @update:model-value="methods.onLocaleChange"
             />
           </div>
@@ -31,7 +33,7 @@
             <q-toggle
               v-model="state.darkMode"
               :label="$t('preferences.darkMode')"
-              color="primary"
+              color="accent"
               @update:model-value="methods.onThemeChange"
             />
           </div>
@@ -39,7 +41,7 @@
       </DCardSection>
       <DCardSection>
         <div class="row justify-end">
-          <q-btn flat :label="$t('preferences.close')" color="primary" @click="onCancelClick" />
+          <q-btn flat no-caps :label="$t('preferences.close')" color="accent" @click="onCancelClick" />
         </div>
       </DCardSection>
     </DCard>

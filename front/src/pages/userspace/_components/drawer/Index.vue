@@ -9,10 +9,21 @@
     behavior="desktop"
     class="bg-secondary"
   >
-    <div class="fit">
-      <div class="fit column q-pt-md">
-        <!-- tools in a row -->
-        <div class="column q-mx-md q-mb-md">
+    <div class="fit overflow-hidden">
+      <div class="fit column">
+        <div class="column items-center q-px-md q-py-md">
+          <Logo />
+          <div
+            class="q-mt-xs cursor-pointer full-width row justify-center"
+            @click="methods.goToLicense"
+          >
+            <LicenseBadge />
+          </div>
+        </div>
+
+        <q-separator />
+
+        <div class="column q-mx-md q-py-sm">
           <div class="row justify-center q-gutter-sm">
             <d-action-btn
               icon="mdi-new-box"
@@ -29,10 +40,9 @@
           </div>
         </div>
 
-        <q-separator spaced />
+        <q-separator />
 
-        <!-- Menu -->
-        <q-list>
+        <q-list class="q-py-xs">
           <!-- Accueil -->
           <template
             v-for="(menuItem, index) in computedState.menuList.value"
@@ -79,98 +89,148 @@
                 </q-item-section>
               </template>
 
-              <!-- Sous-menus navigation -->
-              <q-list>
-                <template
-                  v-for="step in chronicleNav.steps.value"
-                  :key="step.key"
-                >
+              <div class="chronicle-subitems">
+                <q-list dense>
+                  <template
+                    v-for="step in chronicleNav.steps.value"
+                    :key="step.key"
+                  >
+                    <q-item
+                      clickable
+                      :active="step.isActive()"
+                      v-ripple
+                      @click="methods.handleNavStep(step)"
+                      active-class="active"
+                      :disable="step.disabled"
+                    >
+                      <q-item-section avatar>
+                        <q-icon :name="step.icon" size="sm" />
+                      </q-item-section>
+                      <q-item-section>
+                        {{ step.label }}
+                        <q-tooltip v-if="step.tooltip">
+                          {{ step.tooltip }}
+                        </q-tooltip>
+                      </q-item-section>
+                    </q-item>
+                  </template>
+
+                  <div class="chronicle-actions-separator q-my-xs" />
+
                   <q-item
                     clickable
-                    :active="step.isActive()"
                     v-ripple
-                    @click="methods.handleNavStep(step)"
-                    active-class="active"
-                    :disable="step.disabled"
-                    class="q-pl-lg"
+                    @click="chronicleActions.exportObservation"
                   >
                     <q-item-section avatar>
-                      <q-icon :name="step.icon" />
+                      <q-icon name="mdi-download" size="sm" />
+                    </q-item-section>
+                    <q-item-section>{{ $t('chronicle.export') }}</q-item-section>
+                  </q-item>
+
+                  <q-item
+                    clickable
+                    v-ripple
+                    @click="chronicleActions.saveAsObservation"
+                  >
+                    <q-item-section avatar>
+                      <q-icon name="mdi-content-save-edit" size="sm" />
                     </q-item-section>
                     <q-item-section>
-                      {{ step.label }}
-                      <q-tooltip v-if="step.tooltip">
-                        {{ step.tooltip }}
-                      </q-tooltip>
+                      {{ $t('chronicle.saveAs') }}
+                      <q-tooltip>{{ $t('chronicle.saveAsTooltip') }}</q-tooltip>
                     </q-item-section>
                   </q-item>
-                </template>
 
-                <!-- Actions chronique (export, enregistrer sous, fusionner) -->
-                <q-item
-                  clickable
-                  v-ripple
-                  @click="chronicleActions.exportObservation"
-                  class="q-pl-lg"
-                >
-                  <q-item-section avatar>
-                    <q-icon name="mdi-download" />
-                  </q-item-section>
-                  <q-item-section>{{ $t('chronicle.export') }}</q-item-section>
-                </q-item>
-
-                <q-item
-                  clickable
-                  v-ripple
-                  @click="chronicleActions.saveAsObservation"
-                  class="q-pl-lg"
-                >
-                  <q-item-section avatar>
-                    <q-icon name="mdi-content-save-as" />
-                  </q-item-section>
-                  <q-item-section>
-                    {{ $t('chronicle.saveAs') }}
-                    <q-tooltip>{{ $t('chronicle.saveAsTooltip') }}</q-tooltip>
-                  </q-item-section>
-                </q-item>
-
-                <q-item
-                  clickable
-                  v-ripple
-                  @click="chronicleActions.mergeObservations"
-                  class="q-pl-lg"
-                >
-                  <q-item-section avatar>
-                    <q-icon name="merge_type" />
-                  </q-item-section>
-                  <q-item-section>
-                    {{ $t('chronicle.merge') }}
-                    <q-tooltip>{{ $t('chronicle.mergeTooltip') }}</q-tooltip>
-                  </q-item-section>
-                </q-item>
-              </q-list>
+                  <q-item
+                    clickable
+                    v-ripple
+                    @click="chronicleActions.mergeObservations"
+                  >
+                    <q-item-section avatar>
+                      <q-icon name="merge_type" size="sm" />
+                    </q-item-section>
+                    <q-item-section>
+                      {{ $t('chronicle.merge') }}
+                      <q-tooltip>{{ $t('chronicle.mergeTooltip') }}</q-tooltip>
+                    </q-item-section>
+                  </q-item>
+                </q-list>
+              </div>
             </q-expansion-item>
           </template>
         </q-list>
 
         <q-space />
 
-        <!-- Aide et Préférences -->
-        <div class="column q-px-md q-pb-md">
-          <q-btn
-            flat
-            icon="help_outline"
-            :label="$t('drawer.help')"
-            class="full-width justify-start"
-            @click="methods.openHelpDialog"
-          />
-          <q-btn
-            flat
-            icon="settings"
-            :label="$t('drawer.preferences')"
-            class="full-width justify-start"
-            @click="methods.openPreferencesDialog"
-          />
+        <q-separator />
+
+        <q-list dense class="q-py-xs">
+          <q-item clickable v-ripple @click="methods.openHelpDialog">
+            <q-item-section avatar>
+              <q-icon name="help_outline" />
+            </q-item-section>
+            <q-item-section>{{ $t('drawer.help') }}</q-item-section>
+          </q-item>
+        </q-list>
+
+        <q-separator />
+
+        <div class="user-bar q-px-sm q-py-xs">
+          <div class="row items-center no-wrap cursor-pointer user-bar-trigger" v-ripple>
+            <q-avatar size="28px" color="primary" text-color="white" icon="person" />
+            <div class="q-ml-sm text-weight-medium text-truncate user-name col">
+              {{ computedState.userName.value }}
+            </div>
+            <q-icon name="mdi-chevron-up" size="18px" class="q-ml-xs" />
+
+            <q-menu
+              anchor="top left"
+              self="bottom left"
+              :offset="[0, 8]"
+            >
+              <q-list dense style="min-width: 200px">
+                <q-item
+                  v-if="computedState.hasAutosaveRestore.value"
+                  clickable
+                  v-close-popup
+                  v-ripple
+                  @click="methods.restoreAutosave"
+                >
+                  <q-item-section avatar>
+                    <q-icon name="mdi-backup-restore" />
+                  </q-item-section>
+                  <q-item-section>{{ $t('layout.menuAutosave') }}</q-item-section>
+                </q-item>
+
+                <q-item
+                  clickable
+                  v-close-popup
+                  v-ripple
+                  @click="methods.openPreferencesDialog"
+                >
+                  <q-item-section avatar>
+                    <q-icon name="settings" />
+                  </q-item-section>
+                  <q-item-section>{{ $t('drawer.preferences') }}</q-item-section>
+                </q-item>
+
+                <q-separator />
+
+                <q-item
+                  clickable
+                  v-close-popup
+                  v-ripple
+                  @click="methods.logout"
+                >
+                  <q-item-section avatar>
+                    <q-icon name="logout" />
+                  </q-item-section>
+                  <q-item-section>{{ $t('layout.menuQuit') }}</q-item-section>
+                </q-item>
+              </q-list>
+            </q-menu>
+          </div>
         </div>
       </div>
     </div>
@@ -178,7 +238,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed } from 'vue';
+import { defineComponent, computed, inject } from 'vue';
 import { menu } from './menu';
 import { useDrawer } from 'src/composables/use-drawer';
 import { useRouter } from 'vue-router';
@@ -188,18 +248,29 @@ import { useI18n } from 'vue-i18n';
 import { useChronicleActions } from 'src/composables/use-chronicle-actions';
 import { useChronicleNavigation, type ChronicleNavStep } from 'src/composables/use-chronicle-navigation';
 import { useNotifications } from 'src/composables/use-notifications';
+import { useAuth } from '@lib-improba/composables/use-auth';
+import Logo from '@lib-improba/components/layouts/Logo.vue';
+import LicenseBadge from '@lib-improba/components/layouts/standard/toolbar/license/Index.vue';
 import HelpDialog from '@pages/userspace/_components/HelpDialog.vue';
 import PreferencesDialog from '@pages/userspace/_components/PreferencesDialog.vue';
 
 export default defineComponent({
+  components: {
+    Logo,
+    LicenseBadge,
+  },
   setup() {
     const drawer = useDrawer();
     const router = useRouter();
+    const auth = useAuth(router);
     const observation = useObservation();
     const { t, locale } = useI18n();
     const chronicleActions = useChronicleActions();
     const chronicleNav = useChronicleNavigation();
     const notifications = useNotifications();
+    const autosaveRestore = inject<(() => void | Promise<void>) | undefined>(
+      'autosaveRestore'
+    );
 
     const computedState = {
       menuList: computed(() => {
@@ -211,9 +282,23 @@ export default defineComponent({
         if (!name) return '';
         return name.trim();
       }),
+      userName: computed(() => {
+        const user = auth.sharedState?.user;
+        let userName = user?.firstname ?? user?.userJwt?.username ?? '';
+
+        if (userName.startsWith('_pc-')) {
+          userName = userName.slice(4);
+        }
+
+        return userName;
+      }),
+      hasAutosaveRestore: computed(() => Boolean(autosaveRestore)),
     };
 
     const methods = {
+      goToLicense: () => {
+        void router.push({ name: 'user_license' });
+      },
       handleNavStep(step: ChronicleNavStep) {
         if (step.disabled) {
           if (step.tooltip) {
@@ -245,6 +330,22 @@ export default defineComponent({
           persistent: true,
         });
       },
+
+      restoreAutosave: async () => {
+        if (!autosaveRestore) {
+          return;
+        }
+
+        try {
+          await autosaveRestore();
+        } catch (error) {
+          console.error('Error in autosave restore:', error);
+        }
+      },
+
+      logout: () => {
+        auth.methods.logout();
+      },
     };
 
     return {
@@ -262,5 +363,28 @@ export default defineComponent({
 <style scoped lang="scss">
 .active {
   color: var(--accent);
+}
+
+.chronicle-subitems {
+  margin-left: 20px;
+  padding-left: 4px;
+  border-left: 2px solid rgba(0, 0, 0, 0.12);
+}
+
+.chronicle-actions-separator {
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.15);
+}
+
+.user-bar-trigger {
+  border-radius: 6px;
+  padding: 6px 8px;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+}
+
+.user-name {
+  max-width: 150px;
 }
 </style>

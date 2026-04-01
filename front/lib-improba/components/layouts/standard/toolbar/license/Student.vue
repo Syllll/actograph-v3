@@ -1,5 +1,5 @@
 <template>
-  <DChip class="full-height" style="min-width: 15rem">
+  <DChip class="full-height">
     <div class="full-width text-center">
       <strong>{{ $t('licenseUi.accessStudent') }}</strong>
     </div>
@@ -44,21 +44,11 @@ $lineColor: var(--danger-low);
 $backgroundColor: white;
 
 .q-chip {
-  /*background-color: $lineColor; 
-  background-image: repeating-linear-gradient(
-    45deg,
-    $lineColor,
-    $lineColor 10px,
-    $backgroundColor 10px,
-    $backgroundColor 20px
-  );
-  background-size: 100% 100%;
-  background-position: center;
-  background-repeat: repeat;
-  opacity: 0.8;*/
   color: white;
   font-weight: bold;
-
   background-color: var(--danger);
+  padding-top: 0;
+  padding-bottom: 0;
+  min-height: 1.6em;
 }
 </style>
