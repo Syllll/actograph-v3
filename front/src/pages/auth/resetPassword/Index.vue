@@ -106,6 +106,22 @@ export default defineComponent({
       },
     });
 
+    const getResetPasswordToken = (): string | null => {
+      const currentUrl = new URL(window.location.href);
+      const tokenFromSearch = currentUrl.searchParams.get('token');
+      if (tokenFromSearch) {
+        return tokenFromSearch;
+      }
+
+      const hashQueryIndex = currentUrl.hash.indexOf('?');
+      if (hashQueryIndex === -1) {
+        return null;
+      }
+
+      const hashQuery = currentUrl.hash.slice(hashQueryIndex + 1);
+      return new URLSearchParams(hashQuery).get('token');
+    };
+
     const methods = {
       async submitNewPassword() {
         state.loading = true;
@@ -124,8 +140,7 @@ export default defineComponent({
           return;
         }
 
-        const currentUrl = new URL(window.location.href);
-        const token = currentUrl.searchParams.get('token');
+        const token = getResetPasswordToken();
         if (!token) {
           state.errorInForm = i18n.t('auth.errors');
           state.loading = false;

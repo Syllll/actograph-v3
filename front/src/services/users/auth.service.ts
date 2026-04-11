@@ -39,7 +39,11 @@ export default {
   },
 
   async forgotPassword(username: string) {
-    const resetPasswordUrl = `${window.location.origin}/#/auth/resetPwd`;
+    const resetPasswordPath =
+      process.env.VUE_ROUTER_MODE === 'history'
+        ? '/auth/resetPwd'
+        : '/#/auth/resetPwd';
+    const resetPasswordUrl = `${window.location.origin}${resetPasswordPath}`;
 
     const response = await api().post('/auth-jwt/password-forgot', {
       username,
