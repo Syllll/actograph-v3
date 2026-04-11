@@ -52,7 +52,8 @@ export class AuthJwtController extends BaseController {
    * Si défini à false, l'endpoint /register retournera une erreur 401.
    * Utile pour désactiver l'inscription publique en production.
    */
-  private allowRegisterNewUserFromAuthJwt = true;
+  private readonly allowRegisterNewUserFromAuthJwt =
+    process.env.ALLOW_REGISTER_NEW_USER_FROM_AUTH_JWT === 'true';
 
   constructor(
     @InjectRepository(UserJwtRepository)
@@ -108,8 +109,11 @@ export class AuthJwtController extends BaseController {
     let jwt: string | null = null;
     try {
       // Créer un nouveau token à partir de l'ancien (même payload, nouvelle expiration)
-      jwt = this.usersService.createNewTokenFromPreviousOne(body.token);
+      jwt = await this.usersService.createNewTokenFromPreviousOne(body.token);
     } catch (err: any) {
+      throw new UnauthorizedException('Token cannot be refreshed');
+    }
+    if (!jwt) {
       throw new UnauthorizedException('Token cannot be refreshed');
     }
     return {

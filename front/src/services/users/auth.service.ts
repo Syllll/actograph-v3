@@ -38,18 +38,21 @@ export default {
     return response.data;
   },
 
-  async createResetPasswordToken(username: string): Promise<string> {
-    const response = await api().get(`/users/${username}/resetPassword-token`);
-    return response.data;
-  },
-
   async forgotPassword(username: string) {
-    const resetPasswordToken = await this.createResetPasswordToken(username);
-    const resetPasswordUrl = `${window.location.protocol}//${window.location.hostname}:${window.location.port}/#/reset-password-token?token=${resetPasswordToken}`;
+    const resetPasswordUrl = `${window.location.origin}/#/auth/resetPwd`;
 
     const response = await api().post('/auth-jwt/password-forgot', {
       username,
       resetPasswordUrl,
+    });
+
+    return response.data;
+  },
+
+  async resetPassword(token: string, password: string) {
+    const response = await api().post('/auth-jwt/recuperation', {
+      token,
+      password,
     });
 
     return response.data;

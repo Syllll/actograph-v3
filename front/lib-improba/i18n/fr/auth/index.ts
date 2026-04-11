@@ -29,5 +29,9 @@ export default {
     title: 'Compte créé',
     message: 'Votre compté est enregistré',
   },
+  resetPasswordDoneDialog: {
+    title: 'Mot de passe réinitialisé',
+    message: 'Votre nouveau mot de passe a bien été enregistré.',
+  },
   quit: 'Se déconnecter',
 };

@@ -28,5 +28,9 @@ export default {
     title: 'Registration done',
     message: 'Your account is created',
   },
+  resetPasswordDoneDialog: {
+    title: 'Password updated',
+    message: 'Your password has been updated successfully',
+  },
   quit: 'Logout',
 };

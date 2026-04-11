@@ -1,9 +1,6 @@
 import { UserJwtService } from '@auth-jwt/services/user-jwt.service';
-import {
-  InternalServerErrorException,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
 import { UserRepository } from '@users/repositories/user.repository';
 import { UserService } from './user.service';
 
@@ -11,7 +8,7 @@ import { UserService } from './user.service';
  * Service pour la gestion des tokens de réinitialisation de mot de passe.
  * Permet de générer et valider des tokens JWT pour la réinitialisation sécurisée des mots de passe.
  *
- * Note: L'implémentation actuelle est incomplète (méthode retourne une chaîne vide).
+ * Note: ce service délègue la génération au service UserJwt.
  */
 export class ResetPasswordToken {
   private parent: UserService;
@@ -29,18 +26,25 @@ export class ResetPasswordToken {
   }
 
   /**
-   * Crée un token JWT pour la réinitialisation de mot de passe.
-   * Le token devrait contenir le nom d'utilisateur et une date d'expiration.
+   * Récupère ou génère un token de réinitialisation de mot de passe.
    *
    * @param username - Le nom d'utilisateur pour lequel générer le token
-   * @returns Le token JWT (actuellement retourne une chaîne vide - implémentation à compléter)
+   * @returns Le token de réinitialisation sauvegardé en base
    */
   async createResetPasswordToken(username: string): Promise<string> {
-    // TODO: Implement proper reset password token generation
-    // This requires a JwtService instance for signing tokens
-    throw new InternalServerErrorException(
-      'Reset password token generation is not yet implemented',
+    const user = await this.jwtService.findByUsername(username);
+    if (!user) {
+      throw new NotFoundException('User does not exist');
+    }
+
+    const token = uuidv4();
+    await this.parentRepository.manager.update(
+      'user-jwt',
+      { id: user.id },
+      { forgetPasswordToken: token },
     );
+
+    return token;
   }
 
   // async projectFromShareToken(token: string): Promise<ProjectEntity> {

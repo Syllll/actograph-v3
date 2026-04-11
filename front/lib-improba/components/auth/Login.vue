@@ -234,6 +234,8 @@ export default defineComponent({
             state.forgotPassword = true;
           } catch (err: any) {
             console.error(err);
+            state.errorInForm = i18n.t('auth.errors');
+            state.forgotPassword = false;
             state.loading = false;
           }
         }

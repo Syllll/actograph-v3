@@ -13,6 +13,7 @@ import {
   HttpStatus,
   NotFoundException,
   InternalServerErrorException,
+  ForbiddenException,
 } from '@nestjs/common';
 //import { ApiTags } from '@nestjs/swagger'
 
@@ -71,6 +72,13 @@ export class UserController extends BaseController {
     const users = await this.service.findWithUsername(username);
     if (!users || users.length === 0) {
       throw new NotFoundException('User does not exist');
+    }
+
+    const requestedUser = users[0];
+    const currentUser = req.user;
+    const isAdmin = currentUser?.roles?.includes(UserRoleEnum.Admin);
+    if (!isAdmin && requestedUser.id !== currentUser?.id) {
+      throw new ForbiddenException('Cannot generate a reset token for another user');
     }
 
     const resetPasswordToken =

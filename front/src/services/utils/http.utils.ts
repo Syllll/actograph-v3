@@ -1,5 +1,12 @@
 export default {
   apiUrl(): string {
+    let apiUrl = `${process.env.API_URL}`;
+    if (!apiUrl) {
+      const w = window as any;
+      const s = self as any;
+      apiUrl = !s.__IS_WORKER ? w.__API_URL : s.__API_URL;
+    }
+
     // If electron is running in production mode, the api url is localhost:serverPort
     // The server port is retrieved from the main process
     if (process.env.MODE === 'electron' && process.env.PROD) {
@@ -10,15 +17,6 @@ export default {
       if (serverPort) {
         return `http://localhost:${serverPort}`;
       }
-
-      throw new Error('http.utils:Server port not found');
-    }
-
-    let apiUrl = `${process.env.API_URL}`;
-    if (!apiUrl) {
-      const w = window as any;
-      const s = self as any;
-      apiUrl = !s.__IS_WORKER ? w.__API_URL : s.__API_URL;
     }
 
     return apiUrl;

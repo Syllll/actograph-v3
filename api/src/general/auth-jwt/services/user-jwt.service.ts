@@ -16,6 +16,7 @@ import {
   BadRequestException,
   HttpException,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -140,27 +141,18 @@ export class UserJwtService {
    * @param token - Token JWT existant à rafraîchir
    * @returns Nouveau token JWT ou null si le token est invalide
    */
-  createNewTokenFromPreviousOne(token: string): string | null {
-    let output: string | null = null;
-    // Vérifier que le token est valide (signature et expiration)
-    if (this.jwtService.verify(token)) {
-      // Décoder le payload du token
-      const payload = this.jwtService.decode(token);
-      if (payload) {
-        const p = <any>payload;
-        // Créer un nouveau token avec le même payload mais nouvelle expiration
-        output = this.jwtService.sign(
-          {
-            id: p.id,
-            username: p.username,
-          },
-          {
-            expiresIn: '3600s', // Nouvelle expiration : 1 heure à partir de maintenant
-          },
-        );
-      }
+  async createNewTokenFromPreviousOne(token: string): Promise<string | null> {
+    const payload = this.jwtService.verify(token) as { id?: number };
+    if (!payload?.id) {
+      return null;
     }
-    return output;
+
+    const user = await this.findById(payload.id);
+    if (!user.activated) {
+      throw new UnauthorizedException('User is not activated');
+    }
+
+    return this.login(user);
   }
 
   /**
@@ -250,13 +242,12 @@ export class UserJwtService {
     username: string,
     password: string,
   ): Promise<UserJwt> {
-    // Récupérer l'utilisateur avec le mot de passe (select: false par défaut, donc explicitement demandé)
-    const user = await this.userJwtRepository.findOne({
-      where: {
-        username: username,
-      },
-      select: ['username', 'id', 'password', 'activated'],
-    });
+    const user = await this.userJwtRepository
+      .createQueryBuilder('userJwt')
+      .addSelect('userJwt.password')
+      .where('LOWER(userJwt.username) = LOWER(:username)', { username })
+      .andWhere('userJwt.activated = true')
+      .getOne();
 
     // Vérifier le mot de passe avec bcrypt.compare
     if (user?.password && (await bcrypt.compare(password, user.password))) {
@@ -299,13 +290,12 @@ export class UserJwtService {
    * @throws {NotFoundException} - Si l'utilisateur n'existe pas
    */
   async sendMailForNewPassword(email: string, resetPasswordUrl: string) {
-    // Trouver l'utilisateur par email/username
-    const user = await this.userJwtRepository.findOne({
-      where: {
-        username: email,
-      },
-      select: ['id', 'username', 'forgetPasswordToken', 'activated'],
-    });
+    const user = await this.userJwtRepository
+      .createQueryBuilder('userJwt')
+      .addSelect('userJwt.forgetPasswordToken')
+      .where('LOWER(userJwt.username) = LOWER(:email)', { email })
+      .andWhere('userJwt.activated = true')
+      .getOne();
     if (!user) {
       throw new NotFoundException();
     }
@@ -322,6 +312,9 @@ export class UserJwtService {
 
     // Envoyer l'email via SendGrid si la clé API est configurée
     const sgKey = process.env.SENDGRID_API_KEY;
+    const finalResetPasswordUrl = new URL(resetPasswordUrl);
+    finalResetPasswordUrl.searchParams.set('token', user.forgetPasswordToken);
+
     if (sgKey) {
       const emailFrom = <string>process.env.EMAIL_FROM;
       sgMail.setApiKey(sgKey);
@@ -329,10 +322,12 @@ export class UserJwtService {
         to: { email },
         from: { email: emailFrom }, // Utiliser l'adresse email ou le domaine vérifié
         subject: `${process.env.APP_NAME} - Reset Password`,
-        text: 'Click on this link to reset your password : ' + resetPasswordUrl,
+        text:
+          'Click on this link to reset your password : ' +
+          finalResetPasswordUrl.toString(),
         html:
           '<a href="' +
-          resetPasswordUrl +
+          finalResetPasswordUrl.toString() +
           '">Click here</a> to reset your password.',
       };
 
@@ -347,6 +342,23 @@ export class UserJwtService {
     }
 
     return user;
+  }
+
+  async createResetPasswordToken(username: string): Promise<string> {
+    const user = await this.userJwtRepository
+      .createQueryBuilder('userJwt')
+      .addSelect('userJwt.forgetPasswordToken')
+      .where('LOWER(userJwt.username) = LOWER(:username)', { username })
+      .andWhere('userJwt.activated = true')
+      .getOne();
+    if (!user) {
+      throw new NotFoundException();
+    }
+
+    user.forgetPasswordToken = uuidv4();
+    await this.userJwtRepository.save(user);
+
+    return user.forgetPasswordToken;
   }
 
   /**

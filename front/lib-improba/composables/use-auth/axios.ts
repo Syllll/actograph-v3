@@ -57,10 +57,11 @@ export const init = async (auth: { methods: any; sharedState: any }) => {
       }
 
       const user = auth.sharedState.user;
+      const token = auth.sharedState.token || localStorage.getItem('token');
       // console.log(request.url)
       if (
         user &&
-        user.token &&
+        token &&
         user.loginDate &&
         request.method !== 'OPTIONS' &&
         request.url &&

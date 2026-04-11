@@ -45,19 +45,56 @@ export function applyConditionGroup(
   readings: IReading[],
   group: IConditionGroup,
 ): IPeriod[] {
-  // Find periods for each observable condition
-  // We need to find which category each observable belongs to
-  // For now, we'll pass an empty array to findObservablePeriods, which means it will use all readings
-  // This is acceptable because we're looking for when ANY observable is on, regardless of category
-  const observablePeriods = group.observables
-    .filter((condition) => condition.state === ObservableStateEnum.ON)
-    .map((condition) => {
-      return findObservablePeriods(
-        readings,
-        condition.observableName,
-        [], // Empty array means use all readings (we don't know the category here)
-      );
-    });
+  const sortedReadings = [...readings].sort(
+    (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
+  );
+  const startReading = sortedReadings.find((r) => r.type === ReadingTypeEnum.START);
+  const stopReading = [...sortedReadings]
+    .reverse()
+    .find((r) => r.type === ReadingTypeEnum.STOP);
+
+  // Find periods for each observable condition.
+  // We still do not know the category at this stage, so periods are computed
+  // globally by observable name, but OFF conditions are now represented as the
+  // complement of the observable ON periods within the observation boundaries.
+  const observablePeriods = group.observables.map((condition) => {
+    const onPeriods = findObservablePeriods(
+      sortedReadings,
+      condition.observableName,
+      [],
+    );
+
+    if (condition.state === ObservableStateEnum.ON) {
+      return onPeriods;
+    }
+
+    if (!startReading || !stopReading) {
+      return [];
+    }
+
+    const offPeriods: IPeriod[] = [];
+    let cursor = startReading.dateTime;
+    for (const period of onPeriods) {
+      if (cursor < period.start) {
+        offPeriods.push({
+          start: cursor,
+          end: period.start,
+        });
+      }
+      if (cursor < period.end) {
+        cursor = period.end;
+      }
+    }
+
+    if (cursor < stopReading.dateTime) {
+      offPeriods.push({
+        start: cursor,
+        end: stopReading.dateTime,
+      });
+    }
+
+    return offPeriods;
+  });
 
   // Combine observable periods based on group operator
   let combinedPeriods: IPeriod[] = [];

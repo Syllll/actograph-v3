@@ -26,13 +26,6 @@
 
           <q-form ref="formRef" class="column">
             <q-input
-              type="email"
-              v-model="state.form.login"
-              :placeholder="i18n.t('auth.login')"
-              :rules="rules.email"
-            />
-
-            <q-input
               :type="state.isPwd ? 'password' : 'text'"
               v-model="state.form.password"
               :placeholder="i18n.t('auth.newPassword')"
@@ -82,29 +75,32 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive } from 'vue';
+import { defineComponent, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
 import { useI18n } from 'vue-i18n';
 import { useRules } from '@lib-improba/composables/use-rules';
+import AuthService from '@services/users/auth.service';
+import { useAuth } from '@lib-improba/composables/use-auth';
 
 export default defineComponent({
   components: {},
   setup(props) {
     const stateless = {};
     const router = useRouter();
+    const auth = useAuth(router);
     const rules = useRules();
     const i18n = useI18n();
+    const formRef = ref(null);
 
     const state = reactive<any>({
       errored: false,
       errorInForm: '',
       loading: false,
       isPwd: true,
+      isPwdConfirm: true,
       alertInfo: null,
-      forgotPassword: false,
       form: {
-        login: null,
         password: null,
         passwordConfirm: null,
       },
@@ -113,15 +109,14 @@ export default defineComponent({
     const methods = {
       async submitNewPassword() {
         state.loading = true;
-
         state.errorInForm = '';
 
-        // const validate = await (formRef as any).value.validate();
-        // if (!validate) {
-        //   state.errorInForm = i18n.t('auth.errors');
-        //   state.loading = false;
-        //   return;
-        // }
+        const validate = await (formRef as any).value.validate();
+        if (!validate) {
+          state.errorInForm = i18n.t('auth.errors');
+          state.loading = false;
+          return;
+        }
 
         if (state.form.password !== state.form.passwordConfirm) {
           state.errorInForm = i18n.t('auth.passwordNotConfirmed');
@@ -129,33 +124,42 @@ export default defineComponent({
           return;
         }
 
-        // try {
-        //   const response = await AuthService.create(
-        //     state.form.login,
-        //     state.form.password
-        //   );
-        // } catch (err: any) {
-        //   console.error(err);
-        //   state.errorInForm = i18n.t('auth.errors');
-        //   state.loading = false;
-        //   return;
-        // }
+        const currentUrl = new URL(window.location.href);
+        const token = currentUrl.searchParams.get('token');
+        if (!token) {
+          state.errorInForm = i18n.t('auth.errors');
+          state.loading = false;
+          return;
+        }
+
+        try {
+          const response = await AuthService.resetPassword(
+            token,
+            state.form.password,
+          );
+          localStorage.setItem('token', response.token);
+          await auth.methods.attemptLogin(true);
+        } catch (err: any) {
+          console.error(err);
+          state.errorInForm = i18n.t('auth.errors');
+          state.loading = false;
+          return;
+        }
 
         await createDialog({
-          title: i18n.t('auth.registerDoneDialog.title'),
-          message: i18n.t('auth.registerDoneDialog.message'),
+          title: i18n.t('auth.resetPasswordDoneDialog.title'),
+          message: i18n.t('auth.resetPasswordDoneDialog.message'),
           cancel: false,
         });
 
         router.push({
-          name: 'auth_login',
+          name: 'user',
         });
-
         state.loading = false;
       },
     };
 
-    return { state, rules, i18n, props, stateless, methods };
+    return { state, rules, i18n, props, stateless, methods, formRef };
   },
 });
 </script>
