@@ -348,15 +348,27 @@ export class DataArea extends BaseGroup {
       return aHasSupport - bHasSupport;
     });
     for (const categoryEntry of backgroundCategories) {
-      this.drawCategoryBackground(categoryEntry);
+      try {
+        this.drawCategoryBackground(categoryEntry);
+      } catch (e) {
+        console.warn(`Failed to draw background category ${categoryEntry.category.name}:`, e);
+      }
     }
 
     for (const categoryEntry of friezeCategories) {
-      this.drawCategoryFrieze(categoryEntry);
+      try {
+        this.drawCategoryFrieze(categoryEntry);
+      } catch (e) {
+        console.warn(`Failed to draw frieze category ${categoryEntry.category.name}:`, e);
+      }
     }
 
     for (const categoryEntry of normalCategories) {
-      this.drawCategoryNormal(categoryEntry);
+      try {
+        this.drawCategoryNormal(categoryEntry);
+      } catch (e) {
+        console.warn(`Failed to draw normal category ${categoryEntry.category.name}:`, e);
+      }
     }
   }
 

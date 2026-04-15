@@ -793,14 +793,23 @@ export default defineComponent({
         if (val instanceof Date) {
           dateValue = val;
         } else if (typeof val === 'string') {
+          // Reject strings still containing mask placeholders
+          if (val.includes('_')) {
+            return;
+          }
           const parsed = qDate.extractDate(val, 'DD/MM/YYYY HH:mm:ss.SSS');
-          if (parsed) {
+          if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() >= 1970) {
             dateValue = parsed;
           } else {
-            dateValue = new Date(val);
+            return;
           }
         } else {
           dateValue = new Date(val);
+        }
+
+        // Final guard: reject invalid or obviously wrong dates
+        if (isNaN(dateValue.getTime()) || dateValue.getFullYear() < 1970) {
+          return;
         }
       }
       

@@ -191,18 +191,19 @@ export default defineComponent({
           return;
         }
 
-        const rows: Array<{ label: string; color: string }> = [];
+        const rows: Array<{ label: string; color: string; isCategory?: boolean }> = [];
         for (const category of items) {
           if (String(category?.type ?? '').toLowerCase() !== 'category') continue;
           const categoryColor = category?.graphPreferences?.color || '#10b981';
           rows.push({
             label: t('graphUi.legendCategoryPrefix', { name: category.name }),
             color: categoryColor,
+            isCategory: true,
           });
           for (const observable of category.children || []) {
             if (String(observable?.type ?? '').toLowerCase() !== 'observable') continue;
             rows.push({
-              label: `  - ${observable.name}`,
+              label: `  ${observable.name}`,
               color: observable?.graphPreferences?.color || categoryColor,
             });
           }
@@ -242,12 +243,19 @@ export default defineComponent({
 
         rows.forEach((row, index) => {
           const y = padding + index * rowHeight;
-          ctx.fillStyle = row.color;
-          ctx.fillRect(padding, y + 6, swatch, swatch);
-          ctx.strokeStyle = '#111827';
-          ctx.strokeRect(padding, y + 6, swatch, swatch);
-          ctx.fillStyle = '#111827';
-          ctx.fillText(row.label, padding + swatch + 12, y + 18);
+          if (row.isCategory) {
+            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = '#111827';
+            ctx.fillText(row.label, padding, y + 18);
+            ctx.font = '14px Arial';
+          } else {
+            ctx.fillStyle = row.color;
+            ctx.fillRect(padding + 8, y + 6, swatch, swatch);
+            ctx.strokeStyle = '#111827';
+            ctx.strokeRect(padding + 8, y + 6, swatch, swatch);
+            ctx.fillStyle = '#111827';
+            ctx.fillText(row.label, padding + 8 + swatch + 12, y + 18);
+          }
         });
 
         const dataUrl = legendCanvas.toDataURL('image/png');

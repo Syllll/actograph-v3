@@ -50,6 +50,15 @@ export class ProtocolService extends BaseService<Protocol, ProtocolRepository> {
       throw new NotFoundException('Protocol not found');
     }
 
+    // Remove any existing protocol for the target observation
+    // (observation.create always creates an empty protocol placeholder)
+    const existingProtocol = await this.protocolRepository.findOne({
+      where: { observation: { id: options.observationIdToCopyTo } },
+    });
+    if (existingProtocol) {
+      await this.protocolRepository.remove(existingProtocol);
+    }
+
     const clonedProtocol = this.protocolRepository.create({
       ...protocol,
       id: undefined,

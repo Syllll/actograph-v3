@@ -156,6 +156,10 @@ export const exportService = {
     exportData.observation.createdAt = new Date().toISOString();
     exportData.exportedAt = new Date().toISOString();
 
+    if (exportData.protocol?.name) {
+      exportData.protocol.name = `Protocol - ${newName.trim()}`;
+    }
+
     const jsonContent = JSON.stringify(exportData, null, 2);
     const fileName = `${newName.trim().replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50)}.jchronic`;
     const file = new File([jsonContent], fileName, {

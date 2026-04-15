@@ -379,7 +379,7 @@ export default {
     noLegendToExport: 'No legend available to export',
     legendImageFailed: 'Could not generate the legend image',
     exportedFormat: 'Chart exported as {format}',
-    legendCategoryPrefix: '[Category] {name}',
+    legendCategoryPrefix: '{name}',
     protocolLoadError: 'Error loading protocol',
     prefsUpdateFailed: 'Error updating preferences',
     patternDots: 'Dots',

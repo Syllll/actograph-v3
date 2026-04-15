@@ -284,9 +284,13 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
     loadObservation: async (id: number) => {
       sharedState.loading = true;
-      const response = await observationService.findOne(id);
-
-      await methods._loadObservation(response);
+      try {
+        const response = await observationService.findOne(id);
+        await methods._loadObservation(response);
+      } catch (error) {
+        sharedState.loading = false;
+        throw error;
+      }
     },
     createObservation: async (options: {
       name: string;
@@ -317,13 +321,13 @@ export const useObservation = (options?: { init?: boolean }) => {
       readings.sharedState.currentReadings = [];
       protocol.sharedState.currentProtocol = null;
 
-      await readings.methods.loadReadings(observation);
-
-      await protocol.methods.loadProtocol(observation);
-
-      sharedState.currentObservation = observation;
-
-      sharedState.loading = false;
+      try {
+        await readings.methods.loadReadings(observation);
+        await protocol.methods.loadProtocol(observation);
+        sharedState.currentObservation = observation;
+      } finally {
+        sharedState.loading = false;
+      }
     },
   };
 

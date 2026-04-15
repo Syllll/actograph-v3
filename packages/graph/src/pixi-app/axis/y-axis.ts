@@ -360,7 +360,13 @@ export class YAxis extends BaseGroup {
     let axisLength = 0;
     const ticks: ITick[] = [];
 
-    for (const category of this.categories) {
+    // Reverse categories and children so protocol order (top-to-bottom) maps to
+    // graph Y axis (top-to-bottom). Without reversal the first category ends up
+    // at the bottom because Y positions grow downward on screen but the axis
+    // draws from bottom (large Y) to top (small Y).
+    const reversedCategories = [...this.categories].reverse();
+
+    for (const category of reversedCategories) {
       const displayMode = this.getEffectiveDisplayMode(category);
 
       if (displayMode === DisplayModeEnum.Background) {
@@ -385,7 +391,8 @@ export class YAxis extends BaseGroup {
           friezeStartY,
         });
       } else {
-        for (const observable of category.children) {
+        const reversedChildren = [...category.children].reverse();
+        for (const observable of reversedChildren) {
           axisLength += TICK_CONFIG.OBSERVABLE_HEIGHT;
           ticks.push({
             label: observable.name,

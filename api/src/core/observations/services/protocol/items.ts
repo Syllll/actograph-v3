@@ -1,6 +1,7 @@
 import { ProtocolRepository } from '@core/observations/repositories/protocol.repository';
 import { ProtocolService } from './index.service';
 import {
+  ConflictException,
   InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
@@ -296,6 +297,20 @@ export class Items {
     // Get the category
     const category = categories[categoryIndex];
 
+    // Check for duplicate observable names across all categories
+    for (const cat of categories) {
+      if (cat.children) {
+        const existing = cat.children.find(
+          (c) => c.name === options.name,
+        );
+        if (existing) {
+          throw new ConflictException(
+            `Un observable avec le nom "${options.name}" existe déjà dans la catégorie "${cat.name}"`,
+          );
+        }
+      }
+    }
+
     // Add the observable to the category
     if (!category.children) {
       category.children = [];
@@ -420,6 +435,22 @@ export class Items {
 
     if (observableIndex === -1) {
       throw new NotFoundException('Observable was not found');
+    }
+
+    // Check for duplicate observable names across all categories when renaming
+    if (options.name !== undefined) {
+      for (const cat of categories) {
+        if (cat.children) {
+          const existing = cat.children.find(
+            (c) => c.name === options.name && c.id !== options.observableId,
+          );
+          if (existing) {
+            throw new ConflictException(
+              `Un observable avec le nom "${options.name}" existe déjà dans la catégorie "${cat.name}"`,
+            );
+          }
+        }
+      }
     }
 
     // Create a copy of the observable to edit

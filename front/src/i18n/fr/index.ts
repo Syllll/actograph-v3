@@ -292,7 +292,7 @@ export default {
     formOrderRequired: 'L\'ordre est obligatoire',
     formOrderNonNegative: 'L\'ordre doit être positif ou nul',
     actionTypeContinuous: 'Continue',
-    actionTypeDiscrete: 'Discret',
+    actionTypeDiscrete: 'Ponctuel (événement)',
     errCategoryNameRequired: 'Le nom de la catégorie est obligatoire',
     errCannotAddCategoryNoProtocolId:
       'Impossible d\'ajouter une catégorie : identifiant de protocole manquant',
@@ -384,7 +384,7 @@ export default {
     noLegendToExport: 'Aucune légende disponible à exporter',
     legendImageFailed: 'Impossible de générer l\'image de légende',
     exportedFormat: 'Graphe exporté en {format}',
-    legendCategoryPrefix: '[Catégorie] {name}',
+    legendCategoryPrefix: '{name}',
     protocolLoadError: 'Erreur lors du chargement du protocole',
     prefsUpdateFailed: 'Erreur lors de la mise à jour des préférences',
     patternDots: 'Pointillés',

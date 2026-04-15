@@ -497,13 +497,14 @@ export default defineComponent({
           });
 
           const children = category.children || [];
+          const copySuffix = t('dialogs.saveAs.copySuffix');
           for (let i = 0; i < children.length; i++) {
             const child = children[i];
             if (child.type === ProtocolItemTypeEnum.Observable) {
               await protocolService.addObservable({
                 protocolId,
                 parentId: newCategory.id,
-                name: child.name,
+                name: `${child.name} (${copySuffix})`,
                 description: child.description,
                 order: i,
               });

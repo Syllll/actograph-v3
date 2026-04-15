@@ -223,8 +223,9 @@ export default defineComponent({
         // Contraintes horizontales : empêcher la catégorie de sortir du conteneur
         // IMPORTANT : On ne permet jamais de position négative en X, sinon la catégorie
         // se loge tout à gauche et devient inaccessible (bug 2.2)
+        const maxX = Math.max(0, contentWidth - margin);
         if (newX < 0) newX = 0;
-        if (newX > contentWidth - margin) newX = contentWidth - margin;
+        if (newX > maxX) newX = maxX;
         
         // Contraintes verticales
         // - On empêche le mouvement vers le haut au-delà de 0 (pas de position négative)

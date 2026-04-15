@@ -9,7 +9,7 @@
       @cancel="onCancelClick"
       @submit="onOKClick"
     >
-      <div class="column q-gutter-md">
+      <div class="column q-gutter-md" style="overflow: hidden; word-break: break-word;">
         <q-input
           v-model="state.newName"
           :placeholder="$t('dialogs.saveAs.namePlaceholder')"

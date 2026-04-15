@@ -98,6 +98,7 @@ export class PixiApp {
       height: height,
       resolution: dpr,      // Pour les écrans HiDPI
       autoDensity: true,    // Ajuste automatiquement la densité
+      preserveDrawingBuffer: true, // Required for canvas.toDataURL() to produce non-black exports
       // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
       // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
     });
@@ -582,6 +583,7 @@ export class PixiApp {
    */
   public exportAsImage(format: 'png' | 'jpeg' = 'png', quality = 0.92): string | null {
     if (!this.app.canvas) return null;
+    this.app.render();
     const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
     return (this.app.canvas as HTMLCanvasElement).toDataURL(mimeType, quality);
   }

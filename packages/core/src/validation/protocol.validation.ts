@@ -145,6 +145,24 @@ export function validateProtocolStructure(
     }
   }
 
+  // Validate unique observable names across ALL categories
+  const allObservableNames: string[] = [];
+  for (const category of items) {
+    if (category.children) {
+      allObservableNames.push(...category.children.map((c) => c.name));
+    }
+  }
+  const crossCategoryDups = findDuplicates(allObservableNames);
+  if (crossCategoryDups.length > 0) {
+    errors.push(
+      validationError(
+        'items',
+        `Noms d'observables identiques dans des catégories différentes: ${crossCategoryDups.join(', ')}`,
+        'DUPLICATE_OBSERVABLE_NAMES_CROSS_CATEGORY',
+      ),
+    );
+  }
+
   return errors.length > 0 ? invalidResult(errors) : validResult();
 }
 

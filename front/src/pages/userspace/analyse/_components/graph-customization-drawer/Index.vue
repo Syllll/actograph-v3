@@ -599,6 +599,22 @@ export default defineComponent({
             sanitizedPreference
           );
 
+          // Propager les préférences à tous les observables de la catégorie
+          // pour que les changements catégorie s'appliquent même après des modifs individuelles
+          if (category?.children) {
+            await Promise.all(
+              category.children
+                .filter((o) => o.type === 'observable')
+                .map((observable) =>
+                  protocolService.updateItemGraphPreferences(
+                    currentProtocol.id,
+                    observable.id,
+                    sanitizedPreference
+                  )
+                )
+            );
+          }
+
           // Recharger le protocole depuis l'API pour garantir la persistance (bug 3.7)
           if (observation.sharedState.currentObservation) {
             const reloaded = await protocolService.findOneFromObservationId(

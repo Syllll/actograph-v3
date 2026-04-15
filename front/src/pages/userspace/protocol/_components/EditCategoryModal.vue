@@ -72,6 +72,7 @@ import {
   ProtocolItem,
   ProtocolItemTypeEnum,
   ProtocolItemActionEnum,
+  EditItemDto,
 } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
@@ -121,6 +122,7 @@ export default defineComponent({
     const state = reactive({
       loading: false,
       error: '',
+      initialOrder: 0,
       form: {
         id: '',
         name: '',
@@ -134,6 +136,7 @@ export default defineComponent({
       () => props.category,
       (category) => {
         if (category) {
+          state.initialOrder = props.categoryIndex;
           state.form = {
             id: category.id,
             name: category.name,
@@ -185,15 +188,19 @@ export default defineComponent({
         state.loading = true;
         state.error = '';
 
-        await protocol.methods.editProtocolItem({
+        const editPayload: EditItemDto = {
           id: state.form.id,
           protocolId: observation.protocol.sharedState.currentProtocol.id,
           name: state.form.name,
           description: state.form.description || undefined,
-          order: state.form.order,
           action: state.form.action,
           type: ProtocolItemTypeEnum.Category,
-        });
+        };
+        // Only send order when explicitly changed to avoid unintended reordering
+        if (state.form.order !== state.initialOrder) {
+          editPayload.order = state.form.order;
+        }
+        await protocol.methods.editProtocolItem(editPayload);
 
         $q.notify({
           type: 'positive',
