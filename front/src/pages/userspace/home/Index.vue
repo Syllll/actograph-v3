@@ -44,7 +44,10 @@
         <div class="col-auto q-pa-xs">
           <div class="box">
             <cTitle :title="$t('homePage.activeChronicle')" />
-            <ActiveChronicle />
+            <ActiveChronicle
+              :is-cloud-authenticated="cloud.sharedState.isAuthenticated"
+              @cloud="chronicleActions.openCloud"
+            />
           </div>
         </div>
 

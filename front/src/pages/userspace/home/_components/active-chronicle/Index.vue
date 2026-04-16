@@ -15,6 +15,16 @@
             :color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-2' : 'orange-2'"
             :text-color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-9' : 'orange-9'"
           />
+          <q-btn
+            flat
+            round
+            dense
+            :icon="isCloudAuthenticated ? 'mdi-cloud-sync-outline' : 'mdi-cloud-upload-outline'"
+            :color="isCloudAuthenticated ? 'positive' : 'grey-6'"
+            @click="$emit('cloud')"
+          >
+            <q-tooltip>{{ $t('chronicle.cloudCardTitle') }}</q-tooltip>
+          </q-btn>
         </div>
         <div v-if="observation.sharedState.currentObservation.description" class="text-body2 text-grey-8 q-mb-sm">
           {{ observation.sharedState.currentObservation.description }}
@@ -87,6 +97,13 @@ import { relativeDay } from '@lib-improba/utils/date-format.utils';
 
 export default defineComponent({
   name: 'ActiveChronicle',
+  props: {
+    isCloudAuthenticated: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  emits: ['cloud'],
   setup() {
     const observation = useObservation();
     const chronicleNav = useChronicleNavigation();
