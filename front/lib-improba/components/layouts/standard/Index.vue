@@ -4,6 +4,8 @@
       <ElectronBar />
     </q-header>
 
+    <slot name="drawer"></slot>
+
     <q-page-container
       :class="{
         'q-ml-sm': drawer.sharedState.showDrawer,

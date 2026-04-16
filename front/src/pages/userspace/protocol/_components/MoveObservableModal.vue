@@ -44,6 +44,7 @@
 <script lang="ts">
 import { defineComponent, reactive, watch, computed, PropType } from 'vue';
 import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import {
   ProtocolItem,
   ProtocolItemTypeEnum,

@@ -1,6 +1,8 @@
 <template>
   <StandardLayout>
-    <Drawer> </Drawer>
+    <template #drawer>
+      <Drawer />
+    </template>
     <router-view />
   </StandardLayout>
 </template>
