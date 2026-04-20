@@ -11,16 +11,16 @@
     @touchend="methods.handleTouchEnd"
     @touchcancel="methods.handleTouchEnd"
   >
-    <q-card-section class="category-header q-py-xs q-px-sm">
+    <q-card-section class="category-header q-py-sm q-px-sm">
       <div class="row items-center no-wrap">
-        <q-icon 
+        <q-icon
           v-if="draggable"
-          name="mdi-drag" 
-          class="drag-handle q-mr-xs" 
-          size="20px"
+          name="mdi-drag"
+          class="drag-handle q-mr-xs"
+          size="24px"
           color="white"
         />
-        <div class="category-name text-subtitle2 text-weight-medium ellipsis">
+        <div class="category-name text-subtitle2 text-weight-bold ellipsis">
           {{ category.name }}
         </div>
       </div>
@@ -41,11 +41,9 @@
           :text-color="activeObservableByCategory[category.id] === observable.name ? 'white' : 'dark'"
           :outline="activeObservableByCategory[category.id] !== observable.name"
           :disable="continuousObservablesDisabled"
-          dense
           rounded
           unelevated
           no-caps
-          size="sm"
           class="observable-btn-small"
           @click="onToggleObservable ? onToggleObservable(category, observable) : undefined"
         />
@@ -59,11 +57,9 @@
           :label="observable.name"
           color="primary"
           :disable="discreteObservablesDisabled"
-          dense
           rounded
           unelevated
           no-caps
-          size="sm"
           class="observable-btn-small"
           @click="onPressObservable ? onPressObservable(observable) : undefined"
         />
@@ -316,39 +312,41 @@ export default defineComponent({
   .category-header {
     background: var(--primary);
     color: white;
-    min-height: 36px;
+    min-height: 44px;
   }
 
   .category-name {
     flex: 1;
     min-width: 0; // Enable text truncation
+    font-size: 14px;
   }
 
   .drag-handle {
     cursor: grab;
-    opacity: 0.8;
-    
+    opacity: 1;
+
     &:active {
       cursor: grabbing;
     }
   }
 
   .category-content {
-    min-height: 50px;
+    min-height: 56px;
   }
 
   .observables-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
 
+  // Touch target follows Material 48dp guidance.
   .observable-btn-small {
     width: 100%;
     justify-content: flex-start;
-    font-size: 13px;
-    padding: 6px 12px;
-    min-height: 40px;
+    font-size: 14px;
+    padding: 10px 14px;
+    min-height: 48px;
   }
 
 }

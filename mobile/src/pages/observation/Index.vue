@@ -1,24 +1,26 @@
 <template>
   <DPage>
     <!-- Header compact -->
-    <div class="timer-toolbar q-py-xs q-px-sm">
+    <div class="timer-toolbar q-py-sm q-px-md">
       <div class="row items-center no-wrap q-gutter-x-sm">
         <!-- Left: Edit or Cancel -->
         <q-btn
           v-if="editMode.sharedState.isEditing"
-          flat dense round icon="mdi-close" color="negative" size="sm"
+          flat round icon="mdi-close" color="negative" size="md"
+          aria-label="Annuler l'édition"
           @click="methods.cancelEditMode"
         />
         <q-btn
           v-else-if="canEnterEditMode"
-          flat dense round icon="mdi-pencil" color="white" size="sm"
+          flat round icon="mdi-pencil" color="white" size="md"
+          aria-label="Éditer le protocole"
           @click="methods.enterEditMode"
         />
-        <div v-else style="width: 36px" />
+        <div v-else class="toolbar-spacer" />
 
         <!-- Center: Timer -->
         <div
-          class="timer-display text-h5 text-weight-bold col text-center"
+          class="timer-display text-h4 text-weight-bold col text-center"
           :class="chronicle.sharedState.isPaused ? 'text-warning blink' : 'text-accent'"
         >
           {{ chronicle.formattedTime.value }}
@@ -26,13 +28,14 @@
 
         <!-- Right: Edit mode actions OR Record controls -->
         <template v-if="editMode.sharedState.isEditing">
-          <q-btn flat dense round icon="mdi-refresh" color="white" size="sm" @click="methods.resetCategoryPositions" />
-          <q-btn flat dense round icon="mdi-check" color="positive" size="sm" :loading="editMode.sharedState.isSaving" @click="methods.exitEditMode" />
+          <q-btn flat round icon="mdi-refresh" color="white" size="md" aria-label="Réinitialiser les positions" @click="methods.resetCategoryPositions" />
+          <q-btn flat round icon="mdi-check" color="positive" size="md" aria-label="Valider" :loading="editMode.sharedState.isSaving" @click="methods.exitEditMode" />
         </template>
         <template v-else>
           <q-btn
             v-if="!state.isRecording"
             round color="positive" icon="mdi-play" size="md"
+            aria-label="Démarrer l'enregistrement"
             @click="methods.startRecording"
           />
           <template v-else>
@@ -40,9 +43,10 @@
               round size="md"
               :color="chronicle.sharedState.isPaused ? 'positive' : 'warning'"
               :icon="chronicle.sharedState.isPaused ? 'mdi-play' : 'mdi-pause'"
+              :aria-label="chronicle.sharedState.isPaused ? 'Reprendre' : 'Mettre en pause'"
               @click="methods.togglePause"
             />
-            <q-btn round color="negative" icon="mdi-stop" size="md" @click="methods.stopRecording" />
+            <q-btn round color="negative" icon="mdi-stop" size="md" aria-label="Arrêter l'enregistrement" @click="methods.stopRecording" />
           </template>
         </template>
       </div>
@@ -133,7 +137,6 @@
             label="Commentaire"
             placeholder="# Mon commentaire..."
             outlined
-            dense
             autofocus
             :rules="[(val) => (val && val.trim().length > 0) || 'Le commentaire ne peut pas être vide']"
             @keyup.enter="methods.addComment"
@@ -142,7 +145,6 @@
             v-model="state.newComment.description"
             label="Description (optionnel)"
             outlined
-            dense
             type="textarea"
             rows="2"
             class="q-mt-md"
@@ -173,7 +175,6 @@
             v-model="state.newCategory.name"
             label="Nom de la catégorie"
             outlined
-            dense
             autofocus
             @keyup.enter="methods.addCategory"
           />
@@ -185,7 +186,6 @@
             ]"
             label="Type de catégorie"
             outlined
-            dense
             emit-value
             map-options
             class="q-mt-md"
@@ -219,7 +219,6 @@
             v-model="state.newObservable.name"
             label="Nom de l'observable"
             outlined
-            dense
             autofocus
             @keyup.enter="methods.addObservable"
           />
@@ -249,7 +248,6 @@
             v-model="state.renameCategory.name"
             label="Nouveau nom"
             outlined
-            dense
             autofocus
             @keyup.enter="methods.renameCategory"
           />
@@ -282,7 +280,6 @@
             v-model="state.renameObservable.name"
             label="Nouveau nom"
             outlined
-            dense
             autofocus
             @keyup.enter="methods.renameObservable"
           />
@@ -1189,11 +1186,18 @@ export default defineComponent({
   flex: 0 0 auto;
   background: linear-gradient(135deg, var(--primary) 0%, #161d27 100%);
   border-bottom: 2px solid var(--accent);
+  min-height: 64px;
+}
+
+.toolbar-spacer {
+  // Match the round md q-btn footprint so the timer stays centered.
+  width: 42px;
+  height: 42px;
 }
 
 .timer-display {
   font-family: 'Roboto Mono', 'Courier New', monospace;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   line-height: 1.2;
 

@@ -16,62 +16,77 @@
         </q-card-section>
 
         <q-card-section class="stats-section">
-          <div class="row q-gutter-md justify-center">
-            <div class="stat-item text-center">
-              <q-icon name="mdi-database" size="24px" color="primary" />
-              <div class="text-h6 text-weight-bold">{{ chronicle.sharedState.currentReadings.length }}</div>
-              <div class="text-caption text-grey">Relevés</div>
+          <div class="row no-wrap">
+            <div class="stat-item col text-center">
+              <div class="text-h4 text-weight-bold text-primary">{{ chronicle.sharedState.currentReadings.length }}</div>
+              <div class="stat-label text-caption text-grey-7">
+                <q-icon name="mdi-database" size="14px" class="q-mr-xs" />
+                Relevés
+              </div>
             </div>
-            <div class="stat-item text-center">
-              <q-icon name="mdi-folder-outline" size="24px" color="primary" />
-              <div class="text-h6 text-weight-bold">{{ chronicle.sharedState.currentProtocol.length }}</div>
-              <div class="text-caption text-grey">Catégories</div>
+            <q-separator vertical />
+            <div class="stat-item col text-center">
+              <div class="text-h4 text-weight-bold text-primary">{{ chronicle.sharedState.currentProtocol.length }}</div>
+              <div class="stat-label text-caption text-grey-7">
+                <q-icon name="mdi-folder-outline" size="14px" class="q-mr-xs" />
+                Catégories
+              </div>
             </div>
           </div>
         </q-card-section>
 
         <q-card-actions vertical class="q-pa-md">
+          <!-- Primary CTA -->
           <q-btn
             color="accent"
             label="Faire une observation"
             icon="mdi-binoculars"
+            size="lg"
             @click="$router.push({ name: 'observation' })"
-            class="full-width q-mb-sm"
+            class="full-width q-mb-md"
             unelevated
           />
+
+          <!-- Secondary actions -->
+          <div class="row q-gutter-sm q-mb-sm">
+            <q-btn
+              outline
+              color="primary"
+              label="Relevés"
+              icon="mdi-table"
+              @click="$router.push({ name: 'readings' })"
+              class="col"
+            />
+            <q-btn
+              outline
+              color="primary"
+              label="Graphe"
+              icon="mdi-chart-line"
+              @click="$router.push({ name: 'graph' })"
+              :disable="!chronicle.hasReadings.value"
+              class="col"
+            />
+          </div>
+
+          <!-- Tertiary actions -->
           <q-btn
-            color="primary"
-            label="Voir les relevés"
-            icon="mdi-table"
-            @click="$router.push({ name: 'readings' })"
-            class="full-width q-mb-sm"
-            unelevated
-          />
-          <q-btn
-            color="primary"
-            label="Voir le graphe"
-            icon="mdi-chart-line"
-            @click="$router.push({ name: 'graph' })"
-            :disable="!chronicle.hasReadings.value"
-            class="full-width q-mb-sm"
-            unelevated
-          />
-          <q-btn
-            outline
-            color="secondary"
+            flat
+            color="grey-8"
             label="Partager"
             icon="mdi-share-variant"
             @click="methods.shareCurrentChronicle"
             :loading="state.sharingId === chronicle.sharedState.currentChronicle?.id"
-            class="full-width q-mb-sm"
+            class="full-width"
           />
+          <q-separator class="q-my-sm" />
           <q-btn
             flat
             color="grey-7"
             label="Charger une autre chronique"
             icon="mdi-swap-horizontal"
             @click="chronicle.methods.unloadChronicle()"
-            class="full-width q-mt-sm"
+            class="full-width"
+            size="sm"
           />
         </q-card-actions>
       </q-card>
@@ -204,6 +219,7 @@
               :loading="state.uploadingId === chronicle.sharedState.currentChronicle?.id"
               :disable="cloud.isCloudFull.value"
               unelevated
+              class="cloud-upload-btn"
             />
           </template>
         </div>
@@ -222,7 +238,6 @@
             v-model="state.newChronicle.name"
             label="Nom de la chronique"
             outlined
-            dense
             autofocus
             :rules="[val => !!val || 'Le nom est requis']"
           />
@@ -230,7 +245,6 @@
             v-model="state.newChronicle.description"
             label="Description (optionnel)"
             outlined
-            dense
             type="textarea"
             rows="3"
             class="q-mt-md"
@@ -486,11 +500,17 @@ export default defineComponent({
 
 .stats-section {
   background: rgba(31, 41, 55, 0.02);
+  padding: 16px 8px;
 }
 
 .stat-item {
-  padding: 8px 16px;
-  min-width: 80px;
+  padding: 4px 8px;
+}
+
+.stat-label {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 2px;
 }
 
 .chronicles-list {
@@ -518,5 +538,12 @@ export default defineComponent({
 
 .cloud-header {
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+// Square footprint so the icon-only upload sits visually balanced next to the
+// flexible "Voir le cloud" CTA (avoids a tiny lopsided button on the right).
+.cloud-upload-btn {
+  min-width: 56px;
+  width: 56px;
 }
 </style>

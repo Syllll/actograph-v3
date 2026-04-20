@@ -1,18 +1,23 @@
 <template>
   <DPage>
-    <!-- Header avec compteur -->
-    <div class="readings-header row items-center q-pa-md">
-      <div class="text-subtitle1 text-weight-medium">
-        {{ readings.length }} relevé{{ readings.length > 1 ? 's' : '' }}
+    <!-- Header avec compteur + search dédiée sur sa ligne -->
+    <div class="readings-header q-px-md q-pt-md q-pb-sm">
+      <div class="row items-center q-mb-sm">
+        <q-chip
+          color="primary"
+          text-color="white"
+          icon="mdi-table"
+          class="q-ma-none"
+        >
+          {{ readings.length }} relevé{{ readings.length > 1 ? 's' : '' }}
+        </q-chip>
       </div>
-      <q-space />
       <q-input
         v-model="state.search"
         placeholder="Rechercher..."
         outlined
-        dense
         clearable
-        class="search-input"
+        class="search-input full-width"
         aria-label="Rechercher dans les relevés"
       >
         <template v-slot:prepend>
@@ -202,33 +207,12 @@ export default defineComponent({
 .readings-header {
   flex-shrink: 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  flex-wrap: wrap;
-  gap: 8px;
-  min-height: 56px;
   background-color: var(--background, #fff);
   color: var(--text, #000);
 }
 
 .search-input {
-  width: 180px;
-  flex: 1 1 220px;
-  max-width: 320px;
-}
-
-@media (max-width: 600px) {
-  .readings-header {
-    align-items: stretch;
-  }
-
-  .search-input {
-    width: 100%;
-    min-width: 0;
-  }
-
-  :deep(.readings-header .q-space) {
-    flex-basis: 100%;
-    height: 0;
-  }
+  width: 100%;
 }
 
 .table-container {
@@ -272,7 +256,7 @@ export default defineComponent({
 
 
 :deep(.search-input .q-field__control) {
-  min-height: 44px;
+  min-height: 48px;
 }
 
 :deep(.search-input .q-field__append .q-icon),
@@ -287,11 +271,11 @@ export default defineComponent({
   }
 
   :deep(.q-table tbody tr) {
-    height: 52px;
+    height: 56px;
   }
 
   :deep(.q-table tbody td) {
-    padding: 12px 12px;
+    padding: 14px 12px;
     font-size: 14px;
   }
 }
@@ -300,26 +284,5 @@ export default defineComponent({
   min-height: 32px;
   padding: 0 10px;
   font-weight: 600;
-}
-
-@media (max-width: 600px) {
-  .readings-header {
-    min-height: auto;
-    padding: 12px 16px;
-  }
-
-  :deep(.search-input .q-field__control) {
-    min-height: 48px;
-  }
-
-  .readings-table {
-    :deep(.q-table tbody tr) {
-      height: 56px;
-    }
-
-    :deep(.q-table tbody td) {
-      padding: 14px 12px;
-    }
-  }
 }
 </style>

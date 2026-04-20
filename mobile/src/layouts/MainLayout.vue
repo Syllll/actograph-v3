@@ -37,10 +37,11 @@
     <q-footer elevated class="bg-primary">
       <q-tabs
         v-model="currentTab"
-        class="text-white"
+        class="text-white main-tabs"
         active-color="accent"
         indicator-color="accent"
         align="justify"
+        narrow-indicator
       >
         <q-route-tab
           name="home"
@@ -51,7 +52,7 @@
         <q-route-tab
           name="observation"
           icon="mdi-binoculars"
-          label="Observation"
+          label="Observer"
           :to="{ name: 'observation' }"
           :disable="!hasChronicle"
         />
@@ -65,7 +66,7 @@
         <q-route-tab
           name="graph"
           icon="mdi-chart-line"
-          label="Graph"
+          label="Graphe"
           :to="{ name: 'graph' }"
           :disable="!hasChronicle || !hasReadings"
         />
@@ -115,3 +116,22 @@ export default defineComponent({
   },
 });
 </script>
+
+<style scoped lang="scss">
+// Reduce horizontal padding so 4 labels fit comfortably on ~360dp screens.
+.main-tabs {
+  :deep(.q-tab) {
+    padding: 4px 6px;
+    font-size: 11px;
+    min-height: 56px;
+  }
+
+  :deep(.q-tab__icon) {
+    font-size: 22px;
+  }
+
+  :deep(.q-tab__label) {
+    line-height: 1.1;
+  }
+}
+</style>
