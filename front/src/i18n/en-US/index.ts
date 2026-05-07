@@ -405,6 +405,7 @@ export default {
     patternGrid: 'Grid',
     displayNormal: 'Normal',
     displayFrieze: 'Frieze',
+    discreteCategoryNormalOnly: 'Discrete categories can only be in Normal mode',
   },
   appRoot: {
     updateAvailableTitle: 'Update available',

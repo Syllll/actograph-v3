@@ -82,7 +82,7 @@ export class xAxis extends BaseGroup {
     getPosFromDateTime(dateTime) {
         const dateTimeInMsec = new Date(dateTime).getTime();
         const axisStart = this.yAxis.getAxisStart();
-        if (!axisStart || !axisStart.x) {
+        if (!axisStart || typeof axisStart.x !== 'number') {
             throw new Error('No axis start found');
         }
         const pos = axisStart.x + (dateTimeInMsec - this.axisStartTimeInMsec) * this.pixelsPerMsec;

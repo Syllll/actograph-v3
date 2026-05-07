@@ -410,6 +410,7 @@ export default {
     patternGrid: 'Grille',
     displayNormal: 'Normal',
     displayFrieze: 'Frise',
+    discreteCategoryNormalOnly: 'Les catégories discrètes ne peuvent être qu\'en mode Normal',
   },
   appRoot: {
     updateAvailableTitle: 'Mise à jour disponible',

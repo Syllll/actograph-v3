@@ -1,5 +1,6 @@
 import { Texture, TilingSprite } from 'pixi.js';
 import { BackgroundPatternEnum } from '@actograph/core';
+import { DEFAULT_GRAPH_COLOR } from './graph-defaults';
 /**
  * Cache pour les textures de motifs.
  */
@@ -16,7 +17,7 @@ function colorToHex(color) {
         return `#${cleanColor}`;
     }
     const namedColors = {
-        'green': '#10b981',
+        'green': DEFAULT_GRAPH_COLOR,
         'grey': '#6b7280',
         'gray': '#6b7280',
         'red': '#ef4444',
@@ -28,7 +29,7 @@ function colorToHex(color) {
         'black': '#000000',
         'white': '#ffffff',
     };
-    return namedColors[cleanColor] ?? '#10b981';
+    return namedColors[cleanColor] ?? DEFAULT_GRAPH_COLOR;
 }
 function drawHorizontalLines(ctx, color, size) {
     ctx.strokeStyle = color;

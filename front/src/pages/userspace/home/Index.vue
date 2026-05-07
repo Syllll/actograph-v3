@@ -26,13 +26,13 @@
         <div class="col row" style="min-height: 0">
           <div class="col-7 column q-pa-xs">
             <div class="box col column">
-              <cTitle class="col-auto" :title="$t('homePage.yourChronicles')" />
+              <HomeTitle class="col-auto" :title="$t('homePage.yourChronicles')" />
               <MyObservations class="col" />
             </div>
           </div>
           <div class="col-5 column q-pa-xs">
             <div class="box col column">
-              <cTitle class="col-auto" :title="$t('homePage.helpCenter')" />
+              <HomeTitle class="col-auto" :title="$t('homePage.helpCenter')" />
               <FirstSteps class="col" />
             </div>
           </div>
@@ -43,7 +43,7 @@
       <template v-else>
         <div class="col-auto q-pa-xs">
           <div class="box">
-            <cTitle :title="$t('homePage.activeChronicle')" />
+            <HomeTitle :title="$t('homePage.activeChronicle')" />
             <ActiveChronicle
               :is-cloud-authenticated="cloud.sharedState.isAuthenticated"
               @cloud="chronicleActions.openCloud"
@@ -51,18 +51,16 @@
           </div>
         </div>
 
-        <div class="col row" style="min-height: 0">
-          <div class="col-7 column q-pa-xs">
-            <div class="box col column">
-              <cTitle class="col-auto" :title="$t('homePage.yourChronicles')" />
-              <MyObservations class="col" />
-            </div>
+        <div class="col-12 col-md-7 column q-pa-xs">
+          <div class="box col column">
+            <HomeTitle class="col-auto" :title="$t('homePage.yourChronicles')" />
+            <MyObservations class="col" />
           </div>
-          <div class="col-5 column q-pa-xs">
-            <div class="box col column">
-              <cTitle class="col-auto" :title="$t('homePage.helpCenter')" />
-              <FirstSteps class="col" />
-            </div>
+        </div>
+        <div class="col-12 col-md-5 column q-pa-xs">
+          <div class="box col column">
+            <HomeTitle class="col-auto" :title="$t('homePage.helpCenter')" />
+            <FirstSteps class="col" />
           </div>
         </div>
       </template>
@@ -72,7 +70,7 @@
 
 <script lang="ts">
 import { defineComponent, computed, onMounted } from 'vue';
-import cTitle from './_components/Title.vue';
+import HomeTitle from './_components/Title.vue';
 import MyObservations from './_components/my-observations/Index.vue';
 import FirstSteps from './_components/first-steps/Index.vue';
 import ActiveChronicle from './_components/active-chronicle/Index.vue';
@@ -83,7 +81,7 @@ import { useChronicleActions } from 'src/composables/use-chronicle-actions';
 
 export default defineComponent({
   components: {
-    cTitle,
+    HomeTitle,
     MyObservations,
     FirstSteps,
     ActiveChronicle,

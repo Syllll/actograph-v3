@@ -1,4 +1,4 @@
-import { Application, Container } from 'pixi.js';
+import { Application, Container, EventEmitter } from 'pixi.js';
 import { xAxis } from './axis/x-axis';
 import { YAxis } from './axis/y-axis';
 import { DataArea } from './data-area';
@@ -36,6 +36,8 @@ export class PixiApp {
         this.protocol = null;
         this.isInteractive = true;
         this.baseCanvasHeight = 0;
+        /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
+        this.events = new EventEmitter();
         this.zoomState = {
             scale: 1,
             minScale: 0.1,
@@ -79,6 +81,7 @@ export class PixiApp {
             height: height,
             resolution: dpr, // Pour les écrans HiDPI
             autoDensity: true, // Ajuste automatiquement la densité
+            preserveDrawingBuffer: true, // Required for canvas.toDataURL() to produce non-black exports
             // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
             // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
         });
@@ -210,6 +213,7 @@ export class PixiApp {
             this.viewport.scale.set(newScale);
             this.zoomState.x = this.viewport.x;
             this.zoomState.y = this.viewport.y;
+            this.events.emit('zoom', newScale);
             this.updateTimeScale();
         };
         // CORRECTION : mouseDownHandler doit activer le panning
@@ -368,6 +372,7 @@ export class PixiApp {
                     this.viewport.scale.set(newScale);
                     this.zoomState.x = this.viewport.x;
                     this.zoomState.y = this.viewport.y;
+                    this.events.emit('zoom', newScale);
                     this.updateTimeScale();
                 }
                 this.zoomState.lastPinchDistance = distance;
@@ -442,6 +447,7 @@ export class PixiApp {
         this.viewport.scale.set(newScale);
         this.zoomState.x = this.viewport.x;
         this.zoomState.y = this.viewport.y;
+        this.events.emit('zoom', newScale);
         this.updateTimeScale();
     }
     zoomOut() {
@@ -459,6 +465,7 @@ export class PixiApp {
         this.viewport.scale.set(newScale);
         this.zoomState.x = this.viewport.x;
         this.zoomState.y = this.viewport.y;
+        this.events.emit('zoom', newScale);
         this.updateTimeScale();
     }
     resetView() {
@@ -470,6 +477,7 @@ export class PixiApp {
         this.viewport.y = 0;
         this.zoomState.x = 0;
         this.zoomState.y = 0;
+        this.events.emit('zoom', 1);
         this.updateTimeScale();
         this.draw();
     }
@@ -485,6 +493,7 @@ export class PixiApp {
     exportAsImage(format = 'png', quality = 0.92) {
         if (!this.app.canvas)
             return null;
+        this.app.render();
         const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
         return this.app.canvas.toDataURL(mimeType, quality);
     }
@@ -505,6 +514,7 @@ export class PixiApp {
             this.app.canvas.removeEventListener('touchend', handlers.touchend);
             this.app.canvas.removeEventListener('touchcancel', handlers.touchcancel);
         }
+        this.events.removeAllListeners();
         clearPatternTextureCache();
         this.app.destroy();
     }

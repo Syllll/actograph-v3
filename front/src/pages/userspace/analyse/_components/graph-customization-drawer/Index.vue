@@ -66,7 +66,7 @@
                   @update:model-value="(val) => methods.updateCategoryPreference(category.id, { displayMode: val })"
                 >
                   <q-tooltip v-if="category.action === ProtocolItemActionEnum.Discrete">
-                    Les catégories discrètes ne peuvent être qu'en mode Normal
+                    {{ $t('graphUi.discreteCategoryNormalOnly') }}
                   </q-tooltip>
                 </q-select>
               </div>
@@ -76,7 +76,7 @@
                 <div
                   class="color-preview-compact"
                   :style="{
-                    backgroundColor: category.graphPreferences?.color || '#10b981',
+                    backgroundColor: category.graphPreferences?.color || DEFAULT_GRAPH_COLOR,
                     width: '28px',
                     height: '28px',
                     borderRadius: '4px',
@@ -84,7 +84,9 @@
                     cursor: 'pointer',
                   }"
                   @click="methods.openColorPicker('category', category.id, category.graphPreferences?.color)"
-                />
+                >
+                  <q-tooltip>{{ $t('graphUi.chooseColorTitle') }}</q-tooltip>
+                </div>
               </div>
 
               <!-- Épaisseur -->
@@ -177,7 +179,7 @@
                   <div
                     class="color-preview-compact"
                     :style="{
-                      backgroundColor: methods.getObservableColor(observable.id, category.id) || '#10b981',
+                      backgroundColor: methods.getObservableColor(observable.id, category.id) || DEFAULT_GRAPH_COLOR,
                       width: '28px',
                       height: '28px',
                       borderRadius: '4px',
@@ -185,7 +187,9 @@
                       cursor: 'pointer',
                     }"
                     @click="methods.openColorPicker('observable', observable.id, methods.getObservableColor(observable.id, category.id))"
-                  />
+                  >
+                    <q-tooltip>{{ $t('graphUi.chooseColorTitle') }}</q-tooltip>
+                  </div>
                 </div>
 
                 <!-- Épaisseur -->
@@ -281,6 +285,7 @@ import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { useGraph } from '../graph/use-graph';
 import { DScrollArea, DDialogCard } from '@lib-improba/components';
+import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
 
 const COMPACT_MODE_THRESHOLD = 400; // Largeur en pixels pour activer le mode compact
 const MIN_CONTENT_WIDTH = 700; // Largeur minimale du contenu pour le scroll horizontal
@@ -311,7 +316,7 @@ export default defineComponent({
     const state = reactive({
       saveTimeout: null as ReturnType<typeof setTimeout> | null,
       showColorDialog: false,
-      selectedColor: '#10b981',
+      selectedColor: DEFAULT_GRAPH_COLOR,
       currentColorPicker: {
         type: '' as '' | 'category' | 'observable',
         id: '',
@@ -488,7 +493,7 @@ export default defineComponent({
        */
       openColorPicker: (type: 'category' | 'observable', id: string, currentColor?: string) => {
         state.currentColorPicker = { type, id };
-        state.selectedColor = currentColor || '#10b981';
+        state.selectedColor = currentColor || DEFAULT_GRAPH_COLOR;
         state.showColorDialog = true;
       },
 
@@ -521,7 +526,7 @@ export default defineComponent({
        * Gère la fermeture du dialog de couleur
        */
       onColorDialogHide: () => {
-        state.selectedColor = '#10b981';
+        state.selectedColor = DEFAULT_GRAPH_COLOR;
         state.currentColorPicker = { type: '', id: '' };
       },
 
@@ -876,15 +881,17 @@ export default defineComponent({
 }
 
 .category-row {
-  border-left: 3px solid var(--primary);
+  border-left: 3px solid var(--q-primary);
   padding-left: 12px;
   padding-right: 4px;
-  background-color: rgba(31, 41, 55, 0.05);
+  // `--q-primary` est un hex (ex: #1976d2) : `rgba(var(--q-primary), 0.05)`
+  // serait invalide. `color-mix` produit un mélange transparent valide.
+  background-color: color-mix(in srgb, var(--q-primary) 5%, transparent);
   border-radius: 4px 4px 0 0;
   transition: background-color 0.2s ease;
-  
+
   &:hover {
-    background-color: rgba(31, 41, 55, 0.08);
+    background-color: color-mix(in srgb, var(--q-primary) 8%, transparent);
   }
 }
 

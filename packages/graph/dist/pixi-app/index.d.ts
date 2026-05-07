@@ -1,3 +1,4 @@
+import { EventEmitter } from 'pixi.js';
 import type { IObservation, IProtocol, IGraphPreferences } from '@actograph/core';
 interface IPixiAppInitOptions {
     view: HTMLCanvasElement;
@@ -40,6 +41,8 @@ export declare class PixiApp {
     private protocol;
     private isInteractive;
     private baseCanvasHeight;
+    /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
+    events: EventEmitter<string | symbol, any>;
     private zoomState;
     constructor();
     /**

@@ -16,6 +16,7 @@ export {
 } from './utils/protocol.utils';
 export { formatCompact, formatFromDate, millisecondsToParts } from './utils/duration.utils';
 export { CHRONOMETER_T0 } from './utils/chronometer.constants';
+export { DEFAULT_GRAPH_COLOR } from './lib/graph-defaults';
 
 // Réexporter les types de @actograph/core pour commodité
 export type {

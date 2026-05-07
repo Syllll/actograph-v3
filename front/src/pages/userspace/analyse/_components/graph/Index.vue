@@ -27,7 +27,7 @@
           @click="methods.zoomOut"
           :disable="state.zoomLevel <= 0.1"
         >
-          <q-tooltip>Zoom arrière</q-tooltip>
+          <q-tooltip>{{ $t('graphUi.tooltipZoomOut') }}</q-tooltip>
         </q-btn>
         <q-separator v-if="showSeparatorBeforeReset" vertical />
         <q-btn
@@ -91,6 +91,7 @@ import { useGraph } from './use-graph';
 import { useGraphCustomization } from '../graph-customization-drawer/use-graph-customization';
 import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
+import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
 
 /**
  * Composant principal du graphique d'activité.
@@ -194,7 +195,7 @@ export default defineComponent({
         const rows: Array<{ label: string; color: string; isCategory?: boolean }> = [];
         for (const category of items) {
           if (String(category?.type ?? '').toLowerCase() !== 'category') continue;
-          const categoryColor = category?.graphPreferences?.color || '#10b981';
+          const categoryColor = category?.graphPreferences?.color || DEFAULT_GRAPH_COLOR;
           rows.push({
             label: t('graphUi.legendCategoryPrefix', { name: category.name }),
             color: categoryColor,
@@ -281,27 +282,20 @@ export default defineComponent({
       },
     };
 
-    let zoomInterval: ReturnType<typeof setInterval> | null = null;
+    const onZoom = (newScale: number) => {
+      state.zoomLevel = newScale;
+    };
 
-    // Watch for zoom changes from mouse wheel
+    // Watch for zoom changes from mouse wheel or buttons via PixiApp events
     watch(
       () => graph.sharedState.pixiApp,
-      (pixiApp) => {
-        // Clear previous interval if any
-        if (zoomInterval) {
-          clearInterval(zoomInterval);
-          zoomInterval = null;
+      (pixiApp, oldPixiApp) => {
+        if (oldPixiApp) {
+          oldPixiApp.events.off('zoom', onZoom);
         }
         if (pixiApp) {
-          // Update zoom level periodically (could be improved with events)
-          zoomInterval = setInterval(() => {
-            if (pixiApp) {
-              state.zoomLevel = pixiApp.getZoomLevel();
-            } else if (zoomInterval) {
-              clearInterval(zoomInterval);
-              zoomInterval = null;
-            }
-          }, 100);
+          pixiApp.events.on('zoom', onZoom);
+          state.zoomLevel = pixiApp.getZoomLevel();
         }
       },
       { immediate: true }
@@ -309,9 +303,8 @@ export default defineComponent({
 
     // Cleanup on unmount
     onUnmounted(() => {
-      if (zoomInterval) {
-        clearInterval(zoomInterval);
-        zoomInterval = null;
+      if (graph.sharedState.pixiApp) {
+        graph.sharedState.pixiApp.events.off('zoom', onZoom);
       }
     });
 

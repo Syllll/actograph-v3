@@ -10,5 +10,6 @@ export { PixiApp } from './pixi-app';
 export { getObservableGraphPreferences, parseProtocolItems, hydrateProtocolItemsFromStringIfNeeded, } from './utils/protocol.utils';
 export { formatCompact, formatFromDate, millisecondsToParts } from './utils/duration.utils';
 export { CHRONOMETER_T0 } from './utils/chronometer.constants';
+export { DEFAULT_GRAPH_COLOR } from './lib/graph-defaults';
 export { ObservationModeEnum, ReadingTypeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, ProtocolItemTypeEnum, } from '@actograph/core';
 //# sourceMappingURL=index.js.map

@@ -1,4 +1,4 @@
-import { Application, Container } from 'pixi.js';
+import { Application, Container, EventEmitter } from 'pixi.js';
 import { xAxis } from './axis/x-axis';
 import { YAxis } from './axis/y-axis';
 import { DataArea } from './data-area';
@@ -48,6 +48,9 @@ export class PixiApp {
   private protocol: IProtocol | null = null;
   private isInteractive = true;
   private baseCanvasHeight = 0;
+
+  /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
+  public events = new EventEmitter();
 
   private zoomState = {
     scale: 1,
@@ -266,6 +269,7 @@ export class PixiApp {
       this.zoomState.x = this.viewport.x;
       this.zoomState.y = this.viewport.y;
 
+      this.events.emit('zoom', newScale);
       this.updateTimeScale();
     };
 
@@ -450,6 +454,7 @@ export class PixiApp {
           this.zoomState.x = this.viewport.x;
           this.zoomState.y = this.viewport.y;
           
+          this.events.emit('zoom', newScale);
           this.updateTimeScale();
         }
         
@@ -534,6 +539,7 @@ export class PixiApp {
     this.zoomState.x = this.viewport.x;
     this.zoomState.y = this.viewport.y;
 
+    this.events.emit('zoom', newScale);
     this.updateTimeScale();
   }
 
@@ -554,6 +560,7 @@ export class PixiApp {
     this.zoomState.x = this.viewport.x;
     this.zoomState.y = this.viewport.y;
 
+    this.events.emit('zoom', newScale);
     this.updateTimeScale();
   }
 
@@ -567,6 +574,7 @@ export class PixiApp {
     this.zoomState.x = 0;
     this.zoomState.y = 0;
 
+    this.events.emit('zoom', 1);
     this.updateTimeScale();
     this.draw();
   }
@@ -605,6 +613,7 @@ export class PixiApp {
       this.app.canvas.removeEventListener('touchend', handlers.touchend);
       this.app.canvas.removeEventListener('touchcancel', handlers.touchcancel);
     }
+    this.events.removeAllListeners();
     clearPatternTextureCache();
     this.app.destroy();
   }

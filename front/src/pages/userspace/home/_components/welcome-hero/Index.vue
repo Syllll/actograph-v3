@@ -97,6 +97,10 @@ export default defineComponent({
 
 .action-card {
   width: 180px;
+  @media (max-width: 600px) {
+    width: 100%;
+    max-width: 280px;
+  }
   border-radius: 0.75rem;
   border: 1px solid $grey-4;
   background: white;
