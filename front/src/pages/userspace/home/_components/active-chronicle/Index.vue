@@ -16,11 +16,12 @@
             :text-color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-9' : 'orange-9'"
           />
           <q-btn
-            flat
-            round
-            dense
-            :icon="isCloudAuthenticated ? 'mdi-cloud-sync-outline' : 'mdi-cloud-upload-outline'"
-            :color="isCloudAuthenticated ? 'positive' : 'grey-6'"
+            unelevated
+            no-caps
+            class="cloud-btn q-ml-sm"
+            :icon="isCloudAuthenticated ? 'mdi-cloud-check-outline' : 'mdi-cloud-upload-outline'"
+            :label="isCloudAuthenticated ? $t('chronicle.cloudSyncCaption') : $t('chronicle.cloudLoginCaption')"
+            :color="isCloudAuthenticated ? 'positive' : 'accent'"
             @click="$emit('cloud')"
           >
             <q-tooltip>{{ $t('chronicle.cloudCardTitle') }}</q-tooltip>
@@ -195,6 +196,18 @@ export default defineComponent({
     border-left: 4px solid var(--primary);
     border-radius: 0.5rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .cloud-btn {
+    font-weight: 600;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    transition: all 0.2s ease;
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+      transform: translateY(-1px);
+    }
   }
 
   .action-btn {

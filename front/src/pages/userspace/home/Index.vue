@@ -51,16 +51,18 @@
           </div>
         </div>
 
-        <div class="col-12 col-md-7 column q-pa-xs">
-          <div class="box col column">
-            <HomeTitle class="col-auto" :title="$t('homePage.yourChronicles')" />
-            <MyObservations class="col" />
+        <div class="col row" style="min-height: 0">
+          <div class="col-12 col-md-7 column q-pa-xs">
+            <div class="box col column">
+              <HomeTitle class="col-auto" :title="$t('homePage.yourChronicles')" />
+              <MyObservations class="col" />
+            </div>
           </div>
-        </div>
-        <div class="col-12 col-md-5 column q-pa-xs">
-          <div class="box col column">
-            <HomeTitle class="col-auto" :title="$t('homePage.helpCenter')" />
-            <FirstSteps class="col" />
+          <div class="col-12 col-md-5 column q-pa-xs">
+            <div class="box col column">
+              <HomeTitle class="col-auto" :title="$t('homePage.helpCenter')" />
+              <FirstSteps class="col" />
+            </div>
           </div>
         </div>
       </template>
