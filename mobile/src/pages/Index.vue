@@ -41,9 +41,8 @@
             color="accent"
             label="Faire une observation"
             icon="mdi-binoculars"
-            size="lg"
             @click="$router.push({ name: 'observation' })"
-            class="full-width q-mb-md"
+            class="home-primary-btn full-width q-mb-md"
             unelevated
           />
 
@@ -108,7 +107,7 @@
           label="Nouvelle chronique"
           icon="mdi-plus"
           @click="state.showCreateDialog = true"
-          size="lg"
+          class="home-primary-btn"
           unelevated
         />
       </div>
@@ -528,6 +527,10 @@ export default defineComponent({
 .create-dialog {
   border-radius: 12px;
   overflow: hidden;
+}
+
+.home-primary-btn {
+  min-width: 180px;
 }
 
 .cloud-card {

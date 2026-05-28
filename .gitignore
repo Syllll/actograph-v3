@@ -4,6 +4,7 @@ uploads
 .knowledge-base
 node_modules
 .env
+.env.mcp
 
 # SQLite database files
 *.sqlite3

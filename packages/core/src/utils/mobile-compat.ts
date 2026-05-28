@@ -141,6 +141,36 @@ export function mapObservationMode(mode: string | null | undefined): Observation
   }
 }
 
+const CHRONOMETER_T0_TIME = new Date('1989-02-09T00:00:00.000Z').getTime();
+const CHRONOMETER_MODE_WINDOW_MS = 10 * 365 * 24 * 60 * 60 * 1000;
+
+function inferObservationModeFromMobileReadings(
+  mode: string | null | undefined,
+  readings: IMobileReading[]
+): ObservationModeEnum | undefined {
+  const mappedMode = mapObservationMode(mode);
+
+  if (mappedMode !== ObservationModeEnum.Chronometer) {
+    return mappedMode;
+  }
+
+  const readingTimes = readings
+    .map((reading) => new Date(reading.date).getTime())
+    .filter((time) => Number.isFinite(time));
+
+  if (readingTimes.length === 0) {
+    return mappedMode;
+  }
+
+  const looksLikeChronometerTime = readingTimes.every(
+    (time) => Math.abs(time - CHRONOMETER_T0_TIME) <= CHRONOMETER_MODE_WINDOW_MS
+  );
+
+  return looksLikeChronometerTime
+    ? ObservationModeEnum.Chronometer
+    : ObservationModeEnum.Calendar;
+}
+
 // ============================================================================
 // Mobile data structure interfaces (for type safety in conversion)
 // ============================================================================
@@ -263,7 +293,7 @@ export function convertMobileObservation(
     name: observation.name,
     description: observation.description || undefined,
     type: ObservationType.Normal,
-    mode: mapObservationMode(observation.mode),
+    mode: inferObservationModeFromMobileReadings(observation.mode, readings),
     protocol,
     readings: convertMobileReadings(readings),
   };

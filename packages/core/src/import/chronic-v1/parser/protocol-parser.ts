@@ -1,9 +1,7 @@
-import qtdatastream from '../qtdatastream';
+import types from '../qtdatastream/src/types';
 import { CustomBuffer } from '../qtdatastream/src/buffer';
 import { IProtocolNodeV1 } from '../types/chronic-v1.types';
 import { ParseError } from '../../errors';
-
-const types = qtdatastream.types;
 
 /**
  * Parse un protocole depuis un buffer Qt DataStream

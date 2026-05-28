@@ -163,7 +163,10 @@ export function useCloud() {
 
       try {
         // Télécharger le fichier
-        const downloadResult = await actographCloudService.downloadChronicle(chronicle.id);
+        const downloadResult = await actographCloudService.downloadChronicle(
+          chronicle.id,
+          { binary: !chronicle.isJchronic }
+        );
 
         if (!downloadResult.success || !downloadResult.content) {
           const errorMsg = downloadResult.error || 'Erreur de téléchargement';
@@ -179,7 +182,7 @@ export function useCloud() {
         // Créer un fichier File pour l'import via le backend
         const fileName = chronicle.name;
         const file = new File([downloadResult.content], fileName, {
-          type: 'application/json',
+          type: chronicle.isJchronic ? 'application/json' : 'application/octet-stream',
         });
 
         // Importer via le backend qui gère les deux formats

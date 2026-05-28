@@ -37,7 +37,7 @@
           v-for="observable in category.children"
           :key="observable.id"
           :label="observable.name"
-          :color="activeObservableByCategory[category.id] === observable.name ? 'accent' : 'grey-4'"
+          :color="activeObservableByCategory[category.id] === observable.name ? 'accent' : 'grey-6'"
           :text-color="activeObservableByCategory[category.id] === observable.name ? 'white' : 'dark'"
           :outline="activeObservableByCategory[category.id] !== observable.name"
           :disable="continuousObservablesDisabled"
@@ -55,10 +55,11 @@
           v-for="observable in category.children"
           :key="observable.id"
           :label="observable.name"
-          color="primary"
+          color="grey-6"
+          text-color="dark"
+          outline
           :disable="discreteObservablesDisabled"
           rounded
-          unelevated
           no-caps
           class="observable-btn-small"
           @click="onPressObservable ? onPressObservable(observable) : undefined"
@@ -305,13 +306,20 @@ export default defineComponent({
 
   &.continuous {
     .category-header {
-      background: var(--accent);
+      background: rgba(249, 115, 22, 0.12);
+      color: #9a3412;
+      border-bottom-color: rgba(249, 115, 22, 0.18);
+
+      .drag-handle {
+        color: #9a3412 !important;
+      }
     }
   }
 
   .category-header {
     background: var(--primary);
     color: white;
+    border-bottom: 1px solid rgba(31, 41, 55, 0.12);
     min-height: 44px;
   }
 
@@ -332,6 +340,7 @@ export default defineComponent({
 
   .category-content {
     min-height: 56px;
+    background: white;
   }
 
   .observables-list {

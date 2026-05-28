@@ -1,9 +1,7 @@
-import qtdatastream from '../qtdatastream';
+import types from '../qtdatastream/src/types';
 import { CustomBuffer } from '../qtdatastream/src/buffer';
 import { IReadingV1, IReadingEntryV1 } from '../types/chronic-v1.types';
 import { ParseError } from '../../errors';
-
-const types = qtdatastream.types;
 
 /**
  * Parse les readings depuis un buffer Qt DataStream

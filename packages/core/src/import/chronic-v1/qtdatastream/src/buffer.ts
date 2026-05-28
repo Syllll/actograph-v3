@@ -8,7 +8,7 @@
 
 /** @module qtdatastream/buffer */
 
-const { Int64BE, Uint64BE } = require('int64-buffer');
+import { Int64BE, Uint64BE } from 'int64-buffer';
 
 /**
  * Wraps a buffer with an internal read pointer for sequential reads

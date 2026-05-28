@@ -55,6 +55,21 @@ function normalizeObservationMode(
   return undefined;
 }
 
+function normalizeReadingType(type: string | null | undefined): ReadingTypeEnum {
+  const normalizedType = (type || ReadingTypeEnum.DATA).toLowerCase();
+  const aliases: Record<string, ReadingTypeEnum> = {
+    [ReadingTypeEnum.START]: ReadingTypeEnum.START,
+    [ReadingTypeEnum.STOP]: ReadingTypeEnum.STOP,
+    [ReadingTypeEnum.PAUSE_START]: ReadingTypeEnum.PAUSE_START,
+    pausestart: ReadingTypeEnum.PAUSE_START,
+    [ReadingTypeEnum.PAUSE_END]: ReadingTypeEnum.PAUSE_END,
+    pauseend: ReadingTypeEnum.PAUSE_END,
+    [ReadingTypeEnum.DATA]: ReadingTypeEnum.DATA,
+  };
+
+  return aliases[normalizedType] ?? ReadingTypeEnum.DATA;
+}
+
 /**
  * Normalize jchronic data to common import format
  * 
@@ -133,7 +148,7 @@ export function normalizeJchronicData(data: IJchronicImport): INormalizedImport 
     readings: (data.readings || []).map((reading) => ({
       name: reading.name,
       description: reading.description,
-      type: reading.type as ReadingTypeEnum,
+      type: normalizeReadingType(reading.type),
       dateTime: new Date(reading.dateTime),
     })),
   };

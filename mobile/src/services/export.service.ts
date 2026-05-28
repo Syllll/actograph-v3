@@ -1,6 +1,7 @@
 import { observationRepository } from '@database/repositories/observation.repository';
 import { protocolRepository, type IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
-import { readingRepository } from '@database/repositories/reading.repository';
+import { readingRepository, type ReadingType } from '@database/repositories/reading.repository';
+import { ObservationModeEnum, ReadingTypeEnum } from '@actograph/core';
 
 /**
  * Format d'export .jchronic
@@ -12,6 +13,7 @@ export interface IJchronicExport {
   observation: {
     name: string;
     description?: string;
+    mode?: ObservationModeEnum;
     createdAt: string;
     updatedAt: string;
   };
@@ -53,6 +55,24 @@ export interface IExportResult {
  * Service d'export de chroniques locales vers le format .jchronic
  */
 class ExportService {
+  private mapReadingType(type: ReadingType): ReadingTypeEnum {
+    const mapping: Record<ReadingType, ReadingTypeEnum> = {
+      START: ReadingTypeEnum.START,
+      STOP: ReadingTypeEnum.STOP,
+      PAUSE_START: ReadingTypeEnum.PAUSE_START,
+      PAUSE_END: ReadingTypeEnum.PAUSE_END,
+      DATA: ReadingTypeEnum.DATA,
+    };
+
+    return mapping[type];
+  }
+
+  private mapObservationMode(mode?: string): ObservationModeEnum {
+    return mode?.toLowerCase() === ObservationModeEnum.Chronometer
+      ? ObservationModeEnum.Chronometer
+      : ObservationModeEnum.Calendar;
+  }
+
   /**
    * Exporte une observation locale au format .jchronic
    */
@@ -84,6 +104,7 @@ class ExportService {
         observation: {
           name: observation.name,
           description: observation.description,
+          mode: this.mapObservationMode(observation.mode),
           createdAt: observation.created_at || new Date().toISOString(),
           updatedAt: observation.updated_at || new Date().toISOString(),
         },
@@ -95,7 +116,7 @@ class ExportService {
         readings: readings.map((r) => ({
           name: r.name,
           description: r.description,
-          type: r.type,
+          type: this.mapReadingType(r.type),
           dateTime: r.date,
         })),
       };

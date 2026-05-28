@@ -27,7 +27,7 @@ export interface ICloudUploadResult {
 
 export interface ICloudDownloadResult {
   success: boolean;
-  content?: string;
+  content?: string | ArrayBuffer;
   error?: string;
 }
 
@@ -238,7 +238,7 @@ class ActographCloudService {
   /**
    * Télécharge un fichier .jchronic ou .chronic depuis le cloud
    */
-  async downloadChronicle(id: number): Promise<ICloudDownloadResult> {
+  async downloadChronicle(id: number, options: { binary?: boolean } = {}): Promise<ICloudDownloadResult> {
     try {
       const response = await this.authenticatedFetch(
         `${ACTOGRAPH_API_URL}/cloud/chronic/${id}`,
@@ -260,7 +260,9 @@ class ActographCloudService {
         };
       }
 
-      const content = await response.text();
+      const content = options.binary
+        ? await response.arrayBuffer()
+        : await response.text();
 
       return {
         success: true,

@@ -1,9 +1,7 @@
-import qtdatastream from '../qtdatastream';
+import types from '../qtdatastream/src/types';
 import { CustomBuffer } from '../qtdatastream/src/buffer';
 import { IModeManagerV1 } from '../types/chronic-v1.types';
 import { ParseError } from '../../errors';
-
-const types = qtdatastream.types;
 
 /**
  * Parse le mode manager depuis un buffer Qt DataStream

@@ -28,7 +28,7 @@ export interface ICloudUploadResult {
 
 export interface ICloudDownloadResult {
   success: boolean;
-  content?: string;
+  content?: string | ArrayBuffer | Uint8Array;
   error?: string;
 }
 
@@ -54,7 +54,7 @@ interface ICloudChronicleRaw {
  * Gère :
  * - Liste des fichiers cloud
  * - Upload de .jchronic
- * - Téléchargement de .jchronic (pas .chronic sur mobile)
+ * - Téléchargement de .jchronic et .chronic legacy
  * - Suppression de fichiers
  */
 class ActographCloudService {
@@ -240,15 +240,14 @@ class ActographCloudService {
   }
 
   /**
-   * Télécharge un fichier .jchronic depuis le cloud
-   * Note: Les fichiers .chronic ne sont pas supportés sur mobile
+   * Télécharge un fichier depuis le cloud.
    */
-  async downloadChronicle(id: number): Promise<ICloudDownloadResult> {
+  async downloadChronicle(id: number, options: { binary?: boolean } = {}): Promise<ICloudDownloadResult> {
     try {
       const response = await this.authenticatedRequest({
         url: `${ACTOGRAPH_API_URL}/cloud/chronic/${id}`,
         method: 'GET',
-        responseType: 'text',
+        responseType: options.binary ? 'arraybuffer' : 'text',
       });
 
       if (response.status < 200 || response.status >= 300) {
@@ -258,9 +257,11 @@ class ActographCloudService {
         };
       }
 
-      const content = typeof response.data === 'string'
-        ? response.data
-        : JSON.stringify(response.data);
+      const content = options.binary
+        ? response.data as ArrayBuffer | Uint8Array | string
+        : typeof response.data === 'string'
+          ? response.data
+          : JSON.stringify(response.data);
 
       return {
         success: true,

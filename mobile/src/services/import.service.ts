@@ -1,11 +1,15 @@
 import {
   parseJchronicFile,
   normalizeJchronicData,
+  ObservationModeEnum,
   ReadingTypeEnum,
   type INormalizedImport,
 } from '@actograph/core';
-// NOTE: ChronicV1Parser (binary .chronic files) is NOT available on mobile
-// because it requires Node.js streams. Only .jchronic (JSON) format is supported.
+import {
+  ChronicV1Parser,
+  normalizeChronicV1Data,
+} from '@actograph/core/import/chronic-v1';
+import { Buffer } from 'buffer';
 import { observationRepository } from '@database/repositories/observation.repository';
 import { protocolRepository } from '@database/repositories/protocol.repository';
 import { readingRepository, type ReadingType } from '@database/repositories/reading.repository';
@@ -13,15 +17,37 @@ import { readingRepository, type ReadingType } from '@database/repositories/read
 /**
  * Map ReadingTypeEnum from @actograph/core to ReadingType for mobile repository
  */
-function mapReadingType(type: ReadingTypeEnum): ReadingType {
-  const mapping: Record<ReadingTypeEnum, ReadingType> = {
+function mapReadingType(type: ReadingTypeEnum | string): ReadingType {
+  const normalizedType = type.toLowerCase();
+  const mapping: Record<string, ReadingType> = {
     [ReadingTypeEnum.START]: 'START',
     [ReadingTypeEnum.STOP]: 'STOP',
     [ReadingTypeEnum.PAUSE_START]: 'PAUSE_START',
     [ReadingTypeEnum.PAUSE_END]: 'PAUSE_END',
     [ReadingTypeEnum.DATA]: 'DATA',
+    START: 'START',
+    STOP: 'STOP',
+    PAUSE_START: 'PAUSE_START',
+    PAUSE_END: 'PAUSE_END',
+    DATA: 'DATA',
   };
-  return mapping[type];
+  const readingType = mapping[type] ?? mapping[normalizedType];
+
+  if (!readingType) {
+    throw new Error(`Type de relevé non supporté: ${type}`);
+  }
+
+  return readingType;
+}
+
+function mapObservationMode(type: ObservationModeEnum | string | undefined): string {
+  if (!type) {
+    return 'Calendar';
+  }
+
+  return type.toLowerCase() === ObservationModeEnum.Chronometer
+    ? 'Chronometer'
+    : 'Calendar';
 }
 
 export interface IImportResult {
@@ -38,6 +64,8 @@ export interface IImportResult {
  * Service for importing observation files
  */
 class ImportService {
+  private chronicV1Parser = new ChronicV1Parser();
+
   /**
    * Import a .jchronic file (JSON format)
    */
@@ -57,8 +85,27 @@ class ImportService {
     }
   }
 
-  // NOTE: importChronic (binary .chronic files) is NOT available on mobile
-  // because it requires Node.js streams. Only .jchronic (JSON) format is supported.
+  /**
+   * Import a legacy .chronic file and convert it to the normalized format on the fly.
+   */
+  async importChronic(
+    content: ArrayBuffer | Uint8Array | string,
+    fileName: string
+  ): Promise<IImportResult> {
+    try {
+      const buffer = this.toBuffer(content);
+      const parsed = this.chronicV1Parser.parse(buffer);
+      const normalized = normalizeChronicV1Data(parsed);
+
+      return this.saveNormalizedImport(normalized, fileName);
+    } catch (error) {
+      console.error('Error importing chronic file:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
 
   /**
    * Save normalized import data to SQLite
@@ -74,7 +121,7 @@ class ImportService {
         name: observationName,
         description: data.observation?.description,
         type: 'Normal',
-        mode: 'Chronometer',
+        mode: mapObservationMode(data.observation?.mode),
       });
 
       try {
@@ -160,26 +207,41 @@ class ImportService {
 
   /**
    * Import a file (auto-detect format)
-   * NOTE: Only .jchronic (JSON) format is supported on mobile.
-   * Binary .chronic files require Node.js and are only supported on the web/backend.
    */
   async importFile(file: File): Promise<IImportResult> {
-    const fileName = file.name;
+    const fileName = file.name.toLowerCase();
 
     if (fileName.endsWith('.jchronic')) {
       const content = await this.readFileAsText(file);
-      return this.importJchronic(content, fileName);
+      return this.importJchronic(content, file.name);
     } else if (fileName.endsWith('.chronic')) {
-      return {
-        success: false,
-        error: 'Le format .chronic (binaire) n\'est pas supporté sur mobile. Veuillez utiliser le format .jchronic.',
-      };
+      const content = await this.readFileAsArrayBuffer(file);
+      return this.importChronic(content, file.name);
     } else {
       return {
         success: false,
-        error: 'Format de fichier non supporté. Utilisez des fichiers .jchronic.',
+        error: 'Format de fichier non supporté. Utilisez des fichiers .jchronic ou .chronic.',
       };
     }
+  }
+
+  private toBuffer(content: ArrayBuffer | Uint8Array | string): Buffer {
+    (globalThis as typeof globalThis & { Buffer?: typeof Buffer }).Buffer = Buffer;
+
+    if (content instanceof ArrayBuffer) {
+      return Buffer.from(content);
+    }
+
+    if (content instanceof Uint8Array) {
+      return Buffer.from(content);
+    }
+
+    const base64Candidate = content.trim();
+    if (/^[A-Za-z0-9+/]+={0,2}$/.test(base64Candidate) && base64Candidate.length % 4 === 0) {
+      return Buffer.from(base64Candidate, 'base64');
+    }
+
+    return Buffer.from(content, 'binary');
   }
 
   /**
@@ -191,6 +253,15 @@ class ImportService {
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = () => reject(reader.error);
       reader.readAsText(file);
+    });
+  }
+
+  private readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(file);
     });
   }
 }

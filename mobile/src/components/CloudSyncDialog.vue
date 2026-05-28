@@ -104,32 +104,22 @@
                   {{ formatDate(chronicle.updatedAt) }}
                 </span>
               </q-item-label>
-              <q-item-label v-if="!chronicle.isJchronic" caption class="text-warning q-mt-xs">
+              <q-item-label v-if="!chronicle.isJchronic" caption class="text-info q-mt-xs">
                 <q-icon name="mdi-information" size="14px" class="q-mr-xs" />
-                Format non supporté sur mobile
+                Format ancien converti à l'import
               </q-item-label>
             </q-item-section>
 
             <q-item-section side>
               <div class="row q-gutter-xs">
                 <q-btn
-                  v-if="chronicle.isJchronic"
                   round
                   flat
-                  color="primary"
+                  color="info"
                   icon="mdi-download"
                   aria-label="Télécharger"
                   @click="methods.downloadChronicle(chronicle)"
                   :loading="state.downloadingId === chronicle.id"
-                />
-                <q-btn
-                  v-else
-                  round
-                  flat
-                  color="grey"
-                  icon="mdi-download-off"
-                  aria-label="Non téléchargeable sur mobile"
-                  disable
                 />
                 <q-btn
                   v-if="chronicle.isJchronic"
@@ -218,15 +208,6 @@ export default defineComponent({
       },
 
       async downloadChronicle(chronicle: ICloudChronicle) {
-        if (!chronicle.isJchronic) {
-          $q.notify({
-            type: 'warning',
-            message: 'Ce fichier est au format ancien (.chronic).',
-            caption: "Utilisez l'application web ou desktop pour le télécharger.",
-          });
-          return;
-        }
-
         state.downloadingId = chronicle.id;
 
         try {
@@ -279,7 +260,7 @@ export default defineComponent({
             return;
           }
 
-          const result = await shareService.shareContent(downloadResult.content, chronicle.name);
+          const result = await shareService.shareContent(downloadResult.content as string, chronicle.name);
           if (!result.success) {
             $q.notify({
               type: 'negative',

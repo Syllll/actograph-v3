@@ -19,6 +19,13 @@ Avant de répondre ou d'implémenter, toujours :
 
 En cas de conflit entre une recette IKB et ce fichier, les spécificités du projet priment.
 
+## GitHub MCP
+
+- Configuration : `.cursor/mcp.json` + `.cursor/start-github-mcp.sh`
+- Token : `.env.mcp` (`GITHUB_PERSONAL_ACCESS_TOKEN`, gitignored)
+- Contexte dépôt / board : `.cursor/github.md`
+- Dépôt : `Syllll/actograph-v3` — board : [Project #2](https://github.com/users/Syllll/projects/2)
+
 ## Références IKB
 
 - `.knowledge-base/recipes/glutamat/creer-module-nestjs.md` - Structure backend (⚠️ adapter pour TypeORM)

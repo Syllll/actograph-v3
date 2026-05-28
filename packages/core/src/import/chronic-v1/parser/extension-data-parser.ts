@@ -1,9 +1,7 @@
-import qtdatastream from '../qtdatastream';
+import types from '../qtdatastream/src/types';
 import { CustomBuffer } from '../qtdatastream/src/buffer';
 import { IExtensionDataV1 } from '../types/chronic-v1.types';
 import { ParseError } from '../../errors';
-
-const types = qtdatastream.types;
 
 /**
  * Parse les données d'extension depuis un buffer Qt DataStream

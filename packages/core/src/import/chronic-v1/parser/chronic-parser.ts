@@ -1,5 +1,5 @@
 import { CustomBuffer } from '../qtdatastream/src/buffer';
-import qtdatastream from '../qtdatastream';
+import types from '../qtdatastream/src/types';
 import { IChronicV1 } from '../types/chronic-v1.types';
 import { ProtocolV1Parser } from './protocol-parser';
 import { ReadingV1Parser } from './reading-parser';
@@ -7,8 +7,6 @@ import { ModeManagerV1Parser } from './mode-manager-parser';
 import { GraphManagerV1Parser } from './graph-manager-parser';
 import { ExtensionDataV1Parser } from './extension-data-parser';
 import { ParseError, ValidationError } from '../../errors';
-
-const types = qtdatastream.types;
 
 /**
  * Parser principal pour les fichiers .chronic v1

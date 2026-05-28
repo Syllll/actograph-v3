@@ -17,6 +17,11 @@ Ce script :
 **Configuration des secrets** (pour Cloud Agents) :
 - Ajouter `KNOWLEDGE_BASE_REPO_URL` dans les secrets Cursor (Dashboard > Cloud Agents > Secrets)
 - Format : URL HTTPS ou SSH du repo Git de l'IKB
+- Ajouter `GITHUB_PERSONAL_ACCESS_TOKEN` pour le MCP GitHub (voir `.cursor/github.md`)
+
+## GitHub MCP
+
+Le serveur MCP GitHub est configure dans `.cursor/mcp.json` (script `.cursor/start-github-mcp.sh` + token dans `.env.mcp`). Voir `.cursor/github.md`.
 
 ## Knowledge Base Improba
 

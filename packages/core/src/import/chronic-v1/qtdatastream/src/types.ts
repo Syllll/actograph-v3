@@ -10,7 +10,7 @@
 
 /** @module qtdatastream/types */
 
-const { Int64BE, Uint64BE } = require('int64-buffer');
+import { Int64BE, Uint64BE } from 'int64-buffer';
 import { dateToJulianDay, julianDayToDate, bstr as str } from './util';
 
 /**

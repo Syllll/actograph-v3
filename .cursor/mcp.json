@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "/home/syl/workdir/improba/symalgo/actograph-v3/.cursor/start-github-mcp.sh",
+      "args": [],
+      "env": {}
+    }
+  }
+}
