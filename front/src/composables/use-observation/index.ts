@@ -1,4 +1,4 @@
-import { reactive, ref, computed } from 'vue';
+import { reactive, ref, computed, watch } from 'vue';
 import {
   IObservation,
   IProtocol,
@@ -13,6 +13,7 @@ import { useProtocol } from './use-protocol';
 import { useReadings } from './use-readings';
 import { useDuration } from '../use-duration';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
+import { useWindowSync } from '../use-window-sync';
 
 const sharedState = reactive({
   loading: false,
@@ -26,6 +27,9 @@ const sharedState = reactive({
 
 // For timer functionality
 let intervalId: number | null = null;
+
+// Garde pour n'installer qu'une seule fois la synchronisation inter-fenêtres.
+let hasSetupObservationWindowSync = false;
 
 export const useObservation = (options?: { init?: boolean }) => {
   const { init = false } = options || {};
@@ -107,7 +111,10 @@ export const useObservation = (options?: { init?: boolean }) => {
   // Timer methods
   const timerMethods = {
     startTimer: () => {
-      if (intervalId) return;
+      // Idempotence basée sur l'état partagé (et non sur l'interval), car
+      // l'interval d'affichage est désormais piloté par un watch sur
+      // `isPlaying` et tourne dans chaque fenêtre.
+      if (sharedState.isPlaying) return;
 
       // Decide start/resume from timeline state, not from raw readings count.
       // This avoids getting stuck without START when data readings already exist.
@@ -144,16 +151,8 @@ export const useObservation = (options?: { init?: boolean }) => {
       
       sharedState.startTime = now - sharedState.elapsedTime * 1000;
       sharedState.isPlaying = true;
-      
-
-      intervalId = window.setInterval(() => {
-        if (sharedState.startTime) {
-          // Utiliser la méthode unifiée pour mettre à jour le temps
-          // Si on est en mode vidéo, cette méthode ne fera rien (videoTime non fourni)
-          // Sinon, elle calculera depuis startTime
-          updateTimeFromSource();
-        }
-      }, 10); // Update frequently for smooth milliseconds display
+      // L'interval d'affichage est démarré par le watch sur `sharedState.isPlaying`
+      // installé dans setupObservationWindowSync() (s'exécute dans chaque fenêtre).
     },
 
     pauseTimer: () => {
@@ -316,6 +315,8 @@ export const useObservation = (options?: { init?: boolean }) => {
       return response;
     },
     _loadObservation: async (observation: IObservation) => {
+      // Renseigner l'observation suivie pour le filtrage des messages inter-fenêtres.
+      useWindowSync().setObservationId(observation?.id ?? null);
       sharedState.loading = true;
       sharedState.currentObservation = null;
       readings.sharedState.currentReadings = [];
@@ -330,6 +331,145 @@ export const useObservation = (options?: { init?: boolean }) => {
       }
     },
   };
+
+  // ----------------------------------------------------------------------
+  // Synchronisation inter-fenêtres (BroadcastChannel)
+  // ----------------------------------------------------------------------
+  const windowSync = useWindowSync();
+
+  if (!hasSetupObservationWindowSync) {
+    hasSetupObservationWindowSync = true;
+
+    // Note: ce setup est déclenché par le premier appel à useObservation(), qui
+    // provient de pages/Index.vue (racine, jamais démontée). Les watchers vivent
+    // donc pour toute la durée de la fenêtre.
+
+    // 1) Interval d'affichage du temps, piloté par `isPlaying`, dans CHAQUE
+    //    fenêtre. En mode non-vidéo, chaque fenêtre dérive elapsedTime depuis
+    //    `startTime` (partagé) ; en mode vidéo, l'interval est inerte et le
+    //    temps provient de la fenêtre vidéo via diffusion.
+    watch(
+      () => sharedState.isPlaying,
+      (playing) => {
+        if (playing) {
+          if (!intervalId) {
+            intervalId = window.setInterval(() => {
+              if (!usesVideoTime.value && sharedState.startTime) {
+                updateTimeFromSource();
+              }
+            }, 10);
+          }
+        } else if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      },
+      { immediate: true }
+    );
+
+    // 2) Diffusion de l'état temporel.
+    //    Le payload contient toujours les 4 champs, mais la STRATÉGIE diffère :
+    //    - Changements structurels (isPlaying / startTime) : diffusion immédiate
+    //      (événements rares : start / pause / stop). Le snapshot d'elapsedTime
+    //      qu'ils transportent permet de propager les états figés (pause/stop/reset).
+    //    - Mode vidéo uniquement : diffusion throttlée d'elapsedTime / currentDate,
+    //      car la fenêtre vidéo fait autorité sur le temps. En mode non-vidéo, le
+    //      temps n'est PAS diffusé pendant la lecture : chaque fenêtre le dérive
+    //      localement depuis startTime (évite tout jitter).
+    let lastObsBroadcast = 0;
+    let obsBroadcastTimer: number | null = null;
+    const OBS_THROTTLE_MS = 100;
+
+    const broadcastObservationState = () => {
+      windowSync.broadcast('state:observation', {
+        isPlaying: sharedState.isPlaying,
+        startTime: sharedState.startTime,
+        elapsedTime: sharedState.elapsedTime,
+        currentDate: sharedState.currentDate
+          ? sharedState.currentDate.toISOString()
+          : null,
+      });
+    };
+
+    const scheduleObservationBroadcast = () => {
+      const now = Date.now();
+      const elapsed = now - lastObsBroadcast;
+      if (elapsed >= OBS_THROTTLE_MS) {
+        lastObsBroadcast = now;
+        broadcastObservationState();
+      } else if (obsBroadcastTimer === null) {
+        obsBroadcastTimer = window.setTimeout(() => {
+          obsBroadcastTimer = null;
+          lastObsBroadcast = Date.now();
+          broadcastObservationState();
+        }, OBS_THROTTLE_MS - elapsed);
+      }
+    };
+
+    // Changements structurels : diffusion immédiate.
+    watch(
+      () => [sharedState.isPlaying, sharedState.startTime] as const,
+      () => {
+        if (windowSync.isApplyingRemote()) return;
+        lastObsBroadcast = Date.now();
+        if (obsBroadcastTimer !== null) {
+          clearTimeout(obsBroadcastTimer);
+          obsBroadcastTimer = null;
+        }
+        broadcastObservationState();
+      }
+    );
+
+    // Temps vidéo : diffusion throttlée (uniquement en mode vidéo).
+    watch(
+      () => [sharedState.elapsedTime, sharedState.currentDate] as const,
+      () => {
+        if (windowSync.isApplyingRemote()) return;
+        if (!usesVideoTime.value) return;
+        scheduleObservationBroadcast();
+      }
+    );
+
+    // 3) Réception de l'état temporel d'une autre fenêtre.
+    windowSync.on('state:observation', (payload: Record<string, unknown>) => {
+      if (!payload) return;
+      windowSync.applyRemote(() => {
+        sharedState.isPlaying = !!payload.isPlaying;
+        sharedState.startTime =
+          typeof payload.startTime === 'number' ? payload.startTime : null;
+        // Appliquer le temps si la vidéo fait autorité (mode vidéo) OU si on
+        // n'est pas en lecture (états figés : pause / stop / reset). En lecture
+        // non-vidéo, chaque fenêtre dérive elapsedTime depuis startTime.
+        const applyTime = usesVideoTime.value || !sharedState.isPlaying;
+        if (applyTime) {
+          if (typeof payload.elapsedTime === 'number') {
+            sharedState.elapsedTime = payload.elapsedTime;
+          }
+          if ('currentDate' in payload) {
+            sharedState.currentDate = payload.currentDate
+              ? new Date(payload.currentDate as string)
+              : null;
+          }
+        }
+      });
+    });
+
+    // 4) Rediffusion locale de l'événement "boutons actifs" calculé par la
+    //    fenêtre vidéo, pour que la fenêtre des boutons (où qu'elle soit) le
+    //    reçoive. On redispatch un CustomEvent identique à celui émis en local
+    //    afin que les écouteurs existants fonctionnent sans modification.
+    windowSync.on('event:video-reading-active', (payload) => {
+      if (typeof window === 'undefined') return;
+      window.dispatchEvent(
+        new CustomEvent('video-reading-active', { detail: payload })
+      );
+    });
+
+    // 5) L'owner répond aux demandes d'hydratation des fenêtres pop-out.
+    windowSync.on('hydrate:request', () => {
+      if (windowSync.isOwner) broadcastObservationState();
+    });
+  }
 
   return {
     sharedState,

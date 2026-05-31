@@ -159,6 +159,7 @@
 <script lang="ts">
 import { defineComponent, reactive, ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
+import { useWindowSync } from 'src/composables/use-window-sync';
 import { IReading, ObservationModeEnum, ReadingTypeEnum } from '@services/observations/interface';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
@@ -175,6 +176,7 @@ export default defineComponent({
     const $q = useQuasar();
     const { t } = useI18n();
     const observation = useObservation();
+    const windowSync = useWindowSync();
     const { sharedState: readingsState, methods: readingsMethods } = observation.readings;
     const videoRef = ref<HTMLVideoElement | null>(null);
 
@@ -566,9 +568,11 @@ export default defineComponent({
         }
         
         // Emit event with all active readings by category
-        window.dispatchEvent(new CustomEvent('video-reading-active', {
-          detail: { readingsByCategory: activeReadingsByCategory }
-        }));
+        const detail = { readingsByCategory: activeReadingsByCategory };
+        window.dispatchEvent(new CustomEvent('video-reading-active', { detail }));
+        // Rediffuser aux autres fenêtres (ex: boutons incrustés dans une fenêtre
+        // séparée) afin qu'elles activent les bons boutons pendant la lecture.
+        windowSync.broadcast('event:video-reading-active', detail);
       },
 
       handlePlay: () => {

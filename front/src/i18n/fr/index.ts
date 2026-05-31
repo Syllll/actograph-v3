@@ -77,6 +77,9 @@ export default {
   observation: {
     popoutVideoTooltip: 'Ouvrir la vidéo dans une fenêtre séparée',
     popoutButtonsTooltip: 'Ouvrir les boutons dans une fenêtre séparée',
+    popoutVideoActive: 'Vidéo ouverte dans une fenêtre séparée',
+    popoutButtonsActive: 'Boutons ouverts dans une fenêtre séparée',
+    popoutBringBack: 'Ramener ici',
     videoMissingAtPath:
       'Le fichier vidéo « {fileName} » est introuvable à l\'emplacement enregistré.',
     videoNotFoundTitle: 'Fichier vidéo introuvable',

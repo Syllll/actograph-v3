@@ -41,18 +41,31 @@
         <!-- Panneau supérieur : Lecteur vidéo -->
         <template v-slot:before>
           <div class="video-panel-wrapper column fit position-relative">
-            <VideoPlayer class="col" />
-            <q-btn
-              icon="open_in_new"
-              flat
-              round
-              dense
-              size="sm"
-              class="popout-btn"
-              :title="$t('observation.popoutVideoTooltip')"
-              :disable="!observation.sharedState.currentObservation?.id"
-              @click="methods.popOutVideo"
-            />
+            <template v-if="!popout.sharedState.video">
+              <VideoPlayer class="col" />
+              <q-btn
+                icon="open_in_new"
+                flat
+                round
+                dense
+                size="sm"
+                class="popout-btn"
+                :title="$t('observation.popoutVideoTooltip')"
+                :disable="!observation.sharedState.currentObservation?.id"
+                @click="methods.popOutVideo"
+              />
+            </template>
+            <div v-else class="popout-placeholder col column items-center justify-center q-pa-lg">
+              <q-icon name="open_in_new" size="48px" color="grey-6" />
+              <div class="text-subtitle1 q-mt-md text-grey-7">{{ $t('observation.popoutVideoActive') }}</div>
+              <q-btn
+                outline
+                color="primary"
+                :label="$t('observation.popoutBringBack')"
+                @click="methods.bringBackVideo"
+                class="q-mt-md"
+              />
+            </div>
           </div>
         </template>
         
@@ -85,18 +98,31 @@
             >
               <template v-slot:before>
                 <div class="buttons-panel-wrapper column fit position-relative">
-                  <ButtonsSideIndex class="col" />
-                  <q-btn
-                    icon="open_in_new"
-                    flat
-                    round
-                    dense
-                    size="sm"
-                    class="popout-btn"
-                    :title="$t('observation.popoutButtonsTooltip')"
-                    :disable="!observation.sharedState.currentObservation?.id"
-                    @click="methods.popOutButtons"
-                  />
+                  <template v-if="!popout.sharedState.buttons">
+                    <ButtonsSideIndex class="col" />
+                    <q-btn
+                      icon="open_in_new"
+                      flat
+                      round
+                      dense
+                      size="sm"
+                      class="popout-btn"
+                      :title="$t('observation.popoutButtonsTooltip')"
+                      :disable="!observation.sharedState.currentObservation?.id"
+                      @click="methods.popOutButtons"
+                    />
+                  </template>
+                  <div v-else class="popout-placeholder col column items-center justify-center q-pa-lg">
+                    <q-icon name="open_in_new" size="48px" color="grey-6" />
+                    <div class="text-subtitle1 q-mt-md text-grey-7">{{ $t('observation.popoutButtonsActive') }}</div>
+                    <q-btn
+                      outline
+                      color="primary"
+                      :label="$t('observation.popoutBringBack')"
+                      @click="methods.bringBackButtons"
+                      class="q-mt-md"
+                    />
+                  </div>
                 </div>
               </template>
               <template v-slot:separator>
@@ -138,18 +164,31 @@
         >
           <template v-slot:before>
             <div class="buttons-panel-wrapper column fit position-relative">
-              <ButtonsSideIndex class="col" />
-              <q-btn
-                icon="open_in_new"
-                flat
-                round
-                dense
-                size="sm"
-                class="popout-btn"
-                :title="$t('observation.popoutButtonsTooltip')"
-                :disable="!observation.sharedState.currentObservation?.id"
-                @click="methods.popOutButtons"
-              />
+              <template v-if="!popout.sharedState.buttons">
+                <ButtonsSideIndex class="col" />
+                <q-btn
+                  icon="open_in_new"
+                  flat
+                  round
+                  dense
+                  size="sm"
+                  class="popout-btn"
+                  :title="$t('observation.popoutButtonsTooltip')"
+                  :disable="!observation.sharedState.currentObservation?.id"
+                  @click="methods.popOutButtons"
+                />
+              </template>
+              <div v-else class="popout-placeholder col column items-center justify-center q-pa-lg">
+                <q-icon name="open_in_new" size="48px" color="grey-6" />
+                <div class="text-subtitle1 q-mt-md text-grey-7">{{ $t('observation.popoutButtonsActive') }}</div>
+                <q-btn
+                  outline
+                  color="primary"
+                  :label="$t('observation.popoutBringBack')"
+                  @click="methods.bringBackButtons"
+                  class="q-mt-md"
+                />
+              </div>
             </div>
           </template>
           <template v-slot:separator>
@@ -176,6 +215,7 @@ import ReadingsSideIndex from './_components/readings-side/Index.vue';
 import CalendarToolbar from './_components/CalendarToolbar.vue';
 import VideoPlayer from './_components/VideoPlayer.vue';
 import { useObservation } from 'src/composables/use-observation';
+import { usePopout } from 'src/composables/use-popout';
 
 export default defineComponent({
   components: {
@@ -187,6 +227,7 @@ export default defineComponent({
 
   setup() {
     const observation = useObservation();
+    const popout = usePopout();
     const containerRef = ref<HTMLElement | null>(null);
     
     const state = reactive({
@@ -200,6 +241,13 @@ export default defineComponent({
       containerHeight: 600, // Default height, will be updated dynamically by ResizeObserver
     });
 
+    // Références vers les fenêtres pop-out ouvertes, pour pouvoir les refermer
+    // (réintégration du panneau dans la fenêtre principale).
+    const popoutWindows: Record<'video' | 'buttons', Window | null> = {
+      video: null,
+      buttons: null,
+    };
+
     const popOutVideo = () => {
       const observationId = observation.sharedState.currentObservation?.id;
       if (!observationId) return;
@@ -208,11 +256,17 @@ export default defineComponent({
       const left = window.screenX + 50;
       const top = window.screenY + 50;
       const baseUrl = window.location.href.split('#')[0];
-      window.open(
+      const popup = window.open(
         `${baseUrl}#/popup/video?observationId=${observationId}`,
         'actograph-video',
         `width=${width},height=${height},left=${left},top=${top},resizable=yes`
       );
+      // Marquer optimistiquement le panneau comme incrusté (confirmé ensuite par
+      // le heartbeat de la fenêtre pop-out, réintégré si elle se ferme).
+      if (popup) {
+        popoutWindows.video = popup;
+        popout.markOpened('video');
+      }
     };
 
     const popOutButtons = () => {
@@ -223,16 +277,38 @@ export default defineComponent({
       const left = window.screenX + 50;
       const top = window.screenY + 50;
       const baseUrl = window.location.href.split('#')[0];
-      window.open(
+      const popup = window.open(
         `${baseUrl}#/popup/buttons?observationId=${observationId}`,
         'actograph-buttons',
         `width=${width},height=${height},left=${left},top=${top},resizable=yes`
       );
+      if (popup) {
+        popoutWindows.buttons = popup;
+        popout.markOpened('buttons');
+      }
+    };
+
+    // Réintègre un panneau : ferme la fenêtre pop-out si on en a la référence,
+    // et lève le drapeau localement (la fenêtre pop-out diffusera aussi sa
+    // fermeture, et le heartbeat sert de filet de sécurité).
+    const bringBack = (component: 'video' | 'buttons') => {
+      const ref = popoutWindows[component];
+      if (ref && !ref.closed) {
+        try {
+          ref.close();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      popoutWindows[component] = null;
+      popout.markClosed(component);
     };
 
     const methods = {
       popOutVideo,
       popOutButtons,
+      bringBackVideo: () => bringBack('video'),
+      bringBackButtons: () => bringBack('buttons'),
     };
 
     // Update container height dynamically
@@ -285,6 +361,7 @@ export default defineComponent({
 
     return {
       observation,
+      popout,
       containerRef,
       state,
       methods,
@@ -303,6 +380,12 @@ export default defineComponent({
   top: 0;
   right: 0;
   z-index: 10;
+}
+
+.popout-placeholder {
+  background-color: var(--background, #fcfcfc);
+  color: #777;
+  text-align: center;
 }
 </style>
 

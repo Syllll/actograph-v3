@@ -7,11 +7,12 @@
  */
 
 import { IReading, IObservation, ReadingTypeEnum } from '@services/observations/interface';
-import { reactive } from 'vue';
+import { reactive, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { readingService } from '@services/observations/reading.service';
 import { v4 as uuidv4 } from 'uuid';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
+import { useWindowSync } from '../use-window-sync';
 import {
   autoCorrectReadings as coreAutoCorrectReadings,
   type IAutoCorrectAction,
@@ -36,6 +37,34 @@ const sharedState = reactive({
 let isSyncInFlight = false;
 let hasStartedSyncLoop = false;
 let syncTimeoutId: number | null = null;
+
+// Garde pour n'installer qu'une seule fois la synchronisation inter-fenêtres.
+let hasSetupWindowSync = false;
+
+// Dans une fenêtre suiveuse (pop-out), on ne diffuse PAS les relevés tant que
+// l'owner ne nous a pas hydratés. Cela évite que le chargement initial d'un
+// pop-out (relevés persistés uniquement, via GET) n'écrase les relevés "vivants"
+// non encore synchronisés détenus par la fenêtre principale.
+let followerReadingsHydrated = false;
+
+/**
+ * Reconstruit les champs `Date` d'un relevé reçu via le bus inter-fenêtres
+ * (les dates ayant été sérialisées en chaînes ISO lors du `postMessage`).
+ */
+const reconstructReadingDates = (reading: IReading): IReading => ({
+  ...reading,
+  dateTime: reading.dateTime instanceof Date ? reading.dateTime : new Date(reading.dateTime),
+  createdAt: reading.createdAt
+    ? reading.createdAt instanceof Date
+      ? reading.createdAt
+      : new Date(reading.createdAt)
+    : undefined,
+  updatedAt: reading.updatedAt
+    ? reading.updatedAt instanceof Date
+      ? reading.updatedAt
+      : new Date(reading.updatedAt)
+    : undefined,
+});
 
 export const useReadings = (options: {
   sharedStateFromObservation: any,
@@ -686,12 +715,74 @@ export const useReadings = (options: {
     }, timeToWait);
   }
 
-  if (!hasStartedSyncLoop) {
+  // ----------------------------------------------------------------------
+  // Synchronisation inter-fenêtres (BroadcastChannel)
+  // ----------------------------------------------------------------------
+  // - Seule la fenêtre propriétaire (owner) exécute la boucle de
+  //   synchronisation vers le backend, ce qui supprime les écritures
+  //   concurrentes entre fenêtres (cause des conflits/pertes de relevés).
+  // - Toutes les fenêtres diffusent leurs relevés à chaque changement et
+  //   appliquent ceux reçus, afin que le tableau de relevés et la timeline
+  //   restent synchronisés en temps réel d'une fenêtre à l'autre.
+  const windowSync = useWindowSync();
+
+  if (!hasSetupWindowSync) {
+    hasSetupWindowSync = true;
+
+    const broadcastReadings = () => {
+      windowSync.broadcast('state:readings', sharedState.currentReadings);
+    };
+
+    // Diffuser nos relevés à chaque mutation locale (clic bouton, correction,
+    // fusion d'ids après synchro backend, etc.). L'owner fait toujours autorité ;
+    // un suiveur ne diffuse qu'une fois hydraté (cf. followerReadingsHydrated).
+    watch(
+      () => sharedState.currentReadings,
+      () => {
+        if (windowSync.isApplyingRemote()) return;
+        if (!windowSync.isOwner && !followerReadingsHydrated) return;
+        broadcastReadings();
+      },
+      { deep: true }
+    );
+
+    // Appliquer les relevés reçus d'une autre fenêtre. On conserve les `id`
+    // déjà connus localement (mapping tempId -> id) pour rendre l'assignation
+    // d'id monotone et résister aux races de réplication.
+    windowSync.on('state:readings', (payload: IReading[]) => {
+      if (!Array.isArray(payload)) return;
+      // Un suiveur est désormais aligné sur l'état partagé : il peut diffuser
+      // ses futures mutations locales.
+      if (!windowSync.isOwner) followerReadingsHydrated = true;
+      windowSync.applyRemote(() => {
+        const idByTempId = new Map<string, number>();
+        for (const reading of sharedState.currentReadings) {
+          if (reading.tempId && reading.id) {
+            idByTempId.set(reading.tempId, reading.id);
+          }
+        }
+        sharedState.currentReadings = payload.map((raw) => {
+          const reading = reconstructReadingDates(raw);
+          if (!reading.id && reading.tempId && idByTempId.has(reading.tempId)) {
+            reading.id = idByTempId.get(reading.tempId);
+          }
+          return reading;
+        });
+      });
+    });
+
+    // L'owner fait autorité : il répond aux demandes d'hydratation des pop-out
+    // avec l'état "vivant" (incluant d'éventuels relevés non encore persistés).
+    windowSync.on('hydrate:request', () => {
+      if (windowSync.isOwner) broadcastReadings();
+    });
+  }
+
+  // Boucle de synchronisation backend : owner uniquement.
+  if (!hasStartedSyncLoop && windowSync.isOwner) {
     hasStartedSyncLoop = true;
     runSynchro(0);
   }
-  
-  
 
   // Return both the shared state and the methods
   return {

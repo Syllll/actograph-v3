@@ -77,6 +77,9 @@ export default {
   observation: {
     popoutVideoTooltip: 'Open video in a separate window',
     popoutButtonsTooltip: 'Open buttons in a separate window',
+    popoutVideoActive: 'Video opened in a separate window',
+    popoutButtonsActive: 'Buttons opened in a separate window',
+    popoutBringBack: 'Bring back here',
     videoMissingAtPath:
       'The video file “{fileName}” was not found at the saved location.',
     videoNotFoundTitle: 'Video file not found',

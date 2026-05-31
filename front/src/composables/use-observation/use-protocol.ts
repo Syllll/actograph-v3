@@ -10,7 +10,8 @@ import {
   EditItemDto,
   protocolService,
 } from '@services/observations/protocol.service';
-import { reactive } from 'vue';
+import { reactive, watch } from 'vue';
+import { useWindowSync } from '../use-window-sync';
 
 /**
  * Shared reactive state for protocol management
@@ -19,6 +20,13 @@ import { reactive } from 'vue';
 const sharedState = reactive({
   currentProtocol: null as IProtocol | null,
 });
+
+// Garde pour n'installer qu'une seule fois la synchronisation inter-fenêtres.
+let hasSetupProtocolWindowSync = false;
+
+// Un suiveur (pop-out) ne diffuse le protocole qu'après hydratation par l'owner,
+// pour éviter d'écraser l'état de la fenêtre principale au chargement initial.
+let followerProtocolHydrated = false;
 
 /**
  * Protocol management composable
@@ -205,6 +213,44 @@ export const useProtocol = (options: { sharedStateFromObservation: any }) => {
       }
     },
   };
+
+  // ----------------------------------------------------------------------
+  // Synchronisation inter-fenêtres (BroadcastChannel)
+  // ----------------------------------------------------------------------
+  // Le protocole change rarement pendant un relevé (positions de catégories,
+  // ajout/édition). On le diffuse pour garder la fenêtre des boutons alignée.
+  const windowSync = useWindowSync();
+
+  if (!hasSetupProtocolWindowSync) {
+    hasSetupProtocolWindowSync = true;
+
+    const broadcastProtocol = () => {
+      windowSync.broadcast('state:protocol', sharedState.currentProtocol);
+    };
+
+    watch(
+      () => sharedState.currentProtocol,
+      () => {
+        if (windowSync.isApplyingRemote()) return;
+        if (!windowSync.isOwner && !followerProtocolHydrated) return;
+        broadcastProtocol();
+      },
+      { deep: true }
+    );
+
+    windowSync.on('state:protocol', (payload: IProtocol | null) => {
+      if (!windowSync.isOwner) followerProtocolHydrated = true;
+      windowSync.applyRemote(() => {
+        sharedState.currentProtocol = payload
+          ? { ...payload, _items: payload._items || [] }
+          : null;
+      });
+    });
+
+    windowSync.on('hydrate:request', () => {
+      if (windowSync.isOwner) broadcastProtocol();
+    });
+  }
 
   // Return both methods and shared state
   return {
