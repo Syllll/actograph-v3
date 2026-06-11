@@ -127,12 +127,13 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     icon: path.resolve(__dirname, 'icons/icon.png'), // tray icon
     width,
-    height: height - 1,
+    height,
     minWidth: 700,
     minHeight: 400,
     autoHideMenuBar: true,
     useContentSize: false,
     titleBarStyle: 'hidden',
+    show: false,
     x: 0,
     y: 0,
     webPreferences: {
@@ -145,6 +146,11 @@ async function createWindow() {
       // This is safe in Electron desktop app context since we already have file system access via IPC
       webSecurity: false,
     },
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.maximize();
+    mainWindow?.show();
   });
 
   // Load the URL with query parameters
