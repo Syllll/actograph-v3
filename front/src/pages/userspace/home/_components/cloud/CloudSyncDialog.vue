@@ -50,9 +50,17 @@
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-sm">
             {{ $t('cloud.uploadSection') }}
           </div>
-          <div class="row items-center q-gutter-md">
+          <div class="row items-center q-gutter-md wrap">
             <q-btn
               color="primary" icon="mdi-cloud-upload"
+              :label="$t('cloud.uploadActiveChronicle')"
+              @click="methods.uploadActiveChronicle"
+              :loading="state.uploadingActive"
+              :disable="cloud.isCloudFull.value || !observation.sharedState.currentObservation"
+              no-caps
+            />
+            <q-btn
+              color="primary" icon="mdi-file-upload-outline"
               :label="$t('cloud.uploadJchronic')"
               @click="methods.uploadFile"
               :loading="state.uploading"
@@ -158,6 +166,7 @@ import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { useCloud } from 'src/composables/use-cloud';
 import { useObservation } from 'src/composables/use-observation';
 import type { ICloudChronicle } from '@services/cloud/actograph-cloud.service';
+import { exportService } from '@services/observations/export.service';
 import { DDialogCard, DCancelBtn } from '@lib-improba/components';
 
 export default defineComponent({
@@ -175,6 +184,7 @@ export default defineComponent({
       downloadingId: null as number | null,
       deletingId: null as number | null,
       uploading: false,
+      uploadingActive: false,
     });
 
     const formatDate = (dateString: string): string => {
@@ -203,6 +213,57 @@ export default defineComponent({
           await cloud.methods.logout();
           onDialogOK({ action: 'logout' });
         });
+      },
+
+      async uploadActiveChronicle() {
+        const currentObservation = observation.sharedState.currentObservation;
+        if (!currentObservation?.id) {
+          $q.notify({ type: 'warning', message: t('cloud.noActiveChronicle') });
+          return;
+        }
+
+        const token = localStorage.getItem('actograph_cloud_token');
+        if (!token) {
+          $q.notify({ type: 'negative', message: t('cloud.notAuthenticated') });
+          return;
+        }
+
+        state.uploadingActive = true;
+        try {
+          const { fileName, content } = await exportService.buildJchronicExport(currentObservation);
+          const formData = new FormData();
+          formData.append('name', currentObservation.name);
+          formData.append('description', t('cloud.uploadDescriptionDefault'));
+          const blob = new Blob([content], { type: 'application/json' });
+          formData.append('chronic', blob, fileName);
+
+          const response = await fetch('https://actograph.io/api/cloud/chronic', {
+            method: 'POST',
+            headers: { 'X-Auth-Token': token },
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || t('cloud.serverError', { status: String(response.status) }));
+          }
+
+          await cloud.methods.refreshList();
+          $q.notify({
+            type: 'positive',
+            message: t('cloud.uploadSuccess'),
+            caption: t('cloud.uploadActiveSuccessCaption', { name: currentObservation.name }),
+          });
+        } catch (error: any) {
+          console.error('Active chronicle upload error:', error);
+          $q.notify({
+            type: 'negative',
+            message: t('cloud.uploadError'),
+            caption: error.message || t('common.unknownError'),
+          });
+        } finally {
+          state.uploadingActive = false;
+        }
       },
 
       async uploadFile() {
@@ -309,6 +370,7 @@ export default defineComponent({
       onDialogHide,
       onCloseClick,
       cloud,
+      observation,
       state,
       methods,
       formatDate,
