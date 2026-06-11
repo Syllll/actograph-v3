@@ -89,7 +89,6 @@ export default defineComponent({
       dialogRef,
       onDialogHide,
       nameInputRef,
-      currentName: computed(() => props.currentName),
       state,
       isValid,
       onOKClick,

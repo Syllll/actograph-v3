@@ -242,7 +242,6 @@ export default defineComponent({
     const runAutosaveRestoreFlow = async (
       files: AutosaveFile[],
       introMode: 'recent' | 'browse',
-      options?: { skipUpToDateCheck?: boolean },
     ) => {
       if (files.length === 0) {
         return;
@@ -296,9 +295,7 @@ export default defineComponent({
             return;
           }
 
-          await runAutosaveRestoreFlow(allFilesSorted, 'browse', {
-            skipUpToDateCheck: true,
-          });
+          await runAutosaveRestoreFlow(allFilesSorted, 'browse');
           return;
         }
 
@@ -313,9 +310,7 @@ export default defineComponent({
             });
 
             if (browseAll) {
-              await runAutosaveRestoreFlow(allFilesSorted, 'browse', {
-                skipUpToDateCheck: true,
-              });
+              await runAutosaveRestoreFlow(allFilesSorted, 'browse');
             }
           } else {
             $q.notify({

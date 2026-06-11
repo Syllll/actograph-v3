@@ -166,7 +166,6 @@ export default defineComponent({
 
     return {
       t,
-      introMode: props.introMode,
       computedState,
       dialogRef,
       onDialogHide,
