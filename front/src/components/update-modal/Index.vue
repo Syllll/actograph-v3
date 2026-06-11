@@ -44,6 +44,12 @@
         @click="methods.close"
       />
       <DSubmitBtn
+        v-if="!state.updateDownloaded && !state.isDownloading"
+        :label="$t('updateModal.download')"
+        class="q-mx-sm"
+        @click="methods.startDownload"
+      />
+      <DSubmitBtn
         v-if="state.error && !state.updateDownloaded"
         :label="$t('updateModal.retry')"
         class="q-mx-sm"
@@ -104,7 +110,6 @@ export default defineComponent({
       },
       init: async () => {
         if (state.initialized) {
-          await methods.startDownload();
           return;
         }
 
@@ -132,8 +137,6 @@ export default defineComponent({
         });
 
         state.initialized = true;
-
-        await methods.startDownload();
       },
       retryDownload: async () => {
         state.progress = 0;
