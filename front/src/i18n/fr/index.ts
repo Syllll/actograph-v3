@@ -29,7 +29,6 @@ export default {
     changeLicenseMessage:
       'Vous allez choisir un autre type d\'accès (étudiant ou professionnel). Vos chroniques enregistrées sur cet ordinateur ne seront pas supprimées.',
     changeLicenseConfirm: 'Continuer',
-    accountUnknown: 'Compte ActoGraph',
     localAccount: 'Mon compte',
     accountMenuTooltip: 'Compte, licence et options',
   },

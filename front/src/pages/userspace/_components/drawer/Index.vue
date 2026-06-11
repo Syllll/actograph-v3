@@ -184,7 +184,11 @@
 
         <div class="user-bar q-px-sm q-py-xs">
           <div class="row items-center no-wrap cursor-pointer user-bar-trigger" v-ripple>
-            <q-avatar size="28px" color="primary" text-color="white" icon="person" />
+            <q-avatar size="28px" color="primary" text-color="white" icon="person">
+              <q-tooltip anchor="top middle" self="bottom middle">
+                {{ $t('drawer.accountMenuTooltip') }}
+              </q-tooltip>
+            </q-avatar>
             <div class="col q-ml-sm column justify-center" style="min-width: 0">
               <div class="text-weight-medium text-truncate user-name">
                 {{ computedState.accountLabel.value }}
@@ -197,9 +201,6 @@
               </div>
             </div>
             <q-icon name="mdi-chevron-up" size="18px" class="q-ml-xs" />
-            <q-tooltip anchor="top middle" self="bottom middle">
-              {{ $t('drawer.accountMenuTooltip') }}
-            </q-tooltip>
 
             <q-menu
               anchor="top left"
@@ -233,7 +234,7 @@
                   <q-item-section>{{ $t('drawer.changeLicense') }}</q-item-section>
                 </q-item>
 
-                <q-separator />
+                <q-separator v-if="computedState.isElectron.value" />
 
                 <q-item
                   clickable

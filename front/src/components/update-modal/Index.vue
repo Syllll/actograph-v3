@@ -147,6 +147,9 @@ export default defineComponent({
         await methods.startDownload();
       },
       close: () => {
+        if (!state.updateDownloaded) {
+          state.isDownloading = false;
+        }
         emit('update:triggerOpen', false);
       },
       submit: async () => {
@@ -162,6 +165,11 @@ export default defineComponent({
       (newVal) => {
         if (newVal) {
           void methods.init();
+          return;
+        }
+
+        if (!state.updateDownloaded) {
+          state.isDownloading = false;
         }
       }
     );

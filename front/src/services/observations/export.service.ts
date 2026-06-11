@@ -151,17 +151,28 @@ export const exportService = {
 
     const exportData = await observationService.exportObservation(observation.id);
 
-    exportData.observation.name = newName.trim();
+    const trimmedName = newName.trim();
+    const replaceExampleLabel = (value: string) =>
+      value
+        .replace(/chronique\s+exemple/gi, trimmedName)
+        .replace(/example\s+chronicle/gi, trimmedName);
+
+    exportData.observation.name = trimmedName;
     exportData.observation.updatedAt = new Date().toISOString();
     exportData.observation.createdAt = new Date().toISOString();
+    if (exportData.observation.description) {
+      exportData.observation.description = replaceExampleLabel(
+        exportData.observation.description,
+      );
+    }
     exportData.exportedAt = new Date().toISOString();
 
     if (exportData.protocol) {
-      exportData.protocol.name = newName.trim();
+      exportData.protocol.name = trimmedName;
       if (exportData.protocol.description) {
-        exportData.protocol.description = exportData.protocol.description
-          .replace(/chronique\s+exemple/gi, newName.trim())
-          .replace(/example\s+chronicle/gi, newName.trim());
+        exportData.protocol.description = replaceExampleLabel(
+          exportData.protocol.description,
+        );
       }
     }
 

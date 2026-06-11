@@ -63,11 +63,7 @@
               :loading="state.uploadingActive"
               :disable="cloud.isCloudFull.value || !observation.sharedState.currentObservation"
               no-caps
-            >
-              <q-tooltip v-if="!observation.sharedState.currentObservation">
-                {{ $t('cloud.uploadActiveDisabledHint') }}
-              </q-tooltip>
-            </q-btn>
+            />
             <q-btn
               color="primary"
               icon="mdi-file-upload-outline"
@@ -190,7 +186,10 @@ import { useI18n } from 'vue-i18n';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { useCloud } from 'src/composables/use-cloud';
 import { useObservation } from 'src/composables/use-observation';
-import type { ICloudChronicle } from '@services/cloud/actograph-cloud.service';
+import {
+  actographCloudService,
+  type ICloudChronicle,
+} from '@services/cloud/actograph-cloud.service';
 import { DDialogCard, DCancelBtn } from '@lib-improba/components';
 
 export default defineComponent({
@@ -307,28 +306,33 @@ export default defineComponent({
             $q.notify({ type: 'warning', message: t('cloud.jchronicOnly'), caption: t('cloud.chronicUploadNotSupported') });
             return;
           }
+          if (!cloud.sharedState.isAuthenticated) {
+            throw new Error(t('cloud.notAuthenticated'));
+          }
+
           state.uploading = true;
           const readResult = await window.api.readFile(filePath);
-          if (!readResult.success || !readResult.data) throw new Error(readResult.error || t('cloud.readFileError'));
-          const fileName = filePath.split(/[/\\]/).pop() || 'file.jchronic';
-          const token = localStorage.getItem('actograph_cloud_token');
-          if (!token) throw new Error(t('cloud.notAuthenticated'));
-          const formData = new FormData();
-          formData.append('name', fileName.replace('.jchronic', ''));
-          formData.append('description', t('cloud.uploadDescriptionDefault'));
-          const blob = new Blob([readResult.data], { type: 'application/json' });
-          formData.append('chronic', blob, fileName);
-          const response = await fetch('https://actograph.io/api/cloud/chronic', {
-            method: 'POST',
-            headers: { 'X-Auth-Token': token },
-            body: formData,
-          });
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || t('cloud.serverError', { status: String(response.status) }));
+          if (!readResult.success || !readResult.data) {
+            throw new Error(readResult.error || t('cloud.readFileError'));
           }
+
+          const fileName = filePath.split(/[/\\]/).pop() || 'file.jchronic';
+          const uploadResult = await actographCloudService.uploadChronicle(
+            fileName.replace('.jchronic', ''),
+            t('cloud.uploadDescriptionDefault'),
+            readResult.data,
+          );
+
+          if (!uploadResult.success) {
+            throw new Error(uploadResult.error || t('common.unknownError'));
+          }
+
           await cloud.methods.refreshList();
-          $q.notify({ type: 'positive', message: t('cloud.uploadSuccess'), caption: t('cloud.uploadSuccessCaption', { fileName }) });
+          $q.notify({
+            type: 'positive',
+            message: t('cloud.uploadSuccess'),
+            caption: t('cloud.uploadSuccessCaption', { fileName }),
+          });
         } catch (error: any) {
           console.error('Upload error:', error);
           $q.notify({ type: 'negative', message: t('cloud.uploadError'), caption: error.message || t('common.unknownError') });

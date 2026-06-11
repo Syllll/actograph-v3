@@ -29,7 +29,6 @@ export default {
     changeLicenseMessage:
       'You will choose another access type (student or professional). Chronicles saved on this computer will not be deleted.',
     changeLicenseConfirm: 'Continue',
-    accountUnknown: 'ActoGraph account',
     localAccount: 'My account',
     accountMenuTooltip: 'Account, license and options',
   },
