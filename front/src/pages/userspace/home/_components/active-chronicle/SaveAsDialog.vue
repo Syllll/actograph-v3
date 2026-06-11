@@ -9,12 +9,16 @@
       @cancel="onCancelClick"
       @submit="onOKClick"
     >
-      <div class="column q-gutter-md" style="overflow: hidden; word-break: break-word;">
+      <div class="column q-gutter-md save-as-body">
+        <div class="text-body2 text-grey-7">
+          {{ $t('dialogs.saveAs.hint') }}
+        </div>
         <q-input
           v-model="state.newName"
           :placeholder="$t('dialogs.saveAs.namePlaceholder')"
           outlined
           dense
+          class="save-as-input"
           :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.saveAs.nameRequired')]"
           @keyup.enter="onOKClick"
         />
@@ -68,3 +72,16 @@ export default defineComponent({
   },
 });
 </script>
+
+<style scoped lang="scss">
+.save-as-body {
+  overflow: hidden;
+  word-break: break-word;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.save-as-input {
+  width: 100%;
+}
+</style>

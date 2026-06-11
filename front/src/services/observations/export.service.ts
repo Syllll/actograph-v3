@@ -156,8 +156,13 @@ export const exportService = {
     exportData.observation.createdAt = new Date().toISOString();
     exportData.exportedAt = new Date().toISOString();
 
-    if (exportData.protocol?.name) {
-      exportData.protocol.name = `Protocol - ${newName.trim()}`;
+    if (exportData.protocol) {
+      exportData.protocol.name = newName.trim();
+      if (exportData.protocol.description) {
+        exportData.protocol.description = exportData.protocol.description
+          .replace(/chronique\s+exemple/gi, newName.trim())
+          .replace(/example\s+chronicle/gi, newName.trim());
+      }
     }
 
     const jsonContent = JSON.stringify(exportData, null, 2);
@@ -215,6 +220,27 @@ export const exportService = {
     }
 
     return duplicatedObservation;
+  },
+
+  /**
+   * Prépare le contenu .jchronic d'une observation pour un upload distant (cloud).
+   */
+  async buildJchronicExport(
+    observation: IObservation,
+  ): Promise<{ fileName: string; content: string }> {
+    if (!observation.id) {
+      throw new Error(serviceT('services.observationIdRequired'));
+    }
+
+    const exportData = await observationService.exportObservation(observation.id);
+    const jsonContent = JSON.stringify(exportData, null, 2);
+    const sanitizedFileName = observation.name
+      .replace(/[^a-z0-9]/gi, '_')
+      .toLowerCase()
+      .substring(0, 50);
+    const fileName = `${sanitizedFileName || 'chronique'}.jchronic`;
+
+    return { fileName, content: jsonContent };
   },
 };
 
