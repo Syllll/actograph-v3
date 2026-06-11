@@ -53,7 +53,7 @@ export const useStartupLoading = () => {
 
       // A valid student access is found
       else if (access.nextStep === 'use-student-access') {
-        license.methods.setLicense(null);
+        license.methods.setStudentAccess();
 
         router.push({
           name: 'user',

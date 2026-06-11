@@ -4,8 +4,22 @@
       :title="t('autosave.dialogTitle')"
       size="md"
     >
-      <div class="text-body2 q-mb-md">
+      <q-banner
+        v-if="introMode !== 'recent' && computedState.allFilesOlderThan24h.value"
+        dense
+        rounded
+        class="bg-warning text-dark q-mb-md"
+      >
+        <template #avatar>
+          <q-icon name="mdi-clock-alert-outline" />
+        </template>
+        {{ t('autosave.introAllFiles') }}
+      </q-banner>
+      <div v-if="introMode === 'recent'" class="text-body2 q-mb-md">
         {{ t('autosave.intro') }}
+      </div>
+      <div v-else class="text-body2 q-mb-md">
+        {{ t('autosave.introBrowse') }}
       </div>
 
       <div v-if="state.files.length === 0" class="text-body1 text-neutral-high q-pa-md">
@@ -50,7 +64,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, PropType } from 'vue';
+import { defineComponent, reactive, computed, PropType } from 'vue';
 import { useDialogPluginComponent } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { DDialogCard, DCancelBtn, DSubmitBtn } from '@lib-improba/components';
@@ -74,6 +88,10 @@ export default defineComponent({
       }>>,
       required: true,
     },
+    introMode: {
+      type: String as PropType<'recent' | 'browse'>,
+      default: 'recent',
+    },
   },
   emits: [...useDialogPluginComponent.emits],
   setup(props) {
@@ -85,6 +103,19 @@ export default defineComponent({
       files: props.files,
       selectedFileIndex: props.files.length > 0 ? 0 : null as number | null,
     });
+
+    const isFileOlderThan24h = (file: { modified: string }) => {
+      const ageHours =
+        (Date.now() - new Date(file.modified).getTime()) / (1000 * 60 * 60);
+      return ageHours >= 24;
+    };
+
+    const computedState = {
+      allFilesOlderThan24h: computed(
+        () =>
+          props.files.length > 0 && props.files.every((file) => isFileOlderThan24h(file)),
+      ),
+    };
 
     const methods = {
       getObservationName: (fileName: string): string => {
@@ -135,6 +166,8 @@ export default defineComponent({
 
     return {
       t,
+      introMode: props.introMode,
+      computedState,
       dialogRef,
       onDialogHide,
       state,

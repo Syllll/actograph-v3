@@ -29,6 +29,8 @@ export default {
     changeLicenseMessage:
       'You will choose another access type (student or professional). Chronicles saved on this computer will not be deleted.',
     changeLicenseConfirm: 'Continue',
+    changeLicenseError:
+      'Could not reset license access. Try again or restart the application.',
     localAccount: 'My account',
     accountMenuTooltip: 'Account, license and options',
   },
@@ -427,7 +429,16 @@ export default {
     updateCancel: 'No',
     updateOk: 'Yes',
     autosaveRestoreNamePrefix: 'Auto-restore — {name}',
-    noAutosaveFiles: 'No recent autosave file to restore.',
+    noAutosaveFiles: 'No autosave file to restore.',
+    autosaveOlderTitle: 'Older autosaves',
+    autosaveOlderMessage:
+      'No autosave from the last 24 hours. {count} older file(s) can still be restored.',
+    autosaveBrowseAll: 'Browse all autosaves',
+    autosaveUpToDate:
+      'The open chronicle is already up to date. No restore needed.',
+    autosaveUpToDateTitle: 'Chronicle up to date',
+    autosaveUpToDateWithOlder:
+      'The open chronicle is already up to date. You can still browse {count} older autosave(s).',
   },
   updateModal: {
     title: 'Update available',
@@ -470,6 +481,10 @@ export default {
     dialogTitle: 'Automatic restore',
     intro:
       'Recent automatic backups were found. Choose the one you want to restore:',
+    introBrowse:
+      'Choose the autosave to restore. Check the file date carefully.',
+    introAllFiles:
+      'All of these autosaves are older than 24 hours.',
     noFiles: 'No files available.',
     savedOn: 'Saved on {dateTime}',
     ignore: 'Skip',
@@ -585,6 +600,7 @@ export default {
   common: {
     unknownError: 'Unknown error',
     ok: 'OK',
+    close: 'Close',
   },
   startup: {
     noEnabledLicenseTitle: 'No active license',
@@ -734,6 +750,9 @@ export default {
     downloadTooltip: 'Download and import',
     deleteTooltip: 'Remove from cloud',
     uploadDescriptionDefault: 'Uploaded from desktop',
+    listLoadError: 'Could not load the cloud file list',
+    sessionExpired: 'Session expired. Sign out and sign in to the cloud again.',
+    importError: 'Error importing from the cloud',
     serverError: 'Server error: {status}',
   },
 };

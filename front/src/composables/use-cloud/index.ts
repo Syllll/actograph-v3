@@ -6,6 +6,7 @@ import {
 } from '@services/cloud/actograph-cloud.service';
 import { observationService } from '@services/observations/index.service';
 import { IObservation } from '@services/observations/interface';
+import { serviceT } from 'src/i18n/service-translate';
 
 /**
  * État partagé du cloud
@@ -66,7 +67,7 @@ export function useCloud() {
           // Charger la liste des fichiers après connexion
           await methods.refreshList();
         } else {
-          sharedState.error = result.error || 'Erreur de connexion';
+          sharedState.error = result.error || serviceT('cloud.connectionError');
         }
 
         return result;
@@ -101,7 +102,7 @@ export function useCloud() {
         if (result.success && result.chronicles) {
           sharedState.remoteChronicles = result.chronicles;
         } else {
-          sharedState.error = result.error || 'Erreur de chargement';
+          sharedState.error = result.error || serviceT('cloud.listLoadError');
         }
       } finally {
         sharedState.isLoading = false;
@@ -127,7 +128,7 @@ export function useCloud() {
         // Upload vers le cloud
         const uploadResult = await actographCloudService.uploadChronicle(
           observationName,
-          description || 'Uploaded from desktop',
+          description || serviceT('cloud.uploadDescriptionDefault'),
           content
         );
 
@@ -144,7 +145,7 @@ export function useCloud() {
         console.error('Error uploading chronicle:', error);
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Erreur inconnue',
+          error: error instanceof Error ? error.message : serviceT('common.unknownError'),
         };
       } finally {
         sharedState.isLoading = false;
@@ -169,13 +170,11 @@ export function useCloud() {
         );
 
         if (!downloadResult.success || !downloadResult.content) {
-          const errorMsg = downloadResult.error || 'Erreur de téléchargement';
+          const errorMsg = downloadResult.error || serviceT('cloud.downloadError');
           const is401 = /401|session expirée|non authentifié/i.test(errorMsg);
           return {
             success: false,
-            error: is401
-              ? 'Session expirée. Veuillez vous déconnecter et vous reconnecter au cloud.'
-              : errorMsg,
+            error: is401 ? serviceT('cloud.sessionExpired') : errorMsg,
           };
         }
 
@@ -194,11 +193,11 @@ export function useCloud() {
         };
       } catch (error: unknown) {
         console.error('Error downloading chronicle:', error);
-        let errorMsg = 'Erreur d\'import';
+        let errorMsg = serviceT('cloud.importError');
         if (error instanceof Error) {
           errorMsg = error.message;
           if (/401|session expirée|non authentifié/i.test(errorMsg)) {
-            errorMsg = 'Session expirée. Veuillez vous déconnecter et vous reconnecter au cloud.';
+            errorMsg = serviceT('cloud.sessionExpired');
           }
         }
         return {

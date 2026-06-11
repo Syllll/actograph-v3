@@ -177,7 +177,11 @@ export const exportService = {
     }
 
     const jsonContent = JSON.stringify(exportData, null, 2);
-    const fileName = `${newName.trim().replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50)}.jchronic`;
+    const safeFileBase = trimmedName
+      .replace(/[^a-z0-9]/gi, '_')
+      .toLowerCase()
+      .substring(0, 50);
+    const fileName = `${safeFileBase}.jchronic`;
     const file = new File([jsonContent], fileName, {
       type: 'application/json',
     });
@@ -200,8 +204,7 @@ export const exportService = {
             : '';
         const extensionMatch = sourcePath.match(/(\.[^.\\/]+)$/);
         const extension = extensionMatch ? extensionMatch[1] : '';
-        const safeBaseName = newName
-          .trim()
+        const safeBaseName = trimmedName
           .replace(/[^a-z0-9]/gi, '_')
           .toLowerCase()
           .substring(0, 50);

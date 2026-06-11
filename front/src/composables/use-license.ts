@@ -11,9 +11,13 @@ const isProfessionalAccess = computed(() => sharedState.type === 'license');
 
 export const useLicense = () => {
   const methods = {
-    setLicense(license: ILicense | null) {
+    setLicense(license: ILicense) {
       sharedState.license = license;
-      sharedState.type = license ? 'license' : 'student';
+      sharedState.type = 'license';
+    },
+    setStudentAccess() {
+      sharedState.license = null;
+      sharedState.type = 'student';
     },
     clearAccess() {
       sharedState.license = null;

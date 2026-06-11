@@ -41,6 +41,13 @@ export default {
 
     return response.data;
   },
+  async resetElectronAccess() {
+    const response = await api().post(
+      `${apiUrl}/security/electron/reset-access`
+    );
+
+    return response.data;
+  },
   async electronDetermineAccessFirstStep(): Promise<{
     nextStep:
       | 'choose-access-type'

@@ -107,7 +107,7 @@ export default defineComponent({
           console.error('Error while starting update download', error);
         }
       },
-      init: async () => {
+      init: () => {
         if (!state.initialized) {
           systemService.onUpdateDownloadProgress((data) => {
             const parsedPercent = typeof data.percent === 'number'
@@ -133,10 +133,6 @@ export default defineComponent({
           });
 
           state.initialized = true;
-        }
-
-        if (!state.updateDownloaded && !state.isDownloading && !state.error) {
-          await methods.startDownload();
         }
       },
       retryDownload: async () => {
@@ -164,7 +160,13 @@ export default defineComponent({
       () => props.triggerOpen,
       (newVal) => {
         if (newVal) {
-          void methods.init();
+          methods.init();
+          if (!state.updateDownloaded) {
+            state.error = '';
+            state.progress = 0;
+            state.progressPercentage = '0.00%';
+            state.isDownloading = false;
+          }
           return;
         }
 

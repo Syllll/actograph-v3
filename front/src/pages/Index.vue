@@ -120,6 +120,152 @@ export default defineComponent({
       window.removeEventListener('beforeunload', handleBeforeUnload);
     });
 
+    type AutosaveFile = {
+      name: string;
+      path: string;
+      size: number;
+      modified: string;
+    };
+
+    const sortAutosaveFiles = (files: AutosaveFile[]) =>
+      [...files].sort(
+        (a, b) =>
+          new Date(b.modified).getTime() - new Date(a.modified).getTime(),
+      );
+
+    const filterRecentAutosaveFiles = (files: AutosaveFile[]) => {
+      const now = Date.now();
+      return sortAutosaveFiles(files).filter((file) => {
+        const fileTime = new Date(file.modified).getTime();
+        const ageHours = (now - fileTime) / (1000 * 60 * 60);
+        return ageHours < 24;
+      });
+    };
+
+    const isAutosaveNewerThanCurrentObservation = (files: AutosaveFile[]) => {
+      if (files.length === 0) {
+        return false;
+      }
+
+      const currentObservation = observation.sharedState.currentObservation;
+      const mostRecentAutosaveTime = new Date(files[0].modified).getTime();
+
+      if (!currentObservation) {
+        return true;
+      }
+
+      if (!currentObservation.updatedAt) {
+        return true;
+      }
+
+      const observationTime = new Date(currentObservation.updatedAt).getTime();
+      return mostRecentAutosaveTime > observationTime;
+    };
+
+    const pickAutosaveFile = (
+      files: AutosaveFile[],
+      introMode: 'recent' | 'browse',
+    ) =>
+      new Promise<AutosaveFile | null>((resolve) => {
+        $q.dialog({
+          component: AutosaveFilePicker,
+          componentProps: {
+            files,
+            introMode,
+          },
+        })
+          .onOk((file: AutosaveFile) => {
+            resolve(file);
+          })
+          .onCancel(() => {
+            resolve(null);
+          });
+      });
+
+    const restoreAutosaveFile = async (selectedFile: AutosaveFile) => {
+      const restoredObservation = await importService.importFromFile(
+        selectedFile.path,
+      );
+
+      let displayName = restoredObservation.name;
+
+      if (restoredObservation.id) {
+        displayName = t('appRoot.autosaveRestoreNamePrefix', {
+          name: restoredObservation.name,
+        });
+
+        await observationService.update(restoredObservation.id, {
+          name: displayName,
+        });
+
+        await observation.methods.loadObservation(restoredObservation.id);
+      }
+
+      await autosaveService.deleteAutosaveFile(selectedFile.path);
+
+      $q.notify({
+        type: 'positive',
+        message: t('appRoot.restoreSuccess'),
+        caption: t('appRoot.restoreSuccessCaption', {
+          name: displayName,
+        }),
+      });
+    };
+
+    const confirmBrowseAutosaves = (options: {
+      title: string;
+      message: string;
+      browseLabel?: string;
+    }) =>
+      new Promise<boolean>((resolve) => {
+        $q.dialog({
+          class: 'actograph-dialog',
+          title: options.title,
+          message: options.message,
+          cancel: {
+            label: t('common.close'),
+            flat: true,
+          },
+          ok: {
+            label: options.browseLabel ?? t('appRoot.autosaveBrowseAll'),
+            color: 'primary',
+          },
+        })
+          .onOk(() => {
+            resolve(true);
+          })
+          .onCancel(() => {
+            resolve(false);
+          });
+      });
+
+    const runAutosaveRestoreFlow = async (
+      files: AutosaveFile[],
+      introMode: 'recent' | 'browse',
+      options?: { skipUpToDateCheck?: boolean },
+    ) => {
+      if (files.length === 0) {
+        return;
+      }
+
+      const selectedFile = await pickAutosaveFile(files, introMode);
+      if (!selectedFile) {
+        return;
+      }
+
+      try {
+        await restoreAutosaveFile(selectedFile);
+      } catch (error) {
+        console.error('Error restoring autosave:', error);
+        $q.notify({
+          type: 'negative',
+          message: t('appRoot.restoreError'),
+          caption:
+            error instanceof Error ? error.message : t('common.unknownError'),
+        });
+      }
+    };
+
     /**
      * Check for autosave files and propose restoration if needed
      * Can be called manually from menu or automatically on crash
@@ -136,111 +282,51 @@ export default defineComponent({
           return;
         }
 
-        // Filter recent files (within last 24 hours) and sort by date (most recent first)
-        const now = Date.now();
-        const recentFiles = files
-          .filter((file) => {
-            const fileTime = new Date(file.modified).getTime();
-            const ageHours = (now - fileTime) / (1000 * 60 * 60);
-            return ageHours < 24; // Files from last 24 hours
-          })
-          .sort(
-            (a, b) =>
-              new Date(b.modified).getTime() - new Date(a.modified).getTime()
-          );
+        const allFilesSorted = sortAutosaveFiles(files);
+        const recentFiles = filterRecentAutosaveFiles(files);
 
         if (recentFiles.length === 0) {
-          return;
-        }
-
-        // Check if we should propose restoration
-        const currentObservation = observation.sharedState.currentObservation;
-        const mostRecentAutosaveTime = new Date(recentFiles[0].modified).getTime();
-
-        // Only propose restoration if:
-        // 1. No observation is loaded, OR
-        // 2. Current observation is older than the most recent autosave
-        let shouldProposeRestore = false;
-        if (!currentObservation) {
-          shouldProposeRestore = true;
-        } else if (currentObservation.updatedAt) {
-          const observationTime = new Date(currentObservation.updatedAt).getTime();
-          // Only propose if autosave is newer than current observation
-          if (mostRecentAutosaveTime > observationTime) {
-            shouldProposeRestore = true;
-          }
-        }
-
-        if (!shouldProposeRestore) {
-          return;
-        }
-
-        // Show file picker dialog directly (no intermediate dialog)
-        const selectedFile = await new Promise<{
-          name: string;
-          path: string;
-          size: number;
-          modified: string;
-        } | null>((resolve) => {
-          $q.dialog({
-            component: AutosaveFilePicker,
-            componentProps: {
-              files: recentFiles,
-            },
-          })
-            .onOk((file: { name: string; path: string; size: number; modified: string }) => {
-              resolve(file);
-            })
-            .onCancel(() => {
-              resolve(null);
-            });
-        });
-
-        if (!selectedFile) {
-          // User cancelled, do nothing
-          return;
-        }
-
-        try {
-          // Import the autosave file (this creates a new observation)
-          const restoredObservation = await importService.importFromFile(
-            selectedFile.path
-          );
-
-          // Rename the restored observation with prefix
-          if (restoredObservation.id) {
-            const originalName = restoredObservation.name;
-            const restoredName = t('appRoot.autosaveRestoreNamePrefix', {
-              name: originalName,
-            });
-            
-            await observationService.update(restoredObservation.id, {
-              name: restoredName,
-            });
-
-            // Reload the observation with the new name
-            await observation.methods.loadObservation(restoredObservation.id);
-          }
-
-          // Delete the autosave file after successful restoration
-          await autosaveService.deleteAutosaveFile(selectedFile.path);
-
-          $q.notify({
-            type: 'positive',
-            message: t('appRoot.restoreSuccess'),
-            caption: t('appRoot.restoreSuccessCaption', {
-              name: restoredObservation.name,
+          const browseAll = await confirmBrowseAutosaves({
+            title: t('appRoot.autosaveOlderTitle'),
+            message: t('appRoot.autosaveOlderMessage', {
+              count: allFilesSorted.length,
             }),
           });
-        } catch (error) {
-          console.error('Error restoring autosave:', error);
-          $q.notify({
-            type: 'negative',
-            message: t('appRoot.restoreError'),
-            caption:
-              error instanceof Error ? error.message : t('common.unknownError'),
+          if (!browseAll) {
+            return;
+          }
+
+          await runAutosaveRestoreFlow(allFilesSorted, 'browse', {
+            skipUpToDateCheck: true,
           });
+          return;
         }
+
+        if (!isAutosaveNewerThanCurrentObservation(recentFiles)) {
+          const olderCount = allFilesSorted.length - recentFiles.length;
+          if (olderCount > 0) {
+            const browseAll = await confirmBrowseAutosaves({
+              title: t('appRoot.autosaveUpToDateTitle'),
+              message: t('appRoot.autosaveUpToDateWithOlder', {
+                count: olderCount,
+              }),
+            });
+
+            if (browseAll) {
+              await runAutosaveRestoreFlow(allFilesSorted, 'browse', {
+                skipUpToDateCheck: true,
+              });
+            }
+          } else {
+            $q.notify({
+              type: 'info',
+              message: t('appRoot.autosaveUpToDate'),
+            });
+          }
+          return;
+        }
+
+        await runAutosaveRestoreFlow(recentFiles, 'recent');
       } catch (error) {
         console.error('Error checking autosave files:', error);
       }

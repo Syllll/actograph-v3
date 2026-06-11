@@ -235,6 +235,24 @@ export class Electron {
     return true;
   }
 
+  public async resetAccess(): Promise<boolean> {
+    const mode = getMode();
+    if (mode !== 'electron') {
+      throw new InternalServerErrorException(
+        'Local user is only available in electron mode',
+      );
+    }
+
+    const configPath = await getConfigPath();
+    const accessFilePath = path.join(configPath, 'access.json');
+
+    if (fs.existsSync(accessFilePath)) {
+      await fs.promises.unlink(accessFilePath);
+    }
+
+    return true;
+  }
+
   public async activateStudent(): Promise<boolean> {
     const mode = getMode();
     if (mode !== 'electron') {

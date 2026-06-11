@@ -116,6 +116,13 @@ export class SecurityController extends BaseController {
     return this.securityService.electron.activateStudent();
   }
 
+  @Post('electron/reset-access')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async electronResetAccess() {
+    return this.securityService.electron.resetAccess();
+  }
+
   @Get('electron/local-user-name')
   async electronLocalUserName(@Req() req: any) {
     const mode = getMode();

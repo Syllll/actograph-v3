@@ -61,7 +61,7 @@
               class="self-start"
               @click="methods.uploadActiveChronicle"
               :loading="state.uploadingActive"
-              :disable="cloud.isCloudFull.value || !observation.sharedState.currentObservation"
+              :disable="cloud.isCloudFull.value || !observation.sharedState.currentObservation || cloud.sharedState.isLoading"
               no-caps
             />
             <q-btn
@@ -71,7 +71,7 @@
               class="self-start"
               @click="methods.uploadFile"
               :loading="state.uploading"
-              :disable="cloud.isCloudFull.value"
+              :disable="cloud.isCloudFull.value || cloud.sharedState.isLoading"
               no-caps
               flat
             />

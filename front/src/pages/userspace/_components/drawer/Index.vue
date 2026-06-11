@@ -234,7 +234,9 @@
                   <q-item-section>{{ $t('drawer.changeLicense') }}</q-item-section>
                 </q-item>
 
-                <q-separator v-if="computedState.isElectron.value" />
+                <q-separator
+                  v-if="computedState.hasAutosaveRestore.value || computedState.isElectron.value"
+                />
 
                 <q-item
                   clickable
@@ -271,6 +273,7 @@ import { useNotifications } from 'src/composables/use-notifications';
 import { useAuth } from '@lib-improba/composables/use-auth';
 import { useLicense } from 'src/composables/use-license';
 import { useCloud } from 'src/composables/use-cloud';
+import securityService from '@services/security/index.service';
 import Logo from '@lib-improba/components/layouts/Logo.vue';
 import LicenseBadge from '@lib-improba/components/layouts/standard/toolbar/license/Index.vue';
 import HelpDialog from '@pages/userspace/_components/HelpDialog.vue';
@@ -399,8 +402,20 @@ export default defineComponent({
             color: 'primary',
           },
         }).onOk(() => {
-          license.methods.clearAccess();
-          void router.replace({ name: 'gateway_choose-version' });
+          return securityService
+            .resetElectronAccess()
+            .then(async () => {
+              license.methods.clearAccess();
+              await router.replace({ name: 'gateway_choose-version' });
+            })
+            .catch((error) => {
+              console.error('Error resetting license access:', error);
+              $q.notify({
+                type: 'negative',
+                message: t('drawer.changeLicenseError'),
+              });
+              return Promise.reject(error);
+            });
         });
       },
 

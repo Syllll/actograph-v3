@@ -29,6 +29,8 @@ export default {
     changeLicenseMessage:
       'Vous allez choisir un autre type d\'accès (étudiant ou professionnel). Vos chroniques enregistrées sur cet ordinateur ne seront pas supprimées.',
     changeLicenseConfirm: 'Continuer',
+    changeLicenseError:
+      'Impossible de réinitialiser l\'accès licence. Réessayez ou redémarrez l\'application.',
     localAccount: 'Mon compte',
     accountMenuTooltip: 'Compte, licence et options',
   },
@@ -433,7 +435,16 @@ export default {
     updateCancel: 'Non',
     updateOk: 'Oui',
     autosaveRestoreNamePrefix: 'Restauration auto — {name}',
-    noAutosaveFiles: 'Aucun fichier d\'autosauvegarde récent à restaurer.',
+    noAutosaveFiles: 'Aucun fichier d\'autosauvegarde à restaurer.',
+    autosaveOlderTitle: 'Sauvegardes plus anciennes',
+    autosaveOlderMessage:
+      'Aucune sauvegarde des dernières 24 heures. {count} fichier(s) plus ancien(s) peuvent encore être restaurés.',
+    autosaveBrowseAll: 'Voir toutes les sauvegardes',
+    autosaveUpToDate:
+      'La chronique ouverte est déjà à jour. Aucune restauration nécessaire.',
+    autosaveUpToDateTitle: 'Chronique à jour',
+    autosaveUpToDateWithOlder:
+      'La chronique ouverte est déjà à jour. Vous pouvez toutefois parcourir {count} sauvegarde(s) plus ancienne(s).',
   },
   updateModal: {
     title: 'Mise à jour disponible',
@@ -476,6 +487,10 @@ export default {
     dialogTitle: 'Restauration automatique',
     intro:
       'Des sauvegardes automatiques récentes ont été trouvées. Sélectionnez celle que vous souhaitez restaurer :',
+    introBrowse:
+      'Sélectionnez la sauvegarde à restaurer. Vérifiez bien la date du fichier choisi.',
+    introAllFiles:
+      'Toutes ces sauvegardes datent de plus de 24 heures.',
     noFiles: 'Aucun fichier disponible.',
     savedOn: 'Sauvegardé le {dateTime}',
     ignore: 'Ignorer',
@@ -591,6 +606,7 @@ export default {
   common: {
     unknownError: 'Erreur inconnue',
     ok: 'OK',
+    close: 'Fermer',
   },
   startup: {
     noEnabledLicenseTitle: 'Aucune licence activée',
@@ -741,6 +757,10 @@ export default {
     downloadTooltip: 'Télécharger et importer',
     deleteTooltip: 'Supprimer du cloud',
     uploadDescriptionDefault: 'Envoyé depuis le bureau',
+    listLoadError: 'Erreur de chargement de la liste cloud',
+    sessionExpired:
+      'Session expirée. Veuillez vous déconnecter et vous reconnecter au cloud.',
+    importError: 'Erreur d\'import depuis le cloud',
     serverError: 'Erreur serveur : {status}',
   },
 };
