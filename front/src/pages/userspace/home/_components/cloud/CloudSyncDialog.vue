@@ -47,30 +47,55 @@
         </q-banner>
 
         <div class="q-pa-md">
-          <div class="text-subtitle2 text-weight-bold text-primary q-mb-sm">
+          <div class="text-subtitle2 text-weight-bold text-primary q-mb-xs">
             {{ $t('cloud.uploadSection') }}
           </div>
-          <div class="row items-center q-gutter-md wrap">
+          <p class="text-caption text-grey-7 q-mb-md">
+            {{ $t('cloud.uploadSectionHint') }}
+          </p>
+          <div class="column q-gutter-sm">
             <q-btn
-              color="primary" icon="mdi-cloud-upload"
+              color="primary"
+              icon="mdi-cloud-upload"
               :label="$t('cloud.uploadActiveChronicle')"
+              class="self-start"
               @click="methods.uploadActiveChronicle"
               :loading="state.uploadingActive"
               :disable="cloud.isCloudFull.value || !observation.sharedState.currentObservation"
               no-caps
-            />
+            >
+              <q-tooltip v-if="!observation.sharedState.currentObservation">
+                {{ $t('cloud.uploadActiveDisabledHint') }}
+              </q-tooltip>
+            </q-btn>
             <q-btn
-              color="primary" icon="mdi-file-upload-outline"
+              color="primary"
+              icon="mdi-file-upload-outline"
               :label="$t('cloud.uploadJchronic')"
+              class="self-start"
               @click="methods.uploadFile"
               :loading="state.uploading"
               :disable="cloud.isCloudFull.value"
-              no-caps outline
+              no-caps
+              flat
             />
-            <span v-if="cloud.isCloudFull.value" class="text-caption text-warning">
-              <q-icon name="mdi-alert" size="xs" class="q-mr-xs" />
+            <p
+              v-if="!observation.sharedState.currentObservation"
+              class="text-caption text-grey-6 q-mb-none"
+            >
+              {{ $t('cloud.uploadActiveDisabledHint') }}
+            </p>
+            <q-banner
+              v-if="cloud.isCloudFull.value"
+              dense
+              rounded
+              class="bg-warning text-dark q-mt-xs"
+            >
+              <template #avatar>
+                <q-icon name="mdi-alert" />
+              </template>
               {{ $t('cloud.cloudFull', { limit: cloud.cloudLimit }) }}
-            </span>
+            </q-banner>
           </div>
         </div>
 

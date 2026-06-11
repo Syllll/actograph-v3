@@ -41,9 +41,17 @@
         </q-tab-panel>
       </q-tab-panels>
 
-      <div v-if="isStudentAccess" class="student-stats-notice q-pa-sm">
+      <q-banner
+        v-if="isStudentAccess"
+        dense
+        rounded
+        class="student-stats-notice q-ma-sm"
+      >
+        <template #avatar>
+          <q-icon name="mdi-school-outline" color="warning" />
+        </template>
         {{ t('licenseUi.studentStatsNotice') }}
-      </div>
+      </q-banner>
     </div>
   </DPage>
 </template>
@@ -100,10 +108,8 @@ export default defineComponent({
 
 <style scoped lang="scss">
 .student-stats-notice {
-  border-top: 1px solid $grey-4;
-  text-align: center;
-  font-size: 0.85rem;
-  color: $grey-7;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(0, 0, 0, 0.02);
+  font-size: 0.85rem;
 }
 </style>

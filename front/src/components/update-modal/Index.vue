@@ -7,33 +7,32 @@
     @update:model-value="$emit('update:triggerOpen', $event)"
   >
     <DScrollArea class="fit q-pa-sm">
-      <div v-if="!state.updateDownloaded" class="column items-center">
-        <p>
+      <div v-if="state.updateDownloaded" class="column items-center text-center q-py-md">
+        <q-icon name="mdi-check-circle-outline" color="positive" size="48px" class="q-mb-sm" />
+        <p class="q-mb-none">{{ $t('updateModal.downloadedBody') }}</p>
+      </div>
+      <div v-else class="column items-center text-center q-py-md q-gutter-sm">
+        <p class="q-mb-none">
           <template v-if="state.isDownloading">
             {{ $t('updateModal.downloading') }}
+          </template>
+          <template v-else-if="state.error">
+            {{ $t('updateModal.errorIntro') }}
           </template>
           <template v-else>
             {{ $t('updateModal.readyToDownload') }}
           </template>
         </p>
         <DProgressBar
+          v-if="state.isDownloading || state.progress > 0"
           color="accent"
           :value="state.progress"
           :label="state.progressPercentage"
-          style="width: 10rem"
+          class="update-progress"
         />
-      </div>
-      <div v-else>
-        <p>
-          {{ $t('updateModal.downloadedBody') }}
+        <p v-if="state.error" class="text-negative text-body2 q-mb-none">
+          {{ state.error }}
         </p>
-      </div>
-
-      <div v-if="state.error">
-        <p>
-          {{ $t('updateModal.errorIntro') }}
-        </p>
-        <p>{{ state.error }}</p>
       </div>
     </DScrollArea>
 
@@ -56,8 +55,8 @@
         @click="methods.retryDownload"
       />
       <DSubmitBtn
+        v-if="state.updateDownloaded"
         :label="$t('updateModal.restartInstall')"
-        :disabled="!state.updateDownloaded"
         class="q-mx-sm"
         @click="methods.submit"
       />
@@ -175,4 +174,8 @@ export default defineComponent({
 });
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.update-progress {
+  width: min(100%, 20rem);
+}
+</style>

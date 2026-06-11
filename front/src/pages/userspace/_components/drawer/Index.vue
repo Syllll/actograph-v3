@@ -197,6 +197,9 @@
               </div>
             </div>
             <q-icon name="mdi-chevron-up" size="18px" class="q-ml-xs" />
+            <q-tooltip anchor="top middle" self="bottom middle">
+              {{ $t('drawer.accountMenuTooltip') }}
+            </q-tooltip>
 
             <q-menu
               anchor="top left"
@@ -228,18 +231,6 @@
                     <q-icon name="mdi-card-account-details-outline" />
                   </q-item-section>
                   <q-item-section>{{ $t('drawer.changeLicense') }}</q-item-section>
-                </q-item>
-
-                <q-item
-                  clickable
-                  v-close-popup
-                  v-ripple
-                  @click="methods.openPreferencesDialog"
-                >
-                  <q-item-section avatar>
-                    <q-icon name="settings" />
-                  </q-item-section>
-                  <q-item-section>{{ $t('drawer.preferences') }}</q-item-section>
                 </q-item>
 
                 <q-separator />
@@ -318,21 +309,22 @@ export default defineComponent({
       }),
       accountLabel: computed(() => {
         void locale.value;
-        if (isProfessionalAccess.value) {
-          return t('licenseUi.accessProfessional');
-        }
-        if (isStudentAccess.value) {
-          return t('licenseUi.accessStudent');
-        }
-        return t('drawer.accountUnknown');
-      }),
-      accountCaption: computed(() => {
         if (cloud.sharedState.isAuthenticated && cloud.sharedState.currentEmail) {
           return cloud.sharedState.currentEmail;
         }
         const owner = license.sharedState.license?.owner;
         if (owner) {
           return owner;
+        }
+        return t('drawer.localAccount');
+      }),
+      accountCaption: computed(() => {
+        void locale.value;
+        if (isProfessionalAccess.value) {
+          return t('licenseUi.accessProfessional');
+        }
+        if (isStudentAccess.value) {
+          return t('licenseUi.accessStudent');
         }
         return '';
       }),
@@ -453,6 +445,6 @@ export default defineComponent({
 }
 
 .user-name {
-  max-width: 150px;
+  max-width: 100%;
 }
 </style>

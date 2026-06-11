@@ -30,6 +30,8 @@ export default {
       'You will choose another access type (student or professional). Chronicles saved on this computer will not be deleted.',
     changeLicenseConfirm: 'Continue',
     accountUnknown: 'ActoGraph account',
+    localAccount: 'My account',
+    accountMenuTooltip: 'Account, license and options',
   },
   chronicle: {
     home: 'Home',
@@ -665,6 +667,7 @@ export default {
     },
     saveAs: {
       title: 'Save as',
+      sourceLabel: 'Source chronicle: {name}',
       hint: 'Choose a new name for this chronicle copy.',
       namePlaceholder: 'New chronicle name',
       nameRequired: 'Name is required',
@@ -694,6 +697,10 @@ export default {
     refresh: 'Refresh',
     changeAccount: 'Switch account',
     uploadSection: 'Upload to cloud',
+    uploadSectionHint:
+      'Send the open chronicle directly, or pick a .jchronic file already saved on this computer.',
+    uploadActiveDisabledHint:
+      'Load or create a chronicle to upload it directly to the cloud.',
     uploadActiveChronicle: 'Upload active chronicle',
     uploadActiveSuccessCaption: 'Chronicle « {name} » was uploaded to the cloud.',
     noActiveChronicle: 'No active chronicle to upload.',

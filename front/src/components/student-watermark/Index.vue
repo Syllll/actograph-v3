@@ -33,10 +33,10 @@ export default defineComponent({
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.14);
 
   .body--dark & {
-    color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.14);
   }
   transform: rotate(-24deg);
   user-select: none;

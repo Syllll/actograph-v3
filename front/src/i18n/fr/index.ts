@@ -30,6 +30,8 @@ export default {
       'Vous allez choisir un autre type d\'accès (étudiant ou professionnel). Vos chroniques enregistrées sur cet ordinateur ne seront pas supprimées.',
     changeLicenseConfirm: 'Continuer',
     accountUnknown: 'Compte ActoGraph',
+    localAccount: 'Mon compte',
+    accountMenuTooltip: 'Compte, licence et options',
   },
   chronicle: {
     home: 'Accueil',
@@ -671,6 +673,7 @@ export default {
     },
     saveAs: {
       title: 'Enregistrer sous un autre nom',
+      sourceLabel: 'Chronique source : {name}',
       hint: 'Choisissez un nouveau nom pour cette copie de chronique.',
       namePlaceholder: 'Nouveau nom de la chronique',
       nameRequired: 'Le nom est requis',
@@ -700,6 +703,10 @@ export default {
     refresh: 'Actualiser',
     changeAccount: 'Changer de compte',
     uploadSection: 'Envoyer vers le cloud',
+    uploadSectionHint:
+      'Envoyez la chronique ouverte directement, ou choisissez un fichier .jchronic déjà enregistré sur cet ordinateur.',
+    uploadActiveDisabledHint:
+      'Chargez ou créez une chronique pour l\'envoyer directement vers le cloud.',
     uploadActiveChronicle: 'Envoyer la chronique active',
     uploadActiveSuccessCaption: 'La chronique « {name} » a été envoyée vers le cloud.',
     noActiveChronicle: 'Aucune chronique active à envoyer.',
