@@ -49,7 +49,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, onMounted, computed } from 'vue';
+import { defineComponent, reactive, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useObservation } from 'src/composables/use-observation';
@@ -70,11 +70,7 @@ export default defineComponent({
     const { t } = useI18n();
     const statistics = useStatistics();
     const observation = useObservation();
-    const license = useLicense();
-
-    const isStudentAccess = computed(
-      () => license.sharedState.license === null && license.sharedState.type === 'student',
-    );
+    const { isStudentAccess } = useLicense();
 
     const state = reactive({
       activeTab: 'general',

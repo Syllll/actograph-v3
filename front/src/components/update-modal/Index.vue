@@ -109,39 +109,42 @@ export default defineComponent({
         }
       },
       init: async () => {
-        if (state.initialized) {
-          return;
+        if (!state.initialized) {
+          systemService.onUpdateDownloadProgress((data) => {
+            const parsedPercent = typeof data.percent === 'number'
+              ? data.percent
+              : Number(data.percent);
+            const safePercent = Number.isFinite(parsedPercent) ? parsedPercent : 0;
+            const percent = safePercent.toFixed(2);
+            state.progress = parseFloat(percent) / 100;
+            state.progressPercentage = `${percent}%`;
+          });
+          systemService.onUpdateDownloaded(() => {
+            state.updateDownloaded = true;
+            state.isDownloading = false;
+            state.error = '';
+            state.progress = 1;
+            state.progressPercentage = '100.00%';
+            console.info('Update downloaded');
+          });
+          systemService.onUpdateError((error) => {
+            state.isDownloading = false;
+            state.error = error?.message || t('common.unknownError');
+            console.error('Error while downloading update', error);
+          });
+
+          state.initialized = true;
         }
 
-        systemService.onUpdateDownloadProgress((data) => {
-          const parsedPercent = typeof data.percent === 'number'
-            ? data.percent
-            : Number(data.percent);
-          const safePercent = Number.isFinite(parsedPercent) ? parsedPercent : 0;
-          const percent = safePercent.toFixed(2);
-          state.progress = parseFloat(percent) / 100;
-          state.progressPercentage = `${percent}%`;
-        });
-        systemService.onUpdateDownloaded(() => {
-          state.updateDownloaded = true;
-          state.isDownloading = false;
-          state.error = '';
-          state.progress = 1;
-          state.progressPercentage = '100.00%';
-          console.info('Update downloaded');
-        });
-        systemService.onUpdateError((error) => {
-          state.isDownloading = false;
-          state.error = error?.message || t('common.unknownError');
-          console.error('Error while downloading update', error);
-        });
-
-        state.initialized = true;
+        if (!state.updateDownloaded && !state.isDownloading && !state.error) {
+          await methods.startDownload();
+        }
       },
       retryDownload: async () => {
         state.progress = 0;
         state.progressPercentage = '0.00%';
         state.updateDownloaded = false;
+        state.error = '';
         await methods.startDownload();
       },
       close: () => {

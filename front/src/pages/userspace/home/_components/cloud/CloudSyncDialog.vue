@@ -166,7 +166,6 @@ import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { useCloud } from 'src/composables/use-cloud';
 import { useObservation } from 'src/composables/use-observation';
 import type { ICloudChronicle } from '@services/cloud/actograph-cloud.service';
-import { exportService } from '@services/observations/export.service';
 import { DDialogCard, DCancelBtn } from '@lib-improba/components';
 
 export default defineComponent({
@@ -222,38 +221,32 @@ export default defineComponent({
           return;
         }
 
-        const token = localStorage.getItem('actograph_cloud_token');
-        if (!token) {
+        if (!cloud.sharedState.isAuthenticated) {
           $q.notify({ type: 'negative', message: t('cloud.notAuthenticated') });
           return;
         }
 
         state.uploadingActive = true;
         try {
-          const { fileName, content } = await exportService.buildJchronicExport(currentObservation);
-          const formData = new FormData();
-          formData.append('name', currentObservation.name);
-          formData.append('description', t('cloud.uploadDescriptionDefault'));
-          const blob = new Blob([content], { type: 'application/json' });
-          formData.append('chronic', blob, fileName);
+          const result = await cloud.methods.uploadChronicle(
+            currentObservation.id,
+            currentObservation.name,
+            t('cloud.uploadDescriptionDefault'),
+          );
 
-          const response = await fetch('https://actograph.io/api/cloud/chronic', {
-            method: 'POST',
-            headers: { 'X-Auth-Token': token },
-            body: formData,
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || t('cloud.serverError', { status: String(response.status) }));
+          if (result.success) {
+            $q.notify({
+              type: 'positive',
+              message: t('cloud.uploadSuccess'),
+              caption: t('cloud.uploadActiveSuccessCaption', { name: currentObservation.name }),
+            });
+          } else {
+            $q.notify({
+              type: 'negative',
+              message: t('cloud.uploadError'),
+              caption: result.error || t('common.unknownError'),
+            });
           }
-
-          await cloud.methods.refreshList();
-          $q.notify({
-            type: 'positive',
-            message: t('cloud.uploadSuccess'),
-            caption: t('cloud.uploadActiveSuccessCaption', { name: currentObservation.name }),
-          });
         } catch (error: any) {
           console.error('Active chronicle upload error:', error);
           $q.notify({

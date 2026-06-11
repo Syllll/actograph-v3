@@ -5,17 +5,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed } from 'vue';
+import { defineComponent } from 'vue';
 import { useLicense } from 'src/composables/use-license';
 
 export default defineComponent({
   name: 'StudentWatermark',
   setup() {
-    const license = useLicense();
-
-    const isStudentAccess = computed(
-      () => license.sharedState.license === null && license.sharedState.type === 'student',
-    );
+    const { isStudentAccess } = useLicense();
 
     return {
       isStudentAccess,
@@ -37,7 +33,11 @@ export default defineComponent({
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.1);
+
+  .body--dark & {
+    color: rgba(255, 255, 255, 0.1);
+  }
   transform: rotate(-24deg);
   user-select: none;
   white-space: nowrap;

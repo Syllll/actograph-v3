@@ -221,26 +221,5 @@ export const exportService = {
 
     return duplicatedObservation;
   },
-
-  /**
-   * Prépare le contenu .jchronic d'une observation pour un upload distant (cloud).
-   */
-  async buildJchronicExport(
-    observation: IObservation,
-  ): Promise<{ fileName: string; content: string }> {
-    if (!observation.id) {
-      throw new Error(serviceT('services.observationIdRequired'));
-    }
-
-    const exportData = await observationService.exportObservation(observation.id);
-    const jsonContent = JSON.stringify(exportData, null, 2);
-    const sanitizedFileName = observation.name
-      .replace(/[^a-z0-9]/gi, '_')
-      .toLowerCase()
-      .substring(0, 50);
-    const fileName = `${sanitizedFileName || 'chronique'}.jchronic`;
-
-    return { fileName, content: jsonContent };
-  },
 };
 

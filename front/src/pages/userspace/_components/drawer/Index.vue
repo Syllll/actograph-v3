@@ -294,6 +294,7 @@ export default defineComponent({
     const router = useRouter();
     const auth = useAuth(router);
     const license = useLicense();
+    const { isStudentAccess, isProfessionalAccess } = license;
     const cloud = useCloud();
     const observation = useObservation();
     const $q = useQuasar();
@@ -317,10 +318,10 @@ export default defineComponent({
       }),
       accountLabel: computed(() => {
         void locale.value;
-        if (license.sharedState.license) {
+        if (isProfessionalAccess.value) {
           return t('licenseUi.accessProfessional');
         }
-        if (license.sharedState.license === null && license.sharedState.type === 'student') {
+        if (isStudentAccess.value) {
           return t('licenseUi.accessStudent');
         }
         return t('drawer.accountUnknown');
@@ -405,7 +406,8 @@ export default defineComponent({
             color: 'primary',
           },
         }).onOk(() => {
-          void router.push({ name: 'gateway_choose-version' });
+          license.methods.clearAccess();
+          void router.replace({ name: 'gateway_choose-version' });
         });
       },
 

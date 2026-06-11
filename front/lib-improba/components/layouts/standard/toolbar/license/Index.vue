@@ -1,9 +1,9 @@
 <template>
   <div class="row">
-    <template v-if="license.sharedState.license">
+    <template v-if="isProfessionalAccess">
       <License />
     </template>
-    <template v-else>
+    <template v-else-if="isStudentAccess">
       <Student />
     </template>
   </div>
@@ -25,7 +25,7 @@ export default defineComponent({
   setup(props) {
     const quasar = useQuasar();
     const router = useRouter();
-    const license = useLicense();
+    const { isProfessionalAccess, isStudentAccess } = useLicense();
 
     const stateless = {
       quasar,
@@ -45,7 +45,8 @@ export default defineComponent({
       computedState,
       methods,
       screen: quasar.screen,
-      license,
+      isProfessionalAccess,
+      isStudentAccess,
     };
   },
 });
