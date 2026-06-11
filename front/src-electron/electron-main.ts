@@ -269,7 +269,23 @@ function createBackgroundProcess(port: number) {
   return promise;
 }
 
+function ensureActographFolder() {
+  try {
+    const documentsPath = app.getPath('documents');
+    const actographFolder = path.join(documentsPath, 'Actograph');
+
+    if (!fs.existsSync(actographFolder)) {
+      fs.mkdirSync(actographFolder, { recursive: true });
+      log.info('Created Actograph folder on startup:', actographFolder);
+    }
+  } catch (error) {
+    log.error('Error ensuring Actograph folder on startup:', error);
+  }
+}
+
 app.whenReady().then(async () => {
+  ensureActographFolder();
+
   if (process.env.PROD) {
     serverPort = await getPort();
   }
