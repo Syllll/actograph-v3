@@ -78,8 +78,9 @@
       Composant canvas personnalisé qui sera utilisé par PixiJS pour le rendu.
       Le canvas est référencé pour être passé à PixiApp lors de l'initialisation.
     -->
-    <div class="canvas-container fit">
+    <div class="canvas-container fit relative-position">
       <d-canvas class="fit" ref="canvasRef" />
+      <StudentWatermark />
     </div>
   </div>
 </template>
@@ -92,6 +93,7 @@ import { useGraphCustomization } from '../graph-customization-drawer/use-graph-c
 import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
 import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
+import StudentWatermark from '@components/student-watermark/Index.vue';
 
 /**
  * Composant principal du graphique d'activité.
@@ -106,6 +108,9 @@ import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
  * l'initialisation et le cycle de vie de l'application PixiJS.
  */
 export default defineComponent({
+  components: {
+    StudentWatermark,
+  },
   props: {
     drawerWidthPx: {
       type: Number,

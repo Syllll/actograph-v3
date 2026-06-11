@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <div v-else class="fit column">
+    <div v-else class="fit column relative-position">
       <q-tabs
         v-model="state.activeTab"
         dense
@@ -40,15 +40,20 @@
           <ConditionalStatisticsView />
         </q-tab-panel>
       </q-tab-panels>
+
+      <div v-if="isStudentAccess" class="student-stats-notice q-pa-sm">
+        {{ t('licenseUi.studentStatsNotice') }}
+      </div>
     </div>
   </DPage>
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, onMounted } from 'vue';
+import { defineComponent, reactive, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useObservation } from 'src/composables/use-observation';
+import { useLicense } from 'src/composables/use-license';
 import { DPage } from '@lib-improba/components';
 import GeneralStatisticsView from './_components/GeneralStatisticsView.vue';
 import CategoryStatisticsView from './_components/CategoryStatisticsView.vue';
@@ -65,6 +70,11 @@ export default defineComponent({
     const { t } = useI18n();
     const statistics = useStatistics();
     const observation = useObservation();
+    const license = useLicense();
+
+    const isStudentAccess = computed(
+      () => license.sharedState.license === null && license.sharedState.type === 'student',
+    );
 
     const state = reactive({
       activeTab: 'general',
@@ -86,7 +96,18 @@ export default defineComponent({
       statistics,
       observation,
       state,
+      isStudentAccess,
     };
   },
 });
 </script>
+
+<style scoped lang="scss">
+.student-stats-notice {
+  border-top: 1px solid $grey-4;
+  text-align: center;
+  font-size: 0.85rem;
+  color: $grey-7;
+  background: rgba(0, 0, 0, 0.02);
+}
+</style>

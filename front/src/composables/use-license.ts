@@ -10,6 +10,7 @@ export const useLicense = () => {
   const methods = {
     setLicense(license: ILicense | null) {
       sharedState.license = license;
+      sharedState.type = license ? 'license' : 'student';
     },
   };
 
