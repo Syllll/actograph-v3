@@ -23,6 +23,13 @@ export default {
   drawer: {
     help: 'Aide',
     preferences: 'Préférences',
+    preferencesDisplay: 'Préférences et affichage',
+    changeLicense: 'Changer de licence',
+    changeLicenseTitle: 'Changer de licence',
+    changeLicenseMessage:
+      'Vous allez choisir un autre type d\'accès (étudiant ou professionnel). Vos chroniques enregistrées sur cet ordinateur ne seront pas supprimées.',
+    changeLicenseConfirm: 'Continuer',
+    accountUnknown: 'Compte ActoGraph',
   },
   chronicle: {
     home: 'Accueil',
@@ -425,6 +432,7 @@ export default {
     updateCancel: 'Non',
     updateOk: 'Oui',
     autosaveRestoreNamePrefix: 'Restauration auto — {name}',
+    noAutosaveFiles: 'Aucun fichier d\'autosauvegarde récent à restaurer.',
   },
   updateModal: {
     title: 'Mise à jour disponible',
@@ -437,6 +445,7 @@ export default {
     errorIntro:
       'Une erreur est survenue lors du téléchargement de la mise à jour. Vous pouvez réessayer ou fermer cette fenêtre et continuer.',
     later: 'Plus tard',
+    download: 'Télécharger la mise à jour',
   },
   adminUsers: {
     create: 'Créer',
@@ -529,6 +538,9 @@ export default {
   licenseUi: {
     accessProfessional: 'Accès professionnel',
     accessStudent: 'Accès étudiant',
+    studentWatermark: 'Accès étudiant',
+    studentStatsNotice:
+      'Statistiques affichées en accès étudiant. Une licence professionnelle supprime cette mention.',
     version: 'Version',
     yourLicense: 'Votre licence',
     aboutTitle: 'À propos d\'ActoGraph',
@@ -659,6 +671,7 @@ export default {
     },
     saveAs: {
       title: 'Enregistrer sous un autre nom',
+      hint: 'Choisissez un nouveau nom pour cette copie de chronique.',
       namePlaceholder: 'Nouveau nom de la chronique',
       nameRequired: 'Le nom est requis',
       submit: 'Enregistrer',
@@ -687,6 +700,9 @@ export default {
     refresh: 'Actualiser',
     changeAccount: 'Changer de compte',
     uploadSection: 'Envoyer vers le cloud',
+    uploadActiveChronicle: 'Envoyer la chronique active',
+    uploadActiveSuccessCaption: 'La chronique « {name} » a été envoyée vers le cloud.',
+    noActiveChronicle: 'Aucune chronique active à envoyer.',
     uploadJchronic: 'Envoyer un fichier .jchronic',
     cloudFull: 'Cloud plein ({limit} fichiers max)',
     filesSection: 'Fichiers dans le cloud',

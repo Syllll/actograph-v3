@@ -166,6 +166,12 @@
         <q-separator />
 
         <q-list dense class="q-py-xs">
+          <q-item clickable v-ripple @click="methods.openPreferencesDialog">
+            <q-item-section avatar>
+              <q-icon name="settings" />
+            </q-item-section>
+            <q-item-section>{{ $t('drawer.preferencesDisplay') }}</q-item-section>
+          </q-item>
           <q-item clickable v-ripple @click="methods.openHelpDialog">
             <q-item-section avatar>
               <q-icon name="help_outline" />
@@ -179,8 +185,16 @@
         <div class="user-bar q-px-sm q-py-xs">
           <div class="row items-center no-wrap cursor-pointer user-bar-trigger" v-ripple>
             <q-avatar size="28px" color="primary" text-color="white" icon="person" />
-            <div class="q-ml-sm text-weight-medium text-truncate user-name col">
-              {{ computedState.userName.value }}
+            <div class="col q-ml-sm column justify-center" style="min-width: 0">
+              <div class="text-weight-medium text-truncate user-name">
+                {{ computedState.accountLabel.value }}
+              </div>
+              <div
+                v-if="computedState.accountCaption.value"
+                class="text-caption text-grey-7 text-truncate"
+              >
+                {{ computedState.accountCaption.value }}
+              </div>
             </div>
             <q-icon name="mdi-chevron-up" size="18px" class="q-ml-xs" />
 
@@ -201,6 +215,19 @@
                     <q-icon name="mdi-backup-restore" />
                   </q-item-section>
                   <q-item-section>{{ $t('layout.menuAutosave') }}</q-item-section>
+                </q-item>
+
+                <q-item
+                  v-if="computedState.isElectron.value"
+                  clickable
+                  v-close-popup
+                  v-ripple
+                  @click="methods.changeLicense"
+                >
+                  <q-item-section avatar>
+                    <q-icon name="mdi-card-account-details-outline" />
+                  </q-item-section>
+                  <q-item-section>{{ $t('drawer.changeLicense') }}</q-item-section>
                 </q-item>
 
                 <q-item
@@ -238,7 +265,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, inject } from 'vue';
+import { defineComponent, computed, inject, onMounted } from 'vue';
+import { useQuasar } from 'quasar';
 import { menu } from './menu';
 import { useDrawer } from 'src/composables/use-drawer';
 import { useRouter } from 'vue-router';
@@ -249,6 +277,8 @@ import { useChronicleActions } from 'src/composables/use-chronicle-actions';
 import { useChronicleNavigation, type ChronicleNavStep } from 'src/composables/use-chronicle-navigation';
 import { useNotifications } from 'src/composables/use-notifications';
 import { useAuth } from '@lib-improba/composables/use-auth';
+import { useLicense } from 'src/composables/use-license';
+import { useCloud } from 'src/composables/use-cloud';
 import Logo from '@lib-improba/components/layouts/Logo.vue';
 import LicenseBadge from '@lib-improba/components/layouts/standard/toolbar/license/Index.vue';
 import HelpDialog from '@pages/userspace/_components/HelpDialog.vue';
@@ -263,7 +293,10 @@ export default defineComponent({
     const drawer = useDrawer();
     const router = useRouter();
     const auth = useAuth(router);
+    const license = useLicense();
+    const cloud = useCloud();
     const observation = useObservation();
+    const $q = useQuasar();
     const { t, locale } = useI18n();
     const chronicleActions = useChronicleActions();
     const chronicleNav = useChronicleNavigation();
@@ -282,18 +315,35 @@ export default defineComponent({
         if (!name) return '';
         return name.trim();
       }),
-      userName: computed(() => {
-        const user = auth.sharedState?.user;
-        let userName = user?.firstname ?? user?.userJwt?.username ?? '';
-
-        if (userName.startsWith('_pc-')) {
-          userName = userName.slice(4);
+      accountLabel: computed(() => {
+        void locale.value;
+        if (license.sharedState.license) {
+          return t('licenseUi.accessProfessional');
         }
-
-        return userName;
+        if (license.sharedState.license === null && license.sharedState.type === 'student') {
+          return t('licenseUi.accessStudent');
+        }
+        return t('drawer.accountUnknown');
       }),
-      hasAutosaveRestore: computed(() => Boolean(autosaveRestore)),
+      accountCaption: computed(() => {
+        if (cloud.sharedState.isAuthenticated && cloud.sharedState.currentEmail) {
+          return cloud.sharedState.currentEmail;
+        }
+        const owner = license.sharedState.license?.owner;
+        if (owner) {
+          return owner;
+        }
+        return '';
+      }),
+      hasAutosaveRestore: computed(
+        () => process.env.MODE === 'electron' && Boolean(autosaveRestore),
+      ),
+      isElectron: computed(() => process.env.MODE === 'electron'),
     };
+
+    onMounted(() => {
+      void cloud.methods.init();
+    });
 
     const methods = {
       goToLicense: () => {
@@ -341,6 +391,22 @@ export default defineComponent({
         } catch (error) {
           console.error('Error in autosave restore:', error);
         }
+      },
+
+      changeLicense: () => {
+        $q.dialog({
+          class: 'actograph-dialog',
+          title: t('drawer.changeLicenseTitle'),
+          message: t('drawer.changeLicenseMessage'),
+          cancel: true,
+          persistent: true,
+          ok: {
+            label: t('drawer.changeLicenseConfirm'),
+            color: 'primary',
+          },
+        }).onOk(() => {
+          void router.push({ name: 'gateway_choose-version' });
+        });
       },
 
       logout: () => {

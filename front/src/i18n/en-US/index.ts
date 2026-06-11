@@ -23,6 +23,13 @@ export default {
   drawer: {
     help: 'Help',
     preferences: 'Preferences',
+    preferencesDisplay: 'Preferences and display',
+    changeLicense: 'Change license',
+    changeLicenseTitle: 'Change license',
+    changeLicenseMessage:
+      'You will choose another access type (student or professional). Chronicles saved on this computer will not be deleted.',
+    changeLicenseConfirm: 'Continue',
+    accountUnknown: 'ActoGraph account',
   },
   chronicle: {
     home: 'Home',
@@ -419,6 +426,7 @@ export default {
     updateCancel: 'No',
     updateOk: 'Yes',
     autosaveRestoreNamePrefix: 'Auto-restore — {name}',
+    noAutosaveFiles: 'No recent autosave file to restore.',
   },
   updateModal: {
     title: 'Update available',
@@ -431,6 +439,7 @@ export default {
     errorIntro:
       'Something went wrong while downloading the update. You can retry or close this window and continue.',
     later: 'Later',
+    download: 'Download update',
   },
   adminUsers: {
     create: 'Create',
@@ -523,6 +532,9 @@ export default {
   licenseUi: {
     accessProfessional: 'Professional access',
     accessStudent: 'Student access',
+    studentWatermark: 'Student access',
+    studentStatsNotice:
+      'Statistics shown with student access. A professional license removes this notice.',
     version: 'Version',
     yourLicense: 'Your license',
     aboutTitle: 'About ActoGraph',
@@ -653,6 +665,7 @@ export default {
     },
     saveAs: {
       title: 'Save as',
+      hint: 'Choose a new name for this chronicle copy.',
       namePlaceholder: 'New chronicle name',
       nameRequired: 'Name is required',
       submit: 'Save',
@@ -681,6 +694,9 @@ export default {
     refresh: 'Refresh',
     changeAccount: 'Switch account',
     uploadSection: 'Upload to cloud',
+    uploadActiveChronicle: 'Upload active chronicle',
+    uploadActiveSuccessCaption: 'Chronicle « {name} » was uploaded to the cloud.',
+    noActiveChronicle: 'No active chronicle to upload.',
     uploadJchronic: 'Upload a .jchronic file',
     cloudFull: 'Cloud full ({limit} files max)',
     filesSection: 'Files in the cloud',
