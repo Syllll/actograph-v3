@@ -129,6 +129,10 @@ export default defineComponent({
         const files = await autosaveService.listAutosaveFiles();
 
         if (files.length === 0) {
+          $q.notify({
+            type: 'info',
+            message: t('appRoot.noAutosaveFiles'),
+          });
           return;
         }
 
