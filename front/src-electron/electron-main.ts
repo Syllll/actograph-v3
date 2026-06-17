@@ -6,10 +6,12 @@ import {
   ipcMain,
   dialog,
   shell,
+  powerMonitor,
 } from 'electron';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
+import http from 'http';
 import { fork, execSync } from 'child_process';
 import {
   getPort,
@@ -40,6 +42,12 @@ let serverProcess: any = null;
 let serverWorker: Worker | undefined;
 let serverPort: number | undefined;
 let isAutoUpdaterConfigured = false;
+let isRestartingBackend = false;
+let intentionalBackendKill = false;
+let isAppQuitting = false;
+let backendEnsurePromise: Promise<boolean> | null = null;
+const BACKEND_HEALTH_TIMEOUT_MS = 10_000;
+const BACKEND_STARTUP_TIMEOUT_MS = 60_000;
 const publicFolder = path.resolve(
   __dirname,
   <string>process.env.QUASAR_PUBLIC_FOLDER
@@ -145,6 +153,7 @@ async function createWindow() {
       // Allow loading local files via file:// protocol for video streaming
       // This is safe in Electron desktop app context since we already have file system access via IPC
       webSecurity: false,
+      backgroundThrottling: false,
     },
   });
 
@@ -189,25 +198,40 @@ async function createWindow() {
  * The API is bundled into a single file (api.bundle.js) for faster installation and startup.
  * @param port The port to run the server on
  */
-function createBackgroundProcess(port: number) {
-  const promise = new Promise((accept, reject) => {
+function createBackgroundProcess(port: number): Promise<void> {
+  return new Promise((accept, reject) => {
+    let settled = false;
+
+    const settle = (action: 'accept' | 'reject', value?: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(startupTimeout);
+      if (action === 'accept') {
+        accept(undefined);
+      } else {
+        reject(value);
+      }
+    };
+
+    const startupTimeout = setTimeout(() => {
+      log.error('Backend startup timeout');
+      killServerProcess();
+      settle('reject', new Error('Backend startup timeout'));
+    }, BACKEND_STARTUP_TIMEOUT_MS);
+
     try {
       const envPath = path.join(
         process.resourcesPath,
         'src-electron/extra-resources/api/.env'
       );
-      // Use the bundled API file instead of the original dist/src/main.js
       const serverPath = path.join(
         process.resourcesPath,
         'src-electron/extra-resources/api/api.bundle.js'
       );
+      const dbPath = path.join(app.getPath('userData'));
 
-      // Get the path to the database file, the path depends on the platform with must be located in the application data folder
-      const dbPath = path.join(
-        app.getPath('userData') // This gets the per-user application data directory
-      );
-
-      // stdio ensure we can capture all output streams
       serverProcess = fork(
         serverPath,
         ['--subprocess', port.toString(), envPath, dbPath],
@@ -220,53 +244,183 @@ function createBackgroundProcess(port: number) {
         }
       );
 
-      // Listeners for both stdout and stderr streams
-      // Prefixes to the console output ([Server Process] and [Server Process Error])
-      // to distinguish the child process output from the main process output
       serverProcess.stdout?.on('data', (data: Buffer) => {
         const message = `[Server Process] ${data.toString().trim()}`;
         console.log(message);
-        log.info(message); // Also write to electron-log
+        log.info(message);
 
         if (message.includes('*** App server starting... ***')) {
           console.log('App server is starting...');
           log.info('App server is starting...');
-          accept({});
+          settle('accept');
         }
       });
+
       serverProcess.stderr?.on('data', (data: Buffer) => {
         const message = `[Server Process Error] ${data.toString().trim()}`;
         console.error(message);
-        log.error(message); // Also write to electron-log
+        log.error(message);
       });
 
       serverProcess.on('message', (msg: string) => {
         console.log('message:', msg);
-        log.info(`[Server IPC] ${msg}`); // Log IPC messages too
+        log.info(`[Server IPC] ${msg}`);
       });
 
-      // Add error handler for the fork process
       serverProcess.on('error', (err) => {
         console.error('Failed to start server process:', err);
         log.error('Failed to start server process:', err);
+        if (!settled) {
+          settle('reject', err);
+        }
       });
 
-      // Add exit handler to detect if process exits unexpectedly
       serverProcess.on('exit', (code, signal) => {
-        if (code !== 0) {
+        const wasIntentional = intentionalBackendKill;
+        intentionalBackendKill = false;
+        serverProcess = null;
+
+        if (!settled) {
+          settle(
+            'reject',
+            new Error(`Server process exited before ready (code=${code}, signal=${signal})`)
+          );
+          return;
+        }
+
+        if (!wasIntentional && !isAppQuitting) {
           console.error(`Server process exited with code ${code} and signal ${signal}`);
           log.error(`Server process exited with code ${code} and signal ${signal}`);
+          void ensureBackendRunning();
         }
       });
     } catch (error) {
       console.error('Error while creating background process', error);
       log.error('Error while creating background process', error);
-      reject({msg: 'Error while creating background process', error});
-      // throw error;
+      settle('reject', error);
     }
   });
+}
 
-  return promise;
+function notifyBackendStatus(status: string, message: string) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('server-status', {
+      status,
+      message,
+      serverPort,
+    });
+  }
+}
+
+function killServerProcess() {
+  if (serverProcess) {
+    intentionalBackendKill = true;
+    serverProcess.kill();
+    serverProcess = null;
+  }
+}
+
+function checkBackendHealth(): Promise<boolean> {
+  if (!serverPort) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    const req = http.get(
+      `http://127.0.0.1:${serverPort}/security/say-hi`,
+      { timeout: BACKEND_HEALTH_TIMEOUT_MS },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk: Buffer) => {
+          body += chunk.toString();
+        });
+        res.on('end', () => {
+          resolve(res.statusCode === 200 && body.includes('hi'));
+        });
+        res.on('error', () => resolve(false));
+      }
+    );
+
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function restartBackend(): Promise<boolean> {
+  if (!serverPort) {
+    return false;
+  }
+
+  isRestartingBackend = true;
+  notifyBackendStatus('backend-restarting', 'Redémarrage du serveur...');
+  killServerProcess();
+
+  let started = false;
+  for (let tryCount = 0; tryCount < 3 && !started; tryCount++) {
+    try {
+      await createBackgroundProcess(serverPort);
+      await waitForPort(serverPort, {
+        host: '127.0.0.1',
+        retries: 60,
+        delay: 500,
+      });
+      started = await checkBackendHealth();
+      if (!started) {
+        killServerProcess();
+      }
+    } catch (err) {
+      killServerProcess();
+      console.error(err);
+      log.error(`Failed to restart backend (attempt ${tryCount + 1}/3):`, err);
+    }
+  }
+
+  isRestartingBackend = false;
+
+  if (started) {
+    notifyBackendStatus('backend-ready', 'Serveur prêt');
+    return true;
+  }
+
+  notifyBackendStatus('backend-error', 'Échec du redémarrage du serveur');
+  return false;
+}
+
+async function ensureBackendRunning(): Promise<boolean> {
+  if (!process.env.PROD || !serverPort) {
+    return true;
+  }
+
+  if (backendEnsurePromise) {
+    return backendEnsurePromise;
+  }
+
+  backendEnsurePromise = (async () => {
+    const healthy = await checkBackendHealth();
+    if (healthy) {
+      return true;
+    }
+    return restartBackend();
+  })();
+
+  try {
+    return await backendEnsurePromise;
+  } finally {
+    backendEnsurePromise = null;
+  }
+}
+
+function setupPowerMonitor() {
+  powerMonitor.on('resume', () => {
+    log.info('System resumed from sleep');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('app-resume', {});
+    }
+    void ensureBackendRunning();
+  });
 }
 
 function ensureActographFolder() {
@@ -309,9 +463,18 @@ app.whenReady().then(async () => {
     while (tryCount < 3 && backendStarted === false) {
       tryCount++;
       try {
-        await createBackgroundProcess(serverPort);
-        backendStarted = true;
+        await createBackgroundProcess(serverPort!);
+        await waitForPort(serverPort!, {
+          host: '127.0.0.1',
+          retries: 60,
+          delay: 500,
+        });
+        backendStarted = await checkBackendHealth();
+        if (!backendStarted) {
+          killServerProcess();
+        }
       } catch (err) {
+        killServerProcess();
         console.error(err);
         log.error(`Failed to start backend (attempt ${tryCount}/3):`, err);
         backendStarted = false;
@@ -326,6 +489,8 @@ app.whenReady().then(async () => {
         serverPort: serverPort,
       });
     }
+
+    setupPowerMonitor();
   }
 });
 
@@ -342,26 +507,25 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
+  isAppQuitting = true;
   if (serverProcess) {
-    serverProcess.kill();
-    serverProcess = null;
+    killServerProcess();
   }
 });
 
 // Add this to ensure proper cleanup
 process.on('exit', () => {
   if (serverProcess) {
-    serverProcess.kill();
-    serverProcess = null;
+    killServerProcess();
   }
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
   log.error('Uncaught Exception:', error);
+  isAppQuitting = true;
   if (serverProcess) {
-    serverProcess.kill();
-    serverProcess = null;
+    killServerProcess();
   }
   app.quit();
 });
@@ -369,6 +533,11 @@ process.on('uncaughtException', (error) => {
 // ************
 // IPC
 // ************
+
+ipcMain.handle('ensure-backend', async () => {
+  const ok = await ensureBackendRunning();
+  return { ok };
+});
 
 ipcMain.handle('exit', (event, arg) => {
   app.quit();

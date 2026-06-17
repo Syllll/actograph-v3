@@ -5,6 +5,8 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, watch, PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAppResume, onChartsRefresh } from 'src/composables/use-app-resume';
+import { isElementVisible } from 'src/utils/dom.utils';
 import * as am5 from '@amcharts/amcharts5';
 import * as am5percent from '@amcharts/amcharts5/percent';
 import am5themes_Animated from '@amcharts/amcharts5/themes/Animated';
@@ -26,9 +28,12 @@ export default defineComponent({
     },
   },
   setup(props) {
+    const { locale } = useI18n();
     const chartContainer = ref<HTMLElement | null>(null);
     let root: am5.Root | null = null;
     let chart: am5percent.PieChart | null = null;
+
+    const emptySlice = () => ({ label: '', value: 1 });
 
     const createChart = () => {
       if (!chartContainer.value) {
@@ -122,11 +127,24 @@ export default defineComponent({
       }
     };
 
+    const refreshChartIfVisible = () => {
+      if (!isElementVisible(chartContainer.value)) {
+        return;
+      }
+      createChart();
+    };
+
+    let unsubscribeChartsRefresh: (() => void) | null = null;
+
     onMounted(() => {
       createChart();
+      unsubscribeChartsRefresh = onChartsRefresh(refreshChartIfVisible);
     });
 
+    useAppResume(refreshChartIfVisible);
+
     onUnmounted(() => {
+      unsubscribeChartsRefresh?.();
       if (root) {
         root.dispose();
         root = null;

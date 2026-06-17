@@ -41,6 +41,7 @@ export declare class PixiApp {
     private protocol;
     private isInteractive;
     private baseCanvasHeight;
+    private teardownContextHandlers;
     /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
     events: EventEmitter<string | symbol, any>;
     private zoomState;
@@ -55,6 +56,15 @@ export declare class PixiApp {
      * @param options.view - L'élément canvas HTML à utiliser
      */
     init(options: IPixiAppInitOptions): Promise<void>;
+    /**
+     * Resize the renderer to match the current CSS size of the canvas element.
+     */
+    resizeFromCanvas(): void;
+    /**
+     * Refresh rendering after window resize, visibility resume, or WebGL context restore.
+     */
+    refreshAfterResume(): void;
+    private bindWebGLContextHandlers;
     setData(observation: IObservation): void;
     setProtocol(protocol: IProtocol): void;
     getObservablePreferences(observableId: string): IGraphPreferences | null;

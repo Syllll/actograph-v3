@@ -57,11 +57,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, onMounted } from 'vue';
+import { defineComponent, reactive, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useObservation } from 'src/composables/use-observation';
 import { useLicense } from 'src/composables/use-license';
+import { emitChartsRefresh } from 'src/composables/use-app-resume';
 import { DPage } from '@lib-improba/components';
 import GeneralStatisticsView from './_components/GeneralStatisticsView.vue';
 import CategoryStatisticsView from './_components/CategoryStatisticsView.vue';
@@ -94,6 +95,15 @@ export default defineComponent({
         }
       }
     });
+
+    watch(
+      () => state.activeTab,
+      (tab) => {
+        if (tab === 'category' || tab === 'advanced') {
+          emitChartsRefresh();
+        }
+      }
+    );
 
     return {
       t,

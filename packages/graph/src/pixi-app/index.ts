@@ -48,6 +48,7 @@ export class PixiApp {
   private protocol: IProtocol | null = null;
   private isInteractive = true;
   private baseCanvasHeight = 0;
+  private teardownContextHandlers: (() => void) | null = null;
 
   /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
   public events = new EventEmitter();
@@ -130,6 +131,53 @@ export class PixiApp {
     this.dataArea.init();
 
     this.setupZoomAndPan();
+    this.bindWebGLContextHandlers();
+  }
+
+  /**
+   * Resize the renderer to match the current CSS size of the canvas element.
+   */
+  public resizeFromCanvas(): void {
+    const canvas = this.app.canvas as HTMLCanvasElement | null;
+    if (!canvas) {
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = Math.max(1, Math.floor(rect.height));
+    this.app.renderer.resize(width, height);
+  }
+
+  /**
+   * Refresh rendering after window resize, visibility resume, or WebGL context restore.
+   */
+  public refreshAfterResume(): void {
+    this.resizeFromCanvas();
+    void this.draw();
+  }
+
+  private bindWebGLContextHandlers(): void {
+    const canvas = this.app.canvas as HTMLCanvasElement | null;
+    if (!canvas) {
+      return;
+    }
+
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+    };
+    const onContextRestored = () => {
+      this.refreshAfterResume();
+    };
+
+    canvas.addEventListener('webglcontextlost', onContextLost, false);
+    canvas.addEventListener('webglcontextrestored', onContextRestored, false);
+
+    this.teardownContextHandlers = () => {
+      canvas.removeEventListener('webglcontextlost', onContextLost);
+      canvas.removeEventListener('webglcontextrestored', onContextRestored);
+      this.teardownContextHandlers = null;
+    };
   }
 
   public setData(observation: IObservation) {
@@ -597,6 +645,8 @@ export class PixiApp {
   }
 
   public destroy() {
+    this.teardownContextHandlers?.();
+
     if (this.app.canvas && (this.app.canvas as any)._zoomPanHandlers) {
       const handlers = (this.app.canvas as any)._zoomPanHandlers;
       this.app.canvas.removeEventListener('wheel', handlers.wheel);

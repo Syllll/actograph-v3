@@ -3,6 +3,7 @@ import { boot as bootGlobalComponent } from 'src/../lib-improba/boot/global-comp
 import { boot as bootI18n } from 'src/../lib-improba/boot/i18n';
 import { boot as bootAxios } from 'src/../lib-improba/boot/axios';
 import { useImprobaInit } from 'src/../lib-improba/composables/use-improba-init';
+import { initAppResume } from 'src/composables/use-app-resume';
 import type { Composer } from 'vue-i18n';
 import { setI18nComposerForServices } from 'src/i18n/service-translate';
 
@@ -89,4 +90,5 @@ export default boot(async ({ app, router }) => {
 
   // Init improba composables that need to be initialized at the start of the app
   await useImprobaInit(quasar, router);
+  initAppResume();
 });

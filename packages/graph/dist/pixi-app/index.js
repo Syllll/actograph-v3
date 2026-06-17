@@ -36,6 +36,7 @@ export class PixiApp {
         this.protocol = null;
         this.isInteractive = true;
         this.baseCanvasHeight = 0;
+        this.teardownContextHandlers = null;
         /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
         this.events = new EventEmitter();
         this.zoomState = {
@@ -104,6 +105,46 @@ export class PixiApp {
         this.xAxis.init();
         this.dataArea.init();
         this.setupZoomAndPan();
+        this.bindWebGLContextHandlers();
+    }
+    /**
+     * Resize the renderer to match the current CSS size of the canvas element.
+     */
+    resizeFromCanvas() {
+        const canvas = this.app.canvas;
+        if (!canvas) {
+            return;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(1, Math.floor(rect.width));
+        const height = Math.max(1, Math.floor(rect.height));
+        this.app.renderer.resize(width, height);
+    }
+    /**
+     * Refresh rendering after window resize, visibility resume, or WebGL context restore.
+     */
+    refreshAfterResume() {
+        this.resizeFromCanvas();
+        void this.draw();
+    }
+    bindWebGLContextHandlers() {
+        const canvas = this.app.canvas;
+        if (!canvas) {
+            return;
+        }
+        const onContextLost = (event) => {
+            event.preventDefault();
+        };
+        const onContextRestored = () => {
+            this.refreshAfterResume();
+        };
+        canvas.addEventListener('webglcontextlost', onContextLost, false);
+        canvas.addEventListener('webglcontextrestored', onContextRestored, false);
+        this.teardownContextHandlers = () => {
+            canvas.removeEventListener('webglcontextlost', onContextLost);
+            canvas.removeEventListener('webglcontextrestored', onContextRestored);
+            this.teardownContextHandlers = null;
+        };
     }
     setData(observation) {
         if (!observation.readings) {
@@ -498,6 +539,7 @@ export class PixiApp {
         return this.app.canvas.toDataURL(mimeType, quality);
     }
     destroy() {
+        this.teardownContextHandlers?.();
         if (this.app.canvas && this.app.canvas._zoomPanHandlers) {
             const handlers = this.app.canvas._zoomPanHandlers;
             this.app.canvas.removeEventListener('wheel', handlers.wheel);

@@ -5,6 +5,8 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, watch, PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAppResume, onChartsRefresh } from 'src/composables/use-app-resume';
+import { isElementVisible } from 'src/utils/dom.utils';
 import * as am5 from '@amcharts/amcharts5';
 import * as am5xy from '@amcharts/amcharts5/xy';
 import am5themes_Animated from '@amcharts/amcharts5/themes/Animated';
@@ -30,9 +32,12 @@ export default defineComponent({
     },
   },
   setup(props) {
+    const { t, locale } = useI18n();
     const chartContainer = ref<HTMLElement | null>(null);
     let root: am5.Root | null = null;
     let chart: am5xy.XYChart | null = null;
+
+    const emptyRow = () => ({ label: '', value: 0 });
 
     const createChart = () => {
       if (!chartContainer.value) {
@@ -212,11 +217,24 @@ export default defineComponent({
       }
     };
 
+    const refreshChartIfVisible = () => {
+      if (!isElementVisible(chartContainer.value)) {
+        return;
+      }
+      createChart();
+    };
+
+    let unsubscribeChartsRefresh: (() => void) | null = null;
+
     onMounted(() => {
       createChart();
+      unsubscribeChartsRefresh = onChartsRefresh(refreshChartIfVisible);
     });
 
+    useAppResume(refreshChartIfVisible);
+
     onUnmounted(() => {
+      unsubscribeChartsRefresh?.();
       if (root) {
         root.dispose();
         root = null;

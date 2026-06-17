@@ -1,6 +1,8 @@
 import { onMounted, onUnmounted, shallowReactive, watch } from 'vue';
 import { PixiApp } from '@actograph/graph';
 import { useObservation } from 'src/composables/use-observation';
+import { useAppResume } from 'src/composables/use-app-resume';
+import { isElementVisible } from 'src/utils/dom.utils';
 import { IObservation, IProtocol, IReading } from '@services/observations/interface';
 import type { IObservation as ICoreObservation } from '@actograph/core';
 
@@ -67,6 +69,26 @@ export const useGraph = (options?: {
     }
   };
 
+  const getCanvasElement = (): HTMLCanvasElement | null => {
+    return options?.init?.canvasRef?.value?.canvasRef ?? null;
+  };
+
+  const refreshGraph = (): void => {
+    if (!sharedState.pixiApp || !isElementVisible(getCanvasElement())) {
+      return;
+    }
+    sharedState.pixiApp.resizeFromCanvas();
+    redrawFromObservation(sharedState.pixiApp);
+  };
+
+  const onCanvasResize = (): void => {
+    if (!sharedState.pixiApp) {
+      return;
+    }
+    sharedState.pixiApp.resizeFromCanvas();
+    redrawFromObservation(sharedState.pixiApp);
+  };
+
   // Si des options d'initialisation sont fournies, créer et initialiser PixiApp
   if (options?.init) {
     // Création de l'instance PixiApp qui gère tout le rendu graphique
@@ -98,6 +120,8 @@ export const useGraph = (options?: {
 
       console.info('Pixi app initialized');
     });
+
+    useAppResume(refreshGraph);
 
     /**
      * Watch pour rafraîchir le graphe quand les relevés changent (bug 3.4 : horodatage modifié)
@@ -133,5 +157,6 @@ export const useGraph = (options?: {
 
   return {
     sharedState,
+    onCanvasResize,
   };
 }

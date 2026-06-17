@@ -79,7 +79,7 @@
       Le canvas est référencé pour être passé à PixiApp lors de l'initialisation.
     -->
     <div class="canvas-container fit relative-position">
-      <d-canvas class="fit" ref="canvasRef" />
+      <d-canvas class="fit" ref="canvasRef" @resize="graph.onCanvasResize" />
       <StudentWatermark />
     </div>
   </div>

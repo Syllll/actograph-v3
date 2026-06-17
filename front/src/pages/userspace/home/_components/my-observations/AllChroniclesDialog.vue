@@ -121,6 +121,7 @@
 import { defineComponent, reactive, watch, computed, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
+import { useAppResume } from 'src/composables/use-app-resume';
 import { observationService } from '@services/observations/index.service';
 import { IObservation } from '@services/observations/interface';
 import { DSearchInput } from '@lib-improba/components/app/inputs';
@@ -207,8 +208,11 @@ export default defineComponent({
         methods.fetchAll();
       },
 
-      async fetchAll() {
-        state.loading = true;
+      async fetchAll(options?: { silent?: boolean }) {
+        const silent = options?.silent === true;
+        if (!silent) {
+          state.loading = true;
+        }
         try {
           const response = await observationService.findWithPagination(
             {
@@ -225,14 +229,18 @@ export default defineComponent({
           state.totalCount = response.count;
         } catch (error) {
           console.error('Error fetching all observations:', error);
-          $q.notify({
-            type: 'negative',
-            message: t('observationsList.loadError'),
-          });
-          state.rows = [];
-          state.totalCount = 0;
+          if (!silent) {
+            $q.notify({
+              type: 'negative',
+              message: t('observationsList.loadError'),
+            });
+            state.rows = [];
+            state.totalCount = 0;
+          }
         } finally {
-          state.loading = false;
+          if (!silent) {
+            state.loading = false;
+          }
         }
       },
 
@@ -269,6 +277,12 @@ export default defineComponent({
         }
       }
     );
+
+    useAppResume(() => {
+      if (props.modelValue) {
+        methods.fetchAll({ silent: true });
+      }
+    });
 
     onUnmounted(() => {
       if (state.searchDebounceTimeout) {

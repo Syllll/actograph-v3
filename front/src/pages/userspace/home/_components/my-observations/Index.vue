@@ -59,6 +59,7 @@
 import { defineComponent, reactive, watch, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
+import { useAppResume } from 'src/composables/use-app-resume';
 import { observationService } from '@services/observations/index.service';
 import { IObservation } from '@services/observations/interface';
 import { useObservation } from 'src/composables/use-observation';
@@ -95,8 +96,11 @@ export default defineComponent({
     });
 
     const methods = {
-      async fetchRecent() {
-        state.loading = true;
+      async fetchRecent(options?: { silent?: boolean }) {
+        const silent = options?.silent === true;
+        if (!silent) {
+          state.loading = true;
+        }
         try {
           const response = await observationService.findWithPagination({
             limit: MAX_RECENT_ITEMS,
@@ -108,14 +112,18 @@ export default defineComponent({
           state.totalCount = response.count;
         } catch (error) {
           console.error('Error fetching recent observations:', error);
-          $q.notify({
-            type: 'negative',
-            message: t('observationsList.loadError'),
-          });
-          state.recentObservations = [];
-          state.totalCount = 0;
+          if (!silent) {
+            $q.notify({
+              type: 'negative',
+              message: t('observationsList.loadError'),
+            });
+            state.recentObservations = [];
+            state.totalCount = 0;
+          }
         } finally {
-          state.loading = false;
+          if (!silent) {
+            state.loading = false;
+          }
         }
       },
 
@@ -143,6 +151,10 @@ export default defineComponent({
 
     onMounted(() => {
       methods.fetchRecent();
+    });
+
+    useAppResume(() => {
+      methods.fetchRecent({ silent: true });
     });
 
     watch(

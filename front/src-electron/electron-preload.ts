@@ -26,6 +26,8 @@ const validChannels = [
   'delete-autosave-file',
   'cleanup-old-autosave',
   'server-status', // For showing server startup status
+  'app-resume', // System resume from sleep
+  'ensure-backend', // Restart API subprocess if needed
 ];
 
 // Expose protected methods that allow the renderer process to use
