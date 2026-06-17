@@ -8,7 +8,7 @@
             <q-avatar color="accent" text-color="white" icon="mdi-clipboard-text" size="48px" class="q-mr-md" />
             <div>
               <div class="text-h6">{{ chronicle.sharedState.currentChronicle?.name }}</div>
-              <div class="text-caption text-grey">
+              <div class="text-caption chronicle-description">
                 {{ chronicle.sharedState.currentChronicle?.description || 'Aucune description' }}
               </div>
             </div>
@@ -19,7 +19,7 @@
           <div class="row no-wrap">
             <div class="stat-item col text-center">
               <div class="text-h4 text-weight-bold text-primary">{{ chronicle.sharedState.currentReadings.length }}</div>
-              <div class="stat-label text-caption text-grey-7">
+              <div class="stat-label text-caption">
                 <q-icon name="mdi-database" size="14px" class="q-mr-xs" />
                 Relevés
               </div>
@@ -27,7 +27,7 @@
             <q-separator vertical />
             <div class="stat-item col text-center">
               <div class="text-h4 text-weight-bold text-primary">{{ chronicle.sharedState.currentProtocol.length }}</div>
-              <div class="stat-label text-caption text-grey-7">
+              <div class="stat-label text-caption">
                 <q-icon name="mdi-folder-outline" size="14px" class="q-mr-xs" />
                 Catégories
               </div>
@@ -41,50 +41,27 @@
             color="accent"
             label="Faire une observation"
             icon="mdi-binoculars"
-            @click="$router.push({ name: 'observation' })"
+            @click="methods.startObservation"
             class="home-primary-btn full-width q-mb-md"
             unelevated
           />
 
-          <!-- Secondary actions -->
-          <div class="row q-gutter-sm q-mb-sm">
-            <q-btn
-              outline
-              color="primary"
-              label="Relevés"
-              icon="mdi-table"
-              @click="$router.push({ name: 'readings' })"
-              class="col"
-            />
-            <q-btn
-              outline
-              color="primary"
-              label="Graphe"
-              icon="mdi-chart-line"
-              @click="$router.push({ name: 'graph' })"
-              :disable="!chronicle.hasReadings.value"
-              class="col"
-            />
-          </div>
-
           <!-- Tertiary actions -->
           <q-btn
             flat
-            color="grey-8"
             label="Partager"
             icon="mdi-share-variant"
             @click="methods.shareCurrentChronicle"
             :loading="state.sharingId === chronicle.sharedState.currentChronicle?.id"
-            class="full-width"
+            class="full-width home-action-btn"
           />
           <q-separator class="q-my-sm" />
           <q-btn
             flat
-            color="grey-7"
             label="Charger une autre chronique"
             icon="mdi-swap-horizontal"
             @click="chronicle.methods.unloadChronicle()"
-            class="full-width"
+            class="full-width home-action-btn"
             size="sm"
           />
         </q-card-actions>
@@ -98,7 +75,7 @@
           <q-avatar size="80px" color="accent" text-color="white" icon="mdi-clipboard-pulse-outline" />
         </div>
         <div class="text-h5 q-mt-md text-weight-medium">Bienvenue sur ActoGraph</div>
-        <div class="text-body1 text-grey q-mb-lg">
+        <div class="text-body1 text-muted q-mb-lg">
           Créez ou chargez une chronique pour commencer
         </div>
 
@@ -147,9 +124,9 @@
       </q-card>
 
       <!-- Empty list state -->
-      <div v-else class="text-center q-mt-xl text-grey">
+      <div v-else class="text-center q-mt-xl text-muted">
         <q-icon name="mdi-clipboard-text-off-outline" size="48px" />
-        <div class="q-mt-sm">Aucune chronique enregistrée</div>
+        <div class="q-mt-sm text-body2">Aucune chronique enregistrée</div>
       </div>
     </template>
 
@@ -167,10 +144,10 @@
             />
             <div>
               <div class="text-subtitle1 text-weight-medium">Cloud ActoGraph</div>
-              <div v-if="cloud.sharedState.isAuthenticated" class="text-caption text-grey">
+              <div v-if="cloud.sharedState.isAuthenticated" class="text-caption text-muted">
                 {{ cloud.sharedState.currentEmail }}
               </div>
-              <div v-else class="text-caption text-grey">
+              <div v-else class="text-caption text-muted">
                 Non connecté
               </div>
             </div>
@@ -268,8 +245,7 @@
 <script lang="ts">
 import { defineComponent, reactive, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
-import { useChronicle } from '@composables/use-chronicle';
-import { useCloud } from '@composables/use-cloud';
+import { useChronicle, useObservationLaunch, useCloud } from '@composables';
 import { observationService } from '@services/observation.service';
 import { shareService } from '@services/share.service';
 import { DPage } from '@components';
@@ -285,6 +261,7 @@ export default defineComponent({
   setup() {
     const $q = useQuasar();
     const chronicle = useChronicle();
+    const observationLaunch = useObservationLaunch();
     const cloud = useCloud();
 
     const state = reactive({
@@ -443,6 +420,12 @@ export default defineComponent({
           state.sharingId = null;
         }
       },
+
+      startObservation: () => {
+        observationLaunch.launchObservation({
+          onChronicleListChanged: methods.loadChronicles,
+        });
+      },
     };
 
     onMounted(async () => {
@@ -492,14 +475,48 @@ export default defineComponent({
   overflow: hidden;
 }
 
+.home-action-btn {
+  color: #ffffff !important;
+
+  :deep(.q-btn__content),
+  :deep(.q-icon) {
+    color: #ffffff !important;
+  }
+}
+
+body.body--light .home-action-btn {
+  color: var(--text) !important;
+
+  :deep(.q-btn__content),
+  :deep(.q-icon) {
+    color: var(--text) !important;
+  }
+}
+
 .chronicle-header {
   background: linear-gradient(135deg, rgba(249, 115, 22, 0.08) 0%, transparent 100%);
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
+.chronicle-description,
+.stat-label {
+  color: var(--text-secondary);
+}
+
+body.body--dark {
+  .chronicle-description,
+  .stat-label {
+    color: #e2e8f0;
+  }
+}
+
 .stats-section {
   background: rgba(31, 41, 55, 0.02);
   padding: 16px 8px;
+}
+
+body.body--dark .stats-section {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .stat-item {

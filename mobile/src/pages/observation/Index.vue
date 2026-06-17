@@ -57,10 +57,10 @@
       <!-- Empty state -->
       <div v-if="state.categories.length === 0" class="empty-state text-center q-pa-xl">
         <q-icon name="mdi-alert-circle-outline" size="48px" color="grey-5" />
-        <div class="text-body1 text-grey q-mt-md">
+        <div class="text-body1 text-muted q-mt-md">
           Aucune catégorie définie
         </div>
-        <div class="text-caption text-grey q-mb-md">
+        <div class="text-body2 text-muted q-mb-md">
           Ajoutez des catégories et observables pour commencer
         </div>
         <q-btn
@@ -113,7 +113,7 @@
     </div>
 
     <!-- FAB pour ajouter un commentaire -->
-    <q-page-sticky v-if="state.isRecording && !editMode.sharedState.isEditing" position="bottom-left" :offset="[18, 18]">
+    <q-page-sticky v-if="!editMode.sharedState.isEditing" position="bottom-left" :offset="[18, 18]">
       <q-btn
         round
         color="info"
@@ -324,7 +324,7 @@
         </q-card-section>
 
         <q-card-section class="q-pt-sm">
-          <div class="text-caption text-grey q-mb-md">
+          <div class="text-body2 text-muted q-mb-md">
             Gérez les catégories et observables de votre chronique
           </div>
 
@@ -420,10 +420,10 @@
 
             <!-- Empty state -->
             <q-item v-if="state.categories.length === 0">
-              <q-item-section class="text-center text-grey q-pa-md">
+              <q-item-section class="text-center text-muted q-pa-md">
                 <q-icon name="mdi-folder-alert-outline" size="32px" class="q-mb-sm" />
                 <div>Aucune catégorie</div>
-                <div class="text-caption">Ajoutez une catégorie pour commencer</div>
+                <div class="text-body2">Ajoutez une catégorie pour commencer</div>
               </q-item-section>
             </q-item>
           </q-list>
@@ -879,6 +879,11 @@ export default defineComponent({
           methods.loadRecentReadings();
         } catch (error) {
           console.error('Failed to add comment:', error);
+          $q.notify({
+            type: 'negative',
+            message: 'Erreur lors de l\'ajout du commentaire',
+            position: 'top',
+          });
         }
       },
 

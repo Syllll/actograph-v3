@@ -266,6 +266,18 @@ export function useGraph(options: UseGraphOptions) {
     sharedState.zoomLevel = pixiAppInstance.getZoomLevel();
   }
 
+  /**
+   * Refresh graph after canvas resize (e.g. device rotation).
+   */
+  function handleResize(): void {
+    if (!pixiAppInstance || !sharedState.ready) return;
+    try {
+      pixiAppInstance.refreshAfterResume();
+    } catch (error) {
+      console.error('[useGraph] Resize refresh failed:', error);
+    }
+  }
+
   // =========================================================================
   // Lifecycle - Index.vue calls initGraph when DCanvas is ready
   // =========================================================================
@@ -329,6 +341,7 @@ export function useGraph(options: UseGraphOptions) {
       initGraph,
       drawGraph,
       destroyGraph,
+      handleResize,
       zoomIn,
       zoomOut,
       resetView,

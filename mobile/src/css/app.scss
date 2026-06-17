@@ -31,6 +31,10 @@ $modernDarkGrey: #1f2937;
   --warning: #{$amber};
   --info: #{$blue};
   --text: #{$black};
+  // Secondary text: readable on white (slate-600, ~7:1 contrast, passes WCAG AA).
+  --text-secondary: #475569;
+  // Disabled/placeholder text: intentionally muted, reserved for non-essential text.
+  --text-disabled: #94a3b8;
   --text-invert: #{$white};
   --background: #{$white};
   --background-dark: #{$modernDarkGrey};
@@ -41,6 +45,9 @@ body.body--dark {
   $dark-surface: #374151;
 
   --text: #{$white};
+  // Secondary/disabled text tuned for dark background (slate-300 / slate-500).
+  --text-secondary: #cbd5e1;
+  --text-disabled: #64748b;
   --text-invert: #{$black};
   --background: #{$modernDarkGrey};
 
@@ -102,6 +109,18 @@ body {
     sans-serif;
   color: var(--text);
   background-color: var(--background);
+}
+
+// Semantic text helpers (theme-aware, sufficient contrast in light & dark).
+// Use `.text-muted` for secondary content (captions, empty states, hints)
+// instead of Quasar's washed-out `text-grey` (#9e9e9e fails WCAG contrast).
+.text-muted {
+  color: var(--text-secondary) !important;
+}
+
+// Reserved for genuinely non-essential text (placeholders, "empty" markers).
+.text-faint {
+  color: var(--text-disabled) !important;
 }
 
 // Mobile-specific styles

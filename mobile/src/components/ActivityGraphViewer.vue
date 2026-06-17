@@ -5,7 +5,7 @@
     <!-- Empty state -->
     <div v-if="!hasData" class="empty-state">
       <q-icon name="mdi-chart-timeline-variant" size="48px" color="grey-5" />
-      <div class="q-mt-sm text-grey">Aucune donnée à afficher</div>
+      <div class="q-mt-sm text-muted">Aucune donnée à afficher</div>
     </div>
   </div>
 </template>

@@ -152,7 +152,7 @@ export function useCloud() {
 
     /**
      * Télécharge une chronique du cloud et l'importe localement.
-     * Les .chronic legacy sont convertis à la volée au moment de l'import.
+     * Seuls les fichiers .jchronic sont téléchargeables depuis le mobile.
      */
     async downloadChronicle(
       chronicle: ICloudChronicle

@@ -12,6 +12,7 @@ import {
   type IReadingEntity,
   type ReadingType,
 } from '@database/repositories/reading.repository';
+import { computeNextDuplicateName } from '@utils/chronicle-name';
 
 export interface IObservationFull {
   observation: IObservationEntity;
@@ -32,6 +33,52 @@ export interface ICreateObservationInput {
       }[];
     }[];
   };
+}
+
+async function copyProtocolTree(
+  categories: IProtocolItemWithChildren[],
+  targetObservationId: number
+): Promise<void> {
+  const targetProtocol = await protocolRepository.findByObservationId(targetObservationId);
+  if (!targetProtocol) {
+    throw new Error('Protocole introuvable');
+  }
+
+  for (let i = 0; i < categories.length; i++) {
+    const category = categories[i];
+    const newCategory = await protocolRepository.addCategory(
+      targetProtocol.id,
+      category.name,
+      i,
+      category.action || 'continuous',
+      category.meta ?? null
+    );
+
+    if (category.display_mode || category.background_pattern) {
+      await protocolRepository.updateItem(newCategory.id, {
+        display_mode: category.display_mode,
+        background_pattern: category.background_pattern,
+      });
+    }
+
+    for (let j = 0; j < (category.children?.length ?? 0); j++) {
+      const observable = category.children![j];
+      const newObservable = await protocolRepository.addObservable(
+        targetProtocol.id,
+        newCategory.id,
+        observable.name,
+        observable.color,
+        observable.sort_order ?? j
+      );
+
+      if (observable.display_mode || observable.background_pattern) {
+        await protocolRepository.updateItem(newObservable.id, {
+          display_mode: observable.display_mode,
+          background_pattern: observable.background_pattern,
+        });
+      }
+    }
+  }
 }
 
 /**
@@ -137,6 +184,42 @@ class ObservationService {
   }
 
   /**
+   * Duplicate an observation with its protocol but without readings.
+   * The source chronicle is left untouched.
+   */
+  async duplicateWithoutReadings(sourceId: number): Promise<IObservationEntity> {
+    const source = await this.getById(sourceId);
+    if (!source) {
+      throw new Error('Chronique introuvable');
+    }
+
+    const allObservations = await this.getAll();
+    const newName = computeNextDuplicateName(
+      source.observation.name,
+      allObservations.map((obs) => obs.name)
+    );
+
+    const newObservation = await observationRepository.createWithProtocol({
+      name: newName,
+      description: source.observation.description,
+      type: source.observation.type,
+      mode: source.observation.mode,
+    });
+
+    try {
+      await copyProtocolTree(source.protocol, newObservation.id);
+      return newObservation;
+    } catch (error) {
+      try {
+        await observationRepository.hardDelete(newObservation.id);
+      } catch (cleanupError) {
+        console.error('Failed to rollback partial chronicle duplication:', cleanupError);
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Add a reading to an observation
    */
   async addReading(
@@ -213,7 +296,8 @@ class ObservationService {
   async addComment(
     observationId: number,
     comment: string,
-    description?: string
+    description?: string,
+    date: Date = new Date()
   ): Promise<IReadingEntity> {
     // Trim whitespace and ensure comment starts with "#"
     const trimmedComment = comment.trim();
@@ -221,7 +305,41 @@ class ObservationService {
       throw new Error('Comment cannot be empty');
     }
     const commentName = trimmedComment.startsWith('#') ? trimmedComment : `#${trimmedComment}`;
-    return readingRepository.addData(observationId, commentName, new Date(), description);
+    return readingRepository.addData(observationId, commentName, date, description);
+  }
+
+  /**
+   * Append a free-text comment to an existing reading's description field.
+   */
+  async appendReadingComment(
+    readingId: number,
+    comment: string,
+    observationId?: number
+  ): Promise<IReadingEntity> {
+    const trimmedComment = comment.trim();
+    if (!trimmedComment) {
+      throw new Error('Comment cannot be empty');
+    }
+
+    const reading = await readingRepository.findById(readingId);
+    if (!reading) {
+      throw new Error('Relevé introuvable');
+    }
+
+    if (observationId !== undefined && reading.observation_id !== observationId) {
+      throw new Error('Relevé non rattaché à la chronique courante');
+    }
+
+    const description = reading.description
+      ? `${reading.description}\n${trimmedComment}`
+      : trimmedComment;
+
+    const updated = await readingRepository.update(readingId, { description });
+    if (!updated) {
+      throw new Error('Relevé introuvable');
+    }
+
+    return updated;
   }
 
   /**

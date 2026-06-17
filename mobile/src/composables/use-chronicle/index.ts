@@ -73,6 +73,11 @@ export const useChronicle = () => {
 
   const methods = {
     loadChronicle: async (id: number) => {
+      const isChronicleSwitch = sharedState.currentChronicle?.id !== id;
+      if (isChronicleSwitch) {
+        methods.stopTimer();
+      }
+
       sharedState.loading = true;
       try {
         const data = await observationService.getById(id);
@@ -93,6 +98,12 @@ export const useChronicle = () => {
 
     createChronicle: async (options: { name: string; description?: string }) => {
       const created = await observationService.create(options);
+      await methods.loadChronicle(created.id);
+      return created;
+    },
+
+    duplicateForNewSession: async (sourceId: number) => {
+      const created = await observationService.duplicateWithoutReadings(sourceId);
       await methods.loadChronicle(created.id);
       return created;
     },

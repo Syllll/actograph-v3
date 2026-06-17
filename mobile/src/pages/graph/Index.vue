@@ -7,7 +7,7 @@
           <q-icon name="warning" size="xs" class="q-mr-xs" />
           <span>{{ graph.sharedState.error }}</span>
         </div>
-        <div v-else class="text-caption text-grey-6">
+        <div v-else class="text-caption text-muted">
           {{ graph.sharedState.ready ? 'Graphique prêt' : 'En attente...' }}
         </div>
       </div>
@@ -24,19 +24,19 @@
         Voir le commentaire dans <script> pour l'explication complète.
       -->
       <div class="canvas-container">
-        <DCanvas ref="canvasRef" @ready="onCanvasReady" />
+        <DCanvas ref="canvasRef" @ready="onCanvasReady" @resized="onCanvasResized" />
         
         <!-- Loading overlay - SUPERPOSÉ au canvas, ne le détruit pas -->
         <div v-if="graph.sharedState.loading" class="loading-overlay column items-center justify-center">
           <q-spinner-dots color="primary" size="50px" />
-          <div class="text-body2 text-grey q-mt-md">Chargement du graphique...</div>
+          <div class="text-body2 text-muted q-mt-md">Chargement du graphique...</div>
         </div>
         
         <!-- Empty state overlay -->
         <div v-if="!graph.sharedState.loading && !graph.hasData.value" class="empty-state-overlay column items-center justify-center">
           <q-icon name="mdi-chart-line" size="64px" color="grey-5" />
-          <div class="text-h6 q-mt-md text-grey">Aucune donnée à afficher</div>
-          <div class="text-body2 text-grey q-mt-xs">
+          <div class="text-h6 q-mt-md text-muted">Aucune donnée à afficher</div>
+          <div class="text-body2 text-muted q-mt-xs">
             <span v-if="!chronicle.hasChronicle.value">Chargez une observation pour voir le graphe</span>
             <span v-else-if="!chronicle.hasReadings.value">Enregistrez des observations pour voir le graphe</span>
             <span v-else>En attente du chargement...</span>
@@ -48,7 +48,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, watch } from 'vue';
 import { useGraph, useChronicle } from '@composables';
 import { DPage, DCanvas } from '@components';
 
@@ -90,20 +90,33 @@ export default defineComponent({
     const canvasRef = ref<InstanceType<typeof DCanvas> | null>(null);
     const graph = useGraph({ canvasRef });
     const chronicle = useChronicle();
+    const canvasReady = ref(false);
 
-    // Appelé quand DCanvas a fini de configurer les dimensions
+    const tryInitGraph = async () => {
+      if (!canvasReady.value || !graph.hasData.value) return;
+      if (graph.sharedState.ready || graph.sharedState.loading) return;
+      await graph.methods.initGraph();
+    };
+
     const onCanvasReady = async () => {
       console.log('[GraphPage] Canvas ready, initializing graph...');
-      if (graph.hasData.value) {
-        await graph.methods.initGraph();
-      }
+      canvasReady.value = true;
+      await tryInitGraph();
     };
+
+    const onCanvasResized = () => {
+      graph.methods.handleResize();
+    };
+
+    watch(() => graph.hasData.value, tryInitGraph);
+    watch(() => chronicle.sharedState.currentChronicle?.id, tryInitGraph);
 
     return {
       canvasRef,
       graph,
       chronicle,
       onCanvasReady,
+      onCanvasResized,
     };
   },
 });
@@ -122,8 +135,12 @@ export default defineComponent({
   right: 0;
   z-index: 10;
   min-height: 48px;
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: color-mix(in srgb, var(--background, #fff) 95%, transparent);
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.body--dark .graph-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .canvas-container {
@@ -140,14 +157,14 @@ export default defineComponent({
 .empty-state-overlay {
   position: absolute;
   inset: 0;
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: color-mix(in srgb, var(--background, #fff) 95%, transparent);
   z-index: 1;
 }
 
 .loading-overlay {
   position: absolute;
   inset: 0;
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: color-mix(in srgb, var(--background, #fff) 90%, transparent);
   z-index: 2;
 }
 </style>

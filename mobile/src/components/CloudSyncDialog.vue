@@ -58,7 +58,7 @@
       <q-card-section class="col q-pa-none scroll">
         <q-list separator>
           <!-- Empty state -->
-          <div v-if="cloud.sharedState.remoteChronicles.length === 0 && !cloud.sharedState.isLoading" class="text-center q-pa-xl text-grey">
+          <div v-if="cloud.sharedState.remoteChronicles.length === 0 && !cloud.sharedState.isLoading" class="text-center q-pa-xl text-muted">
             <q-icon name="mdi-cloud-off-outline" size="64px" class="q-mb-md" />
             <div class="text-h6">Aucun fichier dans le cloud</div>
             <div class="text-body2 q-mt-sm">
@@ -69,7 +69,7 @@
           <!-- Loading -->
           <div v-if="cloud.sharedState.isLoading && cloud.sharedState.remoteChronicles.length === 0" class="text-center q-pa-xl">
             <q-spinner-dots size="40px" color="primary" />
-            <div class="q-mt-md text-grey">Chargement...</div>
+            <div class="q-mt-md text-muted">Chargement...</div>
           </div>
 
           <!-- Chronicle items -->
@@ -100,19 +100,20 @@
                 >
                   {{ chronicle.isJchronic ? '.jchronic' : '.chronic' }}
                 </q-chip>
-                <span class="text-grey-6">
+                <span class="text-muted">
                   {{ formatDate(chronicle.updatedAt) }}
                 </span>
               </q-item-label>
               <q-item-label v-if="!chronicle.isJchronic" caption class="text-info q-mt-xs">
                 <q-icon name="mdi-information" size="14px" class="q-mr-xs" />
-                Format ancien converti à l'import
+                Format ancien non téléchargeable, merci de convertir en .jchronic avant importation
               </q-item-label>
             </q-item-section>
 
             <q-item-section side>
               <div class="row q-gutter-xs">
                 <q-btn
+                  v-if="chronicle.isJchronic"
                   round
                   flat
                   color="info"
@@ -148,7 +149,7 @@
 
       <!-- Footer -->
       <q-card-section class="bg-grey-1 q-py-sm">
-        <div class="text-center text-caption text-grey-7">
+        <div class="text-center text-caption text-muted">
           Limite : {{ cloud.cloudLimit }} fichiers par compte
         </div>
       </q-card-section>

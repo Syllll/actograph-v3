@@ -16,11 +16,11 @@ import { defineComponent, onMounted, onBeforeUnmount, ref } from 'vue';
  * 1. NE JAMAIS utiliser ResizeObserver - cela cause des boucles infinies avec PixiJS
  *    car PixiJS modifie aussi les dimensions du canvas.
  * 
- * 2. NE JAMAIS modifier canvas.width ou canvas.height APRÈS que PixiJS ait dessiné.
- *    Modifier ces attributs EFFACE TOUT le contenu du canvas (comportement standard HTML5).
+ * 2. Modifier canvas.width ou canvas.height EFFACE le contenu du canvas (HTML5).
+ *    En cas de rotation, on resynchronise les dimensions puis on redessine via PixiJS.
  * 
- * 3. Les dimensions sont appliquées UNE SEULE FOIS au montage, puis on laisse PixiJS
- *    gérer le canvas via son option 'resizeTo' si besoin.
+ * 3. Les dimensions initiales sont appliquées au montage. Les rotations d'écran
+ *    déclenchent une resynchronisation via resize/orientationchange.
  * 
  * 4. Sur mobile/Capacitor, le layout peut prendre du temps à se calculer.
  *    On utilise une boucle de retry pour attendre des dimensions valides.
@@ -42,7 +42,7 @@ export default defineComponent({
       required: false,
     },
   },
-  emits: ['ready'],
+  emits: ['ready', 'resized'],
   setup(props, context) {
     const containerRef = ref<HTMLElement | null>(null);
     const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -51,9 +51,84 @@ export default defineComponent({
     // (ne devrait pas arriver si Index.vue est bien configuré, mais sécurité supplémentaire)
     let initialized = false;
     let isMounted = true;
+    let lastWidth = 0;
+    let lastHeight = 0;
+    let resizeTimer: number | null = null;
+
+    const applyDimensions = (width: number, height: number): void => {
+      const container = containerRef.value;
+      const canvas = canvasRef.value;
+      if (!container || !canvas) return;
+
+      const dpr = window.devicePixelRatio || 1;
+      container.style.width = `${width}px`;
+      container.style.height = `${height}px`;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      lastWidth = width;
+      lastHeight = height;
+    };
+
+    const syncDimensions = (): boolean => {
+      const container = containerRef.value;
+      const canvas = canvasRef.value;
+      if (!container || !canvas) return false;
+
+      const parent = container.parentElement;
+      if (!parent) return false;
+
+      const rect = parent.getBoundingClientRect();
+      const width = Math.floor(rect.width);
+      const height = Math.floor(rect.height);
+
+      if (width <= 0 || height <= 0) return false;
+      if (width === lastWidth && height === lastHeight) return false;
+
+      applyDimensions(width, height);
+      return true;
+    };
+
+    const handleWindowResize = () => {
+      if (!initialized || !isMounted) return;
+
+      if (resizeTimer !== null) {
+        window.clearTimeout(resizeTimer);
+      }
+
+      resizeTimer = window.setTimeout(() => {
+        resizeTimer = null;
+        if (syncDimensions()) {
+          context.emit('resized');
+        }
+      }, 150);
+    };
+
+    const handleOrientationChange = () => {
+      if (!initialized || !isMounted) return;
+
+      if (resizeTimer !== null) {
+        window.clearTimeout(resizeTimer);
+      }
+
+      // Layout may not be updated yet when orientationchange fires.
+      resizeTimer = window.setTimeout(() => {
+        resizeTimer = null;
+        if (syncDimensions()) {
+          context.emit('resized');
+        }
+      }, 350);
+    };
 
     onBeforeUnmount(() => {
       isMounted = false;
+      if (resizeTimer !== null) {
+        window.clearTimeout(resizeTimer);
+        resizeTimer = null;
+      }
+      window.removeEventListener('resize', handleWindowResize);
+      window.removeEventListener('orientationchange', handleOrientationChange);
     });
 
     onMounted(async () => {
@@ -97,30 +172,15 @@ export default defineComponent({
 
       console.log('[DCanvas] Setting dimensions:', width, 'x', height);
 
-      // =========================================================================
-      // ÉTAPE 2: Appliquer les dimensions CSS au container
-      // =========================================================================
-      container.style.width = `${width}px`;
-      container.style.height = `${height}px`;
-
-      // =========================================================================
-      // ÉTAPE 3: Appliquer les dimensions BITMAP au canvas
-      // ⚠️ CRITIQUE: Ces attributs (width/height) définissent la taille du bitmap
-      // interne du canvas. On multiplie par devicePixelRatio pour les écrans HiDPI.
-      // 
-      // ⚠️ NE JAMAIS MODIFIER CES VALEURS APRÈS QUE PIXIJS AIT DESSINÉ !
-      // Modifier canvas.width ou canvas.height EFFACE le contenu du canvas.
-      // =========================================================================
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+      applyDimensions(width, height);
 
       console.log('[DCanvas] Canvas ready:', width, 'x', height, 'bitmap:', canvas.width, 'x', canvas.height);
 
       // Marquer comme initialisé AVANT d'émettre ready
       initialized = true;
+
+      window.addEventListener('resize', handleWindowResize);
+      window.addEventListener('orientationchange', handleOrientationChange);
       
       // =========================================================================
       // ÉTAPE 4: Signaler que le canvas est prêt
@@ -130,7 +190,7 @@ export default defineComponent({
       context.emit('ready');
     });
 
-    context.expose({ canvasRef, containerRef });
+    context.expose({ canvasRef, containerRef, syncDimensions });
 
     return { containerRef, canvasRef };
   },

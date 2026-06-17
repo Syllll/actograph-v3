@@ -27,7 +27,7 @@
     </q-card-section>
 
     <q-card-section class="category-content q-py-sm q-px-sm">
-      <div v-if="!category.children || category.children.length === 0" class="text-center text-caption text-grey">
+      <div v-if="!category.children || category.children.length === 0" class="text-center text-caption text-faint">
         Vide
       </div>
 
