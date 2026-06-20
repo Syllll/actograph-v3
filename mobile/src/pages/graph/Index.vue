@@ -109,7 +109,19 @@ export default defineComponent({
     };
 
     watch(() => graph.hasData.value, tryInitGraph);
-    watch(() => chronicle.sharedState.currentChronicle?.id, tryInitGraph);
+
+    watch(
+      () => chronicle.sharedState.currentChronicle?.id,
+      async (newId, oldId) => {
+        if (newId === oldId) return;
+
+        if (graph.sharedState.ready) {
+          graph.methods.destroyGraph();
+        }
+
+        await tryInitGraph();
+      }
+    );
 
     return {
       canvasRef,

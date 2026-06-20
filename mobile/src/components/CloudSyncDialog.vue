@@ -209,6 +209,15 @@ export default defineComponent({
       },
 
       async downloadChronicle(chronicle: ICloudChronicle) {
+        if (!chronicle.isJchronic) {
+          $q.notify({
+            type: 'info',
+            message: 'Format ancien non téléchargeable',
+            caption: 'Merci de convertir en .jchronic avant importation',
+          });
+          return;
+        }
+
         state.downloadingId = chronicle.id;
 
         try {

@@ -282,6 +282,17 @@ export function useGraph(options: UseGraphOptions) {
   // Lifecycle - Index.vue calls initGraph when DCanvas is ready
   // =========================================================================
 
+  // Watch for chronicle switch to destroy stale graph instance
+  watch(
+    () => chronicle.sharedState.currentChronicle?.id,
+    (newId, oldId) => {
+      if (newId === oldId) return;
+      if (sharedState.ready) {
+        destroyGraph();
+      }
+    }
+  );
+
   // Watch for data becoming unavailable to destroy graph
   watch(
     hasData,

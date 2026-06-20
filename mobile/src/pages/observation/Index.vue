@@ -157,7 +157,8 @@
             color="info"
             label="Ajouter"
             @click="methods.addComment"
-            :disable="!state.newComment.text || !state.newComment.text.trim()"
+            :loading="state.savingComment"
+            :disable="!state.newComment.text || !state.newComment.text.trim() || state.savingComment"
           />
         </q-card-actions>
       </q-card>
@@ -492,6 +493,7 @@ export default defineComponent({
         text: '',
         description: '',
       },
+      savingComment: false,
       renameCategory: {
         name: '',
       },
@@ -863,9 +865,16 @@ export default defineComponent({
       },
 
       addComment: async () => {
-        if (!chronicle.sharedState.currentChronicle || !state.newComment.text) return;
+        if (
+          !chronicle.sharedState.currentChronicle
+          || !state.newComment.text?.trim()
+          || state.savingComment
+        ) {
+          return;
+        }
 
         haptics.impactLight();
+        state.savingComment = true;
         try {
           await observationService.addComment(
             chronicle.sharedState.currentChronicle.id,
@@ -884,6 +893,8 @@ export default defineComponent({
             message: 'Erreur lors de l\'ajout du commentaire',
             position: 'top',
           });
+        } finally {
+          state.savingComment = false;
         }
       },
 
@@ -1153,6 +1164,16 @@ export default defineComponent({
       () => chronicle.sharedState.currentReadings,
       () => methods.loadRecentReadings(),
       { deep: true }
+    );
+
+    watch(
+      () => chronicle.sharedState.currentChronicle?.id,
+      () => {
+        state.showAddCommentDialog = false;
+        state.newComment.text = '';
+        state.newComment.description = '';
+        state.savingComment = false;
+      }
     );
 
     // Watch orientation changes to recalculate bounds

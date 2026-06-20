@@ -6,7 +6,7 @@ export function computeNextDuplicateName(
   existingNames: string[]
 ): string {
   const suffixMatch = sourceName.match(/^(.+) \((\d+)\)$/);
-  const stem = (suffixMatch ? suffixMatch[1] : sourceName).trim();
+  const stem = (suffixMatch ? suffixMatch[1] : sourceName).trim() || sourceName.trim() || 'Chronique';
 
   let maxSuffix = 0;
   const escapedStem = stem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

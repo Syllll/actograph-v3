@@ -108,6 +108,12 @@
         </q-card-section>
 
         <q-card-section class="q-pt-md">
+          <div
+            v-if="state.selectedReading?.description"
+            class="existing-comment text-caption q-mb-md"
+          >
+            Commentaire existant : {{ state.selectedReading.description }}
+          </div>
           <q-input
             v-model="state.commentText"
             label="Commentaire"
@@ -135,7 +141,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, computed } from 'vue';
+import { defineComponent, reactive, computed, watch } from 'vue';
 import { useQuasar } from 'quasar';
 import { useChronicle } from '@composables/use-chronicle';
 import { observationService } from '@services/observation.service';
@@ -215,6 +221,16 @@ export default defineComponent({
     });
 
     const isSearchActive = computed(() => state.search.trim().length > 0);
+
+    watch(
+      () => chronicle.sharedState.currentChronicle?.id,
+      () => {
+        state.showCommentDialog = false;
+        state.selectedReading = null;
+        state.commentText = '';
+        state.savingComment = false;
+      }
+    );
 
     const methods = {
       getTypeLabel: (type: ReadingType, name?: string): string => {
@@ -344,6 +360,18 @@ export default defineComponent({
   color: var(--text-secondary);
   margin-top: 2px;
   white-space: pre-wrap;
+}
+
+.existing-comment {
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+body.body--dark .existing-comment {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 

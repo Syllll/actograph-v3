@@ -137,33 +137,41 @@ class ObservationService {
       mode: 'Calendar',
     });
 
-    // Add protocol items if provided
-    if (input.protocol?.categories) {
-      const protocol = await protocolRepository.findByObservationId(observation.id);
-      if (protocol) {
-        for (let i = 0; i < input.protocol.categories.length; i++) {
-          const category = input.protocol.categories[i];
-          const categoryItem = await protocolRepository.addCategory(
-            protocol.id,
-            category.name,
-            i
-          );
-
-          for (let j = 0; j < category.observables.length; j++) {
-            const observable = category.observables[j];
-            await protocolRepository.addObservable(
+    try {
+      if (input.protocol?.categories) {
+        const protocol = await protocolRepository.findByObservationId(observation.id);
+        if (protocol) {
+          for (let i = 0; i < input.protocol.categories.length; i++) {
+            const category = input.protocol.categories[i];
+            const categoryItem = await protocolRepository.addCategory(
               protocol.id,
-              categoryItem.id,
-              observable.name,
-              observable.color,
-              j
+              category.name,
+              i
             );
+
+            for (let j = 0; j < category.observables.length; j++) {
+              const observable = category.observables[j];
+              await protocolRepository.addObservable(
+                protocol.id,
+                categoryItem.id,
+                observable.name,
+                observable.color,
+                j
+              );
+            }
           }
         }
       }
-    }
 
-    return observation;
+      return observation;
+    } catch (error) {
+      try {
+        await observationRepository.hardDelete(observation.id);
+      } catch (cleanupError) {
+        console.error('Failed to rollback partial chronicle creation:', cleanupError);
+      }
+      throw error;
+    }
   }
 
   /**

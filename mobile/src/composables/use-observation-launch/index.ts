@@ -10,6 +10,7 @@ export function useObservationLaunch() {
   const router = useRouter();
   const $q = useQuasar();
   const chronicle = useChronicle();
+  let isDuplicating = false;
 
   const launchObservation = (options?: {
     onChronicleListChanged?: () => void | Promise<void>;
@@ -58,7 +59,7 @@ export function useObservationLaunch() {
       $q.dialog({
         title: 'Nouvelle observation',
         message:
-          'Voulez-vous effacer tous les relevés et repartir sur une nouvelle chronique ? Les relevés actuels seront conservés dans la chronique d\'origine.',
+          'Une nouvelle chronique sera créée avec le même protocole mais sans relevés. Les relevés actuels resteront dans la chronique d\'origine.',
         cancel: true,
         persistent: true,
         ok: {
@@ -66,6 +67,10 @@ export function useObservationLaunch() {
           color: 'negative',
         },
       }).onOk(async () => {
+        if (isDuplicating) return;
+
+        isDuplicating = true;
+        $q.loading.show({ message: 'Création de la nouvelle chronique...' });
         try {
           const created = await chronicle.methods.duplicateForNewSession(sourceId);
           await options?.onChronicleListChanged?.();
@@ -84,6 +89,9 @@ export function useObservationLaunch() {
             caption: error instanceof Error ? error.message : 'Erreur inconnue',
             position: 'top',
           });
+        } finally {
+          isDuplicating = false;
+          $q.loading.hide();
         }
       });
     });

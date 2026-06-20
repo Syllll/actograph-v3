@@ -157,15 +157,19 @@ export function useCloud() {
     async downloadChronicle(
       chronicle: ICloudChronicle
     ): Promise<{ success: boolean; observationId?: number; error?: string }> {
+      if (!chronicle.isJchronic) {
+        return {
+          success: false,
+          error: 'Format ancien non téléchargeable, merci de convertir en .jchronic',
+        };
+      }
+
       sharedState.isLoading = true;
       sharedState.error = null;
 
       try {
         // Télécharger le fichier
-        const downloadResult = await actographCloudService.downloadChronicle(
-          chronicle.id,
-          { binary: !chronicle.isJchronic }
-        );
+        const downloadResult = await actographCloudService.downloadChronicle(chronicle.id);
 
         if (!downloadResult.success || !downloadResult.content) {
           return {
@@ -174,9 +178,10 @@ export function useCloud() {
           };
         }
 
-        const importResult = chronicle.isJchronic
-          ? await importService.importJchronic(downloadResult.content as string, chronicle.name)
-          : await importService.importChronic(downloadResult.content, chronicle.name);
+        const importResult = await importService.importJchronic(
+          downloadResult.content as string,
+          chronicle.name
+        );
 
         if (importResult.success) {
           return {
