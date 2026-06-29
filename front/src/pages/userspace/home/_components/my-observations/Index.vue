@@ -144,7 +144,8 @@ export default defineComponent({
         return observation.sharedState.currentObservation?.id === id;
       },
 
-      formatDate(val: string): string {
+      formatDate(val: Date | string | undefined): string {
+        if (!val) return '';
         return relativeDay(val);
       },
     };

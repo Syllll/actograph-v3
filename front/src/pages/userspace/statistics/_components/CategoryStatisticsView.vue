@@ -108,9 +108,12 @@ export default defineComponent({
       }
 
       return protocol._items
-        .filter((item: { type?: string }) => item.type === 'category')
-        .map((item: { name?: string; id?: string }) => ({
-          label: item.name,
+        .filter(
+          (item: { type?: string; id?: string }) =>
+            item.type === 'category' && typeof item.id === 'string',
+        )
+        .map((item: { name?: string; id: string }) => ({
+          label: item.name ?? '',
           value: item.id,
         }));
     });

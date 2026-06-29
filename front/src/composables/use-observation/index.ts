@@ -314,6 +314,23 @@ export const useObservation = (options?: { init?: boolean }) => {
       await methods.loadObservation(id);
       return response;
     },
+    closeObservation: () => {
+      useWindowSync().setObservationId(null);
+
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+
+      sharedState.loading = false;
+      sharedState.currentObservation = null;
+      sharedState.isPlaying = false;
+      sharedState.elapsedTime = 0;
+      sharedState.startTime = null;
+      sharedState.currentDate = null;
+      readings.sharedState.currentReadings = [];
+      protocol.sharedState.currentProtocol = null;
+    },
     _loadObservation: async (observation: IObservation) => {
       // Renseigner l'observation suivie pour le filtrage des messages inter-fenêtres.
       useWindowSync().setObservationId(observation?.id ?? null);

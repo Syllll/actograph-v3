@@ -806,6 +806,7 @@ export default defineComponent({
       displayModeOptions,
       DisplayModeEnum,
       ProtocolItemActionEnum,
+      DEFAULT_GRAPH_COLOR,
       isCompactMode,
       isMinimized,
       MIN_CONTENT_WIDTH,
