@@ -15,6 +15,12 @@ import type { IObservation as ICoreObservation } from '@actograph/core';
 // et vue-tsc voit alors un simple objet de méthodes publiques, plus assignable à PixiApp).
 const sharedState = shallowReactive({
   pixiApp: null as PixiApp | null,
+  // true tant que PixiJS n'a pas fini son init() + premier rendu.
+  // Sert à afficher un overlay pour masquer le buffer GPU noir.
+  loading: false,
+  // true une fois que init() a abouti (renderer + axes/dataArea créés).
+  // Garde pour éviter les setData()/draw() avant que PixiApp soit prêt.
+  ready: false,
 });
 
 /**
@@ -74,7 +80,7 @@ export const useGraph = (options?: {
   };
 
   const refreshGraph = (): void => {
-    if (!sharedState.pixiApp || !isElementVisible(getCanvasElement())) {
+    if (!sharedState.ready || !sharedState.pixiApp || !isElementVisible(getCanvasElement())) {
       return;
     }
     sharedState.pixiApp.resizeFromCanvas();
@@ -82,7 +88,10 @@ export const useGraph = (options?: {
   };
 
   const onCanvasResize = (): void => {
-    if (!sharedState.pixiApp) {
+    // Tant que PixiApp n'est pas initialisé, resizeFromCanvas()/draw() n'ont
+    // pas de renderer ni d'axes : on évite des appels qui lèveraient une
+    // exception silencieuse (et du travail gaspillé) pendant l'init.
+    if (!sharedState.ready || !sharedState.pixiApp) {
       return;
     }
     sharedState.pixiApp.resizeFromCanvas();
@@ -109,16 +118,37 @@ export const useGraph = (options?: {
         throw new Error('No canvasRef provided');
       }
 
-      // Initialisation de l'application PixiJS avec le canvas HTML
-      // Le canvas sera utilisé pour le rendu WebGL
-      await pixiApp.init({
-        view: options.init.canvasRef.value.canvasRef,
-      });
+      // overlay actif jusqu'au premier rendu : masque le buffer GPU noir
+      sharedState.loading = true;
+      sharedState.ready = false;
 
-      // Récupération de l'observation courante depuis le composable
-      redrawFromObservation(pixiApp);
+      try {
+        // Initialisation de l'application PixiJS avec le canvas HTML
+        // Le canvas sera utilisé pour le rendu WebGL
+        await pixiApp.init({
+          view: options.init.canvasRef.value.canvasRef,
+        });
 
-      console.info('Pixi app initialized');
+        // À partir d'ici le renderer et les axes existent : les redraws sont sûrs.
+        sharedState.ready = true;
+
+        // Récupération de l'observation courante depuis le composable
+        redrawFromObservation(pixiApp);
+
+        console.info('Pixi app initialized');
+
+        // On garde l'overlay jusqu'à ce qu'une frame ait réellement été peinte,
+        // sinon le canvas WebGL (buffer non initialisé = noir) reste visible
+        // pendant le tout premier rendu. Deux rAF = au moins une frame composée.
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        );
+      } catch (error) {
+        console.error('Failed to initialize Pixi app:', error);
+      } finally {
+        // masque l'overlay une fois la première frame peinte (ou en cas d'échec)
+        sharedState.loading = false;
+      }
     });
 
     useAppResume(refreshGraph);
@@ -129,7 +159,7 @@ export const useGraph = (options?: {
     watch(
       () => observation.readings?.sharedState?.currentReadings ?? [],
       () => {
-        if (!sharedState.pixiApp) return;
+        if (!sharedState.ready || !sharedState.pixiApp) return;
         redrawFromObservation(sharedState.pixiApp);
       },
       { deep: true }
@@ -138,7 +168,7 @@ export const useGraph = (options?: {
     watch(
       () => observation.protocol?.sharedState?.currentProtocol,
       () => {
-        if (!sharedState.pixiApp) return;
+        if (!sharedState.ready || !sharedState.pixiApp) return;
         redrawFromObservation(sharedState.pixiApp);
       },
       { deep: true }
@@ -152,6 +182,8 @@ export const useGraph = (options?: {
       // Destruction de l'application PixiJS et libération des ressources
       pixiApp.destroy();
       sharedState.pixiApp = null;
+      sharedState.ready = false;
+      sharedState.loading = false;
     });
   }
 

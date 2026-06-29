@@ -81,6 +81,21 @@
     <div class="canvas-container fit relative-position">
       <d-canvas class="fit" ref="canvasRef" @resize="graph.onCanvasResize" />
       <StudentWatermark />
+
+      <!--
+        Overlay de chargement SUPERPOSÉ au canvas (ne le détruit pas).
+        Masque le buffer GPU non initialisé (zone noire) tant que PixiJS
+        n'a pas terminé son init() + premier rendu.
+      -->
+      <div
+        v-if="graph.sharedState.loading"
+        class="graph-loading-overlay column items-center justify-center"
+      >
+        <q-spinner-dots color="primary" size="50px" />
+        <div class="text-body2 text-grey-7 q-mt-md">
+          {{ $t('graphUi.loading') }}
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -344,6 +359,15 @@ export default defineComponent({
   min-height: 0;
   /* overflow: auto pour permettre le scroll quand le graphe dépasse (bug 3.1: première catégorie invisible avec 4+ catégories) */
   overflow: auto;
+  /* Fond blanc pour éviter le flash noir du buffer GPU avant le premier rendu PixiJS */
+  background-color: #ffffff;
+}
+
+.graph-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background-color: rgba(255, 255, 255, 0.95);
 }
 
 .zoom-controls {

@@ -235,13 +235,19 @@ export default defineComponent({
 
 <style scoped lang="scss">
 canvas {
+  /* Le canvas est sorti du flux pour qu'il ne puisse JAMAIS influencer la
+     taille de son conteneur. Sans ça, redimensionner le renderer PixiJS
+     repousse le conteneur observé par le ResizeObserver, ce qui re-déclenche
+     un resize → boucle de feedback (le canvas grossit à l'infini). */
+  position: absolute;
+  top: 0;
+  left: 0;
   display: block;
   padding: 0px;
   border: 0px;
   margin: 0px;
   border-image-width: 0px;
   width: 100% !important;
-  height: calc(100%) !important;
+  height: 100% !important;
 }
 </style>
-```

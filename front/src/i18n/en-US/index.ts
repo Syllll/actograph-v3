@@ -393,6 +393,7 @@ export default {
     chartSeriesOccurrences: 'Occurrences',
   },
   graphUi: {
+    loading: 'Loading chart...',
     exportNotReady: 'The chart is not ready to export yet',
     noLegendToExport: 'No legend available to export',
     legendImageFailed: 'Could not generate the legend image',

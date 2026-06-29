@@ -137,11 +137,18 @@ export class ObservationService extends BaseService<
       })`;
     }
 
+    const {
+      id: _sourceId,
+      protocol: _sourceProtocol,
+      activityGraph: _sourceActivityGraph,
+      createdAt: _sourceCreatedAt,
+      updatedAt: _sourceUpdatedAt,
+      deletedAt: _sourceDeletedAt,
+      ...observationFields
+    } = observation;
+
     const _clonedObservation = this.observationRepository.create({
-      ...observation,
-      id: undefined,
-      protocol: undefined,
-      activityGraph: undefined,
+      ...observationFields,
       user: {
         id: newUserId,
       },

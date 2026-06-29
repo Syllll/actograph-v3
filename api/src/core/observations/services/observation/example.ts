@@ -132,7 +132,7 @@ export class Example {
       categoryId: actionCategory.id,
       name: 'Chercher',
     });
-    // Add another observable: trouver
+    // Add another observable: Se lever
     const seLever = await this.protocolService.items.addObservable({
       protocolId: protocol.id,
       categoryId: actionCategory.id,
@@ -154,7 +154,7 @@ export class Example {
     // - Assis
     // - Autre Position
     // - Se lever
-    // - Trouver
+    // - Chercher
     // - Pause start
     // - Pause end
     // - Debout
@@ -200,7 +200,7 @@ export class Example {
         dateTime: new Date('2025/01/01 12:00:05'),
       },
       {
-        name: 'Trouver',
+        name: 'Chercher',
         type: ReadingTypeEnum.DATA,
         observationId: observation.id,
         dateTime: new Date('2025/01/01 12:00:06'),
