@@ -228,10 +228,12 @@ jobs:
         if: startsWith(matrix.os, 'macos-')
         env:
           MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           P12_PATH="$RUNNER_TEMP/signing.p12"
-          echo "$MAC_CERT_BASE64" | base64 --decode > "$P12_PATH"
+          echo "$MAC_CERT_BASE64" | openssl base64 -d -A -out "$P12_PATH"
+          openssl pkcs12 -in "$P12_PATH" -passin "env:CSC_KEY_PASSWORD" -nokeys -noout
           echo "CSC_LINK=$P12_PATH" >> "$GITHUB_ENV"
 
       - name: Run deploy script
