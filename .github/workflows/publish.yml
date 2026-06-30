@@ -252,11 +252,11 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           # AmCharts license key for build-time
           AMCHART5_LICENCE_KEY: ${{ secrets.AMCHART5_LICENCE_KEY }}
-          # macOS code signing + notarization (macOS runners only)
-          CSC_KEY_PASSWORD: ${{ startsWith(matrix.os, 'macos-') && secrets.CSC_KEY_PASSWORD || '' }}
-          APPLE_ID: ${{ startsWith(matrix.os, 'macos-') && secrets.APPLE_ID || '' }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ startsWith(matrix.os, 'macos-') && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ startsWith(matrix.os, 'macos-') && secrets.APPLE_TEAM_ID || '' }}
+          # macOS code signing + notarization (CSC_LINK set via GITHUB_ENV on macOS runners)
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Verify macOS code signature
         if: startsWith(matrix.os, 'macos-')
