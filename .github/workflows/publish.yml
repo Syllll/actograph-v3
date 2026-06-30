@@ -225,7 +225,7 @@ jobs:
         shell: bash
 
       - name: Prepare macOS code signing keychain
-        if: startsWith(matrix.os, 'macos-') && secrets.MAC_CERT_BASE64 != ''
+        if: startsWith(matrix.os, 'macos-')
         env:
           MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
@@ -280,7 +280,7 @@ jobs:
           codesign -dv --verbose=4 "$APP" 2>&1 | tee /tmp/codesign-info.txt
 
       - name: Verify macOS Developer ID signature
-        if: startsWith(matrix.os, 'macos-') && secrets.MAC_CERT_BASE64 != ''
+        if: startsWith(matrix.os, 'macos-')
         shell: bash
         run: |
           set -euo pipefail
@@ -291,7 +291,7 @@ jobs:
           echo "Developer ID signature OK (Team JZ2M998YMV)"
 
       - name: Verify macOS notarization (Gatekeeper)
-        if: startsWith(matrix.os, 'macos-') && secrets.APPLE_ID != ''
+        if: startsWith(matrix.os, 'macos-')
         shell: bash
         run: |
           set -euo pipefail
