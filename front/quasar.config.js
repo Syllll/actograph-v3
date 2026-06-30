@@ -20,6 +20,13 @@ const appname = JSON.parse(packageJson).name;
 // Required to parse .env file
 require('dotenv').config();
 
+const MAC_CERT_AVAILABLE = Boolean(process.env.CSC_LINK?.trim());
+const MAC_NOTARIZE_READY =
+  MAC_CERT_AVAILABLE &&
+  Boolean(process.env.APPLE_ID?.trim()) &&
+  Boolean(process.env.APPLE_APP_SPECIFIC_PASSWORD?.trim()) &&
+  Boolean(process.env.APPLE_TEAM_ID?.trim());
+
 module.exports = configure(function (/* ctx */) {
   return {
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
@@ -467,7 +474,7 @@ module.exports = configure(function (/* ctx */) {
       builder: {
         // https://www.electron.build/configuration/configuration
 
-        appId: 'actograph-v3',
+        appId: 'com.symalgo.actograph-v3',
         extraResources: ['./src-electron/extra-resources/**'],
         // We do not use the version in the artifact name, because we want to be able to
         // use the same artifact name for different versions.
@@ -485,10 +492,21 @@ module.exports = configure(function (/* ctx */) {
           // Use store compression for faster builds (like Windows)
           // Trade-off: slightly larger file size but much faster build
           compression: 'store',
-          // Explicitly disable code signing to avoid retries and delays
-          // Without this, electron-builder tries to sign, fails, and retries multiple times
-          identity: null,
           gatekeeperAssess: false,
+          minimumSystemVersion: '11.0',
+          // Developer ID when CSC_LINK is set (CI secrets); ad-hoc otherwise.
+          ...(MAC_CERT_AVAILABLE
+            ? {
+                hardenedRuntime: true,
+                entitlements: 'build/entitlements.mac.plist',
+                entitlementsInherit: 'build/entitlements.mac.inherit.plist',
+                ...(MAC_NOTARIZE_READY
+                  ? { notarize: { teamId: process.env.APPLE_TEAM_ID } }
+                  : {}),
+              }
+            : {
+                identity: '-',
+              }),
         },
         win: {
           target: 'nsis',

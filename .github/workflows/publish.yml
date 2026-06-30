@@ -224,6 +224,24 @@ jobs:
           fi
         shell: bash
 
+      - name: Prepare macOS code signing keychain
+        if: startsWith(matrix.os, 'macos-') && secrets.MAC_CERT_BASE64 != ''
+        env:
+          MAC_CERT_BASE64: ${{ secrets.MAC_CERT_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          echo "$MAC_CERT_BASE64" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          security create-keychain -p actions "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p actions "$KEYCHAIN"
+          security import "$RUNNER_TEMP/signing.p12" -k "$KEYCHAIN" -P "$CSC_KEY_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productbuild -T /usr/bin/xcrun
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain
+          echo "MACOS_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
       - name: Run deploy script
         run: bash scripts/build-electron.sh
         shell: bash
@@ -240,6 +258,57 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           # AmCharts license key for build-time
           AMCHART5_LICENCE_KEY: ${{ secrets.AMCHART5_LICENCE_KEY }}
+          # macOS code signing + notarization (macOS runners only)
+          CSC_LINK: ${{ startsWith(matrix.os, 'macos-') && secrets.MAC_CERT_BASE64 || '' }}
+          CSC_KEY_PASSWORD: ${{ startsWith(matrix.os, 'macos-') && secrets.CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ startsWith(matrix.os, 'macos-') && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ startsWith(matrix.os, 'macos-') && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ startsWith(matrix.os, 'macos-') && secrets.APPLE_TEAM_ID || '' }}
+
+      - name: Verify macOS code signature
+        if: startsWith(matrix.os, 'macos-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find front/dist/electron -name '*.app' -type d | head -1)"
+          if [ -z "$APP" ]; then
+            echo "No .app bundle found under front/dist/electron" >&2
+            exit 1
+          fi
+          echo "Verifying: $APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv --verbose=4 "$APP" 2>&1 | tee /tmp/codesign-info.txt
+
+      - name: Verify macOS Developer ID signature
+        if: startsWith(matrix.os, 'macos-') && secrets.MAC_CERT_BASE64 != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find front/dist/electron -name '*.app' -type d | head -1)"
+          codesign -dv --verbose=4 "$APP" 2>&1 | tee /tmp/codesign-info.txt
+          grep -q 'Developer ID Application' /tmp/codesign-info.txt
+          grep -q 'TeamIdentifier=JZ2M998YMV' /tmp/codesign-info.txt
+          echo "Developer ID signature OK (Team JZ2M998YMV)"
+
+      - name: Verify macOS notarization (Gatekeeper)
+        if: startsWith(matrix.os, 'macos-') && secrets.APPLE_ID != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(find front/dist/electron -name '*.app' -type d | head -1)"
+          spctl -a -vv --type execute "$APP" 2>&1 | tee /tmp/spctl-info.txt
+          grep -q 'accepted' /tmp/spctl-info.txt
+          echo "Gatekeeper notarization check OK"
+          stapler validate "$APP" 2>&1 | tee /tmp/stapler-info.txt || true
+
+      - name: Clean up macOS signing material
+        if: startsWith(matrix.os, 'macos-') && always()
+        run: |
+          rm -f "$RUNNER_TEMP/signing.p12" 2>/dev/null || true
+          if [ -n "${MACOS_KEYCHAIN:-}" ]; then
+            security delete-keychain "$MACOS_KEYCHAIN" 2>/dev/null || true
+          fi
+        shell: bash
 
       # Clean up certificate for Windows only
       - name: Clean up certificate
