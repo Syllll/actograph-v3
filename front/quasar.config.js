@@ -20,7 +20,11 @@ const appname = JSON.parse(packageJson).name;
 // Required to parse .env file
 require('dotenv').config();
 
-const MAC_CERT_AVAILABLE = Boolean(process.env.CSC_LINK?.trim());
+const MAC_CERT_AVAILABLE = Boolean(
+  process.env.CSC_IDENTITY?.trim() ||
+    process.env.CSC_KEYCHAIN?.trim() ||
+    process.env.CSC_LINK?.trim()
+);
 const MAC_NOTARIZE_READY =
   MAC_CERT_AVAILABLE &&
   Boolean(process.env.APPLE_ID?.trim()) &&
