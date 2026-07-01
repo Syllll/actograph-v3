@@ -585,10 +585,10 @@ ipcMain.handle('install-update', (event, arg) => {
   // Manually trigger the installation
   try {
     log.info('Installing update and quitting...');
-    // quitAndInstall(restart, isSilent)
-    // restart: if true, restart the app after installation
-    // isSilent: if true, run installer in silent mode
-    autoUpdater.quitAndInstall(false, true);
+    // quitAndInstall(isSilent, isForceRunAfter)
+    // isSilent: if true, run installer in silent mode (Windows/NSIS only; ignored on macOS/Linux)
+    // isForceRunAfter: if true, relaunch the app once the (silent) install is done
+    autoUpdater.quitAndInstall(true, true);
   } catch (error) {
     log.error('Error installing update:', error);
     throw error;
