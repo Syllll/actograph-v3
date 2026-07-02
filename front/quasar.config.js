@@ -519,14 +519,19 @@ module.exports = configure(function (/* ctx */) {
           // normal: default
           // maximum: slow and smallest size
           compression: 'store',
-          // Only include certificate configuration when the password is available
-          ...(process.env.WIN_CERT_PWD
+          // Certum SimplySign cloud signing: the "Authenticate SimplySign (TOTP)"
+          // CI step mounts the cloud cert in Cert:\CurrentUser\My and exports its
+          // SHA-1 thumbprint to WIN_CERT_SHA1. electron-builder drives signtool
+          // with /sha1 <thumbprint> and the Certum RFC 3161 timestamp server.
+          ...(process.env.WIN_CERT_SHA1
             ? {
-                certificateFile:
-                  process.env.CERTIFICATE_PATH || './certificate.pfx',
-                certificatePassword: process.env.WIN_CERT_PWD,
+                certificateSha1: process.env.WIN_CERT_SHA1,
                 signAndEditExecutable: true,
-                publisherName: 'SymAlgo Technologies', // Fallback publisher name
+                // Must match the cert CN exactly ("Symalgo Technologies") so the
+                // edited exe manifest publisher lines up with the signer subject.
+                publisherName: 'Symalgo Technologies',
+                rfc3161TimeStampServer: 'http://time.certum.pl',
+                signingHashAlgorithms: ['sha256'],
               }
             : {}),
         },

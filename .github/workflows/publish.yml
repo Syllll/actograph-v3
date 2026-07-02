@@ -35,13 +35,38 @@ jobs:
         with:
           node-version: '20'
 
-      # Windows-only steps for certificate handling
-      - name: Decode certificate
+      # Windows-only: install & authenticate Certum SimplySign Desktop for
+      # cloud code signing. Produces WIN_CERT_SHA1 (thumbprint) consumed by
+      # electron-builder. Fails the build if the cloud certificate cannot be
+      # mounted, so we never silently produce unsigned Windows artifacts.
+      - name: Cache SimplySign Desktop MSI
         if: matrix.os == 'windows-latest'
-        run: |
-          echo ${{ secrets.WIN_CERT_BASE64 }} > certificate.b64
-          certutil -decode certificate.b64 front/certificate.pfx
-        shell: bash
+        id: simplysign-msi-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/simplysign
+          key: simplysign-msi-9.4.2.86
+
+      - name: Install SimplySign Desktop
+        if: matrix.os == 'windows-latest'
+        id: install-simplysign
+        shell: pwsh
+        run: ./.github/scripts/install-simplysign.ps1
+
+      - name: Configure SimplySign Desktop
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./.github/scripts/configure-simplysign.ps1
+
+      - name: Authenticate SimplySign (TOTP)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        env:
+          CERTUM_OTP_URI: ${{ secrets.CERTUM_OTP_URI }}
+          CERTUM_USERNAME: ${{ secrets.CERTUM_USERNAME }}
+          CERTUM_SUBJECT_FILTER: Symalgo
+          SIMPLYSIGN_EXE: ${{ steps.install-simplysign.outputs.SIMPLYSIGN_EXE }}
+        run: ./.github/scripts/connect-simplysign.ps1
 
       - name: Replace security functions
         shell: bash
@@ -250,7 +275,9 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          WIN_CERT_PWD: ${{ secrets.WIN_CERT_PWD }}
+          # WIN_CERT_SHA1 (thumbprint) is exported to GITHUB_ENV by the
+          # "Authenticate SimplySign (TOTP)" step and read by quasar.config.js
+          # to drive signtool via electron-builder (certificateSha1).
           # Use ELECTRON_BUILDER_ARCH for architecture-specific builds (macOS only)
           ELECTRON_BUILDER_ARCH: ${{ matrix.electron_arch || '' }}
           # Keep ELECTRON_ARCH_FLAGS for backward compatibility with build script
@@ -266,6 +293,46 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Verify Windows code signature
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          # Verify every top-level .exe produced by electron-builder (NSIS
+          # installer is "ActoGraph-v3-x64.exe"). All must be Authenticode-signed
+          # by Symalgo, otherwise the build fails before any artifact is uploaded.
+          $exes = Get-ChildItem "front/dist/electron/Packaged" -Filter "*.exe" -File -ErrorAction SilentlyContinue
+          if (-not $exes -or $exes.Count -eq 0) {
+            Write-Host "ERROR: no Windows .exe artifact found under front/dist/electron/Packaged"
+            exit 1
+          }
+          $failed = $false
+          foreach ($exe in $exes) {
+            Write-Host ""
+            Write-Host "Verifying: $($exe.Name)"
+            $sig = Get-AuthenticodeSignature -FilePath $exe.FullName
+            Write-Host "  Status : $($sig.Status)"
+            Write-Host "  Signer : $($sig.SignerCertificate.Subject)"
+            Write-Host "  Issuer : $($sig.SignerCertificate.Issuer)"
+            if ($sig.Status -ne 'Valid') {
+              Write-Host "  -> FAIL: not validly signed ($($sig.StatusMessage))"
+              $failed = $true
+            } elseif ($sig.SignerCertificate.Subject -notmatch 'Symalgo') {
+              Write-Host "  -> FAIL: signer subject does not match 'Symalgo': $($sig.SignerCertificate.Subject)"
+              $failed = $true
+            } else {
+              Write-Host "  -> OK"
+            }
+          }
+          if ($failed) {
+            Write-Host ""
+            Write-Host "ERROR: one or more Windows artifacts are not validly signed by Symalgo."
+            Write-Host "Refusing to upload unsigned artifacts; failing the build."
+            exit 1
+          }
+          Write-Host ""
+          Write-Host "All Windows artifacts validly signed (Symalgo Technologies)."
 
       - name: Verify macOS code signature
         if: startsWith(matrix.os, 'macos-')
@@ -312,13 +379,19 @@ jobs:
           fi
         shell: bash
 
-      # Clean up certificate for Windows only
-      - name: Clean up certificate
+      # Clean up SimplySign Desktop (Windows only) - stop the tray app so the
+      # virtual smart card is unmounted and no cloud session lingers.
+      - name: Clean up SimplySign Desktop
         if: matrix.os == 'windows-latest' && always()
+        shell: pwsh
         run: |
-          if exist certificate.pfx del /q certificate.pfx
-          if exist certificate.b64 del /q certificate.b64
-        shell: cmd
+          $p = Get-Process -Name "SimplySignDesktop" -ErrorAction SilentlyContinue
+          if ($p) {
+            $p | ForEach-Object { try { $_.Kill() } catch {} }
+            Write-Host "Stopped SimplySign Desktop."
+          } else {
+            Write-Host "SimplySign Desktop not running; nothing to clean up."
+          }
 
       # Instead of uploading to release here, let's save artifacts
       - name: Upload artifacts
