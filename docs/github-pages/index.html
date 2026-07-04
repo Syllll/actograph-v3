@@ -5,24 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ActoGraph v3 — Téléchargement</title>
 <meta name="description" content="Téléchargez ActoGraph v3 pour Windows, macOS et Linux. Gratuit pour les étudiants, licence requise pour les autres usages. Édité par SymAlgo Technologies." />
-<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="actograph-icon.png" type="image/png" />
 <style>
   :root {
-    --bg: #0f2733;
-    --bg-2: #203d52;
-    --card: #16384a;
-    --card-2: #1b4358;
+    --bg: #14181d;
+    --bg-2: #1b2026;
+    --card: #1e242b;
+    --card-2: #232a31;
     --border: rgba(255,255,255,0.08);
-    --text: #eaf3f6;
-    --muted: #9bb4bf;
-    --cyan: #3ecfd9;
-    --purple: #b077dd;
-    --yellow: #ffcc49;
+    --text: #eef2f5;
+    --muted: #9aa5af;
+    --accent: #e87511;
+    --accent-2: #f59b11;
+    --accent-dark: #c25e0a;
     --green: #4ed99a;
-    --symalgo: #f59b11;
     --symalgo-bg: #000000;
     --radius: 14px;
-    --shadow: 0 10px 40px rgba(0,0,0,0.35);
+    --shadow: 0 10px 40px rgba(0,0,0,0.4);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -30,8 +29,8 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--text);
     background:
-      radial-gradient(1200px 600px at 80% -10%, rgba(62,207,217,0.18), transparent 60%),
-      radial-gradient(1000px 500px at -10% 110%, rgba(176,119,221,0.18), transparent 60%),
+      radial-gradient(1200px 600px at 80% -10%, rgba(232,117,17,0.16), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, rgba(245,155,17,0.12), transparent 60%),
       linear-gradient(180deg, var(--bg), var(--bg-2));
     min-height: 100vh;
     margin: 0;
@@ -62,7 +61,7 @@
     text-transform: uppercase;
     margin-top: 12px;
   }
-  .symalgo-banner .tagline a { color: var(--symalgo); text-decoration: none; }
+  .symalgo-banner .tagline a { color: var(--accent-2); text-decoration: none; }
   .symalgo-banner .tagline a:hover { text-decoration: underline; }
 
   .wrap-inner { width: 100%; max-width: 760px; margin: 0 auto; padding: 32px 20px 0; }
@@ -73,8 +72,10 @@
   }
   header.brand .logo {
     width: 48px; height: 48px; border-radius: 10px;
+    background: #ffffff;
     box-shadow: var(--shadow);
     flex: 0 0 auto;
+    object-fit: contain;
   }
   header.brand h1 { font-size: 22px; margin: 0; font-weight: 700; letter-spacing: 0.3px; }
   header.brand .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
@@ -89,14 +90,14 @@
   }
   .detected {
     display: inline-flex; align-items: center; gap: 8px;
-    background: rgba(62,207,217,0.12);
-    border: 1px solid rgba(62,207,217,0.35);
-    color: var(--cyan);
+    background: rgba(232,117,17,0.12);
+    border: 1px solid rgba(232,117,17,0.35);
+    color: var(--accent);
     padding: 6px 12px; border-radius: 999px;
     font-size: 13px; font-weight: 600;
     margin-bottom: 18px;
   }
-  .detected .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); }
+  .detected .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
   h2 { margin: 0 0 6px; font-size: 26px; line-height: 1.2; }
   .lede { color: var(--muted); margin: 0 0 22px; font-size: 15px; }
 
@@ -111,14 +112,14 @@
     display: inline-flex; align-items: center; gap: 10px;
   }
   .btn-primary {
-    background: linear-gradient(135deg, var(--cyan), #2bb6c0);
-    color: #062430;
-    box-shadow: 0 8px 24px rgba(62,207,217,0.35);
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #1f0f02;
+    box-shadow: 0 8px 24px rgba(232,117,17,0.35);
   }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(62,207,217,0.45); }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(232,117,17,0.45); }
 
   .version { color: var(--muted); font-size: 13px; margin-top: 18px; }
-  .version a { color: var(--cyan); text-decoration: none; }
+  .version a { color: var(--accent); text-decoration: none; }
   .version a:hover { text-decoration: underline; }
 
   /* License section */
@@ -145,17 +146,17 @@
     padding: 3px 9px; border-radius: 999px; text-transform: uppercase;
   }
   .lic-card.free .tag { background: rgba(78,217,154,0.15); color: var(--green); border: 1px solid rgba(78,217,154,0.3); }
-  .lic-card.paid .tag { background: rgba(245,155,17,0.15); color: var(--symalgo); border: 1px solid rgba(245,155,17,0.3); }
+  .lic-card.paid .tag { background: rgba(245,155,17,0.15); color: var(--accent-2); border: 1px solid rgba(245,155,17,0.3); }
   .lic-card .title { font-weight: 700; font-size: 15px; }
   .lic-card .body { color: var(--muted); font-size: 13px; line-height: 1.55; }
   .lic-card .body strong { color: var(--text); font-weight: 600; }
   .lic-card .cta { margin-top: 12px; }
   .lic-card .cta a {
-    color: var(--symalgo); text-decoration: none; font-size: 13px; font-weight: 600;
+    color: var(--accent-2); text-decoration: none; font-size: 13px; font-weight: 600;
   }
   .lic-card .cta a:hover { text-decoration: underline; }
   .lic-note { color: var(--muted); font-size: 12px; margin-top: 16px; line-height: 1.6; }
-  .lic-note a { color: var(--cyan); text-decoration: none; }
+  .lic-note a { color: var(--accent); text-decoration: none; }
   .lic-note a:hover { text-decoration: underline; }
 
   .section-title {
@@ -172,7 +173,7 @@
     text-decoration: none; color: var(--text);
     transition: transform 0.05s ease, border-color 0.2s ease;
   }
-  .card:hover { transform: translateY(-1px); border-color: rgba(62,207,217,0.4); }
+  .card:hover { transform: translateY(-1px); border-color: rgba(232,117,17,0.4); }
   .card .icon {
     width: 42px; height: 42px; flex: 0 0 auto;
     border-radius: 10px; display: flex; align-items: center; justify-content: center;
@@ -182,10 +183,10 @@
   .card .meta .name { font-weight: 700; font-size: 15px; }
   .card .meta .desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
   .card .arrow { color: var(--muted); font-size: 18px; }
-  .card[data-os="windows"] .icon { background: rgba(62,207,217,0.15); }
+  .card[data-os="windows"] .icon { background: rgba(232,117,17,0.15); }
   .card[data-os="mac-arm"] .icon,
-  .card[data-os="mac-x64"] .icon { background: rgba(176,119,221,0.15); }
-  .card[data-os="linux"] .icon { background: rgba(255,204,73,0.15); }
+  .card[data-os="mac-x64"] .icon { background: rgba(232,117,17,0.15); }
+  .card[data-os="linux"] .icon { background: rgba(232,117,17,0.15); }
   .badge {
     font-size: 11px; padding: 3px 8px; border-radius: 999px;
     background: rgba(78,217,154,0.15); color: var(--green);
@@ -199,7 +200,7 @@
     color: #ffb4b4; font-size: 13px;
   }
   footer { margin-top: 36px; color: var(--muted); font-size: 12px; text-align: center; }
-  footer a { color: var(--symalgo); text-decoration: none; }
+  footer a { color: var(--accent-2); text-decoration: none; }
   footer a:hover { text-decoration: underline; }
 </style>
 </head>
@@ -213,7 +214,7 @@
 
   <div class="wrap-inner">
     <header class="brand">
-      <img class="logo" src="favicon.svg" alt="ActoGraph" />
+      <img class="logo" src="actograph-icon.png" alt="ActoGraph" width="331" height="316" decoding="async" />
       <div>
         <h1>ActoGraph v3</h1>
         <div class="sub">Téléchargement desktop</div>
