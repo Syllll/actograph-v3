@@ -153,6 +153,7 @@ export class ObservationService extends BaseService<
         id: newUserId,
       },
       type: ObservationType.Normal,
+      exampleKey: null,
       name: clonedObservationName,
     });
     const clonedObservation = await this.observationRepository.save(
