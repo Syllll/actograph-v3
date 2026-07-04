@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guide de test — Actograph V3 (Bêta)</title>
+<style>
+  :root{
+    --accent:#e07b39;
+    --accent-dark:#b85c27;
+    --ok:#16a34a; --ok-bg:#dcfce7;
+    --ko:#dc2626; --ko-bg:#fee2e2;
+    --partiel:#d97706; --partiel-bg:#fef3c7;
+    --bonus-bg:#fffbeb; --bonus-border:#fde68a;
+    --bg:#f4f6fb; --card-bg:#ffffff; --border:#e2e8f0;
+    --text:#1e293b; --text-muted:#64748b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.5;
+  }
+  a{color:var(--accent);}
+  .wrap{max-width:920px; margin:0 auto; padding:0 20px 120px;}
+
+  header.hero{
+    background:linear-gradient(135deg,var(--accent),var(--accent-dark));
+    color:white; padding:32px 20px 26px;
+  }
+  header.hero .wrap{padding:0 20px;}
+  header.hero h1{margin:0 0 6px; font-size:1.6rem;}
+  header.hero p{margin:4px 0; opacity:.95; font-size:.95rem;}
+  header.hero .deadline{
+    display:inline-block; margin-top:10px; background:rgba(255,255,255,.18);
+    padding:6px 14px; border-radius:20px; font-weight:600; font-size:.9rem;
+  }
+
+  .topbar{
+    position:sticky; top:0; z-index:50; background:white; border-bottom:1px solid var(--border);
+    box-shadow:0 2px 8px rgba(0,0,0,.04);
+  }
+  .topbar-inner{
+    max-width:920px; margin:0 auto; padding:10px 20px; display:flex; gap:14px; align-items:center;
+    flex-wrap:wrap;
+  }
+  .topbar input[type=text]{
+    flex:1; min-width:160px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:.9rem;
+  }
+  .progress-pill{
+    font-size:.85rem; font-weight:600; color:var(--accent-dark); background:#fff7ed;
+    padding:6px 12px; border-radius:20px; white-space:nowrap; margin-left:auto;
+  }
+  .topbar-actions{display:flex; gap:8px;}
+  .action-btn.small{padding:7px 12px; font-size:.8rem; border-radius:7px; white-space:nowrap;}
+  .nav-chapters{
+    display:flex; gap:6px; flex-wrap:wrap; padding:8px 0 0;
+  }
+  .nav-chapters a{
+    font-size:.78rem; text-decoration:none; background:#f1f5f9; color:var(--text);
+    padding:4px 10px; border-radius:14px; white-space:nowrap;
+  }
+  .nav-chapters a:hover{background:#e2e8f0;}
+
+  section.intro{padding-top:24px;}
+  .card-note{
+    background:var(--card-bg); border:1px solid var(--border); border-radius:12px;
+    padding:18px 20px; margin:16px 0;
+  }
+  .card-note ul{margin:8px 0; padding-left:22px;}
+  .card-note li{margin:4px 0;}
+
+  h2.chapter-title{
+    margin:40px 0 4px; font-size:1.3rem; color:var(--accent-dark);
+    scroll-margin-top:110px; border-bottom:2px solid var(--accent); padding-bottom:8px;
+  }
+  .chapter-meta{color:var(--text-muted); font-size:.88rem; margin:0 0 18px;}
+  .chapter-meta em{font-style:italic;}
+
+  .test-card{
+    background:var(--card-bg); border:1px solid var(--border); border-radius:12px;
+    padding:16px 18px; margin-bottom:14px;
+  }
+  .test-card.bonus{background:var(--bonus-bg); border-color:var(--bonus-border);}
+  .test-card.future{opacity:.7;}
+  .test-card.prereq{
+    border:2px solid var(--accent); background:#fff9f5;
+    box-shadow:0 2px 10px rgba(224,123,57,.15);
+  }
+  .badge-obligatoire{background:var(--accent); color:white;}
+  .test-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+  .test-head h3{margin:0; font-size:1.02rem;}
+  .badges{display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+  .badge{
+    font-size:.72rem; font-weight:600; padding:3px 9px; border-radius:12px; white-space:nowrap;
+  }
+  .badge.type-guide{background:#dbeafe; color:#1d4ed8;}
+  .badge.type-scenario{background:#ede9fe; color:#6d28d9;}
+  .badge.type-bonus{background:#fef3c7; color:#92400e;}
+  .badge.type-libre{background:#f1f5f9; color:#475569;}
+  .badge.duree{background:#f8fafc; color:var(--text-muted); border:1px solid var(--border);}
+
+  .test-desc{margin:10px 0 12px; font-size:.92rem;}
+  .test-desc ul{margin:6px 0; padding-left:20px;}
+  .test-desc li{margin:4px 0;}
+
+  .result-row{
+    display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; margin-top:10px;
+    border-top:1px dashed var(--border); padding-top:12px;
+  }
+  .result-col{flex:1; min-width:220px;}
+  .seg{display:flex; gap:6px; margin-bottom:8px;}
+  .seg input{position:absolute; opacity:0; width:0; height:0;}
+  .seg label{
+    cursor:pointer; padding:6px 14px; border-radius:8px; font-size:.85rem; font-weight:600;
+    border:1px solid var(--border); color:var(--text-muted); background:white; user-select:none;
+  }
+  .seg input:checked + label.ok{background:var(--ok-bg); color:var(--ok); border-color:var(--ok);}
+  .seg input:checked + label.ko{background:var(--ko-bg); color:var(--ko); border-color:var(--ko);}
+  .seg input:checked + label.partiel{background:var(--partiel-bg); color:var(--partiel); border-color:var(--partiel);}
+
+  textarea{
+    width:100%; min-height:44px; resize:none; overflow:hidden; padding:8px 10px;
+    border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:.88rem;
+  }
+  textarea:focus{outline:2px solid var(--accent); outline-offset:1px;}
+  label.field-label{display:block; font-size:.78rem; font-weight:600; color:var(--text-muted); margin-bottom:4px;}
+
+  .capture-zone{
+    min-width:180px; max-width:220px; min-height:80px; border:2px dashed var(--border); border-radius:10px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    font-size:.75rem; color:var(--text-muted); padding:8px; cursor:pointer; position:relative;
+  }
+  .capture-zone:focus{outline:2px solid var(--accent);}
+  .capture-zone img{max-width:100%; max-height:120px; border-radius:6px;}
+  .capture-zone .remove-img{
+    position:absolute; top:4px; right:4px; background:rgba(220,38,38,.9); color:white; border:none;
+    border-radius:50%; width:20px; height:20px; font-size:.7rem; cursor:pointer; line-height:1;
+  }
+  .capture-zone .file-btn{
+    font-size:.72rem; margin-top:4px; color:var(--accent); text-decoration:underline; background:none; border:none; cursor:pointer;
+  }
+
+  .preamble-table{width:100%; border-collapse:collapse; margin:14px 0; font-size:.85rem;}
+  .preamble-table th, .preamble-table td{border:1px solid var(--border); padding:8px 6px; text-align:center;}
+  .preamble-table th{background:#f8fafc; font-size:.78rem;}
+  .preamble-table td:first-child, .preamble-table th:first-child{text-align:left; font-weight:600;}
+  .preamble-table input{transform:scale(1.2);}
+
+  .free-fields{display:flex; gap:16px; flex-wrap:wrap; margin:14px 0;}
+  .free-fields > div{flex:1; min-width:220px;}
+  .free-fields input[type=text]{
+    width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:.88rem;
+  }
+
+  .finale{
+    margin-top:40px; padding:22px 20px; background:var(--card-bg); border:1px solid var(--border); border-radius:12px;
+  }
+  .actions{display:flex; gap:12px; flex-wrap:wrap; margin-top:16px;}
+  button.action-btn{
+    padding:11px 20px; border-radius:9px; border:none; font-size:.92rem; font-weight:600; cursor:pointer;
+  }
+  button.save{background:#111827; color:white;}
+  button.send{background:var(--accent); color:white;}
+  button.action-btn:hover{filter:brightness(1.08);}
+  .hint{font-size:.8rem; color:var(--text-muted); margin-top:8px;}
+
+  footer.page-footer{text-align:center; color:var(--text-muted); font-size:.82rem; padding:30px 0 10px;}
+
+  @media print{
+    .topbar, .no-print{display:none !important;}
+    header.hero{background:none !important; color:var(--text) !important; padding:0 0 12px;}
+    body{background:white;}
+    .test-card{break-inside:avoid; border:1px solid #ccc;}
+    a{color:var(--text);}
+    *:focus{outline:none !important;}
+    .capture-zone .file-btn{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar no-print">
+  <div class="topbar-inner">
+    <span class="progress-pill"><span id="progressCount">0</span> / <span id="progressTotal">0</span> tests renseignés</span>
+    <div class="topbar-actions">
+      <button class="action-btn save small" id="btnSaveTop" title="Enregistrer en PDF">💾 Enregistrer</button>
+      <button class="action-btn send small" id="btnSendTop" title="Envoyer par email">✉️ Envoyer</button>
+    </div>
+  </div>
+  <div class="topbar-inner nav-chapters" id="navChapters" style="padding-top:0;"></div>
+</div>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Guide de test utilisateur — Actograph V3 (Bêta)</h1>
+    <p>Tout d'abord, un grand merci pour votre participation aux tests d'Actograph V3 !</p>
+    <p>Le développement est bien avancé, mais à ce stade Actograph a besoin de vous. Quel que soit votre niveau d'expérience dans l'utilisation d'un outil de relevé et en création de chroniques d'activité, votre retour en tant qu'utilisateur·trice nous sera précieux. La plus grande considération sera accordée à chacune de vos contributions.</p>
+    <span class="deadline">📅 De préférence avant le 15 juillet 2026</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <p class="hint" style="margin:14px 0 -6px;">💡 Si les boutons « Enregistrer »/« Envoyer », ou certains liens, ne réagissent pas depuis un aperçu en ligne (SharePoint, Teams...) : essayez d'abord un clic droit → « Ouvrir dans un nouvel onglet » sur les liens concernés ; sinon, téléchargez le fichier puis ouvrez-le dans votre navigateur (double-clic) — tout fonctionnera normalement.</p>
+
+  <section class="intro">
+    <div class="card-note">
+      <strong>Comment utiliser ce guide ?</strong>
+      <ul>
+        <li>Choisissez un ou plusieurs chapitres, selon le temps dont vous disposez.</li>
+        <li>Après le <strong>Préambule</strong>, puis le <strong>Chapitre 0. Page d'accueil</strong>, vous trouverez un chapitre parcourant les étapes de réalisation d'une chronique : <strong>0 bis. Parcours à partir de la chronique « exemple »</strong>. Les autres concernent une étape : <strong>I. Protocole</strong>, <strong>II. Observation in situ</strong>, <strong>II bis. Vidéo</strong>, <strong>III. Graphe</strong>, <strong>IV. Statistiques</strong>.</li>
+        <li>Il n'est pas obligatoire de répondre dans l'ordre des chapitres, ni des rubriques (seul le préambule est indispensable). Chaque ligne des tableaux est un test souvent indépendant, avec sa propre durée estimée.</li>
+        <li>Les tests sur fond jaune correspondent à des fonctions « bonus », pas encore garanties dans cette version bêta : testez-les si vous en avez l'occasion.</li>
+        <li>En fin de chaque chapitre, une rubrique permet de faire des retours libres : « Autres tests ».</li>
+        <li>Pour joindre une capture d'écran (ça nous aide beaucoup) : cliquez dans la case dédiée puis collez (Ctrl+V), ou utilisez le lien « choisir un fichier ».</li>
+        <li>Vous pouvez nous faire plusieurs retours échelonnés : vous pouvez renvoyer ce document plusieurs fois à Actograph‑info, avec différents tests ou différentes réponses.</li>
+      </ul>
+      <p style="margin-bottom:0;"><strong>Date limite de retour : 15 juillet 2026</strong>, à adresser à <a href="mailto:actograph-info@symalgo-tech.com">actograph-info@symalgo-tech.com</a>. Après cette date, les retours (ou compléments) seront encore considérés, mais ils feront l'objet d'une vague ultérieure de traitement.</p>
+    </div>
+  </section>
+
+  <section id="preambule">
+    <h2 class="chapter-title">Préambule — Quel utilisateur ou utilisatrice êtes-vous ?</h2>
+    <p class="chapter-meta"><em>Indispensable pour situer votre point de vue. Pour la suite du guide, c'est libre : répondez aux chapitres de votre choix.</em></p>
+    <table class="preamble-table" id="preambleTable"></table>
+    <div class="free-fields">
+      <div>
+        <label class="field-label">Quel autre logiciel ? (le cas échéant)</label>
+        <input type="text" id="pre_autre_logiciel">
+      </div>
+      <div>
+        <label class="field-label">Ordinateur utilisé</label>
+        <input type="text" id="pre_ordinateur">
+      </div>
+      <div>
+        <label class="field-label">Version système (si connue)</label>
+        <input type="text" id="pre_version">
+      </div>
+    </div>
+  </section>
+
+  <div id="chaptersContainer"></div>
+
+  <section id="commentaire-final">
+    <h2 class="chapter-title">Commentaire sur le sujet de votre choix</h2>
+    <textarea id="commentFinal" rows="4" placeholder="Vos remarques libres..."></textarea>
+  </section>
+
+  <div class="finale">
+    <strong>Merci !</strong>
+    <p class="hint" style="margin-top:6px;">
+      Une fois vos réponses saisies : cliquez sur <strong>« Enregistrer »</strong> pour générer un PDF de ce guide rempli (la fenêtre d'impression du navigateur s'ouvre — choisissez la destination « Enregistrer au format PDF »). Cliquez ensuite sur <strong>« Envoyer par email »</strong> : votre messagerie s'ouvrira avec le destinataire et un résumé pré-remplis — pensez à joindre le PDF que vous venez d'enregistrer avant d'envoyer.
+    </p>
+    <div class="actions">
+      <button class="action-btn save" id="btnSave">💾 Enregistrer (PDF)</button>
+      <button class="action-btn send" id="btnSend">✉️ Envoyer par email</button>
+    </div>
+  </div>
+
+  <footer class="page-footer">Guide de test Actograph V3 — Bêta V0.1 — à renvoyer à actograph-info@symalgo-tech.com avant le 15 juillet 2026</footer>
+</div>
+
+<script>
+const PREAMBLE = {
+  cols: ["Jamais utilisé","Juste des essais","Pratique autonome","Maîtrise","Utilisateur·trice avancée"],
+  rows: [
+    {name:"pre_v1", label:"Actograph V1"},
+    {name:"pre_autre", label:"Un autre logiciel similaire ?"},
+    {name:"pre_nondedie", label:"Un logiciel non dédié (Excel, PowerPoint...)"}
+  ]
+};
+
+const CHAPTERS = [
+{
+  id:"prerequis", title:"Prérequis — Installer Actograph V3 (bêta)",
+  objectif:"Cette étape est indispensable avant de commencer n'importe quel chapitre du guide.",
+  duree:"5 mn",
+  tests:[
+    {num:"", titre:"Installation de la version bêta", type:"guide", duree:"5 mn", prereq:true, desc:[
+      "<strong>⚠️ Installez bien la version BÊTA V3 d'Actograph</strong> — pas une version déjà présente sur votre poste (V1, ou une V3 antérieure) : ce guide porte spécifiquement sur cette version de test.",
+      "Cliquer sur le lien (PC ou Mac) : <a href='https://syllll.github.io/actograph-v3/' target='_blank'>syllll.github.io/actograph-v3</a> <em>(si le clic simple ne fait rien, essayez un clic droit → « Ouvrir dans un nouvel onglet »)</em>",
+      "Lancez l'exécutable et suivez l'apparition de l'application sur le bureau de l'ordinateur.",
+      "Indiquez-nous si vous avez dû contourner un blocage de Windows ou macOS pour application non reconnue."]}
+  ]
+},
+{
+  id:"ch0", title:"Chapitre 0 — Page d'accueil / tableau de bord",
+  objectif:"Vérifier le lancement du logiciel, l'identification, la navigation générale et la gestion des chroniques.",
+  duree:"30 à 45 mn",
+  tests:[
+    {num:"1", titre:"Vérification page d'accueil", type:"guide", duree:"5 mn", desc:[
+      "Lancez Actograph V3 et observez : l'encart Actograph affiché au démarrage, la mention licence « étudiant », la langue (FR), et l'affichage de la version du logiciel.",
+      "Si une mise à jour est disponible : vérifiez que vous pouvez l'effectuer (sinon fermez Actograph et retournez sur 0. Installation).",
+      "Vérifiez l'apparition et la lisibilité des différentes parties de la page d'accueil."]},
+    {num:"1bis", titre:"Thème clair / sombre", type:"bonus", duree:"2 mn", desc:[
+      "Testez le changement de thème visuel clair / sombre, si disponible."]},
+    {num:"2", titre:"Démarrer la chronique « exemple »", type:"scenario", duree:"10 mn", desc:[
+      "À chaque ouverture d'Actograph vous pouvez cliquer sur : « Découvrir avec l'exemple intégré ». L'exemple intégré est aussi accessible sur la page d'Accueil dans Centre d'aide.",
+      "Cliquez sur « Découvrir avec l'exemple intégré ».",
+      "Cliquez sur l'onglet Protocole, et vérifiez le bon affichage des 2 catégories exemples.",
+      "Faites un Enregistrer sous un autre nom, puis vérifiez l'apparition du nouveau nom dans l'historique.",
+      "Faites Exporter et vérifiez le dossier par défaut proposé (Mes Documents, et non un dossier système)."]},
+    {num:"3", titre:"Nouvelle chronique — mode calendrier", type:"scenario", duree:"8 mn", desc:[
+      "Cliquer sur « Créez une nouvelle chronique » (New). Donnez-lui un nom, et choisissez « Observer en direct — mode calendrier ». Elle s'active dans l'historique.",
+      "Vérifiez la bonne ouverture des fenêtres Protocole et Observation (elles indiquent qu'il n'y a pas encore de protocole).",
+      "Vérifiez que l'enregistrement automatique fonctionne : attendez quelques minutes sans agir, puis contrôlez que le contenu de la chronique a été maintenu."]},
+    {num:"3bis", titre:"Nouvelle chronique — mode chronomètre", type:"scenario", duree:"5 mn", desc:[
+      "Créez une nouvelle chronique et choisissez « Observer en direct — mode chronomètre ».",
+      "Vérifiez que l'horodatage affiche une durée (ex. : 0j 0h 0m 0s) plutôt qu'une date calendaire.",
+      "Vérifiez la cohérence de l'affichage dans l'onglet Observations et le tableau des relevés."]},
+    {num:"3ter", titre:"Nouvelle chronique — mode Observer vidéo", type:"scenario", duree:"3 mn", desc:[
+      "Cliquer encore sur « Créez une nouvelle chronique » (New). Cette fois choisissez « Observer vidéo ». Vérifiez que la fenêtre de choix d'une vidéo s'affiche."]},
+    {num:"4", titre:"Import d'une chronique existante (.jchronic / .chronic)", type:"scenario", duree:"8 mn", desc:[
+      "Dans l'accueil, cherchez l'option d'import de fichier. Importez un fichier .jchronic (format V3 JSON) si vous en avez un.",
+      "Si vous disposez d'une ancienne chronique V1 (.chronic), essayez de l'importer : vérifiez que le protocole et les relevés sont bien transférés.",
+      "Vérifiez que la chronique importée apparaît dans l'historique."]},
+    {num:"5", titre:"Accédez au Cloud", type:"scenario", duree:"8 mn", desc:[
+      "Entrez votre identifiant Actograph.io et votre mot de passe (login créé sur le site). Accédez au Cloud et téléchargez une de vos anciennes chroniques.",
+      "Stockez à l'inverse dans le Cloud la chronique exemple."]},
+    {num:"6", titre:"Historique et navigation entre onglets", type:"guide", duree:"5 mn", desc:[
+      "Consultez l'historique des dernières chroniques manipulées et rechargez-en une.",
+      "Vérifiez la présence des onglets Accueil, Protocole, Observations, Graph, Statistiques, et la possibilité de naviguer librement entre eux à tout moment."]},
+    {num:"7", titre:"Fonctions bonus de l'accueil", type:"bonus", duree:"5 mn", desc:[
+      "Explorez l'accès à : l'aide interactive, l'accès au Cloud personnel, le lien vers le site Actograph.io (actualités, FAQ), et le menu de préférences/affichage."]},
+    {num:"8", titre:"Autres tests", type:"libre", duree:"", desc:[]}
+  ]
+},
+{
+  id:"ch0bis", title:"Chapitre 0 bis — Parcours complet avec la chronique exemple",
+  objectif:"Découvrir Actograph V3 de bout en bout, depuis la chronique exemple fournie jusqu'à l'export — sans avoir besoin d'aucun matériel ou protocole préalable. Vous pouvez vous arrêter à n'importe quelle étape ou ne réaliser que certains tests.",
+  duree:"environ 45 mn au total (5 à 10 mn par rubrique)",
+  tests:[
+    {num:"A", titre:"Ouvrir et explorer la chronique exemple", type:"guide", duree:"5 mn", desc:[
+      "Cliquer sur « l'exemple intégré » depuis l'Accueil.",
+      "Naviguez entre les onglets Protocole, Observations, Graph et Statistiques. Vérifiez que chaque onglet affiche bien du contenu (protocole avec catégories, relevés pré-remplis, graphe déjà tracé, statistiques prêtes).",
+      "Faites un « Enregistrer sous » avec un nouveau nom, pour travailler sans modifier votre exemple original. Vérifiez son apparition dans votre historique."]},
+    {num:"B", titre:"Modifier le protocole exemple", type:"scenario", duree:"8 mn", desc:[
+      "Ouvrez l'onglet Protocole. Vérifiez les 2 catégories exemples présentes.",
+      "Ajoutez une 3e catégorie de votre choix (type ponctuel de préférence), avec 2 observables évènements.",
+      "Modifiez le nom d'un observable existant dans l'une des 2 catégories d'origine.",
+      "Vérifiez que ces changements se répercutent immédiatement dans l'onglet Observations (boutons mis à jour)."]},
+    {num:"C", titre:"Réaliser un court enregistrement", type:"scenario", duree:"8 mn", desc:[
+      "Depuis l'onglet Observations, cliquez sur START.",
+      "Cliquez plusieurs fois sur des boutons des 3 catégories (y compris votre nouvelle catégorie). Ajoutez un commentaire (bouton bulle).",
+      "Faites une PAUSE de quelques secondes, puis reprenez. Terminez par STOP.",
+      "Vérifiez que la liste des relevés contient bien les types : START, PAUSE_START, PAUSE_END, DATA et STOP."]},
+    {num:"D", titre:"Éditer manuellement un relevé", type:"guide", duree:"7 mn", desc:[
+      "Dans la liste des relevés, sélectionnez un relevé DATA et modifiez son horodatage (ex. ajouter 30 secondes).",
+      "Ajoutez une ligne par duplication d'un relevé existant.",
+      "Supprimez la ligne dupliquée.",
+      "Vérifiez que ces éditions sont prises en compte et que le graphe (onglet Graph) se met à jour en conséquence."]},
+    {num:"E", titre:"Lire le graphe résultant", type:"guide", duree:"7 mn", desc:[
+      "Ouvrez l'onglet Graph. Vérifiez que les 3 catégories (dont la nouvelle) sont bien présentes sur l'axe des ordonnées.",
+      "Déplacez la souris dans la zone de données : vérifiez l'apparition des lignes de référence en pointillés et du label de date/heure dynamique.",
+      "Changez le mode d'affichage d'une catégorie (Normal → Frise) et vérifiez l'effet visuel."]},
+    {num:"F", titre:"Consulter les statistiques", type:"guide", duree:"5 mn", desc:[
+      "Ouvrez l'onglet Statistiques. Vérifiez que le tableau général s'affiche avec les durées et occurrences de toutes les catégories.",
+      "Affichez le diagramme secteur de l'une des catégories.",
+      "Note : si la chronique exemple ne comporte pas de START/STOP, les stats peuvent ne pas être disponibles — dans ce cas, utilisez la chronique que vous venez de créer à l'étape C."]},
+    {num:"G", titre:"Exporter la chronique modifiée", type:"guide", duree:"5 mn", desc:[
+      "Exportez la chronique au format .jchronic (sauvegarde complète). Vérifiez que le fichier apparaît dans Mes Documents.",
+      "Exportez une image du graphe (JPEG ou PNG). Vérifiez que le fichier s'ouvre et affiche bien votre chronique.",
+      "Exportez les statistiques en Excel (si disponible). Vérifiez que le fichier contient les bonnes colonnes."]},
+    {num:"H", titre:"Autres observations sur ce parcours", type:"libre", duree:"", desc:[]}
+  ]
+},
+{
+  id:"ch1", title:"Chapitre I — Protocole",
+  objectif:"Vérifier la création, l'édition et la gestion des protocoles (catégories et observables). Les rubriques peuvent être exécutées dans n'importe quel ordre.",
+  duree:"30 à 40 mn",
+  tests:[
+    {num:"1", titre:"Découverte du protocole de base", type:"guide", duree:"5 mn", desc:[
+      "Ouvrez l'onglet Protocole : vérifiez qu'il n'y a jamais de « page blanche » mais toujours un protocole de base (ou en cours), avec au minimum une catégorie et un observable.",
+      "Faites un Enregistrer sous un autre nom, puis vérifiez l'apparition du nouveau nom dans l'historique."]},
+    {num:"2", titre:"Création d'une catégorie et de ses observables", type:"scenario", duree:"15 mn", desc:[
+      "Créez une nouvelle catégorie (1er niveau : remplir le nom, caractériser, ajouter, effacer), puis ajoutez-y 2 ou 3 observables (2e niveau : nom, caractérisation, ajout, suppression).",
+      "Essayez les deux types de catégorie : état continu (un seul observable actif à la fois dans la catégorie, clics ON/OFF) et événement (clic ON puis retour automatique à OFF)."]},
+    {num:"3", titre:"Types d'action des observables : continu vs discret", type:"guide", duree:"8 mn", desc:[
+      "Pour un observable, vérifiez que vous pouvez choisir son type d'action : « continu » (maintien dans le temps) ou « discret » (événement ponctuel).",
+      "Vérifiez que ce paramètre est bien conservé après sauvegarde et rechargement de la chronique."]},
+    {num:"4", titre:"Préférences d'affichage graphique par catégorie", type:"scenario", duree:"8 mn", desc:[
+      "Dans le protocole, vérifiez que vous pouvez définir le mode d'affichage graphique de chaque catégorie : Normal (un tick par observable), Frise (un bandeau unique pour la catégorie), ou Arrière-plan (pas visible sur l'axe Y, rendu en fond).",
+      "Ce paramètre doit être conservé et se refléter dans l'onglet Graph."]},
+    {num:"5", titre:"Modification des caractéristiques", type:"guide", duree:"5 mn", desc:[
+      "À tout moment, modifiez le nom et le type d'une catégorie existante et vérifiez que le changement est bien pris en compte, y compris dans l'onglet Observations (composant partagé)."]},
+    {num:"6", titre:"Réorganisation des items du protocole", type:"guide", duree:"5 mn", desc:[
+      "Vérifiez que vous pouvez réordonner les catégories et les observables (glisser-déposer ou boutons haut/bas si disponibles).",
+      "Vérifiez que l'ordre est conservé après sauvegarde."]},
+    {num:"7", titre:"Duplication et déplacement (bonus)", type:"bonus", duree:"5 mn", desc:[
+      "Si disponible, dupliquez une catégorie, et déplacez un observable dans une boîte ou vers une autre catégorie."]},
+    {num:"8", titre:"Clonage de protocole depuis une autre chronique (bonus)", type:"bonus", duree:"5 mn", desc:[
+      "Si disponible, copiez le protocole d'une autre chronique existante vers la chronique en cours.",
+      "Vérifiez que la structure (catégories, observables, types) est intégralement reprise."]},
+    {num:"9", titre:"Autres tests", type:"libre", duree:"", desc:[]}
+  ]
+},
+{
+  id:"ch2", title:"Chapitre II — Observations (in situ)",
+  objectif:"Vérifier la prise de relevés en temps réel et l'édition de la liste des relevés. Les rubriques peuvent être exécutées dans n'importe quel ordre.",
+  duree:"45 à 60 mn",
+  tests:[
+    {num:"1", titre:"Prise en main des boutons Observables", type:"guide", duree:"10 mn", desc:[
+      "Basculez entre mode « édition du protocole » et mode « observation in situ ».",
+      "Sans lancer l'enregistrement : cliquez sur des boutons des deux types : continu (1 clic ON / 1 clic OFF, avec exclusivité entre observables d'une même catégorie) et événement (1 clic ON, retour automatique à OFF, comme un poussoir)."]},
+    {num:"2", titre:"Enregistrement complet d'une séance", type:"scenario", duree:"15-20 mn", desc:[
+      "Réalisez un enregistrement de bout en bout : START, plusieurs clics sur des observables (continus et événements), un commentaire (bulle, texte horodaté), une PAUSE (ou barre espace) puis reprise, et enfin STOP.",
+      "Testez aussi la réorganisation et la réinitialisation des boutons sur la page.",
+      "Vérifiez que vous pouvez revenir modifier le protocole en cours de route sans perdre les relevés déjà faits."]},
+    {num:"2bis", titre:"Enregistrement audio (bonus)", type:"bonus", duree:"5 mn", desc:[
+      "Si disponible, testez le bouton d'enregistrement audio (repérage logo + numéro, arrêt sur reclic/pause/stop, fichiers générés dans Mes Documents)."]},
+    {num:"3", titre:"Vérification de l'horodatage selon le mode", type:"guide", duree:"5 mn", desc:[
+      "En mode calendrier : vérifiez que les relevés affichent une date/heure réelle (ex. 15-01-2024 10:30:45.123).",
+      "En mode chronomètre (si disponible) : vérifiez que les relevés affichent une durée compacte (ex. 0j 0h 2m 15s 300ms) cohérente avec le compteur visible."]},
+    {num:"4", titre:"Auto-correction des relevés", type:"guide", duree:"5 mn", desc:[
+      "Après un enregistrement, vérifiez dans la liste des relevés si certaines lignes sont signalées comme auto-corrigées (mention ou couleur spécifique).",
+      "Ces corrections peuvent concerner des relevés incohérents (ex. observable actif sans START préalable). Vérifiez le libellé synthétique affiché."]},
+    {num:"5", titre:"Édition de la liste des relevés", type:"guide", duree:"10-15 mn", desc:[
+      "Sur la liste de relevés horodatés obtenue, testez : ajout d'une ligne par duplication, reclassement par horaire, suppression d'une ligne ou tout effacer.",
+      "Testez Rechercher/Remplacer, modification de l'horodatage dans la grille (avec aide de format), et copier-coller d'un champ vers d'autres lignes."]},
+    {num:"6", titre:"Saisie/modification d'un observable dans la liste", type:"scenario", duree:"10 mn", desc:[
+      "Testez les deux façons de saisir un observable dans la liste : via le menu déroulant (catégories en couleur, observables en noir), et en le tapant directement au clavier.",
+      "Insérez aussi une ligne de commentaire (# texte) et vérifiez la saisie directement dans le tableau (sans fenêtre modale).",
+      "Vérifiez la lisibilité de la police et le signalement en rouge des « Observable non reconnu »."]},
+    {num:"7", titre:"Indicateur de synchronisation", type:"guide", duree:"5 mn", desc:[
+      "Après avoir effectué des relevés et éditions, vérifiez s'il existe un indicateur visuel de synchronisation (relevés en cours de sauvegarde vs synchronisés).",
+      "Attendez quelques secondes et vérifiez que l'indicateur passe bien à « synchronisé »."]},
+    {num:"7bis", titre:"Annuler (CTRL+Z) (bonus)", type:"bonus", duree:"3 mn", desc:[
+      "Si disponible, testez l'annulation d'une action via CTRL+Z."]},
+    {num:"8", titre:"Autres tests", type:"libre", duree:"", desc:[]}
+  ]
+},
+{
+  id:"ch2bis", title:"Chapitre II bis — Observation vidéo",
+  objectif:"Fonctionnalité ajoutée en février 2026 (réalisée par Improba). Vérifier le chargement vidéo, la synchronisation des relevés et l'édition. Chaque rubrique est indépendante.",
+  duree:"35 à 50 mn",
+  tests:[
+    {num:"1", titre:"Chargement et affichage de la vidéo", type:"guide", duree:"8 mn", desc:[
+      "Passez en mode observation vidéo depuis l'accueil. La fenêtre de choix d'une vidéo s'affiche.",
+      "Chargez un fichier vidéo (mp4 recommandé). Vérifiez que la fenêtre vidéo s'ouvre et que la vidéo est lisible.",
+      "Vérifiez le redimensionnement de la fenêtre vidéo (agrandir/réduire)."]},
+    {num:"1bis", titre:"Détacher la fenêtre vidéo", type:"bonus", duree:"", desc:[
+      "La possibilité de détacher les fenêtres vidéo et boutons est à venir."], future:true},
+    {num:"2", titre:"Récupérer un protocole existant", type:"guide", duree:"5 mn", desc:[
+      "Récupérez ou copiez un protocole d'une chronique existante (ou créez-en un nouveau). Vérifiez que les boutons Observables apparaissent bien."]},
+    {num:"3", titre:"Contrôles de lecture vidéo", type:"guide", duree:"5 mn", desc:[
+      "Testez les contrôles de la vidéo : lecture, pause (bouton ou barre espace), retour en arrière, avance rapide, réglage de la vitesse de lecture si disponible.",
+      "Vérifiez que la barre espace alterne bien entre lecture et pause."]},
+    {num:"4", titre:"Relevés synchronisés sur la vidéo", type:"scenario", duree:"15 mn", desc:[
+      "Effectuez des relevés en cliquant sur les boutons Observables (continus et événements) pendant la lecture vidéo, y compris en pause.",
+      "Vérifiez que l'horodatage correspond bien à la position de la vidéo au moment du clic.",
+      "Vérifiez l'affichage des coches sous la vidéo indiquant la présence d'un relevé à cette position."]},
+    {num:"5", titre:"Réorganisation des boutons", type:"guide", duree:"5 mn", desc:[
+      "Vérifiez que vous pouvez réorganiser les boutons Observables sur la page et les réinitialiser à leur position d'origine."]},
+    {num:"6", titre:"Édition de la liste des relevés vidéo", type:"guide", duree:"10 mn", desc:[
+      "Comme au chapitre II : ajout par duplication, reclassement, suppression, Rechercher/Remplacer, modification de l'horodatage, saisie d'observables (menu ou clavier), commentaires (# texte), signalement en rouge des observables non reconnus."]},
+    {num:"7", titre:"Autres tests", type:"libre", duree:"", desc:[]}
+  ]
+},
+{
+  id:"ch3", title:"Chapitre III — Chronique d'activité (graphe)",
+  objectif:"Vérifier la construction du graphe, le paramétrage de l'affichage, les interactions et les exports.",
+  duree:"35 à 45 mn",
+  tests:[
+    {num:"1", titre:"Visualisation de la chronique construite", type:"guide", duree:"5-10 mn", desc:[
+      "À partir d'un enregistrement en PAUSE ou STOP, consultez le graphe.",
+      "Axe des abscisses : timeline entre START et PAUSE/STOP, graduations adaptées à la durée (vérifiez l'adaptation automatique : courte durée = graduations en secondes, longue durée = minutes ou heures), labels inclinés à 45°.",
+      "Axe des ordonnées : noms d'observables regroupés par catégorie."]},
+    {num:"2", titre:"Affichage selon le mode (calendrier vs chronomètre)", type:"guide", duree:"5 mn", desc:[
+      "En mode calendrier : vérifiez que les labels de l'axe X affichent des dates/heures au format français (ex. 15-01-2024 10:30:45.123).",
+      "En mode chronomètre : vérifiez que les labels affichent des durées compactes (ex. 2j 3h 15m 30s 500ms)."]},
+    {num:"3", titre:"Interaction souris — lignes de référence", type:"guide", duree:"5 mn", desc:[
+      "Déplacez la souris dans la zone de données du graphe.",
+      "Vérifiez l'apparition d'une ligne verticale en pointillés (référence temporelle) et d'une ligne horizontale en pointillés (référence observable).",
+      "Vérifiez que le label de date/heure (ou durée) s'affiche dynamiquement sous l'axe X à la position du curseur, avec fond blanc.",
+      "Vérifiez que les lignes disparaissent quand la souris quitte la zone."]},
+    {num:"4", titre:"Modes d'affichage des catégories", type:"scenario", duree:"15 mn", desc:[
+      "Testez les trois modes d'affichage par catégorie : Mode Normal (un tick par observable sur l'axe Y, segments horizontaux en vert = états, segments verticaux en gris = transitions), Mode Frise (un bandeau unique pour toute la catégorie), Mode Arrière-plan (la catégorie n'apparaît pas sur l'axe Y mais est visible en fond de graphe).",
+      "Vérifiez que vous pouvez changer ces modes à tout moment et que le graphe se recalcule."]},
+    {num:"5", titre:"Paramétrage des couleurs par observable", type:"scenario", duree:"8 mn", desc:[
+      "Vérifiez que vous pouvez modifier la couleur de chaque observable (lignes continues, bandeaux, arrière-plans).",
+      "Vérifiez que le graphe se met à jour immédiatement après le changement de couleur."]},
+    {num:"5bis", titre:"Personnalisation avancée (bonus)", type:"bonus", duree:"10 mn", desc:[
+      "Si disponible : choix de couleur et épaisseur par catégorie ou observable pour les lignes continues, points, trames couleurs pour bandeaux/frises, symboles différenciés pour les événements (étoiles, as, cœur...) si existants."]},
+    {num:"6", titre:"Export de la chronique", type:"guide", duree:"8-10 mn", desc:[
+      "Exportez la chronique au format JPEG, puis au format PNG (compatibilité PowerPoint). Vérifiez que le fichier exporté s'ouvre correctement.",
+      "Exportez la légende des couleurs séparément.",
+      "Exportez la chronique au format .jchronic : vérifiez que le fichier apparaît dans Mes Documents avec l'extension .jchronic, et qu'il peut être réimporté (test en le réimportant depuis l'accueil)."]},
+    {num:"7", titre:"Autres tests", type:"libre", duree:"", desc:[]}
+  ]
+},
+{
+  id:"ch4", title:"Chapitre IV — Statistiques",
+  objectif:"Générer des statistiques (à partir d'un enregistrement complet START–STOP) et vérifier les exports.",
+  duree:"30 à 40 mn",
+  tests:[
+    {num:"Prérequis", titre:"Condition d'accès aux statistiques", type:"guide", duree:"2 mn", desc:[
+      "Vérifiez qu'en l'absence de START ou de STOP dans les relevés, les statistiques ne peuvent pas être générées et qu'un message explicatif est affiché."]},
+    {num:"1", titre:"Tableau général de statistiques", type:"guide", duree:"8-10 mn", desc:[
+      "À partir d'un enregistrement (du 1er START au STOP), consultez le tableau général.",
+      "Vérifiez la présence des colonnes : durées, occurrences, pourcentages, totaux.",
+      "Vérifiez la cohérence des chiffres avec les relevés effectués.",
+      "Exportez le tableau sous Excel et vérifiez que le fichier s'ouvre correctement avec les bonnes colonnes."]},
+    {num:"2", titre:"Statistiques par catégorie", type:"scenario", duree:"8 mn", desc:[
+      "Affichez le diagramme secteur de durée des états pour une catégorie.",
+      "Vérifiez le classement (de la plus grande à la plus petite durée, sens horaire).",
+      "Modifiez les couleurs depuis l'onglet Graph et vérifiez la mise à jour du diagramme."]},
+    {num:"3", titre:"Statistiques combinées", type:"scenario", duree:"8 mn", desc:[
+      "Affichez un diagramme secteur combiné : sélectionnez une catégorie et un observable d'une autre catégorie.",
+      "Vérifiez le classement par durée décroissante en sens horaire."]},
+    {num:"3bis", titre:"Combiné en occurrence (bonus)", type:"bonus", duree:"5 mn", desc:[
+      "Si disponible, testez le diagramme combiné en occurrence d'un observable sur une catégorie."]},
+    {num:"4", titre:"Export des graphiques et légendes", type:"guide", duree:"5 mn", desc:[
+      "Exportez un diagramme secteur (JPEG ou PNG) et vérifiez que le fichier s'ouvre correctement.",
+      "Exportez la légende et vérifiez que le texte des observables y est modifiable."]},
+    {num:"5", titre:"Autres tests", type:"libre", duree:"", desc:[]}
+  ]
+}
+];
+
+const TYPE_LABELS = {guide:"Guidé", scenario:"Scénario", bonus:"Bonus", libre:"Libre"};
+
+function el(tag, attrs, children){
+  const e = document.createElement(tag);
+  if(attrs) for(const k in attrs){
+    if(k === "html") e.innerHTML = attrs[k];
+    else if(k === "text") e.textContent = attrs[k];
+    else e.setAttribute(k, attrs[k]);
+  }
+  if(children) children.forEach(c => c && e.appendChild(c));
+  return e;
+}
+
+function autoGrow(ta){
+  ta.style.height = 'auto';
+  ta.style.height = (ta.scrollHeight) + 'px';
+}
+
+function makeCaptureZone(idBase){
+  const zone = el('div', {class:'capture-zone', tabindex:'0'});
+  const hint = el('div', {text:'📋 Cliquez puis Ctrl+V pour coller une capture (optionnel)'});
+  const fileInput = el('input', {type:'file', accept:'image/*', style:'display:none;'});
+  const fileBtn = el('button', {type:'button', class:'file-btn', text:'ou choisir un fichier'});
+  zone.appendChild(hint);
+  zone.appendChild(fileBtn);
+  zone.appendChild(fileInput);
+
+  function showImage(dataUrl){
+    zone.innerHTML = '';
+    const img = el('img', {src: dataUrl});
+    const rm = el('button', {type:'button', class:'remove-img', text:'×'});
+    rm.addEventListener('click', (e) => { e.stopPropagation(); resetZone(); });
+    zone.appendChild(img);
+    zone.appendChild(rm);
+  }
+  function resetZone(){
+    zone.innerHTML = '';
+    zone.appendChild(hint);
+    zone.appendChild(fileBtn2());
+  }
+  function fileBtn2(){
+    const b = el('button', {type:'button', class:'file-btn', text:'ou choisir un fichier'});
+    b.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+    return b;
+  }
+  fileBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files[0];
+    if(f){
+      const reader = new FileReader();
+      reader.onload = () => showImage(reader.result);
+      reader.readAsDataURL(f);
+    }
+  });
+  zone.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    for(const item of items){
+      if(item.type.indexOf('image') !== -1){
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = () => showImage(reader.result);
+        reader.readAsDataURL(blob);
+        e.preventDefault();
+        break;
+      }
+    }
+  });
+  return zone;
+}
+
+function renderPreamble(){
+  const table = document.getElementById('preambleTable');
+  const thead = el('tr', {}, [el('th', {text:'Votre familiarité avec les outils de relevé'})].concat(
+    PREAMBLE.cols.map(c => el('th', {text:c}))
+  ));
+  table.appendChild(thead);
+  PREAMBLE.rows.forEach(row => {
+    const tr = el('tr');
+    tr.appendChild(el('td', {text: row.label}));
+    PREAMBLE.cols.forEach((c, i) => {
+      const td = el('td');
+      const radio = el('input', {type:'radio', name: row.name, value: c, id: row.name + '_' + i});
+      td.appendChild(radio);
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+}
+
+function renderTest(chapterId, t){
+  const card = el('div', {class:'test-card' + (t.type==='bonus' ? ' bonus':'') + (t.future ? ' future':'') + (t.prereq ? ' prereq':'')});
+  const head = el('div', {class:'test-head'});
+  head.appendChild(el('h3', {text: (t.num ? t.num + '. ' : '') + t.titre}));
+  const badges = el('div', {class:'badges'});
+  if(t.prereq) badges.appendChild(el('span', {class:'badge badge-obligatoire', text: '⚠️ Obligatoire'}));
+  badges.appendChild(el('span', {class:'badge type-'+t.type, text: TYPE_LABELS[t.type]}));
+  if(t.duree) badges.appendChild(el('span', {class:'badge duree', text: '⏱ ' + t.duree}));
+  head.appendChild(badges);
+  card.appendChild(head);
+
+  if(t.desc && t.desc.length){
+    const descWrap = el('div', {class:'test-desc'});
+    const ul = el('ul');
+    t.desc.forEach(d => ul.appendChild(el('li', {html: d})));
+    descWrap.appendChild(ul);
+    card.appendChild(descWrap);
+  }
+
+  if(t.future){
+    card.appendChild(el('p', {class:'hint', text:'🔧 Fonctionnalité à venir — non testable dans cette version.'}));
+    return card;
+  }
+
+  const resultRow = el('div', {class:'result-row'});
+  const fieldId = chapterId + '_' + t.num.replace(/\s+/g,'');
+
+  if(t.type !== 'libre'){
+    const col1 = el('div', {class:'result-col'});
+    col1.appendChild(el('label', {class:'field-label', text:'Résultat'}));
+    const seg = el('div', {class:'seg'});
+    ['OK','KO','Partiel'].forEach(opt => {
+      const rid = fieldId + '_res_' + opt;
+      const input = el('input', {type:'radio', name: fieldId + '_res', value: opt, id: rid, class:'result-radio'});
+      const label = el('label', {for: rid, class: opt.toLowerCase(), text: opt});
+      seg.appendChild(input);
+      seg.appendChild(label);
+    });
+    col1.appendChild(seg);
+    const commentLabel = el('label', {class:'field-label', text:'Commentaire'});
+    const ta = el('textarea', {rows:'1', placeholder:'Vos observations...'});
+    ta.addEventListener('input', () => autoGrow(ta));
+    col1.appendChild(commentLabel);
+    col1.appendChild(ta);
+    resultRow.appendChild(col1);
+  } else {
+    const col1 = el('div', {class:'result-col'});
+    col1.appendChild(el('label', {class:'field-label', text:'Commentaire libre'}));
+    const ta = el('textarea', {rows:'2', placeholder:'Vos remarques libres...'});
+    ta.addEventListener('input', () => autoGrow(ta));
+    col1.appendChild(ta);
+    resultRow.appendChild(col1);
+  }
+
+  const col2 = el('div', {});
+  col2.appendChild(el('label', {class:'field-label', text:'Capture d\'écran'}));
+  col2.appendChild(makeCaptureZone(fieldId));
+  resultRow.appendChild(col2);
+
+  card.appendChild(resultRow);
+  return card;
+}
+
+function renderChapters(){
+  const container = document.getElementById('chaptersContainer');
+  const nav = document.getElementById('navChapters');
+  nav.appendChild(el('a', {href:'#preambule', text:'Préambule'}));
+  CHAPTERS.forEach(ch => {
+    nav.appendChild(el('a', {href:'#'+ch.id, text: ch.title.split('—')[0].trim()}));
+    const h2 = el('h2', {class:'chapter-title', id: ch.id, text: ch.title});
+    container.appendChild(h2);
+    container.appendChild(el('p', {class:'chapter-meta', html: '<em>' + ch.objectif + '</em> — Durée totale indicative : ' + ch.duree + '.'}));
+    ch.tests.forEach(t => container.appendChild(renderTest(ch.id, t)));
+  });
+}
+
+function updateProgress(){
+  const radios = document.querySelectorAll('.result-radio:checked');
+  const total = document.querySelectorAll('.seg').length;
+  document.getElementById('progressCount').textContent = radios.length;
+  document.getElementById('progressTotal').textContent = total;
+}
+
+function buildSummary(){
+  const lines = [];
+  lines.push('Date : ' + new Date().toLocaleDateString('fr-FR'));
+  lines.push('');
+  CHAPTERS.forEach(ch => {
+    ch.tests.forEach(t => {
+      if(t.future || t.type === 'libre') return;
+      const fieldId = ch.id + '_' + t.num.replace(/\s+/g,'');
+      const checked = document.querySelector('input[name="'+fieldId+'_res"]:checked');
+      if(checked){
+        const commentTa = checked.closest('.result-row').querySelector('textarea');
+        const comment = commentTa ? commentTa.value.trim() : '';
+        lines.push('- [' + ch.title.split('—')[0].trim() + '] ' + t.num + '. ' + t.titre + ' : ' + checked.value + (comment ? ' — ' + comment.slice(0,150) : ''));
+      }
+    });
+  });
+  if(lines.length <= 2) lines.push('(Aucun test coché pour l\'instant — voir le PDF joint pour le détail.)');
+  lines.push('');
+  lines.push('⚠️ Pensez à joindre le PDF enregistré juste avant (bouton "Enregistrer") : ce résumé ne reprend que les résultats cochés, pas les captures d\'écran ni les commentaires longs.');
+  let body = lines.join('\n');
+  if(body.length > 1800){
+    body = body.slice(0, 1800) + '\n(...) résumé tronqué — voir le PDF joint pour le détail complet.';
+  }
+  return body;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderPreamble();
+  renderChapters();
+  updateProgress();
+  document.addEventListener('change', (e) => {
+    if(e.target.classList.contains('result-radio')) updateProgress();
+  });
+
+  function doSave(){ window.print(); }
+  function doSend(){
+    const subject = 'Retour beta-test Actograph V3 - ' + new Date().toLocaleDateString('fr-FR');
+    const body = buildSummary();
+    const mailto = 'mailto:actograph-info@symalgo-tech.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+    window.location.href = mailto;
+  }
+  document.getElementById('btnSave').addEventListener('click', doSave);
+  document.getElementById('btnSend').addEventListener('click', doSend);
+  document.getElementById('btnSaveTop').addEventListener('click', doSave);
+  document.getElementById('btnSendTop').addEventListener('click', doSend);
+});
+</script>
+
+</body>
+</html>
