@@ -22,7 +22,7 @@
       >
         <q-spinner color="primary" size="40px" />
         <div class="text-body2 q-mt-md text-grey-7">
-          {{ $t('observation.popupHydrating') || $t('observation.popupLoading') }}
+          {{ $t('observation.popupLoading') }}
         </div>
       </div>
     </template>
