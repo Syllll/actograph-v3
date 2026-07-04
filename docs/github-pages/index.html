@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ActoGraph v3 — Téléchargement</title>
+<meta name="description" content="Téléchargez ActoGraph v3 pour Windows, macOS et Linux. La page détecte votre système et propose le bon fichier." />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<style>
+  :root {
+    --bg: #0f2733;
+    --bg-2: #203d52;
+    --card: #16384a;
+    --card-2: #1b4358;
+    --border: rgba(255,255,255,0.08);
+    --text: #eaf3f6;
+    --muted: #9bb4bf;
+    --cyan: #3ecfd9;
+    --purple: #b077dd;
+    --yellow: #ffcc49;
+    --green: #4ed99a;
+    --radius: 14px;
+    --shadow: 0 10px 40px rgba(0,0,0,0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(62,207,217,0.18), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, rgba(176,119,221,0.18), transparent 60%),
+      linear-gradient(180deg, var(--bg), var(--bg-2));
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 20px 64px;
+  }
+  .wrap { width: 100%; max-width: 760px; }
+  header.brand {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 28px;
+  }
+  header.brand .logo {
+    width: 48px; height: 48px; border-radius: 10px;
+    box-shadow: var(--shadow);
+    flex: 0 0 auto;
+  }
+  header.brand h1 {
+    font-size: 22px; margin: 0; font-weight: 700; letter-spacing: 0.3px;
+  }
+  header.brand .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  .hero {
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .detected {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(62,207,217,0.12);
+    border: 1px solid rgba(62,207,217,0.35);
+    color: var(--cyan);
+    padding: 6px 12px; border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    margin-bottom: 18px;
+  }
+  .detected .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); }
+  h2 { margin: 0 0 6px; font-size: 26px; line-height: 1.2; }
+  .lede { color: var(--muted); margin: 0 0 22px; font-size: 15px; }
+
+  .primary {
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    appearance: none; border: 0; cursor: pointer;
+    font: inherit; font-weight: 700;
+    text-decoration: none;
+    border-radius: 12px;
+    padding: 14px 22px;
+    transition: transform 0.05s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--cyan), #2bb6c0);
+    color: #062430;
+    box-shadow: 0 8px 24px rgba(62,207,217,0.35);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(62,207,217,0.45); }
+  .btn-ghost {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.06); }
+  .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+
+  .countdown {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--muted); font-size: 13px;
+    margin-top: 16px;
+  }
+  .countdown .ring {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.18);
+    border-top-color: var(--cyan);
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .version {
+    color: var(--muted); font-size: 13px; margin-top: 18px;
+  }
+  .version a { color: var(--cyan); text-decoration: none; }
+  .version a:hover { text-decoration: underline; }
+
+  .section-title {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--muted); margin: 26px 4px 12px;
+  }
+
+  .grid { display: grid; gap: 12px; }
+  .card {
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: flex; align-items: center; gap: 16px;
+    text-decoration: none; color: var(--text);
+    transition: transform 0.05s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+  .card:hover { transform: translateY(-1px); border-color: rgba(62,207,217,0.4); }
+  .card .icon {
+    width: 42px; height: 42px; flex: 0 0 auto;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    background: rgba(255,255,255,0.05);
+  }
+  .card .meta { flex: 1; min-width: 0; }
+  .card .meta .name { font-weight: 700; font-size: 15px; }
+  .card .meta .desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .card .arrow { color: var(--muted); font-size: 18px; }
+  .card[data-os="windows"] .icon { background: rgba(62,207,217,0.15); }
+  .card[data-os="mac-arm"] .icon,
+  .card[data-os="mac-x64"] .icon { background: rgba(176,119,221,0.15); }
+  .card[data-os="linux"] .icon { background: rgba(255,204,73,0.15); }
+
+  .badge {
+    font-size: 11px; padding: 3px 8px; border-radius: 999px;
+    background: rgba(78,217,154,0.15); color: var(--green);
+    border: 1px solid rgba(78,217,154,0.3);
+    margin-left: 8px;
+  }
+
+  .note {
+    margin-top: 26px; font-size: 12px; color: var(--muted);
+    line-height: 1.6;
+  }
+  .note code { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; }
+
+  .error {
+    margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+    background: rgba(255,90,90,0.1); border: 1px solid rgba(255,90,90,0.3);
+    color: #ffb4b4; font-size: 13px;
+  }
+
+  footer {
+    margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center;
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="brand">
+      <img class="logo" src="favicon.svg" alt="ActoGraph" />
+      <div>
+        <h1>ActoGraph v3</h1>
+        <div class="sub">Téléchargement desktop</div>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="detected" id="detected">
+        <span class="dot"></span>
+        <span id="detected-label">Détection de votre système…</span>
+      </div>
+      <h2 id="title">Préparation de votre téléchargement</h2>
+      <p class="lede" id="lede">Nous déterminons la version adaptée à votre ordinateur.</p>
+
+      <div class="primary">
+        <a id="primary-btn" class="btn btn-primary" href="#" style="display:none">
+          Télécharger
+        </a>
+        <button id="cancel-btn" class="btn btn-ghost" style="display:none">
+          Annuler le téléchargement automatique
+        </button>
+      </div>
+
+      <div class="countdown" id="countdown" style="display:none">
+        <span class="ring"></span>
+        <span id="countdown-text">Téléchargement automatique dans 3 s…</span>
+      </div>
+
+      <div class="version" id="version" style="display:none"></div>
+      <div class="error" id="error" style="display:none"></div>
+    </section>
+
+    <div class="section-title">Toutes les plateformes</div>
+    <div class="grid" id="grid"></div>
+
+    <p class="note">
+      macOS : sur Safari, l'architecture (Apple Silicon / Intel) n'est pas détectable.
+      Le lien par défaut propose Apple Silicon (M1/M2/M3…) ; si vous êtes sur Intel, choisissez « Mac (Intel x64) ».
+      Linux : format <code>AppImage</code> (x86_64) — rendez-le exécutable puis lancez-le.
+      Windows : installeur <code>.exe</code> signé par SymAlgo Technologies.
+    </p>
+
+    <footer>
+      © <span id="year"></span> SymAlgo Technologies · ActoGraph v3
+    </footer>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var REPO = "Syllll/actograph-v3";
+  var API = "https://api.github.com/repos/" + REPO + "/releases/latest";
+  var CACHE_KEY = "actograph-latest-release";
+  var CACHE_TTL = 1000 * 60 * 60; // 1h
+
+  var ASSETS = {
+    "windows":  { file: "ActoGraph-v3-x64.exe",        label: "Windows",        desc: "Installeur x64 (.exe)",         icon: "🪟" },
+    "mac-arm":  { file: "ActoGraph-v3-arm64.zip",      label: "macOS Apple Silicon", desc: "Mac M1/M2/M3 (.zip)",     icon: "" },
+    "mac-x64":  { file: "ActoGraph-v3-x64.zip",        label: "macOS Intel",     desc: "Mac Intel x64 (.zip)",          icon: "" },
+    "linux":    { file: "ActoGraph-v3-x86_64.AppImage", label: "Linux",          desc: "AppImage x86_64",               icon: "🐧" }
+  };
+  var ORDER = ["windows", "mac-arm", "mac-x64", "linux"];
+
+  function fmtSize(bytes) {
+    if (!bytes) return "";
+    var mb = bytes / (1024 * 1024);
+    return mb > 1024 ? (mb / 1024).toFixed(2) + " Go" : mb.toFixed(1) + " Mo";
+  }
+
+  function fetchRelease() {
+    return new Promise(function (resolve, reject) {
+      // Try cache first (synchronous, avoids burning API quota).
+      try {
+        var raw = localStorage.getItem(CACHE_KEY);
+        if (raw) {
+          var cached = JSON.parse(raw);
+          if (cached && cached.t && (Date.now() - cached.t < CACHE_TTL) && cached.data) {
+            resolve(cached.data);
+            return;
+          }
+        }
+      } catch (e) { /* ignore */ }
+
+      fetch(API, { headers: { "Accept": "application/vnd.github+json" } })
+        .then(function (r) {
+          if (!r.ok) throw new Error("GitHub API " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), data: data })); } catch (e) {}
+          resolve(data);
+        })
+        .catch(reject);
+    });
+  }
+
+  // Returns { os: "windows"|"mac-arm"|"mac-x64"|"linux"|"unknown", label }
+  function detectOS() {
+    var ua = navigator.userAgent || "";
+    var platform = (navigator.platform || "") || "";
+    if (/Win/i.test(ua) || /Win/i.test(platform)) return { os: "windows", label: "Windows" };
+    if (/Mac/i.test(ua) || /Macintosh/i.test(platform) || /iPhone|iPad|iPod/i.test(ua)) {
+      return { os: "mac-arm", label: "macOS Apple Silicon", archPromise: detectMacArch() };
+    }
+    if (/Linux/i.test(ua) || /Linux/i.test(platform) || /X11/.test(ua)) return { os: "linux", label: "Linux" };
+    return { os: "unknown", label: "plateforme non reconnue" };
+  }
+
+  function detectMacArch() {
+    // Chromium-based browsers expose high-entropy values.
+    if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+      return navigator.userAgentData.getHighEntropyValues(["architecture"])
+        .then(function (h) {
+          var arch = (h && h.architecture) || "";
+          if (/arm/i.test(arch)) return "arm";
+          if (/x86|ia32/i.test(arch)) return "x64";
+          return null; // unknown
+        })
+        .catch(function () { return null; });
+    }
+    // uaarch (newer): navigator.userAgentData.architecture (low entropy, sometimes present)
+    if (navigator.userAgentData && navigator.userAgentData.architecture) {
+      var a = navigator.userAgentData.architecture;
+      if (/arm/i.test(a)) return Promise.resolve("arm");
+      if (/x86|ia32/i.test(a)) return Promise.resolve("x64");
+    }
+    // WebKit/Apple silicon reports intel in the UA string for compatibility,
+    // so we can't reliably distinguish via UA alone. Default unknown -> arm64.
+    return Promise.resolve(null);
+  }
+
+  function findAssetUrl(data, fileName) {
+    if (!data || !data.assets) return null;
+    for (var i = 0; i < data.assets.length; i++) {
+      if (data.assets[i].name === fileName) return data.assets[i];
+    }
+    return null;
+  }
+
+  function setPrimary(osKey, asset, data) {
+    var btn = document.getElementById("primary-btn");
+    var detected = document.getElementById("detected");
+    var label = document.getElementById("detected-label");
+    var title = document.getElementById("title");
+    var lede = document.getElementById("lede");
+    var version = document.getElementById("version");
+
+    var info = ASSETS[osKey];
+    if (!info || !asset) {
+      btn.style.display = "none";
+      label.textContent = "Plateforme non reconnue";
+      title.textContent = "Choisissez votre version ci-dessous";
+      lede.textContent = "Nous n'avons pas pu détecter votre système automatiquement.";
+      return;
+    }
+
+    btn.href = asset.browser_download_url;
+    btn.textContent = "Télécharger pour " + info.label;
+    btn.style.display = "";
+    label.textContent = info.label + " détecté";
+    detected.style.display = "";
+    title.textContent = "Votre version est prête";
+    lede.textContent = info.desc + " — " + fmtSize(asset.size);
+
+    var tag = data.tag_name || "";
+    var ver = tag.replace(/^prod-v/, "");
+    version.style.display = "";
+    version.innerHTML = "Version " + ver +
+      ' · <a href="https://github.com/' + REPO + '/releases/latest" target="_blank" rel="noopener">notes de version</a>';
+  }
+
+  function buildGrid(data, currentKey) {
+    var grid = document.getElementById("grid");
+    grid.innerHTML = "";
+    ORDER.forEach(function (key) {
+      var info = ASSETS[key];
+      var asset = findAssetUrl(data, info.file);
+      if (!asset) return;
+      var a = document.createElement("a");
+      a.className = "card";
+      a.setAttribute("data-os", key);
+      a.href = asset.browser_download_url;
+      a.rel = "noopener";
+      a.innerHTML =
+        '<div class="icon">' + (info.icon || "🍎") + '</div>' +
+        '<div class="meta">' +
+          '<div class="name">' + info.label + (key === currentKey ? ' <span class="badge">recommandé</span>' : '') + '</div>' +
+          '<div class="desc">' + info.desc + ' · ' + fmtSize(asset.size) + '</div>' +
+        '</div>' +
+        '<div class="arrow">↓</div>';
+      grid.appendChild(a);
+    });
+  }
+
+  function showError(msg) {
+    var el = document.getElementById("error");
+    el.textContent = msg;
+    el.style.display = "";
+  }
+
+  // Auto-redirect countdown
+  var redirectTimer = null;
+  var countdownInterval = null;
+  var secondsLeft = 3;
+
+  function startCountdown(url) {
+    var box = document.getElementById("countdown");
+    var txt = document.getElementById("countdown-text");
+    var cancel = document.getElementById("cancel-btn");
+    box.style.display = "";
+    cancel.style.display = "";
+
+    function tick() {
+      txt.textContent = "Téléchargement automatique dans " + secondsLeft + " s…";
+    }
+    tick();
+    countdownInterval = setInterval(function () {
+      secondsLeft--;
+      if (secondsLeft <= 0) {
+        clearInterval(countdownInterval);
+        return;
+      }
+      tick();
+    }, 1000);
+    redirectTimer = setTimeout(function () { window.location.href = url; }, secondsLeft * 1000);
+
+    cancel.onclick = function () {
+      clearTimeout(redirectTimer);
+      clearInterval(countdownInterval);
+      box.style.display = "none";
+      cancel.style.display = "none";
+    };
+  }
+
+  function render() {
+    document.getElementById("year").textContent = new Date().getFullYear();
+    var det = detectOS();
+
+    fetchRelease().then(function (data) {
+      // Resolve mac arch (if any) before finalizing primary.
+      var archP = det.archPromise || Promise.resolve(null);
+      archP.then(function (arch) {
+        var osKey = det.os;
+        if (osKey === "mac-arm" && arch === "x64") osKey = "mac-x64";
+        else if (osKey === "mac-x64" && arch === "arm") osKey = "mac-arm";
+        // If mac and arch unknown, keep mac-arm default (handled in grid via fallback link).
+
+        var asset = findAssetUrl(data, ASSETS[osKey] && ASSETS[osKey].file);
+        setPrimary(osKey, asset, data);
+        buildGrid(data, osKey);
+
+        if (asset) startCountdown(asset.browser_download_url);
+        else showError("Aucun asset correspondant trouvé dans la dernière release.");
+      });
+    }).catch(function (err) {
+      document.getElementById("detected").style.display = "none";
+      document.getElementById("title").textContent = "Téléchargement indisponible pour l'instant";
+      document.getElementById("lede").textContent = "Impossible de joindre l'API GitHub.";
+      showError("Erreur : " + (err && err.message ? err.message : err) +
+        ". Réessayez, ou accédez aux releases sur github.com/" + REPO + "/releases.");
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
