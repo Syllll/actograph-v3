@@ -43,11 +43,12 @@ export class ReadingV1Converter {
     }
 
     return readings.map((entry, index) => {
-      if (!entry.name) {
-        throw new ValidationError(
-          `Le reading à l'index ${index} doit avoir un nom`,
-        );
-      }
+      // Certains fichiers .chronic v1 contiennent des relevés avec un nom vide
+      // (ex: relevé data sans observable). Plutôt que de rejeter tout l'import,
+      // on utilise un nom de repli pour préserver l'horodatage et le type.
+      const name = entry.name && entry.name.length > 0
+        ? entry.name
+        : `Relevé ${index + 1}`;
 
       if (!entry.time || !(entry.time instanceof Date)) {
         throw new ValidationError(
@@ -58,7 +59,7 @@ export class ReadingV1Converter {
       const type = this.mapFlagToType(entry.flag || 'data');
 
       return {
-        name: entry.name,
+        name,
         description: undefined,
         type,
         dateTime: entry.time,

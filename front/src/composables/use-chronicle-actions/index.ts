@@ -300,6 +300,22 @@ export const useChronicleActions = () => {
     }
   };
 
+  const loadNamedExample = async (exampleKey: string) => {
+    try {
+      const exampleObservation =
+        await observation.methods.cloneExampleObservationByKey(exampleKey);
+      await observation.methods.loadObservation(exampleObservation.id);
+    } catch (error) {
+      console.error('loadNamedExample failed:', error);
+      $q.notify({
+        type: 'negative',
+        message: t('chronicleActions.loadExampleError'),
+        caption:
+          error instanceof Error ? error.message : t('common.unknownError'),
+      });
+    }
+  };
+
   return {
     createObservation,
     importObservation,
@@ -308,5 +324,6 @@ export const useChronicleActions = () => {
     mergeObservations,
     openCloud,
     loadExample,
+    loadNamedExample,
   };
 };

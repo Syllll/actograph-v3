@@ -281,6 +281,11 @@ export const useObservation = (options?: { init?: boolean }) => {
         await observationService.cloneExampleObservation();
       return exampleObservation;
     },
+    cloneExampleObservationByKey: async (exampleKey: string) => {
+      const exampleObservation =
+        await observationService.cloneExampleObservationByKey(exampleKey);
+      return exampleObservation;
+    },
     loadObservation: async (id: number) => {
       sharedState.loading = true;
       try {

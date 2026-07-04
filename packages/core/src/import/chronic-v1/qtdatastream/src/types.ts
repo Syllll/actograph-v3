@@ -577,6 +577,12 @@ class QString extends QClass {
     if (stringSize === 0 || stringSize === 0xffffffff) return '';
 
     const stringBuffer = buffer.slice(stringSize);
+    // swap16() exige une longueur paire. Un désalignement amont peut produire un
+    // buffer impair ou tronqué : on retombe sur une chaîne vide plutôt que de
+    // lever une erreur fatale (ERR_INVALID_BUFFER_SIZE).
+    if (stringBuffer.length % 2 !== 0) {
+      return '';
+    }
     return stringBuffer.swap16().toString('ucs2');
   }
 

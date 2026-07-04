@@ -523,6 +523,8 @@ export default {
     documentation: 'Documentation',
     tutorials: 'Tutorials',
     faq: 'FAQ',
+    examplesSection: 'Built-in examples',
+    exampleFaireLeCafe: 'Faire le café example',
     learnMore: 'Learn more',
     actographSite: 'ActoGraph.io website',
     infoSection: 'Information',

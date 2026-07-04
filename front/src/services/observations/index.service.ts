@@ -19,6 +19,7 @@ export interface IObservationService {
   findAllForCurrentUser(): Promise<IObservation[]>;
   delete(id: number): Promise<void>;
   cloneExampleObservation(): Promise<IObservation>;
+  cloneExampleObservationByKey(exampleKey: string): Promise<IObservation>;
   create(options: {
     name: string;
     description?: string;
@@ -82,6 +83,14 @@ export const observationService: IObservationService = {
   },
   cloneExampleObservation: async (): Promise<IObservation> => {
     const response = await api().post(`${apiUrl}/observations/clone-example`);
+    return response.data;
+  },
+  cloneExampleObservationByKey: async (
+    exampleKey: string,
+  ): Promise<IObservation> => {
+    const response = await api().post(
+      `${apiUrl}/observations/clone-example/${encodeURIComponent(exampleKey)}`,
+    );
     return response.data;
   },
   create: async (options: {

@@ -2,6 +2,28 @@
   <div class="first-steps fit column">
     <q-scroll-area class="col">
       <div class="column">
+        <!-- Section : Exemples intégrés -->
+        <div class="help-section q-pa-md q-mb-md">
+          <div class="text-subtitle2 text-weight-bold text-primary q-mb-md">
+            {{ $t('helpLinks.examplesSection') }}
+          </div>
+          <div class="column q-gutter-sm">
+            <q-item
+              clickable
+              v-ripple
+              @click="$emit('load-named-example', 'faire-le-cafe')"
+              class="help-link"
+            >
+              <q-item-section avatar>
+                <q-icon name="mdi-coffee" color="primary" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>{{ $t('helpLinks.exampleFaireLeCafe') }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </div>
+        </div>
+
         <!-- Section : Documentation et aide -->
         <div class="help-section q-pa-md q-mb-md">
           <div class="text-subtitle2 text-weight-bold text-primary q-mb-md">
@@ -137,6 +159,7 @@ import { defineComponent } from 'vue';
 
 export default defineComponent({
   name: 'FirstSteps',
+  emits: ['load-named-example'],
   setup() {
     const methods = {
       openExternalLink: (url: string) => {

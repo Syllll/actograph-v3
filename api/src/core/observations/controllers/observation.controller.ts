@@ -169,6 +169,23 @@ export class ObservationController extends BaseController {
     return observation;
   }
 
+  @Post('clone-example/:exampleKey')
+  @UseGuards(JwtAuthGuard)
+  @Roles(UserRoleEnum.User)
+  async cloneExampleByKey(
+    @Req() req: any,
+    @Param('exampleKey') exampleKey: string,
+  ): Promise<Observation> {
+    const user = req.user;
+
+    const observation =
+      await this.observationService.example.cloneExampleObservation(
+        user.id,
+        exampleKey,
+      );
+    return observation;
+  }
+
   @Post('merge')
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)

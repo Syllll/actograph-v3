@@ -62,15 +62,46 @@ export class ReadingV1Parser {
     let dataManagerType: string;
     const readings: IReadingEntryV1[] = [];
 
-    if (version === 1 || version === 2 || version === 3) {
+    if (version === 1 || version === 2) {
+      // Versions 1 et 2 : pas de champ dataManagerType (cf. DataList::operator>>
+      // du format .chronic v1). La métadonnée n'existe pas, on laisse une chaîne
+      // vide.
+      hasLinkedVideoFile = types.QBool.read(buffer);
+      hasLinkedAudioFile = types.QBool.read(buffer);
+      mediaFilePath = types.QString.read(buffer);
+      dataManagerType = '';
+
+      const numOfReadings = types.QInt.read(buffer);
+      for (let i = 0; i < numOfReadings; i++) {
+        readings.push(this.parseEntryFromBuffer(buffer));
+      }
+    } else if (version === 3) {
+      // Version 3 : un champ dataManagerType ("RAM" ou "SQL") précède les
+      // readings. Seul le mode RAM contient les readings en ligne ; le mode SQL
+      // stocke les données dans une base embarquée qu'on n'extrait pas à l'import.
       hasLinkedVideoFile = types.QBool.read(buffer);
       hasLinkedAudioFile = types.QBool.read(buffer);
       mediaFilePath = types.QString.read(buffer);
       dataManagerType = types.QString.read(buffer);
 
-      const numOfReadings = types.QInt.read(buffer);
-      for (let i = 0; i < numOfReadings; i++) {
-        readings.push(this.parseEntryFromBuffer(buffer));
+      if (dataManagerType === 'RAM') {
+        const numOfReadings = types.QInt.read(buffer);
+        for (let i = 0; i < numOfReadings; i++) {
+          readings.push(this.parseEntryFromBuffer(buffer));
+        }
+      } else if (dataManagerType === 'SQL') {
+        // Skip the embedded SQLite database: qint64 fileSize, qint64 chunkSize,
+        // puis une série de QByteArray. On ignore ces données (les readings ne
+        // sont pas accessibles sans extraire la base).
+        const fileSize = types.QInt64.read(buffer);
+        const chunkSize = types.QInt64.read(buffer);
+        // Best-effort skip ; ne pas échouer même si la structure est imprécise.
+        this.skipSqlChunks(buffer, fileSize, chunkSize);
+      } else {
+        throw new ParseError(
+          `Type de data manager ${dataManagerType} non supporté`,
+          'chronic',
+        );
       }
     } else {
       throw new ParseError(
@@ -87,6 +118,39 @@ export class ReadingV1Parser {
       dataManagerType,
       readings,
     };
+  }
+
+  /**
+   * Tente de sauter les chunks QByteArray embarqués pour un data manager SQL.
+   * Best-effort : en cas d'erreur ou de dépassement, on stoppe sans faire planter
+   * l'import (les readings SQL ne sont pas extraits à l'import v3).
+   */
+  private skipSqlChunks(
+    buffer: typeof CustomBuffer.prototype,
+    fileSize: number,
+    chunkSize: number,
+  ): void {
+    if (
+      !isFinite(fileSize) ||
+      !isFinite(chunkSize) ||
+      chunkSize <= 0 ||
+      fileSize <= 0
+    ) {
+      return;
+    }
+    // Cap conservateur : un QByteArray consomme au minimum 4 octets (son QUInt de
+    // taille). On borne le nombre d'itérations pour rester dans le buffer et
+    // éviter toute boucle excessive si fileSize/chunkSize est aberrant.
+    const remaining = buffer.remaining();
+    const maxIterations = remaining ? Math.floor(remaining.length / 4) : 0;
+    const chunks = Math.min(Math.ceil(fileSize / chunkSize), maxIterations);
+    try {
+      for (let i = 0; i < chunks; i++) {
+        types.QByteArray.read(buffer);
+      }
+    } catch {
+      // Ignore : les métadonnées de lecture ne sont pas essentielles.
+    }
   }
 }
 

@@ -33,7 +33,7 @@
           <div class="col-5 column q-pa-xs">
             <div class="box col column">
               <HomeTitle class="col-auto" :title="$t('homePage.helpCenter')" />
-              <FirstSteps class="col" />
+              <FirstSteps class="col" @load-named-example="chronicleActions.loadNamedExample" />
             </div>
           </div>
         </div>
@@ -61,7 +61,7 @@
           <div class="col-12 col-md-5 column q-pa-xs">
             <div class="box col column">
               <HomeTitle class="col-auto" :title="$t('homePage.helpCenter')" />
-              <FirstSteps class="col" />
+              <FirstSteps class="col" @load-named-example="chronicleActions.loadNamedExample" />
             </div>
           </div>
         </div>

@@ -29,6 +29,15 @@ export class Observation extends BaseEntity {
   @Column({ type: 'text', enum: ObservationType, default: ObservationType.Normal })
   type!: ObservationType;
 
+  /**
+   * Clé identifiant un exemple intégré (uniquement pour type=Example).
+   * Permet de gérer plusieurs exemples intégrés (ex: "default", "faire-le-cafe").
+   * Null pour les observations utilisateur (type=Normal).
+   */
+  @Column({ type: 'text', nullable: true })
+  @Index('IDX_observations_exampleKey')
+  exampleKey?: string | null;
+
   @Column({ type: 'text', nullable: true })
   description?: string | null;
 

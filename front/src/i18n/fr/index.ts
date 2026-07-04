@@ -529,6 +529,8 @@ export default {
     documentation: 'Documentation',
     tutorials: 'Tutoriels',
     faq: 'FAQ',
+    examplesSection: 'Exemples intégrés',
+    exampleFaireLeCafe: 'Exemple Faire le café',
     learnMore: 'En savoir plus',
     actographSite: 'Site ActoGraph.io',
     infoSection: 'Informations',
