@@ -116,15 +116,6 @@
     box-shadow: 0 8px 24px rgba(62,207,217,0.35);
   }
   .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(62,207,217,0.45); }
-  .btn-secondary {
-    background: linear-gradient(135deg, var(--symalgo), #d9830a);
-    color: #1a1205;
-    box-shadow: 0 8px 24px rgba(245,155,17,0.3);
-  }
-  .btn-secondary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(245,155,17,0.4); }
-  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
-  .btn-ghost:hover { background: rgba(255,255,255,0.06); }
-  .btn[disabled] { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
 
   .version { color: var(--muted); font-size: 13px; margin-top: 18px; }
   .version a { color: var(--cyan); text-decoration: none; }
@@ -215,7 +206,7 @@
 <body>
   <div class="symalgo-banner">
     <a href="https://www.actograph.io/fr/" target="_blank" rel="noopener" aria-label="SymAlgo Technologies">
-      <img class="logo" src="symalgo-logo.png" alt="SymAlgo Technologies" />
+      <img class="logo" src="symalgo-logo.png" alt="SymAlgo Technologies" width="5000" height="1507" decoding="async" />
     </a>
     <div class="tagline">Éditeur du logiciel <a href="https://www.actograph.io/fr/" target="_blank" rel="noopener">ActoGraph</a></div>
   </div>
@@ -238,7 +229,7 @@
       <p class="lede" id="lede">Nous déterminons la version adaptée à votre ordinateur.</p>
 
       <div class="primary">
-        <a id="primary-btn" class="btn btn-primary" href="#" style="display:none" disabled>
+        <a id="primary-btn" class="btn btn-primary" href="#" style="display:none">
           <span>↓</span><span id="primary-btn-label">Télécharger</span>
         </a>
       </div>
