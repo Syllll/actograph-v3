@@ -174,19 +174,10 @@
     transition: transform 0.05s ease, border-color 0.2s ease;
   }
   .card:hover { transform: translateY(-1px); border-color: rgba(232,117,17,0.4); }
-  .card .icon {
-    width: 42px; height: 42px; flex: 0 0 auto;
-    border-radius: 10px; display: flex; align-items: center; justify-content: center;
-    font-size: 22px; background: rgba(255,255,255,0.05);
-  }
   .card .meta { flex: 1; min-width: 0; }
   .card .meta .name { font-weight: 700; font-size: 15px; }
   .card .meta .desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
   .card .arrow { color: var(--muted); font-size: 18px; }
-  .card[data-os="windows"] .icon { background: rgba(232,117,17,0.15); }
-  .card[data-os="mac-arm"] .icon,
-  .card[data-os="mac-x64"] .icon { background: rgba(232,117,17,0.15); }
-  .card[data-os="linux"] .icon { background: rgba(232,117,17,0.15); }
   .badge {
     font-size: 11px; padding: 3px 8px; border-radius: 999px;
     background: rgba(78,217,154,0.15); color: var(--green);
@@ -290,10 +281,10 @@
   var CACHE_TTL = 1000 * 60 * 60; // 1h
 
   var ASSETS = {
-    "windows":  { file: "ActoGraph-v3-x64.exe",         label: "Windows",            desc: "Installeur x64 (.exe)",      icon: "🪟" },
-    "mac-arm":  { file: "ActoGraph-v3-arm64.zip",       label: "macOS Apple Silicon", desc: "Mac M1/M2/M3 (.zip)",        icon: "🍎" },
-    "mac-x64":  { file: "ActoGraph-v3-x64.zip",         label: "macOS Intel",         desc: "Mac Intel x64 (.zip)",       icon: "🍎" },
-    "linux":    { file: "ActoGraph-v3-x86_64.AppImage", label: "Linux",               desc: "AppImage x86_64",            icon: "🐧" }
+    "windows":  { file: "ActoGraph-v3-x64.exe",         label: "Windows",            desc: "Installeur x64 (.exe)" },
+    "mac-arm":  { file: "ActoGraph-v3-arm64.zip",       label: "macOS Apple Silicon", desc: "Mac M1/M2/M3 (.zip)" },
+    "mac-x64":  { file: "ActoGraph-v3-x64.zip",         label: "macOS Intel",         desc: "Mac Intel x64 (.zip)" },
+    "linux":    { file: "ActoGraph-v3-x86_64.AppImage", label: "Linux",               desc: "AppImage x86_64" }
   };
   var ORDER = ["windows", "mac-arm", "mac-x64", "linux"];
 
@@ -414,7 +405,6 @@
       a.href = asset.browser_download_url;
       a.rel = "noopener";
       a.innerHTML =
-        '<div class="icon">' + info.icon + '</div>' +
         '<div class="meta">' +
           '<div class="name">' + info.label + (key === currentKey ? ' <span class="badge">recommandé</span>' : '') + '</div>' +
           '<div class="desc">' + info.desc + ' · ' + fmtSize(asset.size) + '</div>' +
