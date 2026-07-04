@@ -273,7 +273,20 @@ export const useObservation = (options?: { init?: boolean }) => {
       mode?: ObservationModeEnum;
     }) => {
       const response = await observationService.update(id, updateData);
-      await methods.loadObservation(id);
+
+      // Ne pas recharger toute l'observation ici : dans une fenêtre pop-out déjà
+      // hydratée, un reload complet peut rediffuser des relevés persistés mais
+      // plus vieux que l'état vivant de l'owner. On applique uniquement les
+      // métadonnées mises à jour, puis on les propage aux autres fenêtres.
+      if (sharedState.currentObservation?.id === id) {
+        sharedState.currentObservation = {
+          ...sharedState.currentObservation,
+          ...response,
+        };
+      } else {
+        await methods.loadObservation(id);
+      }
+
       broadcastObservationMeta();
       return response;
     },
