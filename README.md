@@ -2,6 +2,17 @@
 
 ActoGraph v3 est une application web et desktop conçue pour l'analyse et la visualisation de données d'observation comportementale. L'application permet de créer des observations, de collecter des données (readings), de définir des protocoles d'observation structurés et de visualiser les données sous forme de graphiques interactifs.
 
+## Téléchargement
+
+La page de téléchargement officielle détecte votre système (Windows, macOS Apple Silicon/Intel, Linux) et propose le bon installeur directement :
+
+**👉 https://syllll.github.io/actograph-v3/**
+
+- **Étudiants** : utilisation gratuite, sans licence (contrairement à la V1).
+- **Professionnels / non-étudiants** : une licence est requise, à acheter sur [actograph.io](https://www.actograph.io/fr/).
+
+Les binaires sont publiés via les [GitHub Releases](https://github.com/Syllll/actograph-v3/releases) et signés par SymAlgo Technologies.
+
 ## Architecture
 
 L'application est composée de deux parties principales :

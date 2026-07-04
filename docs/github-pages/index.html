@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ActoGraph v3 — Téléchargement</title>
-<meta name="description" content="Téléchargez ActoGraph v3 pour Windows, macOS et Linux. La page détecte votre système et propose le bon fichier." />
+<meta name="description" content="Téléchargez ActoGraph v3 pour Windows, macOS et Linux. Gratuit pour les étudiants, licence requise pour les autres usages. Édité par SymAlgo Technologies." />
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <style>
   :root {
@@ -19,6 +19,8 @@
     --purple: #b077dd;
     --yellow: #ffcc49;
     --green: #4ed99a;
+    --symalgo: #f59b11;
+    --symalgo-bg: #000000;
     --radius: 14px;
     --shadow: 0 10px 40px rgba(0,0,0,0.35);
   }
@@ -32,24 +34,49 @@
       radial-gradient(1000px 500px at -10% 110%, rgba(176,119,221,0.18), transparent 60%),
       linear-gradient(180deg, var(--bg), var(--bg-2));
     min-height: 100vh;
+    margin: 0;
+    padding: 0 0 64px;
+  }
+
+  /* SymAlgo banner — prominent, on-brand black, full width */
+  .symalgo-banner {
+    width: 100%;
+    background: var(--symalgo-bg);
+    border-bottom: 1px solid rgba(245,155,17,0.25);
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 32px 20px 64px;
+    padding: 26px 20px 22px;
+    box-sizing: border-box;
   }
-  .wrap { width: 100%; max-width: 760px; }
+  .symalgo-banner img.logo {
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    display: block;
+  }
+  .symalgo-banner .tagline {
+    color: rgba(255,255,255,0.55);
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-top: 12px;
+  }
+  .symalgo-banner .tagline a { color: var(--symalgo); text-decoration: none; }
+  .symalgo-banner .tagline a:hover { text-decoration: underline; }
+
+  .wrap-inner { width: 100%; max-width: 760px; margin: 0 auto; padding: 32px 20px 0; }
+
   header.brand {
     display: flex; align-items: center; gap: 14px;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
   }
   header.brand .logo {
     width: 48px; height: 48px; border-radius: 10px;
     box-shadow: var(--shadow);
     flex: 0 0 auto;
   }
-  header.brand h1 {
-    font-size: 22px; margin: 0; font-weight: 700; letter-spacing: 0.3px;
-  }
+  header.brand h1 { font-size: 22px; margin: 0; font-weight: 700; letter-spacing: 0.3px; }
   header.brand .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
 
   .hero {
@@ -73,17 +100,15 @@
   h2 { margin: 0 0 6px; font-size: 26px; line-height: 1.2; }
   .lede { color: var(--muted); margin: 0 0 22px; font-size: 15px; }
 
-  .primary {
-    display: flex; align-items: center; gap: 16px;
-    flex-wrap: wrap;
-  }
+  .primary { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .btn {
     appearance: none; border: 0; cursor: pointer;
     font: inherit; font-weight: 700;
     text-decoration: none;
     border-radius: 12px;
-    padding: 14px 22px;
+    padding: 15px 26px;
     transition: transform 0.05s ease, box-shadow 0.2s ease, background 0.2s ease;
+    display: inline-flex; align-items: center; gap: 10px;
   }
   .btn-primary {
     background: linear-gradient(135deg, var(--cyan), #2bb6c0);
@@ -91,37 +116,61 @@
     box-shadow: 0 8px 24px rgba(62,207,217,0.35);
   }
   .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(62,207,217,0.45); }
-  .btn-ghost {
-    background: transparent; color: var(--text);
-    border: 1px solid var(--border);
+  .btn-secondary {
+    background: linear-gradient(135deg, var(--symalgo), #d9830a);
+    color: #1a1205;
+    box-shadow: 0 8px 24px rgba(245,155,17,0.3);
   }
+  .btn-secondary:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(245,155,17,0.4); }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
   .btn-ghost:hover { background: rgba(255,255,255,0.06); }
-  .btn[disabled] { opacity: 0.6; cursor: not-allowed; }
+  .btn[disabled] { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
 
-  .countdown {
-    display: flex; align-items: center; gap: 10px;
-    color: var(--muted); font-size: 13px;
-    margin-top: 16px;
-  }
-  .countdown .ring {
-    width: 18px; height: 18px; border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.18);
-    border-top-color: var(--cyan);
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .version {
-    color: var(--muted); font-size: 13px; margin-top: 18px;
-  }
+  .version { color: var(--muted); font-size: 13px; margin-top: 18px; }
   .version a { color: var(--cyan); text-decoration: none; }
   .version a:hover { text-decoration: underline; }
 
+  /* License section */
+  .license {
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 26px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .license h3 { margin: 0 0 14px; font-size: 16px; }
+  .license-grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 560px) { .license-grid { grid-template-columns: 1fr; } }
+  .lic-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    background: rgba(255,255,255,0.02);
+  }
+  .lic-card .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .lic-card .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 3px 9px; border-radius: 999px; text-transform: uppercase;
+  }
+  .lic-card.free .tag { background: rgba(78,217,154,0.15); color: var(--green); border: 1px solid rgba(78,217,154,0.3); }
+  .lic-card.paid .tag { background: rgba(245,155,17,0.15); color: var(--symalgo); border: 1px solid rgba(245,155,17,0.3); }
+  .lic-card .title { font-weight: 700; font-size: 15px; }
+  .lic-card .body { color: var(--muted); font-size: 13px; line-height: 1.55; }
+  .lic-card .body strong { color: var(--text); font-weight: 600; }
+  .lic-card .cta { margin-top: 12px; }
+  .lic-card .cta a {
+    color: var(--symalgo); text-decoration: none; font-size: 13px; font-weight: 600;
+  }
+  .lic-card .cta a:hover { text-decoration: underline; }
+  .lic-note { color: var(--muted); font-size: 12px; margin-top: 16px; line-height: 1.6; }
+  .lic-note a { color: var(--cyan); text-decoration: none; }
+  .lic-note a:hover { text-decoration: underline; }
+
   .section-title {
     font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
-    color: var(--muted); margin: 26px 4px 12px;
+    color: var(--muted); margin: 22px 4px 12px;
   }
-
   .grid { display: grid; gap: 12px; }
   .card {
     background: linear-gradient(180deg, var(--card), var(--card-2));
@@ -130,15 +179,13 @@
     padding: 18px 20px;
     display: flex; align-items: center; gap: 16px;
     text-decoration: none; color: var(--text);
-    transition: transform 0.05s ease, border-color 0.2s ease, background 0.2s ease;
+    transition: transform 0.05s ease, border-color 0.2s ease;
   }
   .card:hover { transform: translateY(-1px); border-color: rgba(62,207,217,0.4); }
   .card .icon {
     width: 42px; height: 42px; flex: 0 0 auto;
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 22px;
-    background: rgba(255,255,255,0.05);
+    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; background: rgba(255,255,255,0.05);
   }
   .card .meta { flex: 1; min-width: 0; }
   .card .meta .name { font-weight: 700; font-size: 15px; }
@@ -148,33 +195,32 @@
   .card[data-os="mac-arm"] .icon,
   .card[data-os="mac-x64"] .icon { background: rgba(176,119,221,0.15); }
   .card[data-os="linux"] .icon { background: rgba(255,204,73,0.15); }
-
   .badge {
     font-size: 11px; padding: 3px 8px; border-radius: 999px;
     background: rgba(78,217,154,0.15); color: var(--green);
-    border: 1px solid rgba(78,217,154,0.3);
-    margin-left: 8px;
+    border: 1px solid rgba(78,217,154,0.3); margin-left: 8px;
   }
-
-  .note {
-    margin-top: 26px; font-size: 12px; color: var(--muted);
-    line-height: 1.6;
-  }
+  .note { margin-top: 22px; font-size: 12px; color: var(--muted); line-height: 1.6; }
   .note code { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; }
-
   .error {
     margin-top: 14px; padding: 12px 14px; border-radius: 10px;
     background: rgba(255,90,90,0.1); border: 1px solid rgba(255,90,90,0.3);
     color: #ffb4b4; font-size: 13px;
   }
-
-  footer {
-    margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center;
-  }
+  footer { margin-top: 36px; color: var(--muted); font-size: 12px; text-align: center; }
+  footer a { color: var(--symalgo); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="symalgo-banner">
+    <a href="https://www.actograph.io/fr/" target="_blank" rel="noopener" aria-label="SymAlgo Technologies">
+      <img class="logo" src="symalgo-logo.png" alt="SymAlgo Technologies" />
+    </a>
+    <div class="tagline">Éditeur du logiciel <a href="https://www.actograph.io/fr/" target="_blank" rel="noopener">ActoGraph</a></div>
+  </div>
+
+  <div class="wrap-inner">
     <header class="brand">
       <img class="logo" src="favicon.svg" alt="ActoGraph" />
       <div>
@@ -192,21 +238,39 @@
       <p class="lede" id="lede">Nous déterminons la version adaptée à votre ordinateur.</p>
 
       <div class="primary">
-        <a id="primary-btn" class="btn btn-primary" href="#" style="display:none">
-          Télécharger
+        <a id="primary-btn" class="btn btn-primary" href="#" style="display:none" disabled>
+          <span>↓</span><span id="primary-btn-label">Télécharger</span>
         </a>
-        <button id="cancel-btn" class="btn btn-ghost" style="display:none">
-          Annuler le téléchargement automatique
-        </button>
-      </div>
-
-      <div class="countdown" id="countdown" style="display:none">
-        <span class="ring"></span>
-        <span id="countdown-text">Téléchargement automatique dans 3 s…</span>
       </div>
 
       <div class="version" id="version" style="display:none"></div>
       <div class="error" id="error" style="display:none"></div>
+    </section>
+
+    <section class="license">
+      <h3>Licence d'utilisation</h3>
+      <div class="license-grid">
+        <div class="lic-card free">
+          <div class="head"><span class="tag">Gratuit</span><span class="title">Étudiants</span></div>
+          <div class="body">
+            Utilisation <strong>gratuite et sans licence</strong> pour les étudiants.
+            Contrairement à la V1, aucune licence n'est requise pour la V3 : téléchargez et utilisez directement.
+          </div>
+        </div>
+        <div class="lic-card paid">
+          <div class="head"><span class="tag">Licence requise</span><span class="title">Professionnels</span></div>
+          <div class="body">
+            Tout usage non étudiant (recherche, clinique, conseil, industrie) nécessite une <strong>licence</strong> :
+            abonnement annuel ou licence à vie (tarif Education réduit pour les établissements).
+          </div>
+          <div class="cta"><a href="https://www.actograph.io/fr/" target="_blank" rel="noopener">Acheter une licence →</a></div>
+        </div>
+      </div>
+      <p class="lic-note">
+        Voir les offres et tarifs détaillés sur <a href="https://www.actograph.io/fr/" target="_blank" rel="noopener">actograph.io</a>.
+        Pour les établissements d'enseignement (tarif Education) ou toute demande :
+        <a href="mailto:actograph-info@symalgo-tech.com">actograph-info@symalgo-tech.com</a>.
+      </p>
     </section>
 
     <div class="section-title">Toutes les plateformes</div>
@@ -220,7 +284,7 @@
     </p>
 
     <footer>
-      © <span id="year"></span> SymAlgo Technologies · ActoGraph v3
+      © <span id="year"></span> <a href="https://www.actograph.io/fr/" target="_blank" rel="noopener">SymAlgo Technologies</a> · ActoGraph v3
     </footer>
   </div>
 
@@ -234,10 +298,10 @@
   var CACHE_TTL = 1000 * 60 * 60; // 1h
 
   var ASSETS = {
-    "windows":  { file: "ActoGraph-v3-x64.exe",        label: "Windows",        desc: "Installeur x64 (.exe)",         icon: "🪟" },
-    "mac-arm":  { file: "ActoGraph-v3-arm64.zip",      label: "macOS Apple Silicon", desc: "Mac M1/M2/M3 (.zip)",     icon: "" },
-    "mac-x64":  { file: "ActoGraph-v3-x64.zip",        label: "macOS Intel",     desc: "Mac Intel x64 (.zip)",          icon: "" },
-    "linux":    { file: "ActoGraph-v3-x86_64.AppImage", label: "Linux",          desc: "AppImage x86_64",               icon: "🐧" }
+    "windows":  { file: "ActoGraph-v3-x64.exe",         label: "Windows",            desc: "Installeur x64 (.exe)",      icon: "🪟" },
+    "mac-arm":  { file: "ActoGraph-v3-arm64.zip",       label: "macOS Apple Silicon", desc: "Mac M1/M2/M3 (.zip)",        icon: "🍎" },
+    "mac-x64":  { file: "ActoGraph-v3-x64.zip",         label: "macOS Intel",         desc: "Mac Intel x64 (.zip)",       icon: "🍎" },
+    "linux":    { file: "ActoGraph-v3-x86_64.AppImage", label: "Linux",               desc: "AppImage x86_64",            icon: "🐧" }
   };
   var ORDER = ["windows", "mac-arm", "mac-x64", "linux"];
 
@@ -249,7 +313,6 @@
 
   function fetchRelease() {
     return new Promise(function (resolve, reject) {
-      // Try cache first (synchronous, avoids burning API quota).
       try {
         var raw = localStorage.getItem(CACHE_KEY);
         if (raw) {
@@ -274,7 +337,6 @@
     });
   }
 
-  // Returns { os: "windows"|"mac-arm"|"mac-x64"|"linux"|"unknown", label }
   function detectOS() {
     var ua = navigator.userAgent || "";
     var platform = (navigator.platform || "") || "";
@@ -287,29 +349,25 @@
   }
 
   function detectMacArch() {
-    // Chromium-based browsers expose high-entropy values.
     if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
       return navigator.userAgentData.getHighEntropyValues(["architecture"])
         .then(function (h) {
           var arch = (h && h.architecture) || "";
           if (/arm/i.test(arch)) return "arm";
           if (/x86|ia32/i.test(arch)) return "x64";
-          return null; // unknown
+          return null;
         })
         .catch(function () { return null; });
     }
-    // uaarch (newer): navigator.userAgentData.architecture (low entropy, sometimes present)
     if (navigator.userAgentData && navigator.userAgentData.architecture) {
       var a = navigator.userAgentData.architecture;
       if (/arm/i.test(a)) return Promise.resolve("arm");
       if (/x86|ia32/i.test(a)) return Promise.resolve("x64");
     }
-    // WebKit/Apple silicon reports intel in the UA string for compatibility,
-    // so we can't reliably distinguish via UA alone. Default unknown -> arm64.
     return Promise.resolve(null);
   }
 
-  function findAssetUrl(data, fileName) {
+  function findAsset(data, fileName) {
     if (!data || !data.assets) return null;
     for (var i = 0; i < data.assets.length; i++) {
       if (data.assets[i].name === fileName) return data.assets[i];
@@ -319,6 +377,7 @@
 
   function setPrimary(osKey, asset, data) {
     var btn = document.getElementById("primary-btn");
+    var btnLabel = document.getElementById("primary-btn-label");
     var detected = document.getElementById("detected");
     var label = document.getElementById("detected-label");
     var title = document.getElementById("title");
@@ -335,7 +394,8 @@
     }
 
     btn.href = asset.browser_download_url;
-    btn.textContent = "Télécharger pour " + info.label;
+    btn.removeAttribute("disabled");
+    btnLabel.textContent = "Télécharger pour " + info.label;
     btn.style.display = "";
     label.textContent = info.label + " détecté";
     detected.style.display = "";
@@ -354,7 +414,7 @@
     grid.innerHTML = "";
     ORDER.forEach(function (key) {
       var info = ASSETS[key];
-      var asset = findAssetUrl(data, info.file);
+      var asset = findAsset(data, info.file);
       if (!asset) return;
       var a = document.createElement("a");
       a.className = "card";
@@ -362,7 +422,7 @@
       a.href = asset.browser_download_url;
       a.rel = "noopener";
       a.innerHTML =
-        '<div class="icon">' + (info.icon || "🍎") + '</div>' +
+        '<div class="icon">' + info.icon + '</div>' +
         '<div class="meta">' +
           '<div class="name">' + info.label + (key === currentKey ? ' <span class="badge">recommandé</span>' : '') + '</div>' +
           '<div class="desc">' + info.desc + ' · ' + fmtSize(asset.size) + '</div>' +
@@ -378,59 +438,22 @@
     el.style.display = "";
   }
 
-  // Auto-redirect countdown
-  var redirectTimer = null;
-  var countdownInterval = null;
-  var secondsLeft = 3;
-
-  function startCountdown(url) {
-    var box = document.getElementById("countdown");
-    var txt = document.getElementById("countdown-text");
-    var cancel = document.getElementById("cancel-btn");
-    box.style.display = "";
-    cancel.style.display = "";
-
-    function tick() {
-      txt.textContent = "Téléchargement automatique dans " + secondsLeft + " s…";
-    }
-    tick();
-    countdownInterval = setInterval(function () {
-      secondsLeft--;
-      if (secondsLeft <= 0) {
-        clearInterval(countdownInterval);
-        return;
-      }
-      tick();
-    }, 1000);
-    redirectTimer = setTimeout(function () { window.location.href = url; }, secondsLeft * 1000);
-
-    cancel.onclick = function () {
-      clearTimeout(redirectTimer);
-      clearInterval(countdownInterval);
-      box.style.display = "none";
-      cancel.style.display = "none";
-    };
-  }
-
   function render() {
     document.getElementById("year").textContent = new Date().getFullYear();
     var det = detectOS();
 
     fetchRelease().then(function (data) {
-      // Resolve mac arch (if any) before finalizing primary.
       var archP = det.archPromise || Promise.resolve(null);
       archP.then(function (arch) {
         var osKey = det.os;
         if (osKey === "mac-arm" && arch === "x64") osKey = "mac-x64";
         else if (osKey === "mac-x64" && arch === "arm") osKey = "mac-arm";
-        // If mac and arch unknown, keep mac-arm default (handled in grid via fallback link).
 
-        var asset = findAssetUrl(data, ASSETS[osKey] && ASSETS[osKey].file);
+        var asset = findAsset(data, ASSETS[osKey] && ASSETS[osKey].file);
         setPrimary(osKey, asset, data);
         buildGrid(data, osKey);
 
-        if (asset) startCountdown(asset.browser_download_url);
-        else showError("Aucun asset correspondant trouvé dans la dernière release.");
+        if (!asset) showError("Aucun asset correspondant trouvé dans la dernière release.");
       });
     }).catch(function (err) {
       document.getElementById("detected").style.display = "none";
