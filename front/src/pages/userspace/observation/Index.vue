@@ -1,35 +1,6 @@
 <template>
   <DPage>
-    <!-- 
-      Structure principale de la page Observation
-      ===========================================
-      
-      Cette page gère deux modes d'affichage :
-      1. Mode avec vidéo : Splitter horizontal pour séparer la vidéo du reste du contenu
-      2. Mode sans vidéo : Affichage direct du contenu principal (boutons + relevés)
-      
-      Architecture des splitters :
-      - Splitter horizontal (vidéo) : Sépare la vidéo (haut) du contenu principal (bas)
-      - Splitter vertical (contenu) : Sépare les boutons (gauche) des relevés (droite)
-      
-      IMPORTANT : Le splitter horizontal nécessite une hauteur explicite en pixels pour
-      fonctionner correctement. Cette hauteur est calculée dynamiquement via ResizeObserver.
-    -->
     <div ref="containerRef" class="fit column no-wrap">
-      <!-- 
-        Mode avec vidéo : Splitter horizontal
-        ---------------------------------------
-        Affiché si :
-        - L'observation est en mode chronomètre, OU
-        - Une vidéo est chargée (videoPath existe)
-        
-        Le splitter horizontal permet de redimensionner la hauteur de la zone vidéo
-        en glissant le séparateur. La vidéo occupe le panneau "before" et le reste
-        du contenu (toolbar + boutons/relevés) occupe le panneau "after".
-        
-        IMPORTANT: Utilisation de v-show au lieu de v-if pour éviter les problèmes
-        de démontage rapide avec les directives Quasar (__qtouchpan).
-      -->
       <q-splitter
         v-show="observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath"
         :key="`video-splitter-${observation.sharedState.currentObservation?.id || 'new'}`"
@@ -38,7 +9,6 @@
         :style="{ height: state.containerHeight + 'px', display: (observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath) ? 'flex' : 'none' }"
         :limits="[10, 75]"
       >
-        <!-- Panneau supérieur : Lecteur vidéo -->
         <template v-slot:before>
           <div class="video-panel-wrapper column fit position-relative">
             <template v-if="!popout.sharedState.video">
@@ -68,8 +38,7 @@
             </div>
           </div>
         </template>
-        
-        <!-- Séparateur : Bouton de redimensionnement horizontal -->
+
         <template v-slot:separator>
           <q-avatar
             color="accent"
@@ -79,17 +48,14 @@
             class="video-resize-handle"
           />
         </template>
-        
-        <!-- Panneau inférieur : Contenu principal (toolbar + boutons/relevés) -->
+
         <template v-slot:after>
           <div class="fit column no-wrap">
-            <!-- Toolbar calendrier (affichée uniquement en mode calendrier) -->
             <CalendarToolbar
               v-if="!observation.isChronometerMode.value"
               class="col-auto"
             />
-            
-            <!-- Splitter vertical : Boutons (gauche) / Relevés (droite) -->
+
             <q-splitter
               v-model="state.splitterModel"
               class="col"
@@ -140,22 +106,14 @@
           </div>
         </template>
       </q-splitter>
-      
-      <!-- 
-        Mode sans vidéo : Affichage direct du contenu principal
-        --------------------------------------------------------
-        Affiché si aucune vidéo n'est chargée et que l'observation n'est pas en mode chronomètre.
-        Dans ce cas, on affiche directement la toolbar et le splitter vertical boutons/relevés.
-      -->
+
       <div
         v-show="!(observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath)"
         class="fit column no-wrap"
         :style="{ display: !(observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath) ? 'flex' : 'none' }"
       >
-        <!-- Toolbar calendrier -->
         <CalendarToolbar class="col-auto" />
-        
-        <!-- Splitter vertical : Boutons (gauche) / Relevés (droite) -->
+
         <q-splitter
           v-model="state.splitterModel"
           class="col"
@@ -215,7 +173,7 @@ import ReadingsSideIndex from './_components/readings-side/Index.vue';
 import CalendarToolbar from './_components/CalendarToolbar.vue';
 import VideoPlayer from './_components/VideoPlayer.vue';
 import { useObservation } from 'src/composables/use-observation';
-import { usePopout } from 'src/composables/use-popout';
+import { usePopout, PopoutComponent } from 'src/composables/use-popout';
 
 export default defineComponent({
   components: {
@@ -229,69 +187,45 @@ export default defineComponent({
     const observation = useObservation();
     const popout = usePopout();
     const containerRef = ref<HTMLElement | null>(null);
-    
+
     const state = reactive({
-      splitterModel: 40, // Vertical splitter for buttons/relevés (percentage)
-      videoSplitterModel: 25, // Horizontal splitter for video height (percentage of available height)
-      // IMPORTANT: containerHeight is required for q-splitter with horizontal orientation.
-      // Quasar's q-splitter needs an explicit height value (in pixels) to properly calculate
-      // and resize its panes when the user drags the separator. Without this, the splitter
-      // cannot determine how much space is available and will not resize correctly.
-      // The ResizeObserver below dynamically updates this value when the container size changes.
-      containerHeight: 600, // Default height, will be updated dynamically by ResizeObserver
+      splitterModel: 40,
+      videoSplitterModel: 25,
+      containerHeight: 600,
     });
 
-    // Références vers les fenêtres pop-out ouvertes, pour pouvoir les refermer
-    // (réintégration du panneau dans la fenêtre principale).
-    const popoutWindows: Record<'video' | 'buttons', Window | null> = {
+    const popoutWindows: Record<PopoutComponent, Window | null> = {
       video: null,
       buttons: null,
     };
 
-    const popOutVideo = () => {
+    const openPopout = (component: PopoutComponent, width: number, height: number) => {
       const observationId = observation.sharedState.currentObservation?.id;
       if (!observationId) return;
-      const width = 800;
-      const height = 600;
+
       const left = window.screenX + 50;
       const top = window.screenY + 50;
       const baseUrl = window.location.href.split('#')[0];
       const popup = window.open(
-        `${baseUrl}#/popup/video?observationId=${observationId}`,
-        'actograph-video',
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes`
+        `${baseUrl}#/popup/${component}?observationId=${observationId}`,
+        `actograph-${component}`,
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes`,
       );
-      // Marquer optimistiquement le panneau comme incrusté (confirmé ensuite par
-      // le heartbeat de la fenêtre pop-out, réintégré si elle se ferme).
+
       if (popup) {
-        popoutWindows.video = popup;
-        popout.markOpened('video');
+        popoutWindows[component] = popup;
+        popout.markOpened(component);
       }
     };
 
-    const popOutButtons = () => {
-      const observationId = observation.sharedState.currentObservation?.id;
-      if (!observationId) return;
-      const width = 400;
-      const height = 600;
-      const left = window.screenX + 50;
-      const top = window.screenY + 50;
-      const baseUrl = window.location.href.split('#')[0];
-      const popup = window.open(
-        `${baseUrl}#/popup/buttons?observationId=${observationId}`,
-        'actograph-buttons',
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes`
-      );
-      if (popup) {
-        popoutWindows.buttons = popup;
-        popout.markOpened('buttons');
-      }
-    };
+    const popOutVideo = () => openPopout('video', 800, 600);
+    const popOutButtons = () => openPopout('buttons', 400, 600);
 
-    // Réintègre un panneau : ferme la fenêtre pop-out si on en a la référence,
-    // et lève le drapeau localement (la fenêtre pop-out diffusera aussi sa
-    // fermeture, et le heartbeat sert de filet de sécurité).
-    const bringBack = (component: 'video' | 'buttons') => {
+    // Réintègre un panneau. La demande BroadcastChannel couvre le cas où la
+    // fenêtre principale n'a plus la référence `Window` locale (refresh, reload).
+    const bringBack = (component: PopoutComponent) => {
+      popout.requestClose(component);
+
       const ref = popoutWindows[component];
       if (ref && !ref.closed) {
         try {
@@ -300,6 +234,7 @@ export default defineComponent({
           /* ignore */
         }
       }
+
       popoutWindows[component] = null;
       popout.markClosed(component);
     };
@@ -311,9 +246,6 @@ export default defineComponent({
       bringBackButtons: () => bringBack('buttons'),
     };
 
-    // Update container height dynamically
-    // This function is called by ResizeObserver whenever the container's size changes.
-    // It ensures that the q-splitter always has an accurate height value to work with.
     const updateContainerHeight = () => {
       if (containerRef.value) {
         const height = containerRef.value.clientHeight;
@@ -323,20 +255,11 @@ export default defineComponent({
       }
     };
 
-    // Set up ResizeObserver to watch for container size changes
-    // IMPORTANT: This ResizeObserver is CRITICAL for the q-splitter to function correctly.
-    // It watches the containerRef element and updates containerHeight whenever the size changes.
-    // This allows the splitter to properly resize its panes (video player and content area)
-    // when the user drags the separator handle. Without this observer, the splitter would
-    // have a fixed height and would not respond correctly to window resizing or dragging.
     let resizeObserver: ResizeObserver | null = null;
 
     onMounted(() => {
-      // Initial height calculation
       updateContainerHeight();
-      
-      // Create ResizeObserver to watch for size changes
-      // This ensures the splitter height stays synchronized with the actual container size
+
       if (containerRef.value) {
         resizeObserver = new ResizeObserver(() => {
           updateContainerHeight();
@@ -344,18 +267,14 @@ export default defineComponent({
         resizeObserver.observe(containerRef.value);
       }
 
-      // Also update on window resize as a fallback
-      // This handles cases where ResizeObserver might not fire (e.g., browser compatibility issues)
       window.addEventListener('resize', updateContainerHeight);
     });
 
     onUnmounted(() => {
-      // Clean up ResizeObserver to prevent memory leaks
       if (resizeObserver && containerRef.value) {
         resizeObserver.unobserve(containerRef.value);
         resizeObserver.disconnect();
       }
-      // Clean up window resize listener
       window.removeEventListener('resize', updateContainerHeight);
     });
 
@@ -388,4 +307,3 @@ export default defineComponent({
   text-align: center;
 }
 </style>
-

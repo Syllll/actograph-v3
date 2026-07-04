@@ -11,6 +11,8 @@
  * - `popout:opened` / `popout:alive` : un panneau est ouvert dans une fenêtre
  *   séparée (heartbeat régulier pour détecter une fermeture brutale).
  * - `popout:closed` : la fenêtre pop-out se ferme proprement.
+ * - `popout:close-requested` : l'owner demande à la fenêtre pop-out de se fermer,
+ *   même si la référence `Window` locale a été perdue après un refresh.
  *
  * Un nettoyage par expiration (staleness) côté owner réintègre le panneau si la
  * fenêtre pop-out a disparu sans envoyer `popout:closed` (crash, kill, etc.).
@@ -61,7 +63,10 @@ const ensureInitialized = () => {
     if (isPopoutComponent(payload?.component)) markSeen(payload.component);
   });
   windowSync.on('popout:closed', (payload: { component?: unknown }) => {
-    if (isPopoutComponent(payload?.component)) sharedState[payload.component] = false;
+    if (isPopoutComponent(payload?.component)) {
+      sharedState[payload.component] = false;
+      lastSeen[payload.component] = 0;
+    }
   });
 
   // Réintégration automatique si une fenêtre pop-out disparaît sans prévenir.
@@ -75,6 +80,7 @@ const ensureInitialized = () => {
           now - lastSeen[component] > STALE_TIMEOUT_MS
         ) {
           sharedState[component] = false;
+          lastSeen[component] = 0;
         }
       });
     }, HEARTBEAT_INTERVAL_MS);
@@ -95,7 +101,13 @@ export const usePopout = () => {
   /** Marque (et diffuse) la fermeture d'un panneau incrusté. */
   const markClosed = (component: PopoutComponent) => {
     sharedState[component] = false;
+    lastSeen[component] = 0;
     windowSync.broadcast('popout:closed', { component });
+  };
+
+  /** Demande à la fenêtre pop-out de se fermer elle-même. */
+  const requestClose = (component: PopoutComponent) => {
+    windowSync.broadcast('popout:close-requested', { component });
   };
 
   /** Signale que la fenêtre pop-out est toujours vivante (heartbeat). */
@@ -108,6 +120,7 @@ export const usePopout = () => {
     heartbeatIntervalMs: HEARTBEAT_INTERVAL_MS,
     markOpened,
     markClosed,
+    requestClose,
     heartbeat,
   };
 };

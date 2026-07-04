@@ -1,5 +1,5 @@
 <template>
-  <div class="fit">
+  <div class="fit position-relative">
     <div v-if="state.loading" class="fit column items-center justify-center">
       <q-spinner color="primary" size="48px" />
       <div class="text-body2 q-mt-md text-grey">{{ $t('observation.popupLoading') }}</div>
@@ -8,12 +8,24 @@
       <q-icon name="error" size="48px" color="negative" />
       <div class="text-body1 q-mt-md text-negative">{{ state.error }}</div>
     </div>
-    <VideoPlayer v-else-if="componentName === 'video'" />
-    <ButtonsSideIndex v-else-if="componentName === 'buttons'" />
-    <div v-else class="fit column items-center justify-center">
-      <q-icon name="error" size="48px" color="negative" />
-      <div class="text-body1 q-mt-md">{{ $t('observation.popupComponentNotFound') }}</div>
-    </div>
+    <template v-else>
+      <VideoPlayer v-if="componentName === 'video'" />
+      <ButtonsSideIndex v-else-if="componentName === 'buttons'" />
+      <div v-else class="fit column items-center justify-center">
+        <q-icon name="error" size="48px" color="negative" />
+        <div class="text-body1 q-mt-md">{{ $t('observation.popupComponentNotFound') }}</div>
+      </div>
+
+      <div
+        v-if="popoutComponent && !state.hydrated"
+        class="popup-hydration-overlay column items-center justify-center"
+      >
+        <q-spinner color="primary" size="40px" />
+        <div class="text-body2 q-mt-md text-grey-7">
+          {{ $t('observation.popupLoading') }}
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -52,6 +64,7 @@ export default defineComponent({
 
     const state = reactive({
       loading: false,
+      hydrated: false,
       error: '' as string,
     });
 
@@ -62,7 +75,16 @@ export default defineComponent({
         : null;
 
     let heartbeatTimer: number | null = null;
+    let hydrationTimeout: number | null = null;
     let lifecycleSignaled = false;
+    const unsubscribers: Array<() => void> = [];
+
+    const clearHydrationTimeout = () => {
+      if (hydrationTimeout !== null) {
+        clearTimeout(hydrationTimeout);
+        hydrationTimeout = null;
+      }
+    };
 
     // Signale la fermeture de la fenêtre pop-out pour réintégrer le panneau
     // dans la fenêtre principale (appelé sur unmount ET beforeunload).
@@ -73,6 +95,7 @@ export default defineComponent({
         clearInterval(heartbeatTimer);
         heartbeatTimer = null;
       }
+      clearHydrationTimeout();
       popout.markClosed(popoutComponent);
     };
 
@@ -93,6 +116,21 @@ export default defineComponent({
 
       windowSync.setObservationId(id);
 
+      unsubscribers.push(
+        windowSync.on('hydrate:complete', () => {
+          state.hydrated = true;
+          clearHydrationTimeout();
+        })
+      );
+
+      unsubscribers.push(
+        windowSync.on('popout:close-requested', (payload: { component?: unknown }) => {
+          if (!popoutComponent || payload?.component !== popoutComponent) return;
+          signalClosed();
+          window.close();
+        })
+      );
+
       state.loading = true;
       try {
         await observation.methods.loadObservation(id);
@@ -109,7 +147,17 @@ export default defineComponent({
         }
 
         // Demander l'état "vivant" à l'owner (relevés non encore persistés, etc.).
-        windowSync.broadcast('hydrate:request');
+        // Tant que `hydrate:complete` n'est pas reçu, l'overlay empêche les clics
+        // précoces de créer un état local non diffusé ou écrasé par l'hydratation.
+        if (popoutComponent) {
+          windowSync.broadcast('hydrate:request');
+          hydrationTimeout = window.setTimeout(() => {
+            state.hydrated = true;
+            hydrationTimeout = null;
+          }, 3000);
+        } else {
+          state.hydrated = true;
+        }
       } catch (error) {
         console.error('Erreur lors du chargement de la chronique:', error);
         state.error = t('observation.popupChronicleLoadError');
@@ -120,13 +168,27 @@ export default defineComponent({
 
     onUnmounted(() => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      clearHydrationTimeout();
       signalClosed();
     });
 
     return {
       componentName,
+      popoutComponent,
       state,
     };
   },
 });
 </script>
+
+<style scoped>
+.popup-hydration-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(252, 252, 252, 0.85);
+  backdrop-filter: blur(1px);
+  pointer-events: all;
+}
+</style>
