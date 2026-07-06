@@ -136,8 +136,18 @@ export default defineComponent({
           (event as Event).preventDefault();
         }
 
-        // Récupérer le conteneur parent qui contient toutes les catégories
-        const container = document.querySelector('.categories-wrapper') as HTMLElement;
+        // Récupérer l'élément DOM de la catégorie en cours de drag
+        // On utilise closest() pour trouver le conteneur même si le clic est sur un enfant
+        const categoryElement = (event.target as HTMLElement).closest('.category-container') as HTMLElement;
+        if (!categoryElement) return;
+
+        // Récupérer le conteneur parent qui contient toutes les catégories.
+        // IMPORTANT : on résout le conteneur depuis l'élément dragué (closest) plutôt
+        // qu'avec un document.querySelector global. En mode "Observation in situ", deux
+        // instances de buttons-side coexistent dans le DOM (branches vidéo et in situ,
+        // rendues via v-show) : un querySelector global tomberait sur la branche vidéo
+        // cachée (display: none, largeur 0) et clampait toute position horizontale à 0.
+        const container = categoryElement.closest('.categories-wrapper') as HTMLElement;
         if (!container) return;
 
         // Obtenir les dimensions et la position du conteneur dans la fenêtre
@@ -172,11 +182,6 @@ export default defineComponent({
         let newX = state.initialPosition.x + mouseOffsetX;
         let newY = state.initialPosition.y + mouseOffsetY;
 
-        // Récupérer l'élément DOM de la catégorie en cours de drag
-        // On utilise closest() pour trouver le conteneur même si le clic est sur un enfant
-        const categoryElement = (event.target as HTMLElement).closest('.category-container') as HTMLElement;
-        if (!categoryElement) return;
-        
         // Obtenir les dimensions RÉELLES de la catégorie depuis le DOM
         // IMPORTANT : La hauteur varie selon le nombre d'observables dans la catégorie
         // On ne peut pas utiliser une valeur fixe car certaines catégories peuvent être

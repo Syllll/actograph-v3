@@ -6,22 +6,28 @@
     :model-value="$props.triggerOpen"
     @update:model-value="$emit('update:triggerOpen', $event)"
   >
-    <DScrollArea class="fit q-pa-sm">
+    <div class="update-modal-body q-pa-sm">
       <div v-if="state.updateDownloaded" class="column items-center text-center q-py-md">
         <q-icon name="mdi-check-circle-outline" color="positive" size="48px" class="q-mb-sm" />
         <p class="q-mb-none">{{ $t('updateModal.downloadedBody') }}</p>
       </div>
       <div v-else class="column items-center text-center q-py-md q-gutter-sm">
-        <p class="q-mb-none">
-          <template v-if="state.isDownloading">
-            {{ $t('updateModal.downloading') }}
-          </template>
-          <template v-else-if="state.error">
-            {{ $t('updateModal.errorIntro') }}
-          </template>
-          <template v-else>
-            {{ $t('updateModal.readyToDownload') }}
-          </template>
+        <p class="q-mb-none row items-center justify-center q-gutter-sm">
+          <q-spinner
+            v-if="state.isDownloading"
+            size="1.25em"
+          />
+          <span>
+            <template v-if="state.isDownloading">
+              {{ $t('updateModal.downloading') }}
+            </template>
+            <template v-else-if="state.error">
+              {{ $t('updateModal.errorIntro') }}
+            </template>
+            <template v-else>
+              {{ $t('updateModal.readyToDownload') }}
+            </template>
+          </span>
         </p>
         <DProgressBar
           v-if="state.isDownloading || state.progress > 0"
@@ -34,7 +40,7 @@
           {{ state.error }}
         </p>
       </div>
-    </DScrollArea>
+    </div>
 
     <template #actions>
       <DCancelBtn
@@ -68,10 +74,10 @@
 import { defineComponent, reactive, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import systemService from '@services/system/index.service';
-import { DDialog, DSubmitBtn, DCancelBtn, DScrollArea, DProgressBar } from '@lib-improba/components';
+import { DDialog, DSubmitBtn, DCancelBtn, DProgressBar } from '@lib-improba/components';
 
 export default defineComponent({
-  components: { DDialog, DSubmitBtn, DCancelBtn, DScrollArea, DProgressBar },
+  components: { DDialog, DSubmitBtn, DCancelBtn, DProgressBar },
   props: {
     triggerOpen: {
       type: Boolean,

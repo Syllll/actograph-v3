@@ -32,7 +32,7 @@ import { ReadingService } from '../reading.service';
 import { Example } from './example';
 import { Export } from './export';
 import { Import } from './import';
-import { ProtocolItemTypeEnum, ReadingTypeEnum } from '@actograph/core';
+import { ProtocolItemTypeEnum, ProtocolItemActionEnum, ReadingTypeEnum } from '@actograph/core';
 import { ProtocolItem } from '../../entities/protocol.entity';
 
 @Injectable()
@@ -198,8 +198,14 @@ export class ObservationService extends BaseService<
       categories?: {
         name: string;
         description?: string;
+        action?: string;
+        meta?: Record<string, any>;
         observables?: {
           name: string;
+          description?: string;
+          action?: string;
+          meta?: Record<string, any>;
+          order?: number;
         }[];
       }[];
     };
@@ -239,6 +245,8 @@ export class ObservationService extends BaseService<
             protocolId: protocol.id,
             name: category.name,
             description: category.description,
+            action: category.action as ProtocolItemActionEnum | undefined,
+            meta: category.meta,
             order: categoryOrder,
           });
 
@@ -247,12 +255,18 @@ export class ObservationService extends BaseService<
 
           // Create the observables
           if (category.observables) {
+            let observableOrder = 0;
             for (const observable of category.observables) {
               await this.protocolService.items.addObservable({
                 protocolId: protocol.id,
                 categoryId: savedCategory.id,
                 name: observable.name,
+                description: observable.description,
+                action: observable.action as ProtocolItemActionEnum | undefined,
+                meta: observable.meta,
+                order: observable.order ?? observableOrder,
               });
+              observableOrder++;
             }
           }
         }
@@ -380,7 +394,15 @@ export class ObservationService extends BaseService<
     categories?: {
       name: string;
       description?: string;
-      observables?: { name: string }[];
+      action?: string;
+      meta?: Record<string, any>;
+      observables?: {
+        name: string;
+        description?: string;
+        action?: string;
+        meta?: Record<string, any>;
+        order?: number;
+      }[];
     }[];
   } {
     const items1 = this.parseProtocolItems(obs1.protocol?.items);
@@ -412,7 +434,15 @@ export class ObservationService extends BaseService<
       categories: mergedCategories.map((cat) => ({
         name: cat.name,
         description: cat.description ?? undefined,
-        observables: (cat.children ?? []).map((o) => ({ name: o.name })),
+        action: cat.action,
+        meta: cat.meta ?? undefined,
+        observables: (cat.children ?? []).map((o) => ({
+          name: o.name,
+          description: o.description ?? undefined,
+          action: o.action,
+          meta: o.meta ?? undefined,
+          order: o.order,
+        })),
       })),
     };
   }

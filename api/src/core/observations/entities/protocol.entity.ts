@@ -23,6 +23,7 @@ export interface ProtocolItem {
   name: string;
   description?: string | null;
   action?: ProtocolItemActionEnum;
+  order?: number;
   meta?: Record<string, any> | null;
   graphPreferences?: IGraphPreferences;
   children?: ProtocolItem[];
