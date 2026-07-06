@@ -40,6 +40,7 @@ export class Items {
     name: string;
     description?: string;
     action?: ProtocolItemActionEnum;
+    meta?: Record<string, any>;
   }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
@@ -70,6 +71,7 @@ export class Items {
       name: options.name,
       action: options.action || ProtocolItemActionEnum.Continuous,
       description: options.description,
+      meta: options.meta,
       type: ProtocolItemTypeEnum.Category,
     });
 
@@ -272,6 +274,8 @@ export class Items {
     categoryId: string;
     name: string;
     description?: string;
+    action?: ProtocolItemActionEnum;
+    meta?: Record<string, any>;
     order?: number;
   }) {
     // Find the protocol
@@ -328,6 +332,8 @@ export class Items {
       id: randomUUID(),
       name: options.name,
       description: options.description,
+      action: options.action,
+      meta: options.meta,
       type: ProtocolItemTypeEnum.Observable,
     });
 

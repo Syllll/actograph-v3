@@ -120,6 +120,7 @@ export function normalizeJchronicData(data: IJchronicImport): INormalizedImport 
         protocolCategories.push({
           name: item.name,
           description: item.description,
+          action: item.action,
           order: item.order,
           meta: item.meta,
           observables: observables.length > 0 ? observables : undefined,

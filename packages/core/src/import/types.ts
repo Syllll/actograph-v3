@@ -71,6 +71,7 @@ export interface INormalizedProtocol {
 export interface INormalizedCategory {
   name: string;
   description?: string;
+  action?: string;
   order?: number;
   meta?: Record<string, unknown>;
   observables?: INormalizedObservable[];
