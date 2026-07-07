@@ -154,6 +154,12 @@ jobs:
           # Generate a strong (40 chars) random password using tools like https://www.dashlane.com/personal-password-manager/password-generator
           JWT_SECRET=s0me-10ng-and-rAnd0m-str1ng-here-t00
 
+          # Période de grâce pour le rafraîchissement d'un jeton expiré (en secondes).
+          # 30 jours : permet à un utilisateur de laisser l'app desktop inactive/veille
+          # plusieurs semaines sans avoir à se reconnecter. Acceptable en local car le
+          # JWT protège une API sur 127.0.0.1 (pas d'exposition distante).
+          JWT_REFRESH_GRACE_PERIOD_SECONDS=2592000
+
           # This will create the first admin user upon first start
           ADMINUSER_LOGIN=${{ vars.ADMINUSER_LOGIN }}
           ADMINUSER_PASSWORD=${{ secrets.ADMINUSER_PASSWORD }}
