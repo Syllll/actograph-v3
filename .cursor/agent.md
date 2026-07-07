@@ -127,9 +127,8 @@ Ce processus est **OBLIGATOIRE** pour toute nouvelle feature. Consulter la recet
 3. **Analyser l'issue GitHub** pour comprendre les besoins fonctionnels
 4. **Analyser le code existant** pour identifier ce qui est deja implemente
 5. **Creer un plan d'implementation detaille** dans le fichier (format IKB avec frontmatter YAML)
-6. **Demander validation** a l'utilisateur avant de commencer l'implementation
-7. **Pendant l'implementation** : Mettre a jour le fichier au fur et a mesure (checkboxes, problemes, initiatives)
-8. **Une fois termine** : Deplacer le fichier vers le dossier approprie :
+6. **Pendant l'implementation** : Mettre a jour le fichier au fur et a mesure (checkboxes, problemes, initiatives)
+7. **Une fois termine** : Deplacer le fichier vers le dossier approprie :
    - `docs/features/` pour la documentation perenne (nettoyer les TODOs termines)
    - `docs/plans/` pour les plans reutilisables
    - `docs/reviews/` pour les reviews importantes
@@ -149,7 +148,6 @@ docs/
 - Toujours analyser le code existant AVANT de proposer un plan
 - Marquer clairement ce qui existe deja vs ce qui doit etre cree
 - Ne pas proposer d'implementer ce qui existe deja
-- Demander validation avant de commencer a coder
 - Mettre a jour le plan au fur et a mesure
 - Si trop de fichiers dans un dossier, possibilite de creer des sous-dossiers thematiques
 - Ne pas inclure d'estimations de temps sauf si explicitement demande

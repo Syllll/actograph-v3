@@ -20,6 +20,15 @@ const sharedState = reactive({
   token: null as null | string,
 });
 
+// Timer de rafraîchissement proactif du jeton. Le refresh se fait aussi à la
+// première requête (intercepteur axios), mais un timer garantit le renouvellement
+// avant expiration même si l'utilisateur reste inactif (ex. app ouverte 3h sans
+// interaction). Durée < durée de vie du token (1h) pour rester dans la fenêtre
+// valide ; ici 25 min.
+const REFRESH_INTERVAL_MS = 1000 * 60 * 25;
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+let isRefreshingSession = false;
+
 function getTokenFromCookiesAndSaveIntoAxios() {
   const tokenFromCookie = localStorage.getItem('token');
   if (tokenFromCookie)
@@ -46,11 +55,18 @@ export const useAuth = (router: Router) => {
     sharedState.token = null;
     sharedState.loginDate = null;
 
+    // Le token est stocké dans localStorage : il faut le retirer pour éviter
+    // qu'un token expiré soit réinjecté à chaque requête par l'intercepteur.
+    localStorage.removeItem('token');
+
     Cookies.remove(`${process.env.APP_NAME}`, cookieOptions);
+
+    stopRefreshTimer();
   };
 
   const methods = {
-    async attemptLogin(throwError = false) {
+    async attemptLogin(throwError = false, options?: { silent?: boolean }) {
+      const silent = options?.silent === true;
       try {
         // First, try to get token from localStorage (fallback if cookies are not available)
         let currentToken = getTokenFromCookiesAndSaveIntoAxios();
@@ -73,6 +89,7 @@ export const useAuth = (router: Router) => {
 
           sharedState.token = token;
           await getAndSetCurrentUser();
+          startRefreshTimer();
         } else {
           throw new Error('No token found in localStorage or cookies');
         }
@@ -81,8 +98,16 @@ export const useAuth = (router: Router) => {
           throw err;
         }
 
-        removeCurrentUser();
-        console.error(err);
+        // En mode silencieux (timer proactif / refresh déclenché par une
+        // requête), on ne déconnecte pas l'utilisateur sur un échec transitoire
+        // (backend brièvement occupé, socket morte). La véritable déconnexion
+        // sera gérée par l'intercepteur 401 si une requête authentifiée échoue.
+        if (silent) {
+          console.warn('Silent session refresh failed:', err);
+        } else {
+          removeCurrentUser();
+          console.error(err);
+        }
       }
     },
     async login(login: string, password: string) {
@@ -91,6 +116,7 @@ export const useAuth = (router: Router) => {
       setCookiesWithToken(userLogin.token);
 
       await getAndSetCurrentUser();
+      startRefreshTimer();
 
       router.push('/');
     },
@@ -113,8 +139,46 @@ export const useAuth = (router: Router) => {
       await methods.attemptLogin(false);
       initRouter(router, { sharedState, methods });
       await initAxios({ sharedState, methods });
+      // Le timer est démarré dans attemptLogin quand une session est active.
+      // On le (re)garde aussi ici au cas où l'init axios aurait réinitialisé
+      // l'état ; inactif si aucune session.
+      startRefreshTimer();
     },
   };
+
+  // Rafraîchissement best-effort déclenché par le timer périodique. Ne déclenche
+  // pas de logout sur échec transitoire (mode silencieux) : l'intercepteur 401
+  // axios s'occupe de la déconnexion si une vraie requête authentifiée échoue.
+  async function refreshSession() {
+    if (!sharedState.user || !localStorage.getItem('token')) {
+      return;
+    }
+    if (isRefreshingSession) {
+      return;
+    }
+    isRefreshingSession = true;
+    try {
+      await methods.attemptLogin(false, { silent: true });
+    } finally {
+      isRefreshingSession = false;
+    }
+  }
+
+  function startRefreshTimer() {
+    if (refreshTimer) {
+      return;
+    }
+    refreshTimer = setInterval(() => {
+      void refreshSession();
+    }, REFRESH_INTERVAL_MS);
+  }
+
+  function stopRefreshTimer() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  }
 
   return {
     sharedState,

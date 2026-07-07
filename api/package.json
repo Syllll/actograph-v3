@@ -117,9 +117,34 @@
       "ts"
     ],
     "rootDir": "src",
+    "modulePaths": [
+      "<rootDir>",
+      "<rootDir>/.."
+    ],
     "testRegex": ".spec.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^@auth-jwt/(.*)$": "general/auth-jwt/$1",
+      "^@utils/(.*)$": "utils/$1",
+      "^@users/(.*)$": "core/users/$1",
+      "^@alerts/(.*)$": "core/alerts/$1",
+      "^@dose/(.*)$": "core/dose/$1",
+      "^@analysis/(.*)$": "core/analysis/$1",
+      "^@computation/(.*)$": "core/computation/$1",
+      "^@log/(.*)$": "core/log/$1",
+      "^@global-parameters/(.*)$": "core/global-parameters/$1",
+      "^@carrier/(.*)$": "core/carrier/$1",
+      "^@comment/(.*)$": "core/comment/$1",
+      "^@tag/(.*)$": "core/tag/$1",
+      "^@core/(.*)$": "core/$1",
+      "^@dosip/(.*)$": "core/dosip/$1",
+      "^@threshold/(.*)$": "core/threshold/$1",
+      "^@experimentation/(.*)$": "core/experimentation/$1",
+      "^@filesystem/(.*)$": "core/filesystem/$1",
+      "^@actograph/core/(.*)$": "../packages/core/dist/$1",
+      "^@actograph/core$": "../packages/core/dist"
     },
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"

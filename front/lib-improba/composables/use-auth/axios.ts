@@ -16,17 +16,23 @@ function isInsideUrls(url: string, urls: string[]) {
   return false;
 }
 
+// Garde-fou contre les boucles de rafraîchissement : un seul refresh à la fois
+// pour éviter de lancer plusieurs attemptLogin en parallèle sur des 401 multiples.
+let isRefreshing = false;
+
 async function tryToRefreshLoginToken(user: any, auth: any) {
   const loginRefreshTime = 1000 * 60 * 30; // 30 min
 
   const lastLoginDate = new Date(user.loginDate);
   // console.log(new Date().getTime() - lastLoginDate.getTime())
   if (new Date().getTime() - lastLoginDate.getTime() >= loginRefreshTime) {
+    // Silencieux : un échec transitoire (backend brièvement occupé) ne doit pas
+    // déconnecter l'utilisateur. L'intercepteur 401 gérera la déconnexion si une
+    // vraie requête authentifiée échoue ensuite.
     try {
-      await auth.methods.attemptLogin();
+      await auth.methods.attemptLogin(false, { silent: true });
     } catch (err: any) {
-      console.warn(err);
-      auth.methods.logout();
+      console.warn('Proactive token refresh failed:', err);
     }
   }
 }
@@ -84,18 +90,42 @@ export const init = async (auth: { methods: any; sharedState: any }) => {
 
   axiosInstance.interceptors.response.use(
     (response: any) => {
-      // console.log(store.state.auth.user)
-      // console.log(response)
       return response;
     },
-    (error: any) => {
-      const triggerLogout = !isInsideUrls(
-        error.request.responseURL,
-        urlsThatDoNotTriggerLogoutWhenError
-      );
+    async (error: any) => {
+      const requestUrl =
+        error?.config?.url || error?.request?.responseURL || '';
+      const isAuthUrl =
+        isInsideUrls(requestUrl, urlsThatDoNotTriggerLogoutWhenError) ||
+        isInsideUrls(requestUrl, urlsThatDoNotTriggerLoginRefresh);
+      const is401 = error?.response?.status === 401;
 
-      if (triggerLogout && error.response && error.response.status === 401) {
-        // auth.methods.logout();
+      // Sur 401, on tente une fois de rafraîchir la session avant d'abandonner.
+      // Évite la boucle si la requête déjà échouée est elle-même un appel d'auth
+      // ou a déjà été réessayée.
+      if (
+        is401 &&
+        !isAuthUrl &&
+        error?.config &&
+        !error.config._retriedAfterRefresh &&
+        !isRefreshing
+      ) {
+        error.config._retriedAfterRefresh = true;
+        isRefreshing = true;
+        try {
+          await auth.methods.attemptLogin(true);
+          const refreshedToken = localStorage.getItem('token');
+          if (refreshedToken) {
+            error.config.headers = error.config.headers || {};
+            error.config.headers.Authorization = 'Bearer ' + refreshedToken;
+          }
+          isRefreshing = false;
+          return axiosInstance.request(error.config);
+        } catch (refreshError: any) {
+          isRefreshing = false;
+          auth.methods.logout();
+          return Promise.reject(error);
+        }
       }
 
       return Promise.reject(error);

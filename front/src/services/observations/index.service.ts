@@ -143,6 +143,9 @@ export const observationService: IObservationService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      // L'import peut véhiculer de gros fichiers (jusqu'à 300MB côté API) :
+      // on désactive le timeout global pour ne pas couper un upload long.
+      timeout: 0,
     });
     return response.data;
   },

@@ -24,6 +24,11 @@ export const boot = (options?: { app?: App<any> }) => {
   if (!apiSingleton) {
     apiSingleton = axios.create({
       baseURL: apiUrl,
+      // Evite les requêtes qui hang indéfiniment (backend local bloqué ou
+      // socket mort). 30s couvre largement les appels "normaux" (paginate,
+      // readings, etc.). Les endpoints lourds (import/export) passent un
+      // timeout explicite plus long au niveau du service.
+      timeout: 30_000,
       paramsSerializer(params) {
         const searchParams = new URLSearchParams();
         // Loop on each query param

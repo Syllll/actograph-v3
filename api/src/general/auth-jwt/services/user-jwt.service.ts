@@ -133,17 +133,56 @@ export class UserJwtService {
 
   /**
    * Crée un nouveau token JWT à partir d'un token existant
-   * 
-   * Vérifie que le token est valide, extrait le payload,
-   * et génère un nouveau token avec les mêmes données mais
-   * une nouvelle date d'expiration (rafraîchissement).
-   * 
+   *
+   * Vérifie la signature du token, extrait le payload, et génère un nouveau
+   * token avec les mêmes données mais une nouvelle date d'expiration.
+   *
+   * Une période de grâce (JWT_REFRESH_GRACE_PERIOD_SECONDS, défaut 24h) permet
+   * de rafraîchir un token récemment expiré. Cela évite la perte de session
+   * quand le rafraîchissement proactif côté client rate sa fenêtre (par exemple
+   * application laissée ouverte sans interaction plus longtemps que la durée de
+   * vie du token). La signature est toujours vérifiée, seul l'expiration est
+   * ignorée puis contrôlée manuellement contre la période de grâce.
+   *
    * @param token - Token JWT existant à rafraîchir
-   * @returns Nouveau token JWT ou null si le token est invalide
+   * @returns Nouveau token JWT ou null si le token est invalide ou expiré depuis
+   *          trop longtemps
    */
   async createNewTokenFromPreviousOne(token: string): Promise<string | null> {
-    const payload = this.jwtService.verify(token) as { id?: number };
+    // On vérifie la signature mais on ignore l'expiration pour pouvoir
+    // appliquer notre propre fenêtre de grâce.
+    let payload: { id?: number; exp?: number } | null = null;
+    try {
+      payload = this.jwtService.verify(token, { ignoreExpiration: true }) as {
+        id?: number;
+        exp?: number;
+      } | null;
+    } catch {
+      // Signature invalide ou token malformé
+      return null;
+    }
+
     if (!payload?.id) {
+      return null;
+    }
+
+    // Refus si le token est expiré depuis plus longtemps que la période de grâce.
+    // Fail-safe : si la variable d'env est absente, vide ou non numérique, on
+    // retombe sur la valeur par défaut (24h) plutôt que d'appliquer une grâce
+    // infinie (qui autoriserait le refresh d'un token à la signature valide
+    // quelle que soit son ancienneté).
+    const DEFAULT_GRACE_PERIOD_SECONDS = 86_400;
+    const rawGrace = Number.parseInt(
+      process.env.JWT_REFRESH_GRACE_PERIOD_SECONDS ?? '',
+      10,
+    );
+    const gracePeriodSeconds =
+      Number.isFinite(rawGrace) && rawGrace >= 0
+        ? rawGrace
+        : DEFAULT_GRACE_PERIOD_SECONDS;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const exp = typeof payload.exp === 'number' ? payload.exp : undefined;
+    if (exp !== undefined && nowSeconds - exp > gracePeriodSeconds) {
       return null;
     }
 
