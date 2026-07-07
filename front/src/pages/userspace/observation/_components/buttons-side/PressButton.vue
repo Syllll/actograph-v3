@@ -1,7 +1,7 @@
 <template>
   <q-btn
     class="press-button"
-    :class="{ 'disabled-button': disabled }"
+    :class="{ 'is-active': state.isPressed, 'disabled-button': disabled }"
     :label="observable.name"
     color="neutral"
     rounded
@@ -67,6 +67,16 @@ export default defineComponent({
 .press-button {
   transition: all 0.2s ease;
   position: relative;
+  /* État de repos (mode ponctuel) : gris clair au lieu du gris standard */
+  background-color: var(--neutral-lower) !important;
+  color: var(--text) !important;
+}
+
+/* État actif au clic : orange identique au mode continu (var(--accent)) */
+.press-button.is-active {
+  background-color: var(--accent) !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
 }
 
 .press-button:hover:not(.disabled-button) {
