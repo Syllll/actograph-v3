@@ -166,6 +166,7 @@
 
   footer.page-footer{text-align:center; color:var(--text-muted); font-size:.82rem; padding:30px 0 10px;}
 
+  .print-summary{display:none;}
   @media print{
     .topbar, .no-print{display:none !important;}
     header.hero{background:none !important; color:var(--text) !important; padding:0 0 12px;}
@@ -174,6 +175,10 @@
     a{color:var(--text);}
     *:focus{outline:none !important;}
     .capture-zone .file-btn{display:none;}
+    .print-summary{display:block !important; font-size:.82rem; margin-top:6px; padding-top:5px; border-top:1px dashed #bbb;}
+    .print-summary .ps-cle{font-weight:700; color:var(--accent-dark); margin-bottom:2px;}
+    .print-summary .ps-result{font-weight:700; margin-bottom:2px;}
+    .print-summary .ps-comment{font-weight:400; white-space:pre-wrap; margin-bottom:2px;}
   }
 </style>
 </head>
@@ -201,7 +206,7 @@
 
 <div class="wrap">
 
-  <p class="hint" style="margin:14px 0 -6px;">💡 Si les boutons « Enregistrer »/« Envoyer », ou certains liens, ne réagissent pas depuis un aperçu en ligne (SharePoint, Teams...) : essayez d'abord un clic droit → « Ouvrir dans un nouvel onglet » sur les liens concernés ; sinon, téléchargez le fichier puis ouvrez-le dans votre navigateur (double-clic) — tout fonctionnera normalement.</p>
+  <p class="hint" style="margin:14px 0 -6px;">💡 Si un bouton ou un lien ne réagit pas : téléchargez le fichier puis ouvrez-le dans votre navigateur (double-clic) — tout fonctionnera normalement.</p>
 
   <section class="intro">
     <div class="card-note">
@@ -257,7 +262,7 @@
     </div>
   </div>
 
-  <footer class="page-footer">Guide de test Actograph V3 — Bêta V0.1 — à renvoyer à actograph-info@symalgo-tech.com avant le 15 juillet 2026</footer>
+  <footer class="page-footer">Guide de test Actograph V3 — Bêta V0.2 — à renvoyer à actograph-info@symalgo-tech.com avant le 15 juillet 2026</footer>
 </div>
 
 <script>
@@ -340,7 +345,8 @@ const CHAPTERS = [
       "Modifiez le nom d'un observable existant dans l'une des 2 catégories d'origine.",
       "Vérifiez que ces changements se répercutent immédiatement dans l'onglet Observations (boutons mis à jour)."]},
     {num:"C", titre:"Réaliser un court enregistrement", type:"scenario", duree:"8 mn", desc:[
-      "Depuis l'onglet Observations, cliquez sur START.",
+      "Depuis l'onglet Observations, cliquez sur EFFACER TOUT pour effacer les relevés précédents.",
+      "Puis cliquez sur START pour démarrer un nouveau relevé.",
       "Cliquez plusieurs fois sur des boutons des 3 catégories (y compris votre nouvelle catégorie). Ajoutez un commentaire (bouton bulle).",
       "Faites une PAUSE de quelques secondes, puis reprenez. Terminez par STOP.",
       "Vérifiez que la liste des relevés contient bien les types : START, PAUSE_START, PAUSE_END, DATA et STOP."]},
@@ -607,7 +613,9 @@ function renderPreamble(){
   });
 }
 
-function renderTest(chapterId, t){
+function renderTest(ch, t){
+  const chapterId = ch.id;
+  const cle = ch.title + ' | ' + (t.num || '-') + '. ' + t.titre;
   const card = el('div', {class:'test-card' + (t.type==='bonus' ? ' bonus':'') + (t.future ? ' future':'') + (t.prereq ? ' prereq':'')});
   const head = el('div', {class:'test-head'});
   head.appendChild(el('h3', {text: (t.num ? t.num + '. ' : '') + t.titre}));
@@ -636,8 +644,8 @@ function renderTest(chapterId, t){
 
   if(t.type !== 'libre'){
     const col1 = el('div', {class:'result-col'});
-    col1.appendChild(el('label', {class:'field-label', text:'Résultat'}));
-    const seg = el('div', {class:'seg'});
+    col1.appendChild(el('label', {class:'field-label no-print', text:'Résultat'}));
+    const seg = el('div', {class:'seg no-print'});
     ['OK','KO','Partiel'].forEach(opt => {
       const rid = fieldId + '_res_' + opt;
       const input = el('input', {type:'radio', name: fieldId + '_res', value: opt, id: rid, class:'result-radio'});
@@ -646,18 +654,20 @@ function renderTest(chapterId, t){
       seg.appendChild(label);
     });
     col1.appendChild(seg);
-    const commentLabel = el('label', {class:'field-label', text:'Commentaire'});
-    const ta = el('textarea', {rows:'1', placeholder:'Vos observations...'});
+    col1.appendChild(el('div', {class:'print-summary', 'data-fieldid': fieldId, 'data-cle': cle}));
+    const commentLabel = el('label', {class:'field-label no-print', text:'Commentaire'});
+    const ta = el('textarea', {id: fieldId + '_comment', rows:'1', placeholder:'Vos observations...', class:'no-print'});
     ta.addEventListener('input', () => autoGrow(ta));
     col1.appendChild(commentLabel);
     col1.appendChild(ta);
     resultRow.appendChild(col1);
   } else {
     const col1 = el('div', {class:'result-col'});
-    col1.appendChild(el('label', {class:'field-label', text:'Commentaire libre'}));
-    const ta = el('textarea', {rows:'2', placeholder:'Vos remarques libres...'});
+    col1.appendChild(el('label', {class:'field-label no-print', text:'Commentaire libre'}));
+    const ta = el('textarea', {id: fieldId + '_comment', rows:'2', placeholder:'Vos remarques libres...', class:'no-print'});
     ta.addEventListener('input', () => autoGrow(ta));
     col1.appendChild(ta);
+    col1.appendChild(el('div', {class:'print-summary', 'data-fieldid': fieldId, 'data-cle': cle, 'data-libre':'1'}));
     resultRow.appendChild(col1);
   }
 
@@ -679,7 +689,7 @@ function renderChapters(){
     const h2 = el('h2', {class:'chapter-title', id: ch.id, text: ch.title});
     container.appendChild(h2);
     container.appendChild(el('p', {class:'chapter-meta', html: '<em>' + ch.objectif + '</em> — Durée totale indicative : ' + ch.duree + '.'}));
-    ch.tests.forEach(t => container.appendChild(renderTest(ch.id, t)));
+    ch.tests.forEach(t => container.appendChild(renderTest(ch, t)));
   });
 }
 
@@ -724,7 +734,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if(e.target.classList.contains('result-radio')) updateProgress();
   });
 
-  function doSave(){ window.print(); }
+  function fillPrintSummaries(){
+    document.querySelectorAll('.print-summary').forEach(div => {
+      const fieldId = div.getAttribute('data-fieldid');
+      const cle = div.getAttribute('data-cle');
+      const isLibre = div.getAttribute('data-libre') === '1';
+      const commentTa = document.getElementById(fieldId + '_comment');
+      const comment = commentTa ? commentTa.value.trim() : '';
+
+      div.innerHTML = '';
+      const cleLine = el('div', {class:'ps-cle', text:'Clé test : ' + cle});
+      div.appendChild(cleLine);
+
+      if(!isLibre){
+        const checked = document.querySelector('input[name="'+fieldId+'_res"]:checked');
+        const resLine = el('div', {class:'ps-result', text:'Résultat retenu : ' + (checked ? checked.value : '(aucune case cochée)')});
+        div.appendChild(resLine);
+      }
+
+      const comLine = el('div', {class:'ps-comment', text:'Commentaire : ' + (comment || '(aucun commentaire)')});
+      div.appendChild(comLine);
+    });
+  }
+  function doSave(){ fillPrintSummaries(); window.print(); }
   function doSend(){
     const subject = 'Retour beta-test Actograph V3 - ' + new Date().toLocaleDateString('fr-FR');
     const body = buildSummary();
