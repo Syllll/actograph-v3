@@ -67,8 +67,9 @@ export default defineComponent({
 .press-button {
   transition: all 0.2s ease;
   position: relative;
-  /* État de repos (mode ponctuel) : gris clair au lieu du gris standard */
-  background-color: var(--neutral-lower) !important;
+  /* État de repos (mode ponctuel) : gris clair, éclairci suite au retour bêta-test
+     (le premier gris clair, var(--neutral-lower), restait trop foncé / peu lisible) */
+  background-color: #E5E7EB !important;
   color: var(--text) !important;
 }
 
