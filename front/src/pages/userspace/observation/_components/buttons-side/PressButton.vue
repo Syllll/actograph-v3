@@ -78,10 +78,14 @@ export default defineComponent({
      font-size : Quasar dense (padding 0.285em, min-height 2em) suit font-size.
      À scale=1 (14px) = taille native, aucun changement par défaut. */
   font-size: calc(14px * var(--ui-scale, 1)) !important;
-  /* Bouton à largeur de contenu dans un conteneur en row : ne s'étire pas quand
-     la catégorie est élargie (flex: 0 0 auto), caps à 100% pour ne pas déborder,
-     et les libellés longs tronquent (ellipsis) plutôt que d'agrandir le bouton. */
-  flex: 0 0 auto;
+  /* Reflow en row sous le conteneur (row + flex-wrap) : on garde l'aspect
+     d'origine (boutons pleine largeur empilés) tant que la catégorie est
+     étroite, puis les boutons se mettent en ligne quand on l'élargit.
+     flex: 1 0 160px => grow:1 (remplit la ligne), shrink:0 (ne rétrécit pas
+     sous 160px = MIN_CATEGORY_WIDTH, wrappait plutôt), basis:160px. À 220px
+     (largeur par défaut) un seul bouton tient => pleine largeur empilé
+     (aspect d'origine). À 320px+ => 2 par ligne, 480px+ => 3 par ligne. */
+  flex: 1 0 160px;
   max-width: 100%;
   overflow: hidden;
 }
