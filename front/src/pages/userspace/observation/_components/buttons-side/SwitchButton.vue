@@ -3,7 +3,6 @@
     class="switch-button"
     :class="{ 'active': active, 'disabled-button': disabled }"
     :label="observable.name"
-    color="neutral"
     rounded
     dense
     no-caps
@@ -56,9 +55,6 @@ export default defineComponent({
 .switch-button {
   transition: all 0.2s ease;
   position: relative;
-  /* border-style doit être fixé ici : l'état actif ne modifie que border-color et
-     border-width, sans un border-style déjà posé la bordure active ne s'affiche pas */
-  border: 1px solid transparent;
   /* État de repos (mode continu) : gris clair/foncé selon le thème via le token
      --button-rest-bg, uniquement l'état actif reste coloré (orange) -
      même logique que PressButton (mode ponctuel) */
@@ -72,14 +68,13 @@ export default defineComponent({
   transform: translateY(-1px);
 }
 
-/* Bug 2.1 : État actif plus visible - contraste renforcé.
-   Fond --accent-strong (#c2410c, orange plus foncé) pour que le texte blanc
-   atteigne ~5.2:1 (AA), au lieu de --accent (#f97316) qui ne donnait que ~2.8:1. */
+/* État actif « en cours » : fond --accent-strong (#c2410c, orange plus foncé)
+   pour que le texte blanc atteigne ~5.2:1 (AA), au lieu de --accent (#f97316)
+   qui ne donnait que ~2.8:1. Pas de changement de border-width (base transparent)
+   pour éviter tout saut de layout à l'activation. */
 .switch-button.active {
   background-color: var(--accent-strong) !important;
   color: white !important;
-  border-color: var(--accent-strong) !important;
-  border-width: 2px !important;
   box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
   font-weight: 600;
 }

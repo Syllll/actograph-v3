@@ -2,7 +2,6 @@
   <q-btn
     class="press-button"
     :class="{ 'is-active': state.isPressed, 'disabled-button': disabled }"
-    color="neutral"
     rounded
     no-caps
     dense
@@ -99,7 +98,7 @@ export default defineComponent({
   transform: scale(1.15);
 }
 
-.press-button:hover:not(.disabled-button) {
+.press-button:hover:not(.disabled-button):not(.is-active) {
   opacity: 0.9;
   transform: translateY(-1px);
 }
