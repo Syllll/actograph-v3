@@ -78,7 +78,7 @@
       Composant canvas personnalisé qui sera utilisé par PixiJS pour le rendu.
       Le canvas est référencé pour être passé à PixiApp lors de l'initialisation.
     -->
-    <div class="canvas-container fit relative-position">
+    <div class="canvas-container relative-position">
       <d-canvas class="fit" ref="canvasRef" @resize="graph.onCanvasResize" />
       <StudentWatermark />
 
@@ -357,8 +357,14 @@ export default defineComponent({
 .canvas-container {
   flex: 1;
   min-height: 0;
-  /* overflow: auto pour permettre le scroll quand le graphe dépasse (bug 3.1: première catégorie invisible avec 4+ catégories) */
-  overflow: auto;
+  /* overflow: hidden : le canvas ne grossit plus (rendu Pixi contraint à sa
+     boîte CSS), on clippe au lieu de scroller. Le mélange précédent
+     `fit` (height: 100% !important) + `flex: 1` + `overflow: auto` rendait la
+     hauteur fragile lors des relayouts du splitter (bug A3 : zone blanche +
+     scrollbar immense). `fit` a été retiré de la classe ; on s'appuie
+     uniquement sur `flex: 1; min-height: 0` pour remplir la hauteur restante
+     sous le header. */
+  overflow: hidden;
   /* Fond blanc pour éviter le flash noir du buffer GPU avant le premier rendu PixiJS */
   background-color: #ffffff;
 }

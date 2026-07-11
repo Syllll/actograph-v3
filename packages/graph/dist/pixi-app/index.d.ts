@@ -88,6 +88,16 @@ export declare class PixiApp {
      * @param format - Format de l'image : 'png' ou 'jpeg'
      * @param quality - Qualité JPEG (0-1), ignoré pour PNG
      * @returns Data URL de l'image ou null si le canvas n'est pas disponible
+     *
+     * En mode interactif, le renderer vit à la taille CSS du canvas (plus
+     * d'agrandissement à `requiredHeight`, sinon on réintroduirait la boucle de
+     * redimensionnement A3). Pour que l'export capture quand même le graphe
+     * complet (catégories qui dépassent la boîte CSS incluse), on agrandit
+     * temporairement le renderer à la hauteur requise, on rend, on capture, puis
+     * on restore la taille d'origine. Aucune écriture sur le DOM : le canvas
+     * reste à 100% de son conteneur (la règle `height: 100% !important` de DCanvas
+     * neutralise le `style.height` inline écrit par autoDensity), donc pas de
+     * boucle ResizeObserver.
      */
     exportAsImage(format?: 'png' | 'jpeg', quality?: number): string | null;
     destroy(): void;

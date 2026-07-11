@@ -103,7 +103,7 @@ export default defineComponent({
      * Fonction de redimensionnement en mode square.
      * Calcule la plus petite dimension (largeur ou hauteur) et applique
      * cette valeur aux deux dimensions pour créer un carré.
-     * 
+     *
      * IMPORTANT: Vérifie que containerRef.value existe avant d'accéder
      * à ses propriétés pour éviter les erreurs lors du démontage.
      */
@@ -131,12 +131,14 @@ export default defineComponent({
         Math.floor(rect.height)
       );
 
-      // Application de la taille carrée avec une marge de 25px
-      // Utilisation de !important pour s'assurer que le style est appliqué
-      containerRef.value.style = `width: ${sideValue - 25}px !important; height: ${
-        sideValue - 25
-      }px !important`;
-      
+      // On utilise setProperty par propriété plutôt que d'écraser tout l'attribut
+      // `style` : l'ancien code `containerRef.value.style = "..."` supprimait le
+      // `overflow: hidden` posé en template, et figeait une hauteur en pixels
+      // `!important` qui pouvait capturer une mesure transitoire géante.
+      const sidePx = `${Math.max(1, sideValue - 25)}px`;
+      containerRef.value.style.setProperty('width', sidePx, 'important');
+      containerRef.value.style.setProperty('height', sidePx, 'important');
+
       // Émission de l'événement resize avec la taille calculée
       context.emit('resize', sideValue);
     };
@@ -144,7 +146,7 @@ export default defineComponent({
     /**
      * Fonction de redimensionnement en mode normal.
      * Adapte le canvas à toutes les dimensions du conteneur parent.
-     * 
+     *
      * IMPORTANT: Vérifie que containerRef.value existe avant d'accéder
      * à ses propriétés pour éviter les erreurs lors du démontage.
      */
@@ -154,25 +156,16 @@ export default defineComponent({
         return;
       }
 
-      // Récupération de l'élément parent pour obtenir ses dimensions
-      const parentElement = containerRef.value.parentElement;
-      if (!parentElement) {
-        return;
-      }
-
-      // Calcul des dimensions du parent
-      const rect = parentElement.getBoundingClientRect();
-      if (!rect) {
-        return;
-      }
-
-      // Application de la taille avec une marge de 5px sur chaque dimension
-      // Utilisation de !important pour s'assurer que le style est appliqué
-      containerRef.value.style = `width: ${Math.floor(
-        rect.width - 5
-      )}px !important; height: ${Math.floor(rect.height - 5)}px !important`;
-
-      // Émission de l'événement resize (sans paramètre en mode normal)
+      // On n'écrit PLUS de hauteur/largeur explicites en pixels sur le conteneur
+      // observé par le ResizeObserver. Avant, `containerRef.value.style = "..."
+      // !important` figeait la taille à partir de `parentElement.getBoundingClientRect()`,
+      // et lors d'un relayout du splitter la chaîne de hauteur passait transitoirement
+      // en 'auto' : la mesure renvoyait alors une valeur géante qui se figeait en
+      // inline !important, faisant disparaître le graphe derrière une scrollbar
+      // immense (bug A3). Désormais le conteneur reste en `fit` (100% du parent) +
+      // `overflow: hidden`, et le canvas (position: absolute, 100% du conteneur)
+      // hérite d'une taille stable. On se contente d'émettre 'resize' pour que
+      // PixiApp relise la taille réelle du canvas via getBoundingClientRect().
       context.emit('resize');
     };
 

@@ -139,6 +139,21 @@ export class PixiApp {
         if (width === this.app.screen.width && height === this.app.screen.height) {
             return;
         }
+        // Garde de sécurité : rejeter toute dimension manifestement absurde. Si la
+        // chaîne de hauteur du conteneur passe transitoirement en 'auto' lors d'un
+        // relayout, `getBoundingClientRect()` peut renvoyer une valeur géante qui
+        // se propagerait au renderer. On plafonne à un multiple généreux du
+        // viewport pour casser net la boucle si elle se déclenche quand même.
+        const fallbackW = typeof window !== 'undefined' ? window.innerWidth : 1920;
+        const fallbackH = typeof window !== 'undefined' ? window.innerHeight : 1080;
+        const maxWidth = fallbackW * 4;
+        const maxHeight = fallbackH * 4;
+        if (!Number.isFinite(width) ||
+            !Number.isFinite(height) ||
+            width > maxWidth ||
+            height > maxHeight) {
+            return;
+        }
         this.app.renderer.resize(width, height);
         this.app.render();
     }
@@ -180,21 +195,36 @@ export class PixiApp {
         this.yAxis.setData(observation);
         this.xAxis.setData(observation);
         this.dataArea.setData(observation);
+        // Mode interactif (graphe desktop) : on ne fait JAMAIS grossir le renderer
+        // au-delà de la boîte CSS du canvas. Avant, `app.renderer.resize(w,
+        // requiredHeight)` écrivait `canvas.style.height = requiredHeight px` en
+        // inline (autoDensity), ce qui déclenchaît une boucle ResizeObserver avec
+        // le conteneur observé par DCanvas : lors d'un relayout du splitter la
+        // chaîne de hauteur passait transitoirement en 'auto', une mesure géante
+        // se figeait en inline !important, et le graphe disparaissait derrière une
+        // scrollbar immense. Le graphe vit désormais dans sa boîte CSS ; un
+        // dépassement vertical éventuel est géré par le pan/zoom interne, et
+        // l'export complet est assuré par exportAsImage (resize temporaire).
+        if (this.isInteractive) {
+            return;
+        }
+        // Mode non-interactif (rendu mobile, export plein graphe) : on agrandit le
+        // renderer à requiredHeight pour obtenir le bitmap complet, et on fait
+        // correspondre la hauteur du conteneur DOM parent pour permettre le scroll
+        // vertical (mécanisme de scroll du graphe mobile). Cette branche ne
+        // s'exécute JAMAIS en mode interactif (desktop), donc elle n'alimente pas
+        // la boucle A3 : le bug desktop venait de la branche interactive + des
+        // écritures inline de DCanvas, pas d'ici.
         const requiredHeight = this.yAxis.getRequiredHeight();
         const currentWidth = this.app.screen.width;
         const currentHeight = this.app.screen.height;
-        if (this.isInteractive && requiredHeight > currentHeight) {
-            this.app.renderer.resize(currentWidth, requiredHeight);
+        const targetHeight = Math.max(this.baseCanvasHeight, requiredHeight);
+        if (targetHeight !== currentHeight) {
+            this.app.renderer.resize(currentWidth, targetHeight);
         }
-        if (this.app.canvas && !this.isInteractive) {
-            const targetHeight = Math.max(this.baseCanvasHeight, requiredHeight);
-            if (targetHeight !== currentHeight) {
-                this.app.renderer.resize(currentWidth, targetHeight);
-            }
-            const canvasParent = this.app.canvas.parentElement;
-            if (canvasParent) {
-                canvasParent.style.height = `${targetHeight}px`;
-            }
+        const canvasParent = this.app.canvas?.parentElement;
+        if (canvasParent) {
+            canvasParent.style.height = `${targetHeight}px`;
         }
     }
     setProtocol(protocol) {
@@ -558,13 +588,39 @@ export class PixiApp {
      * @param format - Format de l'image : 'png' ou 'jpeg'
      * @param quality - Qualité JPEG (0-1), ignoré pour PNG
      * @returns Data URL de l'image ou null si le canvas n'est pas disponible
+     *
+     * En mode interactif, le renderer vit à la taille CSS du canvas (plus
+     * d'agrandissement à `requiredHeight`, sinon on réintroduirait la boucle de
+     * redimensionnement A3). Pour que l'export capture quand même le graphe
+     * complet (catégories qui dépassent la boîte CSS incluse), on agrandit
+     * temporairement le renderer à la hauteur requise, on rend, on capture, puis
+     * on restore la taille d'origine. Aucune écriture sur le DOM : le canvas
+     * reste à 100% de son conteneur (la règle `height: 100% !important` de DCanvas
+     * neutralise le `style.height` inline écrit par autoDensity), donc pas de
+     * boucle ResizeObserver.
      */
     exportAsImage(format = 'png', quality = 0.92) {
-        if (!this.app.canvas)
+        if (!this.app.canvas || !this.isInitialized || !this.app.renderer) {
             return null;
+        }
+        const originalWidth = this.app.screen.width;
+        const originalHeight = this.app.screen.height;
+        const requiredHeight = this.yAxis.getRequiredHeight();
+        const exportHeight = Math.max(originalHeight, requiredHeight);
+        let restored = false;
+        if (this.isInteractive && exportHeight !== originalHeight) {
+            this.app.renderer.resize(originalWidth, exportHeight);
+            void this.draw();
+            restored = true;
+        }
         this.app.render();
         const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-        return this.app.canvas.toDataURL(mimeType, quality);
+        const dataUrl = this.app.canvas.toDataURL(mimeType, quality);
+        if (restored) {
+            this.app.renderer.resize(originalWidth, originalHeight);
+            void this.draw();
+        }
+        return dataUrl;
     }
     destroy() {
         this.isInitialized = false;
