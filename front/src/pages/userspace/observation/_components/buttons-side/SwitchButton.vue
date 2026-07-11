@@ -56,6 +56,9 @@ export default defineComponent({
 .switch-button {
   transition: all 0.2s ease;
   position: relative;
+  /* border-style doit être fixé ici : l'état actif ne modifie que border-color et
+     border-width, sans un border-style déjà posé la bordure active ne s'affiche pas */
+  border: 1px solid transparent;
   /* État de repos (mode continu) : gris clair/foncé selon le thème, uniquement l'état
      actif reste coloré (orange) - même logique que PressButton (mode ponctuel) */
   background-color: #E5E7EB !important;

@@ -406,7 +406,9 @@ export default defineComponent({
 }
 
 .body--dark .category-description {
-  color: rgba(255, 255, 255, 0.6);
+  /* 0.75 et non 0.6 : sur le fond de carte var(--secondary-high) (#445a78),
+     0.6 ne donne qu'un contraste ~3.7:1 (sous le seuil de lisibilité 4.5:1) */
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .category-content {

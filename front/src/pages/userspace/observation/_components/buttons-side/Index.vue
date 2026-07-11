@@ -696,4 +696,8 @@ export default defineComponent({
 .body--dark .no-data {
   color: rgba(255, 255, 255, 0.6);
 }
+
+.body--dark .no-data .q-icon {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
 </style>
