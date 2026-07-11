@@ -1171,6 +1171,36 @@ export default defineComponent({
       onUiScaleChange: async (value: number | null) => {
         if (value == null || isNaN(value)) return;
         await uiScale.setScale(value);
+        // Persister dans le meta de la chronic courante pour la retrouver
+        // à la réouverture / export. Échec non bloquant.
+        const current = chronicle.sharedState.currentChronicle;
+        const chronicleId = current?.id;
+        if (chronicleId) {
+          // Mise à jour optimiste du store (cohérence immédiate).
+          if (current) {
+            chronicle.sharedState.currentChronicle = {
+              ...current,
+              meta: { ...(current.meta ?? {}), uiScale: value },
+            };
+          }
+          try {
+            await observationService.updateMeta(chronicleId, { uiScale: value });
+          } catch (error) {
+            console.error('Failed to persist uiScale to chronicle meta:', error);
+          }
+        }
+      },
+
+      /**
+       * Applique le uiScale sauvegardé dans le meta de la chronic courante.
+       * Compat ascendante : si pas de meta.uiScale, on garde la valeur
+       * courante (préf appareil). Ne persiste pas en backend.
+       */
+      applyChronicleUiScale: () => {
+        const fromMeta = chronicle.sharedState.currentChronicle?.meta?.uiScale;
+        if (typeof fromMeta === 'number' && Number.isFinite(fromMeta)) {
+          void uiScale.setScale(fromMeta);
+        }
       },
 
       /**
@@ -1204,7 +1234,10 @@ export default defineComponent({
       }
 
       // Load persisted UI scale (by device) and then measure real heights.
+      // Après le chargement de la prefs appareil, on surcharge avec le uiScale
+      // sauvegardé dans le meta de la chronic courante (si présent).
       uiScale.load().finally(() => {
+        methods.applyChronicleUiScale();
         methods.remeasureLayout();
       });
 
@@ -1247,6 +1280,17 @@ export default defineComponent({
         state.newComment.text = '';
         state.newComment.description = '';
         state.savingComment = false;
+      }
+    );
+
+    // Restaurer le uiScale sauvegardé dans le meta quand on change de chronic
+    // (sans écraser la prefs appareil au premier chargement, géré dans onMounted).
+    watch(
+      () => chronicle.sharedState.currentChronicle?.meta?.uiScale,
+      (fromMeta) => {
+        if (typeof fromMeta === 'number' && Number.isFinite(fromMeta)) {
+          void uiScale.setScale(fromMeta);
+        }
       }
     );
 

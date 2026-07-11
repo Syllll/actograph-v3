@@ -24,6 +24,7 @@ export interface IObservationFull {
 export interface ICreateObservationInput {
   name: string;
   description?: string;
+  meta?: Record<string, unknown> | null;
   protocol?: {
     categories: {
       name: string;
@@ -135,6 +136,7 @@ class ObservationService {
       description: input.description,
       type: 'Normal',
       mode: 'Calendar',
+      meta: input.meta ?? null,
     });
 
     try {
@@ -179,9 +181,21 @@ class ObservationService {
    */
   async update(
     id: number,
-    data: Partial<Pick<IObservationEntity, 'name' | 'description'>>
+    data: Partial<Pick<IObservationEntity, 'name' | 'description' | 'meta'>>
   ): Promise<IObservationEntity | null> {
     return observationRepository.update(id, data);
+  }
+
+  /**
+   * Patch partiel du meta d'une observation (fusion avec le meta existant).
+   * Utilisé pour persister des réglages de disposition (ex: uiScale) sans
+   * écraser les autres clés du meta.
+   */
+  async updateMeta(
+    id: number,
+    metaPatch: Record<string, unknown>,
+  ): Promise<IObservationEntity | null> {
+    return observationRepository.updateMeta(id, metaPatch);
   }
 
   /**
@@ -212,6 +226,7 @@ class ObservationService {
       description: source.observation.description,
       type: source.observation.type,
       mode: source.observation.mode,
+      meta: source.observation.meta ?? null,
     });
 
     try {

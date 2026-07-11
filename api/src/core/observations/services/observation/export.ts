@@ -28,6 +28,11 @@ export interface IChronicExport {
     description?: string;
     videoPath?: string;
     mode?: ObservationModeEnum;
+    /**
+     * Métadonnées de disposition (uiScale, ...). Absent si l'observation
+     * n'en a pas (compat ascendante avec les anciens .jchronic).
+     */
+    meta?: Record<string, any>;
     createdAt: string;
     updatedAt: string;
   };
@@ -102,6 +107,9 @@ export class Export {
         description: observation.description || undefined, // Convertir null en undefined pour JSON propre
         videoPath: observation.videoPath || undefined,
         mode: observation.mode || undefined,
+        // meta n'est inclus que si présent (compat ascendante : les anciennes
+        // observations n'ont pas de meta => le champ reste absent du fichier).
+        meta: observation.meta || undefined,
         createdAt: observation.createdAt
           ? observation.createdAt.toISOString()
           : new Date().toISOString(), // Fallback si date manquante

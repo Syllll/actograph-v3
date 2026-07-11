@@ -12,6 +12,7 @@ export interface IChronicExport {
     description?: string;
     videoPath?: string;
     mode?: ObservationModeEnum;
+    meta?: Record<string, any>;
     createdAt: string;
     updatedAt: string;
   };

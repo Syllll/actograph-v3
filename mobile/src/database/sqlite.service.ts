@@ -100,7 +100,13 @@ class SQLiteService {
       await this.db.execute('PRAGMA user_version = 2');
     }
 
-    console.log('Database migrations completed. Current version: 2');
+    // Migration 3: Add meta column to observations (uiScale, ...)
+    if (currentVersion < 3) {
+      await this.migration_003_add_observation_meta();
+      await this.db.execute('PRAGMA user_version = 3');
+    }
+
+    console.log('Database migrations completed. Current version: 3');
   }
 
   /**
@@ -198,6 +204,35 @@ class SQLiteService {
       }
     } catch (error) {
       console.error('Migration 002 failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Migration 003: Add meta column to observations
+   *
+   * Stocke un JSON libre avec les métadonnées de disposition de la chronic
+   * (ex: uiScale pour la taille globale des boutons). Nullable : les
+   * observations existantes restent valides (meta = NULL => traité comme
+   * "pas de meta" côté code, compatibilité ascendante).
+   */
+  private async migration_003_add_observation_meta(): Promise<void> {
+    if (!this.db) return;
+
+    try {
+      const tableInfo = await this.db.query('PRAGMA table_info(observations)');
+      const hasMetaColumn = tableInfo.values?.some(
+        (row: unknown[]) => row[1] === 'meta'
+      );
+
+      if (!hasMetaColumn) {
+        await this.db.execute('ALTER TABLE observations ADD COLUMN meta TEXT');
+        console.log('Migration 003: Added meta column to observations');
+      } else {
+        console.log('Migration 003: meta column already exists, skipping');
+      }
+    } catch (error) {
+      console.error('Migration 003 failed:', error);
       throw error;
     }
   }

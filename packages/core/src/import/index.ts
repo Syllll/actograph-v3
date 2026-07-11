@@ -24,6 +24,7 @@ export type {
   INormalizedCategory,
   INormalizedObservable,
   INormalizedReading,
+  IObservationMeta,
 } from './types';
 
 // JChronic parser (JSON format) - Browser & Node.js compatible

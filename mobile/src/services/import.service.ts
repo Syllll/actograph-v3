@@ -122,6 +122,7 @@ class ImportService {
         description: data.observation?.description,
         type: 'Normal',
         mode: mapObservationMode(data.observation?.mode),
+        meta: data.observation?.meta ?? null,
       });
 
       try {

@@ -8,11 +8,39 @@ import {
   ManyToOne,
   OneToMany,
   OneToOne,
+  ValueTransformer,
 } from 'typeorm';
 import { ActivityGraph } from './activity-graph.entity';
 import { Protocol } from './protocol.entity';
 import { Reading } from './reading.entity';
 import { ObservationType, ObservationModeEnum } from '@actograph/core';
+
+/**
+ * Transformeur pour la colonne `meta`.
+ *
+ * La colonne est `text` (compatible sqlite + postgres) et stocke un JSON.
+ * Côté code on manipule un objet ; côté DB on sérialise/désérialise.
+ * Gère null/undefined et les chaînes invalides (renvoie null plutôt que
+ * de planter, pour rester robuste face aux anciennes données).
+ */
+const metaTransformer: ValueTransformer = {
+  to(value: Record<string, any> | null | undefined): string | null {
+    if (value == null) return null;
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return null;
+    }
+  },
+  from(value: string | null | undefined): Record<string, any> | null {
+    if (!value || typeof value !== 'string') return null;
+    try {
+      return JSON.parse(value) as Record<string, any>;
+    } catch {
+      return null;
+    }
+  },
+};
 
 @Entity('observations')
 export class Observation extends BaseEntity {
@@ -52,6 +80,14 @@ export class Observation extends BaseEntity {
    */
   @Column({ type: 'text', enum: ObservationModeEnum, nullable: true })
   mode?: ObservationModeEnum | null;
+
+  /**
+   * Métadonnées d'observation persistées avec la chronic (uiScale, ...).
+   * Stockées en JSON text (voir metaTransformer) ; null pour les
+   * observations créées avant l'ajout de la colonne (compat ascendante).
+   */
+  @Column({ type: 'text', nullable: true, transformer: metaTransformer })
+  meta?: Record<string, any> | null;
 
   @OneToOne(() => ActivityGraph, (activityGraph) => activityGraph.observation)
   activityGraph?: ActivityGraph;
