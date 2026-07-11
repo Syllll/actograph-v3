@@ -10,6 +10,10 @@ $black: #000;
 // Primary orange (accent)
 $orange: #f97316;
 
+// Strong orange for filled backgrounds carrying white text.
+// #f97316 with white only reaches 2.80:1 (fails WCAG); #c2410c reaches 5.18:1 (AA).
+$orangeStrong: #c2410c;
+
 // Complementary blue
 $blue: #3b82f6;
 
@@ -26,6 +30,8 @@ $modernDarkGrey: #1f2937;
   --primary: #{$modernDarkGrey};
   --secondary: #{$slate};
   --accent: #{$orange};
+  // Filled orange backgrounds carrying white text (buttons, badges, avatars).
+  --accent-strong: #{$orangeStrong};
   --positive: #{$green};
   --negative: #{$red};
   --warning: #{$amber};
@@ -38,6 +44,17 @@ $modernDarkGrey: #1f2937;
   --text-invert: #{$white};
   --background: #{$white};
   --background-dark: #{$modernDarkGrey};
+}
+
+// Quasar injects the --q-accent-strong brand variable from quasar.config.js but
+// does not generate the matching .bg-/.text- utility classes for hyphenated
+// brand keys. Define them so `color="accent-strong"` works on q-btn/q-badge/
+// q-avatar/q-icon. White on #c2410c reaches 5.18:1 (WCAG AA).
+.bg-accent-strong {
+  background-color: var(--q-accent-strong, #{$orangeStrong}) !important;
+}
+.text-accent-strong {
+  color: var(--q-accent-strong, #{$orangeStrong}) !important;
 }
 
 // Dark mode overrides

@@ -1,5 +1,5 @@
 <template>
-  <DPage>
+  <DPage clip-content>
     <!-- Header avec compteur + search dédiée sur sa ligne -->
     <div class="readings-header q-px-md q-pt-md q-pb-sm">
       <div class="row items-center q-mb-sm">
@@ -318,6 +318,8 @@ export default defineComponent({
 }
 
 .table-container {
+  flex: 1 1 auto;
+  min-height: 0;
   position: relative;
   overflow: hidden;
 }

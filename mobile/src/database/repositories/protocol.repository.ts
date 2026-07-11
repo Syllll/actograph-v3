@@ -259,6 +259,29 @@ export class ProtocolRepository extends BaseRepository<IProtocolEntity> {
   }
 
   /**
+   * Récupère et parse le meta actuel d'un item, sans écraser les autres champs.
+   * Utilisé par les mises à jour partielles du meta (position, size, ...).
+   */
+  private async readItemMeta(categoryId: number): Promise<Record<string, unknown> | null> {
+    const current = await sqliteService.query<Record<string, unknown>>(
+      'SELECT meta FROM protocol_items WHERE id = ?',
+      [categoryId]
+    );
+
+    if (!current[0]) return null;
+
+    let existingMeta: Record<string, unknown> = {};
+    if (current[0].meta && typeof current[0].meta === 'string') {
+      try {
+        existingMeta = JSON.parse(current[0].meta);
+      } catch {
+        existingMeta = {};
+      }
+    }
+    return existingMeta;
+  }
+
+  /**
    * Update the position of a category
    * 
    * Cette méthode met à jour uniquement le champ meta.position
@@ -271,30 +294,30 @@ export class ProtocolRepository extends BaseRepository<IProtocolEntity> {
     categoryId: number,
     position: { x: number; y: number }
   ): Promise<IProtocolItemEntity | null> {
-    // Récupérer l'item actuel pour préserver les autres meta
-    const current = await sqliteService.query<Record<string, unknown>>(
-      'SELECT meta FROM protocol_items WHERE id = ?',
-      [categoryId]
-    );
-    
-    if (!current[0]) return null;
-    
-    // Parser l'ancien meta
-    let existingMeta: Record<string, unknown> = {};
-    if (current[0].meta && typeof current[0].meta === 'string') {
-      try {
-        existingMeta = JSON.parse(current[0].meta);
-      } catch {
-        existingMeta = {};
-      }
-    }
-    
-    // Merger avec la nouvelle position
-    const newMeta = {
-      ...existingMeta,
-      position,
-    };
-    
+    const existingMeta = await this.readItemMeta(categoryId);
+    if (existingMeta === null) return null;
+
+    const newMeta = { ...existingMeta, position };
+    return this.updateItem(categoryId, { meta: newMeta });
+  }
+
+  /**
+   * Update the size (width) of a category.
+   * 
+   * Persiste la largeur dans meta.size.width sans écraser le reste du meta.
+   * La hauteur n'est pas stockée : elle découle du contenu (reflow).
+   * 
+   * @param categoryId - ID de la catégorie
+   * @param size - Nouvelle taille { width: number }
+   */
+  async updateCategorySize(
+    categoryId: number,
+    size: { width: number }
+  ): Promise<IProtocolItemEntity | null> {
+    const existingMeta = await this.readItemMeta(categoryId);
+    if (existingMeta === null) return null;
+
+    const newMeta = { ...existingMeta, size };
     return this.updateItem(categoryId, { meta: newMeta });
   }
 

@@ -37,6 +37,12 @@ export class PixiApp {
         this.isInteractive = true;
         this.baseCanvasHeight = 0;
         this.teardownContextHandlers = null;
+        /**
+         * True only once `init()` a fini de créer le renderer PixiJS.
+         * En v8, `app.canvas` lit `renderer.canvas` : y accéder avant init (ou après
+         * destroy) lève "Cannot read properties of undefined (reading 'canvas')".
+         */
+        this.isInitialized = false;
         /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
         this.events = new EventEmitter();
         this.zoomState = {
@@ -106,11 +112,20 @@ export class PixiApp {
         this.dataArea.init();
         this.setupZoomAndPan();
         this.bindWebGLContextHandlers();
+        this.isInitialized = true;
+        // Premier rendu immédiat pour effacer le buffer WebGL (noir) avec le
+        // fond blanc, avant même que les données soient dessinées.
+        this.app.render();
     }
     /**
      * Resize the renderer to match the current CSS size of the canvas element.
      */
     resizeFromCanvas() {
+        // Le renderer n'existe pas tant que init() n'a pas abouti (ou après destroy).
+        // Accéder à app.canvas/renderer avant cela lèverait une exception.
+        if (!this.isInitialized || !this.app.renderer) {
+            return;
+        }
         const canvas = this.app.canvas;
         if (!canvas) {
             return;
@@ -118,7 +133,14 @@ export class PixiApp {
         const rect = canvas.getBoundingClientRect();
         const width = Math.max(1, Math.floor(rect.width));
         const height = Math.max(1, Math.floor(rect.height));
+        // Anti-boucle ResizeObserver : si la taille n'a pas réellement changé, ne
+        // pas re-déclencher un resize + render (qui pourrait relancer un cycle de
+        // mesure/layout et faire « vibrer » le canvas et le watermark).
+        if (width === this.app.screen.width && height === this.app.screen.height) {
+            return;
+        }
         this.app.renderer.resize(width, height);
+        this.app.render();
     }
     /**
      * Refresh rendering after window resize, visibility resume, or WebGL context restore.
@@ -223,6 +245,12 @@ export class PixiApp {
         const currentScale = this.viewport.scale.x;
         this.viewport.scale.set(currentScale + 0.0001);
         this.viewport.scale.set(currentScale);
+        // Rendu explicite : ne pas dépendre uniquement du ticker. Sans cela, le
+        // canvas WebGL reste sur son buffer initial (noir) jusqu'à ce qu'un
+        // événement (resize/interaction) déclenche enfin un rendu.
+        if (this.isInitialized && this.app.renderer) {
+            this.app.render();
+        }
     }
     async clear() {
         this.yAxis.clear();
@@ -539,6 +567,7 @@ export class PixiApp {
         return this.app.canvas.toDataURL(mimeType, quality);
     }
     destroy() {
+        this.isInitialized = false;
         this.teardownContextHandlers?.();
         if (this.app.canvas && this.app.canvas._zoomPanHandlers) {
             const handlers = this.app.canvas._zoomPanHandlers;

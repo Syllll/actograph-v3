@@ -82,7 +82,7 @@
               <q-avatar
                 :color="chronicle.isJchronic ? 'primary' : 'grey-5'"
                 text-color="white"
-                :icon="chronicle.isJchronic ? 'mdi-file-document' : 'mdi-file-lock'"
+                :icon="chronicle.isJchronic ? 'mdi-file-document' : 'mdi-file-clock'"
               />
             </q-item-section>
 
@@ -106,14 +106,13 @@
               </q-item-label>
               <q-item-label v-if="!chronicle.isJchronic" caption class="text-info q-mt-xs">
                 <q-icon name="mdi-information" size="14px" class="q-mr-xs" />
-                Format ancien non téléchargeable, merci de convertir en .jchronic avant importation
+                Format ancien .chronic — converti à la volée à l'import
               </q-item-label>
             </q-item-section>
 
             <q-item-section side>
               <div class="row q-gutter-xs">
                 <q-btn
-                  v-if="chronicle.isJchronic"
                   round
                   flat
                   color="info"
@@ -123,7 +122,6 @@
                   :loading="state.downloadingId === chronicle.id"
                 />
                 <q-btn
-                  v-if="chronicle.isJchronic"
                   round
                   flat
                   color="secondary"
@@ -209,15 +207,6 @@ export default defineComponent({
       },
 
       async downloadChronicle(chronicle: ICloudChronicle) {
-        if (!chronicle.isJchronic) {
-          $q.notify({
-            type: 'info',
-            message: 'Format ancien non téléchargeable',
-            caption: 'Merci de convertir en .jchronic avant importation',
-          });
-          return;
-        }
-
         state.downloadingId = chronicle.id;
 
         try {
@@ -256,11 +245,12 @@ export default defineComponent({
       },
 
       async shareChronicle(chronicle: ICloudChronicle) {
-        if (!chronicle.isJchronic) return;
-
         state.sharingId = chronicle.id;
         try {
-          const downloadResult = await actographCloudService.downloadChronicle(chronicle.id);
+          // .chronic => binaire (base64), .jchronic => texte
+          const downloadResult = await actographCloudService.downloadChronicle(chronicle.id, {
+            binary: !chronicle.isJchronic,
+          });
           if (!downloadResult.success || !downloadResult.content) {
             $q.notify({
               type: 'negative',
@@ -270,7 +260,12 @@ export default defineComponent({
             return;
           }
 
-          const result = await shareService.shareContent(downloadResult.content as string, chronicle.name);
+          const result = chronicle.isJchronic
+            ? await shareService.shareContent(downloadResult.content as string, chronicle.name)
+            : await shareService.shareBinaryContent(
+                downloadResult.content as string,
+                chronicle.name
+              );
           if (!result.success) {
             $q.notify({
               type: 'negative',

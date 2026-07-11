@@ -3,9 +3,11 @@
     class="draggable-category"
     :class="{
       'is-dragging': state.isDragging,
+      'is-resizing': state.isResizing,
       'is-draggable': draggable,
       'continuous': category.action === 'continuous',
     }"
+    :data-category-id="category.id"
     @touchstart="methods.handleTouchStart"
     @touchmove="methods.handleTouchMove"
     @touchend="methods.handleTouchEnd"
@@ -37,7 +39,7 @@
           v-for="observable in category.children"
           :key="observable.id"
           :label="observable.name"
-          :color="activeObservableByCategory[category.id] === observable.name ? 'accent' : 'grey-6'"
+          :color="activeObservableByCategory[category.id] === observable.name ? 'accent-strong' : 'grey-6'"
           :text-color="activeObservableByCategory[category.id] === observable.name ? 'white' : 'dark'"
           :outline="activeObservableByCategory[category.id] !== observable.name"
           :disable="continuousObservablesDisabled"
@@ -66,6 +68,19 @@
         />
       </div>
     </q-card-section>
+
+    <!-- Poignée de redimensionnement (coin bas-droit), mode édition uniquement -->
+    <div
+      v-if="draggable && resizable"
+      class="resize-handle"
+      aria-label="Redimensionner la catégorie"
+      @touchstart.stop.prevent="methods.handleResizeStart"
+      @touchmove.stop.prevent="methods.handleResizeMove"
+      @touchend.stop.prevent="methods.handleResizeEnd"
+      @touchcancel.stop.prevent="methods.handleResizeEnd"
+    >
+      <q-icon name="mdi-resize-bottom-right" size="18px" color="white" />
+    </div>
   </q-card>
 </template>
 
@@ -85,6 +100,12 @@ interface DragState {
   initialPosition: Position;
 }
 
+interface ResizeState {
+  isResizing: boolean;
+  startTouchX: number;
+  startWidth: number;
+}
+
 export default defineComponent({
   name: 'DraggableCategory',
 
@@ -102,6 +123,22 @@ export default defineComponent({
     position: {
       type: Object as PropType<Position>,
       required: true,
+    },
+    /**
+     * Current width of the category (px). Controlled by the parent via
+     * getCategoryWidth(). The card height is content-driven (reflow).
+     */
+    width: {
+      type: Number,
+      default: GRID_CONFIG.cardWidth,
+    },
+    /**
+     * Whether the category can be resized via the corner handle.
+     * Only meaningful in edit mode (draggable true).
+     */
+    resizable: {
+      type: Boolean,
+      default: true,
     },
     /**
      * Bounds of the container for constraining drag
@@ -160,18 +197,36 @@ export default defineComponent({
      * @param categoryId - ID of the category
      */
     dragStart: (categoryId: number) => typeof categoryId === 'number',
-    
+
     /**
      * Emitted during drag with new position
      * @param _payload - { categoryId, position }
      */
     dragMove: (_payload: { categoryId: number; position: Position }) => true,
-    
+
     /**
      * Emitted when drag ends
      * @param categoryId - ID of the category
      */
     dragEnd: (categoryId: number) => typeof categoryId === 'number',
+
+    /**
+     * Emitted when a resize gesture starts
+     * @param categoryId - ID of the category
+     */
+    resizeStart: (categoryId: number) => typeof categoryId === 'number',
+
+    /**
+     * Emitted during resize with the new width
+     * @param _payload - { categoryId, width }
+     */
+    resizeMove: (_payload: { categoryId: number; width: number }) => true,
+
+    /**
+     * Emitted when a resize gesture ends
+     * @param categoryId - ID of the category
+     */
+    resizeEnd: (categoryId: number) => typeof categoryId === 'number',
   },
 
   setup(props, { emit }) {
@@ -179,10 +234,13 @@ export default defineComponent({
     // State
     // ========================================================================
 
-    const state = reactive<DragState>({
+    const state = reactive<DragState & ResizeState>({
       isDragging: false,
       startTouch: { x: 0, y: 0 },
       initialPosition: { x: 0, y: 0 },
+      isResizing: false,
+      startTouchX: 0,
+      startWidth: 0,
     });
 
     // ========================================================================
@@ -196,23 +254,23 @@ export default defineComponent({
       handleTouchStart: (event: TouchEvent) => {
         if (!props.draggable) return;
         event.preventDefault();
-        
+
         const touch = event.touches[0];
         if (!touch) return;
-        
+
         state.isDragging = true;
-        state.startTouch = { 
-          x: touch.clientX, 
-          y: touch.clientY 
+        state.startTouch = {
+          x: touch.clientX,
+          y: touch.clientY
         };
         state.initialPosition = { ...props.position };
-        
+
         emit('dragStart', props.category.id);
       },
 
       /**
        * Handle touch move - update position
-       * 
+       *
        * ⚠️ PERFORMANCE: Les événements touchmove peuvent être très fréquents.
        * Un throttle est appliqué pour limiter à ~60fps (16ms).
        */
@@ -230,7 +288,7 @@ export default defineComponent({
 
           const touch = event.touches[0];
           if (!touch) return;
-          
+
           // Calculate delta from start position
           const deltaX = touch.clientX - state.startTouch.x;
           const deltaY = touch.clientY - state.startTouch.y;
@@ -239,15 +297,16 @@ export default defineComponent({
           let newX = state.initialPosition.x + deltaX;
           let newY = state.initialPosition.y + deltaY;
 
-          // Constrain to container bounds using GRID_CONFIG constants
-          const { cardWidth, minMargin } = GRID_CONFIG;
+          // Constrain to container bounds using the category's actual width
+          const { minMargin } = GRID_CONFIG;
+          const cardWidth = props.width;
 
           // X: constrain within container width
           newX = Math.max(
-            minMargin, 
+            minMargin,
             Math.min(newX, props.containerBounds.width - cardWidth - minMargin)
           );
-          
+
           // Y: only constrain minimum (top), allow expanding downward
           // The container will grow dynamically via getMinContainerHeight()
           newY = Math.max(minMargin, newY);
@@ -264,9 +323,77 @@ export default defineComponent({
        */
       handleTouchEnd: () => {
         if (!state.isDragging) return;
-        
+
         state.isDragging = false;
         emit('dragEnd', props.category.id);
+      },
+
+      // ----------------------------------------------------------------------
+      // Resize handlers
+      // ----------------------------------------------------------------------
+
+      /**
+       * Handle touch start on resize handle - begin resize
+       */
+      handleResizeStart: (event: TouchEvent) => {
+        if (!props.draggable || !props.resizable) return;
+
+        const touch = event.touches[0];
+        if (!touch) return;
+
+        state.isResizing = true;
+        state.startTouchX = touch.clientX;
+        state.startWidth = props.width;
+
+        emit('resizeStart', props.category.id);
+      },
+
+      /**
+       * Handle touch move on resize handle - update width.
+       *
+       * ⚠️ Throttle ~60fps pour limiter la fréquence des touchmove.
+       */
+      handleResizeMove: (() => {
+        let lastCall = 0;
+        const throttleMs = 16;
+
+        return (event: TouchEvent) => {
+          if (!state.isResizing) return;
+
+          const now = Date.now();
+          if (now - lastCall < throttleMs) return;
+          lastCall = now;
+
+          const touch = event.touches[0];
+          if (!touch) return;
+
+          const deltaX = touch.clientX - state.startTouchX;
+          const newWidth = state.startWidth + deltaX;
+
+          // Bornes: largeur min/max de GRID_CONFIG, plafonnée à la largeur
+          // du conteneur moins les marges.
+          const { minCardWidth, maxCardWidth, minMargin } = GRID_CONFIG;
+          const effectiveMax = Math.max(
+            minCardWidth,
+            Math.min(maxCardWidth, props.containerBounds.width - minMargin * 2)
+          );
+          const clamped = Math.max(minCardWidth, Math.min(newWidth, effectiveMax));
+
+          emit('resizeMove', {
+            categoryId: props.category.id,
+            width: Math.round(clamped),
+          });
+        };
+      })(),
+
+      /**
+       * Handle touch end on resize handle - finish resize
+       */
+      handleResizeEnd: () => {
+        if (!state.isResizing) return;
+
+        state.isResizing = false;
+        emit('resizeEnd', props.category.id);
       },
     };
 
@@ -283,6 +410,8 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+// --ui-scale est posée par le conteneur d'observation (.positioned-container)
+// et cascade vers ce composant. Elle ajuste globalement la taille de l'UI.
 .draggable-category {
   touch-action: auto;
   user-select: auto;
@@ -294,13 +423,21 @@ export default defineComponent({
     touch-action: none;
     user-select: none;
   }
-  
+
   // Visual feedback for drag state
   &.is-dragging {
     opacity: 0.95;
-    
+
     .drag-handle {
       color: var(--accent) !important;
+    }
+  }
+
+  // Visual feedback for resize state
+  &.is-resizing {
+    .resize-handle {
+      color: var(--accent) !important;
+      transform: scale(1.15);
     }
   }
 
@@ -320,13 +457,13 @@ export default defineComponent({
     background: var(--primary);
     color: white;
     border-bottom: 1px solid rgba(31, 41, 55, 0.12);
-    min-height: 44px;
+    min-height: calc(44px * var(--ui-scale, 1));
   }
 
   .category-name {
     flex: 1;
     min-width: 0; // Enable text truncation
-    font-size: 14px;
+    font-size: calc(14px * var(--ui-scale, 1));
   }
 
   .drag-handle {
@@ -339,24 +476,77 @@ export default defineComponent({
   }
 
   .category-content {
-    min-height: 56px;
+    min-height: calc(56px * var(--ui-scale, 1));
     background: white;
   }
 
   .observables-list {
+    // Grille fluide : les boutons gardent une largeur fixe (liée à --ui-scale,
+    // pas à la largeur de la carte) et se repositionnent dynamiquement quand
+    // la catégorie est redimensionnée. Aucun stretch avec la carte.
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: calc(8px * var(--ui-scale, 1));
   }
 
-  // Touch target follows Material 48dp guidance.
+  // Touch target follows Material 48dp guidance, scaled by --ui-scale.
+  // Largeur fixe (basis) pilotée par --ui-scale uniquement : la carte ne
+  // modifie pas la taille du bouton, seulement le nombre de boutons par rangée.
   .observable-btn-small {
-    width: 100%;
-    justify-content: flex-start;
-    font-size: 14px;
-    padding: 10px 14px;
-    min-height: 48px;
+    flex: 0 0 auto;
+    width: calc(120px * var(--ui-scale, 1));
+    // Garde-fou : si la carte est plus étroite qu'un bouton (largeur min),
+    // on plafonne pour éviter tout débordement.
+    max-width: 100%;
+    justify-content: center;
+    text-align: center;
+    // Autorise le retour à la ligne pour les noms longs plutôt que l'overflow.
+    white-space: normal;
+    word-break: break-word;
+    font-size: calc(14px * var(--ui-scale, 1));
+    padding: calc(10px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
+    min-height: calc(48px * var(--ui-scale, 1));
   }
 
+  // Poignée de redimensionnement (coin bas-droit).
+  // Zone tactile agrandie via la hit-area interne transparente.
+  .resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 2px;
+    color: rgba(255, 255, 255, 0.85);
+    cursor: nwse-resize;
+    touch-action: none;
+    transition: transform 0.15s ease;
+
+    // Hit-area translucide agrandie pour le tactile, sans impact visuel.
+    // Bornée à l'intérieur de la carte (overflow: hidden) pour ne pas être clippée.
+    &::before {
+      content: '';
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 36px;
+      height: 36px;
+    }
+
+    .q-icon {
+      position: relative;
+      // L'icône reste lisible sur fond clair (bas de carte = contenu blanc).
+      color: var(--primary);
+      opacity: 0.55;
+    }
+  }
+
+  // En mode édition, on rend la poignée plus visible.
+  &.is-draggable .resize-handle .q-icon {
+    opacity: 0.9;
+  }
 }
 </style>

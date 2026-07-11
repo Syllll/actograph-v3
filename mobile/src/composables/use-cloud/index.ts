@@ -152,24 +152,20 @@ export function useCloud() {
 
     /**
      * Télécharge une chronique du cloud et l'importe localement.
-     * Seuls les fichiers .jchronic sont téléchargeables depuis le mobile.
+     * Supporte les fichiers .jchronic (JSON) et .chronic (binaire legacy,
+     * converti à la volée via ChronicV1Parser).
      */
     async downloadChronicle(
       chronicle: ICloudChronicle
     ): Promise<{ success: boolean; observationId?: number; error?: string }> {
-      if (!chronicle.isJchronic) {
-        return {
-          success: false,
-          error: 'Format ancien non téléchargeable, merci de convertir en .jchronic',
-        };
-      }
-
       sharedState.isLoading = true;
       sharedState.error = null;
 
       try {
-        // Télécharger le fichier
-        const downloadResult = await actographCloudService.downloadChronicle(chronicle.id);
+        // Télécharger le fichier (.chronic => base64 binaire, .jchronic => texte)
+        const downloadResult = await actographCloudService.downloadChronicle(chronicle.id, {
+          binary: !chronicle.isJchronic,
+        });
 
         if (!downloadResult.success || !downloadResult.content) {
           return {
@@ -178,10 +174,15 @@ export function useCloud() {
           };
         }
 
-        const importResult = await importService.importJchronic(
-          downloadResult.content as string,
-          chronicle.name
-        );
+        const importResult = chronicle.isJchronic
+          ? await importService.importJchronic(
+              downloadResult.content as string,
+              chronicle.name
+            )
+          : await importService.importChronic(
+              downloadResult.content as string,
+              chronicle.name
+            );
 
         if (importResult.success) {
           return {

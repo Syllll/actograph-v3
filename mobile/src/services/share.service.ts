@@ -80,6 +80,53 @@ class ShareService {
     }
   }
 
+  /**
+   * Partage un contenu binaire (.chronic legacy) fourni en base64.
+   *
+   * CapacitorHttp renvoie les binaires en base64 ; sur Android, Base64.DEFAULT
+   * insère des CRLF tous les 76 caractères qu'on strippe avant l'écriture.
+   * On omet `encoding` : Filesystem writeFile décode alors la chaîne base64
+   * en octets binaires (sinon elle serait écrite comme texte UTF-8).
+   */
+  async shareBinaryContent(base64Content: string, fileName: string): Promise<IShareResult> {
+    try {
+      await this.cleanupOldTempFiles();
+
+      const cleanBase64 = base64Content.replace(/\s+/g, '');
+      const filePath = `${SHARE_TMP_DIR}/${fileName}`;
+
+      await Filesystem.writeFile({
+        path: filePath,
+        data: cleanBase64,
+        directory: Directory.Cache,
+        recursive: true,
+      });
+
+      const uriResult = await Filesystem.getUri({
+        path: filePath,
+        directory: Directory.Cache,
+      });
+
+      await Share.share({
+        title: fileName,
+        url: uriResult.uri,
+        dialogTitle: 'Partager la chronique',
+      });
+
+      return { success: true };
+    } catch (error) {
+      if (this.isShareCancelled(error)) {
+        return { success: true };
+      }
+
+      console.error('Error sharing binary file:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erreur inconnue',
+      };
+    }
+  }
+
   private isShareCancelled(error: unknown): boolean {
     if (error instanceof Error) {
       const msg = error.message.toLowerCase();

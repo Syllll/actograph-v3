@@ -39,7 +39,7 @@ export function useObservationLaunch() {
       persistent: true,
       ok: {
         label: 'Valider',
-        color: 'accent',
+        color: 'accent-strong',
       },
     }).onOk((choice: string) => {
       if (choice === 'continue') {

@@ -54,21 +54,27 @@
           icon="mdi-binoculars"
           label="Observer"
           :to="{ name: 'observation' }"
-          :disable="!hasChronicle"
+          :class="{ 'tab-locked': methods.isTabLocked('observation') }"
+          :tabindex="methods.isTabLocked('observation') ? -1 : 0"
+          @click="(e) => methods.guardTab(e, 'observation')"
         />
         <q-route-tab
           name="readings"
           icon="mdi-table"
           label="Relevés"
           :to="{ name: 'readings' }"
-          :disable="!hasChronicle"
+          :class="{ 'tab-locked': methods.isTabLocked('readings') }"
+          :tabindex="methods.isTabLocked('readings') ? -1 : 0"
+          @click="(e) => methods.guardTab(e, 'readings')"
         />
         <q-route-tab
           name="graph"
           icon="mdi-chart-line"
           label="Graphe"
           :to="{ name: 'graph' }"
-          :disable="!hasChronicle || !hasReadings"
+          :class="{ 'tab-locked': methods.isTabLocked('graph') }"
+          :tabindex="methods.isTabLocked('graph') ? -1 : 0"
+          @click="(e) => methods.guardTab(e, 'graph')"
         />
       </q-tabs>
     </q-footer>
@@ -76,17 +82,31 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed } from 'vue';
+import { defineComponent, ref, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { useQuasar } from 'quasar';
 import { useChronicle } from '@composables/use-chronicle';
+
+const TAB_ROUTE_NAMES = new Set(['home', 'observation', 'readings', 'graph']);
 
 export default defineComponent({
   name: 'MainLayout',
 
   setup() {
     const route = useRoute();
+    const $q = useQuasar();
     const chronicle = useChronicle();
     const currentTab = ref('home');
+
+    watch(
+      () => route.name,
+      (name) => {
+        if (typeof name === 'string' && TAB_ROUTE_NAMES.has(name)) {
+          currentTab.value = name;
+        }
+      },
+      { immediate: true }
+    );
 
     const pageTitle = computed(() => {
       const titles: Record<string, string> = {
@@ -106,12 +126,49 @@ export default defineComponent({
     const hasChronicle = computed(() => !!chronicle.sharedState.currentChronicle);
     const hasReadings = computed(() => chronicle.sharedState.currentReadings.length > 0);
 
+    const methods = {
+      isTabLocked: (tab: 'observation' | 'readings' | 'graph') => {
+        if (!hasChronicle.value) return true;
+        if (tab === 'graph') return !hasReadings.value;
+        return false;
+      },
+
+      /**
+       * Bloque la navigation des onglets verrouillés et affiche un message explicite.
+       * On n'utilise pas `disable` sur QRouteTab : Quasar avale le clic sans feedback.
+       * `preventDefault()` sur l'événement natif empêche ensuite `router.push()` (cf. use-tab.js).
+       */
+      guardTab: (event: Event, tab: 'observation' | 'readings' | 'graph') => {
+        if (!hasChronicle.value) {
+          event.preventDefault();
+          $q.notify({
+            type: 'warning',
+            message: 'Chargez une chronique depuis l\'accueil',
+            position: 'top',
+            timeout: 2500,
+          });
+          return;
+        }
+
+        if (tab === 'graph' && !hasReadings.value) {
+          event.preventDefault();
+          $q.notify({
+            type: 'info',
+            message: 'Enregistrez des relevés avant d\'ouvrir le graphe',
+            position: 'top',
+            timeout: 2500,
+          });
+        }
+      },
+    };
+
     return {
       currentTab,
       pageTitle,
       showBackButton,
       hasChronicle,
       hasReadings,
+      methods,
     };
   },
 });
@@ -132,6 +189,10 @@ export default defineComponent({
 
   :deep(.q-tab__label) {
     line-height: 1.1;
+  }
+
+  :deep(.q-tab.tab-locked) {
+    opacity: 0.45;
   }
 }
 </style>

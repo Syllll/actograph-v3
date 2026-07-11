@@ -42,6 +42,12 @@ export declare class PixiApp {
     private isInteractive;
     private baseCanvasHeight;
     private teardownContextHandlers;
+    /**
+     * True only once `init()` a fini de créer le renderer PixiJS.
+     * En v8, `app.canvas` lit `renderer.canvas` : y accéder avant init (ou après
+     * destroy) lève "Cannot read properties of undefined (reading 'canvas')".
+     */
+    private isInitialized;
     /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
     events: EventEmitter<string | symbol, any>;
     private zoomState;

@@ -1,5 +1,5 @@
 <template>
-  <DPage>
+  <DPage clip-content>
     <!-- Conteneur principal avec positionnement absolu -->
     <div class="graph-page">
       <div class="graph-header row items-center q-px-sm q-py-xs">

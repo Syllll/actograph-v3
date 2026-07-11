@@ -16,6 +16,38 @@
 
       <q-separator spaced />
 
+      <!-- Affichage -->
+      <q-item-label header>Affichage</q-item-label>
+
+      <q-item>
+        <q-item-section avatar>
+          <q-icon name="mdi-resize" color="primary" />
+        </q-item-section>
+        <q-item-section>
+          <q-item-label>Taille de l'interface</q-item-label>
+          <q-item-label caption>
+            Ajuste la taille globale des catégories et observables sur cet appareil
+          </q-item-label>
+          <q-slider
+            v-model="state.scaleModel"
+            :min="uiScale.min"
+            :max="uiScale.max"
+            :step="uiScale.step"
+            color="primary"
+            class="q-mt-md"
+            :label-value="Math.round(state.scaleModel * 100) + '%'"
+            @change="methods.onScaleChange"
+          />
+          <div class="row items-center justify-between q-mt-xs">
+            <q-btn flat dense label="Compact" color="grey-7" size="sm" @click="methods.setScale(uiScale.min)" />
+            <q-btn flat dense label="Standard" color="grey-7" size="sm" @click="methods.setScale(1)" />
+            <q-btn flat dense label="Grand" color="grey-7" size="sm" @click="methods.setScale(uiScale.max)" />
+          </div>
+        </q-item-section>
+      </q-item>
+
+      <q-separator spaced />
+
       <!-- Data management -->
       <q-item-label header>Données</q-item-label>
 
@@ -93,6 +125,7 @@
 import { defineComponent, reactive, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useChronicle } from '@composables/use-chronicle';
+import { useUiScale } from '@composables/use-ui-scale';
 import { observationService } from '@services/observation.service';
 import { sqliteService } from '@database/sqlite.service';
 import { DPage } from '@components';
@@ -105,11 +138,14 @@ export default defineComponent({
   setup() {
     const $q = useQuasar();
     const chronicle = useChronicle();
+    const uiScale = useUiScale();
 
     const state = reactive({
       appVersion: process.env.APP_VERSION || '0.0.1',
       chronicleCount: 0,
       showConfirmDialog: false,
+      // Modèle lié au slider (copie locale de uiScale.state.scale pour édition fluide).
+      scaleModel: uiScale.state.scale,
     });
 
     const methods = {
@@ -120,6 +156,16 @@ export default defineComponent({
         } catch (error) {
           console.error('Failed to load stats:', error);
         }
+      },
+
+      onScaleChange: async (value: number | null) => {
+        if (value == null || isNaN(value)) return;
+        await uiScale.setScale(value);
+      },
+
+      setScale: async (value: number) => {
+        state.scaleModel = value;
+        await uiScale.setScale(value);
       },
 
       confirmClearData: () => {
@@ -153,13 +199,16 @@ export default defineComponent({
       },
     };
 
-    onMounted(() => {
+    onMounted(async () => {
       methods.loadStats();
+      await uiScale.load();
+      state.scaleModel = uiScale.state.scale;
     });
 
     return {
       state,
       methods,
+      uiScale,
     };
   },
 });

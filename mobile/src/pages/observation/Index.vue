@@ -1,5 +1,5 @@
 <template>
-  <DPage>
+  <DPage clip-content>
     <!-- Header compact -->
     <div class="timer-toolbar q-py-sm q-px-md">
       <div class="row items-center no-wrap q-gutter-x-sm">
@@ -72,14 +72,17 @@
       </div>
 
       <!-- Conteneur avec positions absolues (mode normal ET édition) -->
-      <q-scroll-area 
+      <q-scroll-area
         v-else
         class="categories-scroll"
       >
-        <div 
+        <div
           ref="editContainerRef"
           class="positioned-container"
-          :style="{ minHeight: editMode.methods.getMinContainerHeight() + 'px' }"
+          :style="{
+            minHeight: editMode.methods.getMinContainerHeight() + 'px',
+            '--ui-scale': uiScale.state.scale,
+          }"
         >
           <!-- Catégories : même composant pour les deux modes -->
           <DraggableCategory
@@ -87,6 +90,8 @@
             :key="category.id"
             :category="category"
             :position="editMode.sharedState.categoryPositions[category.id] || { x: 0, y: 0 }"
+            :width="editMode.getCategoryWidth(category.id)"
+            :resizable="editMode.sharedState.isEditing"
             :container-bounds="containerBounds"
             :active-observable-by-category="state.activeObservableByCategory"
             :draggable="editMode.sharedState.isEditing"
@@ -94,12 +99,15 @@
             :discrete-observables-disabled="editMode.sharedState.isEditing || !state.isRecording || chronicle.sharedState.isPaused"
             :on-toggle-observable="editMode.sharedState.isEditing ? undefined : methods.toggleObservable"
             :on-press-observable="editMode.sharedState.isEditing ? undefined : methods.pressObservable"
-            :style="editMode.sharedState.isEditing 
+            :style="editMode.sharedState.isEditing
               ? editMode.methods.getCategoryStyle(category.id)
               : methods.getCategoryPositionStyle(category.id)"
             @drag-start="editMode.methods.startDrag"
             @drag-move="methods.handleDragMove"
             @drag-end="editMode.methods.endDrag"
+            @resize-start="editMode.methods.startResize"
+            @resize-move="methods.handleResizeMove"
+            @resize-end="methods.handleResizeEnd"
           />
 
         </div>
@@ -308,7 +316,7 @@
         @click="$router.push({ name: 'readings' })"
       >
         <q-icon name="mdi-table" size="20px" />
-        <q-badge floating color="accent" :label="state.totalReadingsCount" />
+        <q-badge floating color="accent-strong" :label="state.totalReadingsCount" />
       </q-btn>
     </q-page-sticky>
 
@@ -337,7 +345,7 @@
                 <q-item-section avatar>
                   <q-icon 
                     name="mdi-folder" 
-                    :color="category.action === 'continuous' ? 'accent' : 'primary'" 
+                    :color="category.action === 'continuous' ? 'accent-strong' : 'primary'" 
                   />
                 </q-item-section>
                 <q-item-section>
@@ -429,6 +437,29 @@
             </q-item>
           </q-list>
 
+          <!-- Réglage de la taille d'affichage (contextuel à l'édition du protocole) -->
+          <div class="q-mt-md q-pa-md ui-scale-card">
+            <div class="row items-center q-mb-sm">
+              <q-icon name="mdi-resize" size="20px" color="primary" class="q-mr-sm" />
+              <div class="text-subtitle2 text-weight-medium">Taille d'affichage</div>
+              <q-space />
+              <q-badge color="primary" :label="Math.round(uiScale.state.scale * 100) + '%'" />
+            </div>
+            <q-slider
+              :model-value="uiScale.state.scale"
+              :min="uiScale.min"
+              :max="uiScale.max"
+              :step="uiScale.step"
+              color="primary"
+              @update:model-value="methods.onUiScaleChange"
+            />
+            <div class="row items-center justify-between q-mt-xs">
+              <q-btn flat dense label="Compact" color="grey-7" size="sm" @click="uiScale.setScale(uiScale.min)" />
+              <q-btn flat dense label="Standard" color="grey-7" size="sm" @click="uiScale.setScale(1)" />
+              <q-btn flat dense label="Grand" color="grey-7" size="sm" @click="uiScale.setScale(uiScale.max)" />
+            </div>
+          </div>
+
           <!-- Bouton ajouter catégorie -->
           <q-btn
             color="primary"
@@ -466,6 +497,7 @@ export default defineComponent({
     const chronicle = useChronicle();
     const editMode = useEditMode();
     const haptics = useHaptics();
+    const uiScale = editMode.uiScale;
 
     const state = reactive({
       categories: [] as IProtocolItemWithChildren[],
@@ -1101,8 +1133,44 @@ export default defineComponent({
         editMode.methods.updateCategoryPosition(categoryId, position);
       },
 
+      handleResizeMove: ({ categoryId, width }: { categoryId: number; width: number }) => {
+        editMode.methods.updateCategorySize(categoryId, { width });
+      },
+
+      handleResizeEnd: (categoryId: number) => {
+        editMode.methods.endResize();
+        // Remesure après la fin du resize pour dimensionner le conteneur
+        // à la hauteur réelle (la carte a pu changer de hauteur via reflow).
+        nextTick(() => {
+          editMode.methods.measureHeights(editContainerRef.value);
+          updateContainerBounds();
+        });
+        // Petit feedback haptique de fin de redimensionnement.
+        haptics.impactLight();
+        void categoryId;
+      },
+
+      /**
+       * Remesure les hauteurs rendues et rafraîchit les bornes du conteneur.
+       * À appeler après tout changement affectant la hauteur des cartes.
+       */
+      remeasureLayout: () => {
+        nextTick(() => {
+          editMode.methods.measureHeights(editContainerRef.value);
+          updateContainerBounds();
+        });
+      },
+
       resetCategoryPositions: () => {
         editMode.methods.resetPositions(state.categories);
+        // Les largeurs ayant été remises à la valeur par défaut, il faut
+        // remesurer les hauteurs (le reflow peut changer la hauteur).
+        methods.remeasureLayout();
+      },
+
+      onUiScaleChange: async (value: number | null) => {
+        if (value == null || isNaN(value)) return;
+        await uiScale.setScale(value);
       },
 
       /**
@@ -1111,13 +1179,13 @@ export default defineComponent({
        */
       getCategoryPositionStyle: (categoryId: number): Record<string, string | number> => {
         const position = editMode.sharedState.categoryPositions[categoryId] || { x: 0, y: 0 };
-        const { cardWidth } = editMode.GRID_CONFIG;
+        const width = editMode.getCategoryWidth(categoryId);
 
         return {
           position: 'absolute',
           left: `${position.x}px`,
           top: `${position.y}px`,
-          width: `${cardWidth}px`,
+          width: `${width}px`,
           transition: 'all 0.3s ease',
         };
       },
@@ -1135,10 +1203,16 @@ export default defineComponent({
         chronicle.methods.startTimer();
       }
 
+      // Load persisted UI scale (by device) and then measure real heights.
+      uiScale.load().finally(() => {
+        methods.remeasureLayout();
+      });
+
       // Update container bounds after DOM is ready
       nextTick(() => {
         setTimeout(() => {
           updateContainerBounds();
+          editMode.methods.measureHeights(editContainerRef.value);
         }, 100);
       });
     });
@@ -1180,25 +1254,48 @@ export default defineComponent({
     watch(() => $q.screen.width, () => {
       if (editContainerRef.value) {
         updateContainerBounds();
+        nextTick(() => editMode.methods.measureHeights(editContainerRef.value));
       }
     });
-    
+
     // Watch edit mode to update bounds when entering
     watch(() => editMode.sharedState.isEditing, (isEditing) => {
       if (isEditing) {
         nextTick(() => {
           updateContainerBounds();
+          editMode.methods.measureHeights(editContainerRef.value);
         });
       }
       // Note: Cleanup is handled by onBeforeUnmount, no need for watch cleanup
       // to avoid double-cancel after exitEditMode()
     });
 
+    // Remesurer quand les catégories changent (ajout/suppression/contenu).
+    watch(
+      () => state.categories,
+      () => methods.remeasureLayout(),
+      { deep: true }
+    );
+
+    // Remesurer quand une largeur personnalisée change (resize terminé).
+    watch(
+      () => editMode.sharedState.categorySizes,
+      () => methods.remeasureLayout(),
+      { deep: true }
+    );
+
+    // Remesurer quand l'échelle globale change (les hauteurs reflow).
+    watch(
+      () => uiScale.state.scale,
+      () => methods.remeasureLayout()
+    );
+
     return {
       chronicle,
       state,
       methods,
       editMode,
+      uiScale,
       editContainerRef,
       containerBounds,
       canEnterEditMode,
@@ -1316,6 +1413,11 @@ export default defineComponent({
 
 .observable-item {
   background: rgba(0, 0, 0, 0.02);
+}
+
+.ui-scale-card {
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
 }
 
 </style>

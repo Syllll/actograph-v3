@@ -5,7 +5,7 @@
       <q-card class="chronicle-card q-mb-md">
         <q-card-section class="chronicle-header">
           <div class="row items-center">
-            <q-avatar color="accent" text-color="white" icon="mdi-clipboard-text" size="48px" class="q-mr-md" />
+            <q-avatar color="accent-strong" text-color="white" icon="mdi-clipboard-text" size="48px" class="q-mr-md" />
             <div>
               <div class="text-h6">{{ chronicle.sharedState.currentChronicle?.name }}</div>
               <div class="text-caption chronicle-description">
@@ -38,7 +38,7 @@
         <q-card-actions vertical class="q-pa-md">
           <!-- Primary CTA -->
           <q-btn
-            color="accent"
+            color="accent-strong"
             label="Faire une observation"
             icon="mdi-binoculars"
             @click="methods.startObservation"
@@ -72,7 +72,7 @@
     <template v-else>
       <div class="empty-state q-pa-lg text-center">
         <div class="logo-container q-mb-lg">
-          <q-avatar size="80px" color="accent" text-color="white" icon="mdi-clipboard-pulse-outline" />
+          <q-avatar size="80px" color="accent-strong" text-color="white" icon="mdi-clipboard-pulse-outline" />
         </div>
         <div class="text-h5 q-mt-md text-weight-medium">Bienvenue sur ActoGraph</div>
         <div class="text-body1 text-muted q-mb-lg">
@@ -80,7 +80,7 @@
         </div>
 
         <q-btn
-          color="accent"
+          color="accent-strong"
           label="Nouvelle chronique"
           icon="mdi-plus"
           @click="state.showCreateDialog = true"
@@ -188,7 +188,7 @@
             <!-- Bouton upload pour chronique active -->
             <q-btn
               v-if="chronicle.hasChronicle.value"
-              color="accent"
+              color="accent-strong"
               icon="mdi-cloud-upload"
               :aria-label="cloud.isCloudFull.value ? 'Cloud plein' : 'Envoyer la chronique active'"
               @click="methods.uploadCurrentChronicle"
@@ -230,7 +230,7 @@
         <q-card-actions align="right" class="q-px-md q-pb-md">
           <q-btn flat label="Annuler" color="grey-7" v-close-popup />
           <q-btn
-            color="accent"
+            color="accent-strong"
             label="Créer"
             unelevated
             @click="methods.createChronicle"

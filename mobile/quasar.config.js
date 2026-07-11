@@ -23,7 +23,7 @@ module.exports = configure(function (ctx) {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['i18n', 'capacitor', 'database'],
+    boot: ['buffer', 'i18n', 'capacitor', 'database'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -131,6 +131,7 @@ module.exports = configure(function (ctx) {
           primary: '#1f2937',   // modernDarkGrey
           secondary: '#64748b', // slate
           accent: '#f97316',    // orange
+          'accent-strong': '#c2410c', // orange-700, for filled orange w/ white text (WCAG AA)
           positive: '#10b981',  // green
           negative: '#ef4444',  // red
           warning: '#f59e0b',   // amber

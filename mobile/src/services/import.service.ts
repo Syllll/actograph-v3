@@ -236,8 +236,17 @@ class ImportService {
       return Buffer.from(content);
     }
 
-    const base64Candidate = content.trim();
-    if (/^[A-Za-z0-9+/]+={0,2}$/.test(base64Candidate) && base64Candidate.length % 4 === 0) {
+    // CapacitorHttp renvoie les réponses binaires (responseType 'arraybuffer')
+    // sous forme de chaîne base64. Sur Android, Base64.DEFAULT insère des CRLF
+    // tous les 76 caractères : on strippe tout whitespace avant la détection
+    // et le décodage, sinon la regex échoue et on retombe sur 'binary'
+    // (corruption silencieuse du binaire).
+    const base64Candidate = content.replace(/\s+/g, '');
+    if (
+      base64Candidate.length > 0 &&
+      /^[A-Za-z0-9+/]+={0,2}$/.test(base64Candidate) &&
+      base64Candidate.length % 4 === 0
+    ) {
       return Buffer.from(base64Candidate, 'base64');
     }
 

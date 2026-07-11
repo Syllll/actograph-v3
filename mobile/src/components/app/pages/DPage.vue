@@ -1,5 +1,5 @@
 <template>
-  <Page :padding="padding">
+  <Page :padding="padding" :clip-content="clipContent">
     <slot></slot>
   </Page>
 </template>
@@ -13,6 +13,7 @@ export default defineComponent({
   components: { Page },
   props: {
     padding: { type: Boolean, default: false },
+    clipContent: { type: Boolean, default: false },
   },
   setup(props) {
     return {
