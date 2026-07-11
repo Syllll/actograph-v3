@@ -43,43 +43,56 @@
         <q-separator v-if="showSeparatorBeforeReset" vertical />
         <q-btn
           flat
-          round
           dense
-          icon="mdi-image-outline"
+          no-caps
           color="grey-8"
-          @click="methods.exportAsPng"
+          icon="mdi-download"
+          :label="$t('graphUi.exportMenuLabel')"
         >
-          <q-tooltip>{{ $t('graphUi.tooltipExportPng') }}</q-tooltip>
-        </q-btn>
-        <q-btn
-          flat
-          round
-          dense
-          icon="mdi-file-jpg-box"
-          color="grey-8"
-          @click="methods.exportAsJpeg"
-        >
-          <q-tooltip>{{ $t('graphUi.tooltipExportJpeg') }}</q-tooltip>
-        </q-btn>
-        <q-btn
-          flat
-          round
-          dense
-          icon="mdi-format-list-bulleted-square"
-          color="grey-8"
-          @click="methods.exportLegendAsPng"
-        >
-          <q-tooltip>{{ $t('graphUi.tooltipExportLegendPng') }}</q-tooltip>
-        </q-btn>
-        <q-btn
-          flat
-          round
-          dense
-          icon="mdi-format-list-bulleted-type"
-          color="grey-8"
-          @click="methods.exportLegendAsJpeg"
-        >
-          <q-tooltip>{{ $t('graphUi.tooltipExportLegendJpeg') }}</q-tooltip>
+          <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
+            <div class="q-pa-md" style="min-width: 280px">
+              <div class="text-weight-medium q-mb-sm">{{ $t('graphUi.exportSectionContent') }}</div>
+              <q-option-group
+                v-model="exportSelection.content"
+                type="radio"
+                color="primary"
+                dense
+                :options="[
+                  { label: $t('graphUi.exportContentGraph'), value: 'graph' },
+                  { label: $t('graphUi.exportContentLegend'), value: 'legend' },
+                  { label: $t('graphUi.exportContentCombined'), value: 'combined' },
+                ]"
+                class="q-mb-md"
+              />
+              <div class="text-weight-medium q-mb-sm">{{ $t('graphUi.exportSectionFormat') }}</div>
+              <div class="row q-gutter-sm q-mb-md">
+                <q-btn
+                  v-for="opt in [
+                    { label: 'PNG', value: 'png' },
+                    { label: 'JPEG', value: 'jpeg' },
+                  ]"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :color="exportSelection.format === opt.value ? 'primary' : 'grey-3'"
+                  :text-color="exportSelection.format === opt.value ? 'white' : 'grey-9'"
+                  no-caps
+                  unelevated
+                  class="col"
+                  @click="exportSelection.format = opt.value"
+                />
+              </div>
+              <q-btn
+                color="primary"
+                no-caps
+                unelevated
+                icon="mdi-download"
+                :label="$t('graphUi.exportAction')"
+                class="full-width"
+                v-close-popup
+                @click="methods.runExport"
+              />
+            </div>
+          </q-menu>
         </q-btn>
       </div>
     </div>
@@ -157,6 +170,12 @@ export default defineComponent({
       zoomLevel: 1,
     });
 
+    // Sélection courante du panneau d'export : contenu × format, indépendants.
+    const exportSelection = reactive({
+      content: 'graph' as 'graph' | 'legend' | 'combined',
+      format: 'png' as 'png' | 'jpeg',
+    });
+
     // Composable pour accéder au nom de l'observation courante (pour le nom du fichier exporté)
     const observation = useObservation();
 
@@ -193,27 +212,9 @@ export default defineComponent({
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
       },
-      exportAsPng: async () => {
-        if (!graph.sharedState.pixiApp) return;
-        const dataUrl = graph.sharedState.pixiApp.exportAsImage('png');
-        if (!dataUrl) {
-          $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
-          return;
-        }
-        await methods.saveImageFile(dataUrl, 'png', 'graph');
-      },
-      exportAsJpeg: async () => {
-        if (!graph.sharedState.pixiApp) return;
-        const dataUrl = graph.sharedState.pixiApp.exportAsImage('jpeg', 0.92);
-        if (!dataUrl) {
-          $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
-          return;
-        }
-        await methods.saveImageFile(dataUrl, 'jpeg', 'graph');
-      },
       // Construit le canvas de légende (noms de catégories/observables + pastilles
-      // de couleur). Partagé par les exports PNG et JPEG de la légende, pour que
-      // les deux formats contiennent toujours exactement le même contenu.
+      // de couleur). Partagé par tous les exports impliquant la légende (légende
+      // seule ou combinée graphe + légende), pour garantir un contenu identique.
       buildLegendCanvas: (): HTMLCanvasElement | null => {
         const protocol = observation.protocol.sharedState.currentProtocol as any;
         const items = protocol?._items || [];
@@ -300,33 +301,108 @@ export default defineComponent({
 
         return legendCanvas;
       },
-      exportLegendAsPng: async () => {
+      // Construit un canvas combinant le graphe (à gauche) et la légende (à
+      // droite). Le graphe est capturé en PNG (sans pertes) comme source quel
+      // que soit le format final, pour éviter d'empiler les artefacts JPEG.
+      buildCombinedCanvas: async (): Promise<HTMLCanvasElement | null> => {
+        if (!graph.sharedState.pixiApp) {
+          $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
+          return null;
+        }
+        const graphDataUrl = graph.sharedState.pixiApp.exportAsImage('png');
+        if (!graphDataUrl) {
+          $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
+          return null;
+        }
         const legendCanvas = methods.buildLegendCanvas();
-        if (!legendCanvas) return;
-        const dataUrl = legendCanvas.toDataURL('image/png');
-        await methods.saveImageFile(dataUrl, 'png', 'legend');
+        if (!legendCanvas) return null;
+
+        const graphImg = await new Promise<HTMLImageElement | null>((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = graphDataUrl;
+        });
+        if (!graphImg) {
+          $q.notify({ type: 'negative', message: t('graphUi.legendImageFailed') });
+          return null;
+        }
+
+        const padding = 16;
+        const gap = 24;
+        const graphW = graphImg.naturalWidth;
+        const graphH = graphImg.naturalHeight;
+        const legendW = legendCanvas.width;
+        const legendH = legendCanvas.height;
+        const width = padding * 2 + graphW + gap + legendW;
+        const height = padding * 2 + Math.max(graphH, legendH);
+
+        const combined = document.createElement('canvas');
+        combined.width = width;
+        combined.height = height;
+        const ctx = combined.getContext('2d');
+        if (!ctx) {
+          $q.notify({ type: 'negative', message: t('graphUi.legendImageFailed') });
+          return null;
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        // Graphe à gauche, légende à droite (alignée en haut).
+        ctx.drawImage(graphImg, padding, padding);
+        ctx.drawImage(legendCanvas, padding + graphW + gap, padding);
+        return combined;
       },
-      exportLegendAsJpeg: async () => {
-        const legendCanvas = methods.buildLegendCanvas();
-        if (!legendCanvas) return;
-        const dataUrl = legendCanvas.toDataURL('image/jpeg', 0.92);
-        await methods.saveImageFile(dataUrl, 'jpeg', 'legend');
+      // Export unique piloté par les sélecteurs du panneau : contenu (graphe /
+      // légende / combiné) × format (PNG / JPEG).
+      runExport: async () => {
+        const content = exportSelection.content;
+        const format = exportSelection.format;
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+
+        let dataUrl: string | null = null;
+        if (content === 'graph') {
+          if (!graph.sharedState.pixiApp) {
+            $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
+            return;
+          }
+          dataUrl = graph.sharedState.pixiApp.exportAsImage(format, 0.92);
+          if (!dataUrl) {
+            $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
+            return;
+          }
+        } else if (content === 'legend') {
+          const canvas = methods.buildLegendCanvas();
+          if (!canvas) return;
+          dataUrl = canvas.toDataURL(mimeType, 0.92);
+        } else {
+          const canvas = await methods.buildCombinedCanvas();
+          if (!canvas) return;
+          dataUrl = canvas.toDataURL(mimeType, 0.92);
+        }
+
+        await methods.saveImageFile(dataUrl, format, content);
       },
-      saveImageFile: async (dataUrl: string, format: 'png' | 'jpeg', kind: 'graph' | 'legend' = 'graph') => {
+      saveImageFile: async (dataUrl: string, format: 'png' | 'jpeg', kind: 'graph' | 'legend' | 'combined') => {
         const observationName =
           observation.sharedState.currentObservation?.name || 'graph';
         const safeName = (observationName.replace(/[<>:"/\\|?*]/g, '-').trim() || 'graph').slice(0, 100);
         const ext = format === 'jpeg' ? 'jpg' : 'png';
+        const kindSuffix = kind === 'combined' ? 'graph-legend' : kind;
         const link = document.createElement('a');
-        link.download = `${safeName}-${kind}.${ext}`;
+        link.download = `${safeName}-${kindSuffix}.${ext}`;
         link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
+        const whatLabel =
+          kind === 'graph' ? t('graphUi.exportContentGraph')
+          : kind === 'legend' ? t('graphUi.exportContentLegend')
+          : t('graphUi.exportContentCombined');
         $q.notify({
           type: 'positive',
-          message: t('graphUi.exportedFormat', { format: format.toUpperCase() }),
+          message: t('graphUi.exportedFormat', { what: whatLabel, format: format.toUpperCase() }),
           timeout: 3000,
         });
       },
@@ -368,6 +444,7 @@ export default defineComponent({
       graph,
       canvasRef,
       state,
+      exportSelection,
       methods,
       customization,
       props,
