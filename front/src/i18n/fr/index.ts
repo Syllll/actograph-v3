@@ -406,7 +406,7 @@ export default {
     exportNotReady: 'Le graphique n\'est pas encore prêt pour l\'export',
     noLegendToExport: 'Aucune légende disponible à exporter',
     legendImageFailed: 'Impossible de générer l\'image de légende',
-    exportedFormat: '{what} exporté en {format}',
+    exportedFormat: 'Export {what} réussi ({format})',
     protocolLoadError: 'Erreur lors du chargement du protocole',
     prefsUpdateFailed: 'Erreur lors de la mise à jour des préférences',
     patternDots: 'Pointillés',
