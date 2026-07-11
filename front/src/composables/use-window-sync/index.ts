@@ -38,7 +38,8 @@ const senderId = uuidv4();
 const isPopupWindow =
   typeof window !== 'undefined' &&
   !!window.location &&
-  window.location.hash.startsWith('#/popup/');
+  (window.location.hash.startsWith('#/popup/') ||
+    window.location.href.includes('#/popup/'));
 const isOwner = !isPopupWindow;
 
 let currentObsId: number | null = null;
