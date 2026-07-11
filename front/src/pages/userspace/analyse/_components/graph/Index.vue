@@ -200,7 +200,7 @@ export default defineComponent({
           $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
           return;
         }
-        await methods.saveImageFile(dataUrl, 'png');
+        await methods.saveImageFile(dataUrl, 'png', 'graph');
       },
       exportAsJpeg: async () => {
         if (!graph.sharedState.pixiApp) return;
@@ -209,7 +209,7 @@ export default defineComponent({
           $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
           return;
         }
-        await methods.saveImageFile(dataUrl, 'jpeg');
+        await methods.saveImageFile(dataUrl, 'jpeg', 'graph');
       },
       // Construit le canvas de légende (noms de catégories/observables + pastilles
       // de couleur). Partagé par les exports PNG et JPEG de la légende, pour que
@@ -304,21 +304,21 @@ export default defineComponent({
         const legendCanvas = methods.buildLegendCanvas();
         if (!legendCanvas) return;
         const dataUrl = legendCanvas.toDataURL('image/png');
-        await methods.saveImageFile(dataUrl, 'png');
+        await methods.saveImageFile(dataUrl, 'png', 'legend');
       },
       exportLegendAsJpeg: async () => {
         const legendCanvas = methods.buildLegendCanvas();
         if (!legendCanvas) return;
         const dataUrl = legendCanvas.toDataURL('image/jpeg', 0.92);
-        await methods.saveImageFile(dataUrl, 'jpeg');
+        await methods.saveImageFile(dataUrl, 'jpeg', 'legend');
       },
-      saveImageFile: async (dataUrl: string, format: 'png' | 'jpeg') => {
+      saveImageFile: async (dataUrl: string, format: 'png' | 'jpeg', kind: 'graph' | 'legend' = 'graph') => {
         const observationName =
           observation.sharedState.currentObservation?.name || 'graph';
         const safeName = (observationName.replace(/[<>:"/\\|?*]/g, '-').trim() || 'graph').slice(0, 100);
         const ext = format === 'jpeg' ? 'jpg' : 'png';
         const link = document.createElement('a');
-        link.download = `${safeName}-graph.${ext}`;
+        link.download = `${safeName}-${kind}.${ext}`;
         link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
