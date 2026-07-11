@@ -121,6 +121,10 @@ export default {
     resetCategoriesTooltip: 'Reset category and observable positions',
     categoriesResetSuccess: 'Categories have been reset',
     resetCategoriesError: 'Error while resetting layout',
+    resizeCategoryTooltip: 'Resize category (drag)',
+    sizeSaveError: 'Could not save category size',
+    uiScaleIncreaseTooltip: 'Increase button size',
+    uiScaleDecreaseTooltip: 'Decrease button size',
     chronometerBlocked: 'Cannot switch to chronometer mode',
     chronometerBlockedCaption:
       'The observation has already started or is in calendar mode',

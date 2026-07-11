@@ -65,17 +65,9 @@
               <template v-slot:before>
                 <div class="buttons-panel-wrapper column fit position-relative">
                   <template v-if="!popout.sharedState.buttons">
-                    <ButtonsSideIndex class="col" />
-                    <q-btn
-                      icon="open_in_new"
-                      flat
-                      round
-                      dense
-                      size="sm"
-                      class="popout-btn"
-                      :title="$t('observation.popoutButtonsTooltip')"
-                      :disable="!observation.sharedState.currentObservation?.id"
-                      @click="methods.popOutButtons"
+                    <ButtonsSideIndex
+                      class="col"
+                      :popout-handler="methods.popOutButtons"
                     />
                   </template>
                   <div v-else class="popout-placeholder col column items-center justify-center q-pa-lg">
@@ -123,17 +115,9 @@
           <template v-slot:before>
             <div class="buttons-panel-wrapper column fit position-relative">
               <template v-if="!popout.sharedState.buttons">
-                <ButtonsSideIndex class="col" />
-                <q-btn
-                  icon="open_in_new"
-                  flat
-                  round
-                  dense
-                  size="sm"
-                  class="popout-btn"
-                  :title="$t('observation.popoutButtonsTooltip')"
-                  :disable="!observation.sharedState.currentObservation?.id"
-                  @click="methods.popOutButtons"
+                <ButtonsSideIndex
+                  class="col"
+                  :popout-handler="methods.popOutButtons"
                 />
               </template>
               <div v-else class="popout-placeholder col column items-center justify-center q-pa-lg">
@@ -205,7 +189,13 @@ export default defineComponent({
 
       const left = window.screenX + 50;
       const top = window.screenY + 50;
-      const baseUrl = window.location.href.split('#')[0];
+      // On retire `targetRoute` de la search string héritée de la fenêtre
+      // principale : ce paramètre redirigerait le pop-out vers /gateway (accueil)
+      // au boot. On garde `serverPort` (nécessaire pour joindre l'API locale).
+      const baseBeforeHash = window.location.href.split('#')[0];
+      const url = new URL(baseBeforeHash);
+      url.searchParams.delete('targetRoute');
+      const baseUrl = url.toString();
       const popup = window.open(
         `${baseUrl}#/popup/${component}?observationId=${observationId}`,
         `actograph-${component}`,

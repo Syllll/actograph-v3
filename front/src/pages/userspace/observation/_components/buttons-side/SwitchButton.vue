@@ -61,6 +61,12 @@ export default defineComponent({
   background-color: var(--button-rest-bg) !important;
   color: var(--text) !important;
   font-weight: normal;
+  /* Échelle d'affichage (boutons) pilotée par --ui-scale (défaut 1), posée par
+     le dashboard sur .categories-wrapper. Comme en mobile. On ne scalte QUE
+     font-size : Quasar dense utilise padding: 0.285em et min-height: 2em (em),
+     donc ils suivent font-size automatiquement. À scale=1 (14px) on retrouve
+     exactement la taille native, sans changement visuel par défaut. */
+  font-size: calc(14px * var(--ui-scale, 1)) !important;
 }
 
 .switch-button:hover:not(.disabled-button):not(.active) {

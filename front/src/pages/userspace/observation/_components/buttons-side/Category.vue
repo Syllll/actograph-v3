@@ -1,7 +1,7 @@
 <template>
   <q-card
     class="category-container"
-    :class="{ 'is-dragging': state.isDragging }"
+    :class="{ 'is-dragging': state.isDragging, 'is-resizing': state.isResizing }"
   >
     <q-card-section class="category-header">
       <div class="category-title">
@@ -32,7 +32,7 @@
           @click="methods.handleSwitchClick(observable)"
         />
       </div>
-      
+
       <div v-else class="buttons-container column q-gutter-y-sm">
         <PressButton
           v-for="observable in category.children"
@@ -43,6 +43,16 @@
         />
       </div>
     </q-card-section>
+
+    <!-- Poignée de redimensionnement (bas-droite), à la v1 / mobile.
+         Largeur uniquement ; la hauteur reflow selon le contenu. -->
+    <div
+      class="resize-handle"
+      :title="$t('observation.resizeCategoryTooltip')"
+      @mousedown.stop.prevent="methods.handleResizeStart"
+    >
+      <q-icon name="mdi-resize-bottom-right" size="18px" />
+    </div>
   </q-card>
 </template>
 
@@ -73,6 +83,10 @@ export default defineComponent({
       type: Object as PropType<{ x: number, y: number }>,
       default: () => ({ x: 0, y: 0 })
     },
+    width: {
+      type: Number,
+      default: 0
+    },
     isContinuousDisabled: {
       type: Boolean,
       default: false
@@ -83,14 +97,20 @@ export default defineComponent({
     }
   },
 
-  emits: ['switchClick', 'pressClick', 'move', 'dragStart', 'dragEnd'],
+  emits: ['switchClick', 'pressClick', 'move', 'dragStart', 'dragEnd', 'resize', 'resizeEnd'],
 
   setup(props, { emit }) {
     const state = reactive({
       isDragging: false,
+      isResizing: false,
       dragStartPos: { x: 0, y: 0 },
       dragOffset: { x: 0, y: 0 },
-      initialPosition: { x: 0, y: 0 }
+      initialPosition: { x: 0, y: 0 },
+      resizeStartX: 0,
+      resizeStartWidth: 0,
+      // Indique qu'au moins un mousemove a eu lieu pendant le resize : évite de
+      // persister (backend) sur un simple clic sans glissement de la poignée.
+      resizeMoved: false
     });
 
     const computedState = {
@@ -277,6 +297,52 @@ export default defineComponent({
         document.removeEventListener('mouseup', methods.handleDragEnd);
         document.removeEventListener('touchend', methods.handleDragEnd as unknown as EventListener);
       },
+
+      // --- Redimensionnement (poignée bas-droite) ---
+
+      handleResizeMove: (event: MouseEvent) => {
+        if (!state.isResizing) return;
+        if ((event as Event).cancelable) {
+          (event as Event).preventDefault();
+        }
+        const deltaX = (event as MouseEvent).clientX - state.resizeStartX;
+        const newWidth = state.resizeStartWidth + deltaX;
+        state.resizeMoved = true;
+        emit('resize', {
+          categoryId: props.category.id,
+          width: Math.round(newWidth),
+        });
+      },
+      handleResizeEnd: () => {
+        if (!state.isResizing) return;
+        state.isResizing = false;
+        // On ne signale la fin (et donc la persistance côté parent) que si un
+        // redimensionnement a réellement eu lieu, pas sur un simple clic.
+        if (state.resizeMoved) {
+          emit('resizeEnd', props.category.id);
+        }
+        state.resizeMoved = false;
+        document.removeEventListener('mousemove', methods.handleResizeMove);
+        document.removeEventListener('mouseup', methods.handleResizeEnd);
+      },
+      /**
+       * Début du redimensionnement : on enregistre la position X initiale du
+       * curseur et la largeur de départ (préférence : props.width transmis par
+       * le parent, fallback sur la largeur réelle mesurée dans le DOM).
+       */
+      handleResizeStart: (event: MouseEvent) => {
+        state.isResizing = true;
+        state.resizeMoved = false;
+        state.resizeStartX = event.clientX;
+        if (props.width && props.width > 0) {
+          state.resizeStartWidth = props.width;
+        } else {
+          const el = (event.target as HTMLElement).closest('.category-container') as HTMLElement;
+          state.resizeStartWidth = el ? el.getBoundingClientRect().width : 220;
+        }
+        document.addEventListener('mousemove', methods.handleResizeMove);
+        document.addEventListener('mouseup', methods.handleResizeEnd);
+      },
       /**
        * Gère le début du drag d'une catégorie.
        * 
@@ -340,13 +406,17 @@ export default defineComponent({
       }
     };
 
-    // Cleanup des event listeners si le composant est détruit pendant un drag
+    // Cleanup des event listeners si le composant est détruit pendant un drag/resize
     onBeforeUnmount(() => {
       if (state.isDragging) {
         document.removeEventListener('mousemove', methods.handleDragMove);
         document.removeEventListener('touchmove', methods.handleDragMove as unknown as EventListener);
         document.removeEventListener('mouseup', methods.handleDragEnd);
         document.removeEventListener('touchend', methods.handleDragEnd as unknown as EventListener);
+      }
+      if (state.isResizing) {
+        document.removeEventListener('mousemove', methods.handleResizeMove);
+        document.removeEventListener('mouseup', methods.handleResizeEnd);
       }
     });
 
@@ -384,6 +454,59 @@ export default defineComponent({
   transform: scale(1.02);
   cursor: grabbing;
   z-index: 100;
+}
+
+.category-container.is-resizing {
+  user-select: none;
+}
+
+/* Poignée de redimensionnement bas-droite (largeur). Inspirée de la v1
+   (triangle bas-droit) et de la v3 mobile (mdi-resize-bottom-right).
+   Invisible et inactive au repos (pointer-events: none) pour ne pas
+   intercepter le clic du bouton situé en bas à droite ; apparaît et
+   s'active au survol de la carte. */
+.resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  cursor: nwse-resize;
+  color: var(--grey-7, #616161);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, color 0.2s ease;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+/* Zone de saisie élargie sans alourdir le visuel (reste dans les limites
+   de la carte pour éviter le clipping si q-card a overflow:hidden). */
+.resize-handle::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 26px;
+  height: 26px;
+}
+
+.category-container:hover .resize-handle {
+  opacity: 0.45;
+  pointer-events: auto;
+}
+
+.resize-handle:hover,
+.category-container.is-resizing .resize-handle {
+  opacity: 1;
+  color: var(--accent, #f97316);
+}
+
+.body--dark .resize-handle {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .category-header {

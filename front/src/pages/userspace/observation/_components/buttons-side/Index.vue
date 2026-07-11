@@ -1,11 +1,32 @@
 <template>
   <div class="buttons-side-container q-pa-sm column fit">
-    <div class="col-auto text-h6 q-mb-sm row">
-      <div class="col-auto">
+    <div class="col-auto text-h6 q-mb-sm row items-center dashboard-header">
+      <div class="col dashboard-title">
         {{ $t('observation.observationDashboardTitle') }}
       </div>
-      <q-space />
-      <div class="col-auto">
+      <div class="col-auto row items-center q-gutter-xs header-actions">
+        <q-btn
+          flat
+          round
+          dense
+          icon="mdi-magnify-minus"
+          size="sm"
+          class="ui-scale-btn"
+          :disable="state.uiScale <= UI_SCALE_MIN"
+          :title="$t('observation.uiScaleDecreaseTooltip')"
+          @click="methods.decreaseUiScale()"
+        />
+        <q-btn
+          flat
+          round
+          dense
+          icon="mdi-magnify-plus"
+          size="sm"
+          class="ui-scale-btn"
+          :disable="state.uiScale >= UI_SCALE_MAX"
+          :title="$t('observation.uiScaleIncreaseTooltip')"
+          @click="methods.increaseUiScale()"
+        />
         <q-btn
           class="reset-categories-btn"
           :icon="state.isResetting ? 'mdi-loading mdi-spin' : 'mdi-restart'"
@@ -13,16 +34,31 @@
           flat
           round
           dense
+          size="sm"
           :disable="state.isResetting"
           :tooltip="$t('observation.resetCategoriesTooltip')"
           @click="methods.resetPositions()"
+        />
+        <q-btn
+          v-if="popoutHandler"
+          flat
+          round
+          dense
+          size="sm"
+          icon="open_in_new"
+          class="popout-btn-inline"
+          :disable="!observation.sharedState.currentObservation?.id"
+          :title="$t('observation.popoutButtonsTooltip')"
+          @click="methods.handlePopout()"
         />
       </div>
     </div>
 
     <DScrollArea class="col" style="min-height: 0;">
-      <div class="categories-wrapper" 
-        ref="categoriesWrapper">
+      <div class="categories-wrapper"
+        ref="categoriesWrapper"
+        :style="{ '--ui-scale': state.uiScale }"
+      >
       <template v-if="sharedState.currentProtocol && sharedState.currentProtocol._items && computedState.categories.value.length > 0">
         <Category
           v-for="category in computedState.categories.value"
@@ -30,12 +66,15 @@
             :category="category"
             :active-observable-id-by-category-id="state.activeObservableIdByCategoryId"
             :position="state.categoryPositions[category.id] || { x: 0, y: 0 }"
+            :width="methods.getCategoryWidth(category.id)"
             :is-continuous-disabled="computedState.isContinuousDisabled.value"
             :is-discrete-disabled="computedState.isDiscreteDisabled.value"
             :style="methods.getCategoryStyle(category.id)"
             @switch-click="methods.handleSwitchClick"
             @press-click="methods.handlePressClick"
             @move="methods.handleCategoryMove"
+            @resize="methods.handleCategoryResize"
+            @resize-end="methods.handleCategoryResizeEnd"
             @drag-start="(id) => methods.updateDraggingState(id, true)"
             @drag-end="(id) => methods.updateDraggingState(id, false)"
           />
@@ -51,7 +90,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
+import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, watch, PropType } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
 import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
@@ -59,6 +98,19 @@ import Category from './Category.vue';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { DScrollArea } from '@lib-improba/components/app/scroll-areas';
+
+// Largeur par défaut / bornes des boîtes catégories (px).
+// 220px ≈ 13.75rem, proche du 13rem historique.
+const DEFAULT_CATEGORY_WIDTH = 220;
+const MIN_CATEGORY_WIDTH = 160;
+const MAX_CATEGORY_WIDTH = 600;
+
+// Échelle d'affichage des boutons d'observable (comme en mobile).
+const UI_SCALE_MIN = 0.7;
+const UI_SCALE_MAX = 1.6;
+const UI_SCALE_STEP = 0.1;
+const UI_SCALE_DEFAULT = 1;
+const UI_SCALE_STORAGE_KEY = 'actograph.observation.uiScale';
 
 export default defineComponent({
   name: 'ButtonsSideIndex',
@@ -68,7 +120,17 @@ export default defineComponent({
     DScrollArea,
   },
 
-  setup() {
+  props: {
+    // Handler pour ouvrir le panneau des boutons en fenêtre séparée (pop-out).
+    // Fourni par le parent (observation/Index.vue). Mis dans le header pour
+    // aligner l'icône pop-out avec les autres actions du dashboard.
+    popoutHandler: {
+      type: Function as PropType<() => void>,
+      default: null,
+    },
+  },
+
+  setup(props) {
     const $q = useQuasar();
     const { t } = useI18n();
     const observation = useObservation();
@@ -82,9 +144,19 @@ export default defineComponent({
       isResetting: false,
       activeObservableIdByCategoryId: {} as Record<string, string>,
       categoryPositions: {} as Record<string, { x: number; y: number }>,
+      // Largeur personnalisée de chaque catégorie (px), persistée dans meta.size.
+      // Absent => largeur par défaut (DEFAULT_CATEGORY_WIDTH).
+      categorySizes: {} as Record<string, { width: number }>,
       isDragging: false,
       isDraggingCategoryId: null as string | null,
       lastInitializedStartSignature: null as string | null,
+      // Échelle d'affichage des boutons (facteur multiplicatif appliqué via la
+      // variable CSS --ui-scale sur .categories-wrapper).
+      uiScale: UI_SCALE_DEFAULT,
+      // Largeur du conteneur (categories-wrapper), maintenue réactive via un
+      // ResizeObserver pour réappliquer la borne max des catégories quand le
+      // splitter / la fenêtre change de largeur.
+      containerWidth: 0,
     });
     
     // Listen for video reading active events to auto-activate buttons
@@ -268,6 +340,12 @@ export default defineComponent({
               };
             }
           }
+          // Charge la largeur personnalisée depuis meta.size (si présente et valide).
+          // Le reset ne touche que les positions (pas les tailles) : on recharge donc
+          // toujours la taille persistée, même après un reset des positions.
+          if (category.meta && category.meta.size && typeof category.meta.size.width === 'number') {
+            state.categorySizes[category.id] = { width: category.meta.size.width };
+          }
           column++;
           if (column >= maxColumns) {
             column = 0;
@@ -450,6 +528,83 @@ export default defineComponent({
         }
       },
 
+      /**
+       * Applique une nouvelle largeur à une catégorie pendant le redimensionnement
+       * (drag de la poignée bas-droite). La persistance n'a lieu qu'en fin de drag
+       * (handleCategoryResizeEnd -> saveCategorySize) pour éviter un appel backend
+       * par pixel.
+       */
+      handleCategoryResize: ({ categoryId, width }: { categoryId: string; width: number }) => {
+        const maxW = methods.getCategoryMaxWidth();
+        const clamped = Math.max(MIN_CATEGORY_WIDTH, Math.min(maxW, width));
+        const current = state.categorySizes[categoryId];
+        if (!current || current.width !== clamped) {
+          state.categorySizes[categoryId] = { width: clamped };
+          methods.updateWrapperHeight();
+        }
+      },
+
+      // Fin du redimensionnement : on persiste la largeur dans meta.size.
+      handleCategoryResizeEnd: (categoryId: string) => {
+        methods.saveCategorySize(categoryId);
+      },
+
+      /**
+       * Sauvegarde la largeur d'une catégorie dans le backend (meta.size.width),
+       * en fusionnant avec le meta existant (position, etc.) comme pour la position.
+       */
+      saveCategorySize: async (categoryId: string) => {
+        const size = state.categorySizes[categoryId];
+        if (!size) return;
+
+        const category = computedState.categories.value.find(c => c.id === categoryId);
+        if (!category || !sharedState.currentProtocol) return;
+
+        try {
+          await protocol.methods.editProtocolItem({
+            id: categoryId,
+            protocolId: sharedState.currentProtocol.id,
+            type: ProtocolItemTypeEnum.Category,
+            meta: {
+              ...(category.meta || {}),
+              size: { width: size.width }
+            }
+          });
+        } catch (error) {
+          console.error('Failed to save category size:', error);
+          $q.notify({
+            type: 'negative',
+            message: t('observation.sizeSaveError'),
+            position: 'top-right'
+          });
+        }
+      },
+
+      // --- UI scale (taille des boutons) ---
+
+      setUiScale: (value: number) => {
+        const clamped = Math.round(Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, value)) * 100) / 100;
+        state.uiScale = clamped;
+        try {
+          localStorage.setItem(UI_SCALE_STORAGE_KEY, String(clamped));
+        } catch (_) {
+          /* ignore quota / privacy mode */
+        }
+      },
+      increaseUiScale: () => {
+        methods.setUiScale(state.uiScale + UI_SCALE_STEP);
+      },
+      decreaseUiScale: () => {
+        methods.setUiScale(state.uiScale - UI_SCALE_STEP);
+      },
+
+      // Ouvre le panneau des boutons en fenêtre séparée (délégué au parent).
+      handlePopout: () => {
+        if (props.popoutHandler) {
+          props.popoutHandler();
+        }
+      },
+
       // Get styles for a category
       getCategoryStyle: (categoryId: string) => {
         const position = state.categoryPositions[categoryId] || { x: 0, y: 0 };
@@ -457,10 +612,29 @@ export default defineComponent({
           position: 'absolute',
           left: `${position.x}px`,
           top: `${position.y}px`,
-          width: '13rem',
+          width: `${methods.getCategoryWidth(categoryId)}px`,
           transition: state.isDragging ? 'none' : 'left 0.5s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)',
           zIndex: state.isDragging && state.isDraggingCategoryId === categoryId ? '100' : '1',
         } as Record<string, string>;
+      },
+
+      // Largeur effective d'une catégorie : valeur personnalisée persistée sinon défaut.
+      // Bornée à [MIN, max dynamique] où max = largeur du conteneur (pour éviter
+      // qu'une catégorie déborde horizontalement du panneau).
+      getCategoryMaxWidth: (): number => {
+        const containerWidth = state.containerWidth;
+        if (containerWidth > 0) {
+          return Math.max(MIN_CATEGORY_WIDTH, Math.min(MAX_CATEGORY_WIDTH, containerWidth - 16));
+        }
+        return MAX_CATEGORY_WIDTH;
+      },
+      getCategoryWidth: (categoryId: string): number => {
+        const stored = state.categorySizes[categoryId];
+        const maxW = methods.getCategoryMaxWidth();
+        if (stored && typeof stored.width === 'number' && !isNaN(stored.width)) {
+          return Math.max(MIN_CATEGORY_WIDTH, Math.min(maxW, stored.width));
+        }
+        return Math.min(maxW, DEFAULT_CATEGORY_WIDTH);
       },
 
       // Update dragging state when Category component signals drag
@@ -620,19 +794,52 @@ export default defineComponent({
     // Single onMounted hook consolidating all initialization logic
     // IMPORTANT: This consolidates what was previously split across two onMounted hooks
     // to avoid duplicate event listener registration (memory leak bug fix)
+    // Observe la largeur du conteneur pour réappliquer dynamiquement la borne
+    // max des catégories quand le splitter / la fenêtre est redimensionné.
+    let containerWidthObserver: ResizeObserver | null = null;
+
     onMounted(() => {
+      // Restore UI scale from previous session (boutons).
+      try {
+        const stored = localStorage.getItem(UI_SCALE_STORAGE_KEY);
+        if (stored) {
+          const value = parseFloat(stored);
+          if (Number.isFinite(value)) {
+            state.uiScale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, value));
+          }
+        }
+      } catch (_) {
+        /* ignore */
+      }
+
       // Initialize category positions
       methods.calculateCategoryPositions();
       methods.updateWrapperHeight();
-      
+
+      // Suivi réactif de la largeur du conteneur (borne max des catégories).
+      if (categoriesWrapper.value && typeof ResizeObserver !== 'undefined') {
+        state.containerWidth = categoriesWrapper.value.clientWidth;
+        containerWidthObserver = new ResizeObserver((entries) => {
+          const entry = entries[0];
+          if (entry) {
+            state.containerWidth = Math.round(entry.contentRect.width);
+          }
+        });
+        containerWidthObserver.observe(categoriesWrapper.value);
+      }
+
       // Set up event listener for video reading active (only once)
       window.addEventListener('video-reading-active', handleVideoReadingActive as EventListener);
     });
-    
+
     // Single onUnmounted hook for cleanup
     onUnmounted(() => {
       // Remove event listener (only registered once, so only remove once)
       window.removeEventListener('video-reading-active', handleVideoReadingActive as EventListener);
+      if (containerWidthObserver) {
+        containerWidthObserver.disconnect();
+        containerWidthObserver = null;
+      }
     });
 
     // Trigger initial continuous readings at each START event.
@@ -649,6 +856,8 @@ export default defineComponent({
       computedState,
       categoriesWrapper,
       methods,
+      UI_SCALE_MIN,
+      UI_SCALE_MAX,
     };
   }
 });
@@ -659,6 +868,20 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+/* Header du dashboard : titre tronquable (ellipsis) pour que les actions
+   (zoom ±, reset, pop-out) restent toujours visibles même si le panneau
+   est étroit (splitter réduit). */
+.dashboard-header {
+  flex-wrap: nowrap;
+}
+
+.dashboard-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 :deep(.q-scrollarea) {

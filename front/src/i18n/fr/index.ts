@@ -122,6 +122,10 @@ export default {
       'Réinitialiser la position des catégories et observables',
     categoriesResetSuccess: 'Les catégories ont été réinitialisées',
     resetCategoriesError: 'Erreur lors de la réinitialisation',
+    resizeCategoryTooltip: 'Redimensionner la catégorie (glisser)',
+    sizeSaveError: 'Erreur lors de la sauvegarde de la taille',
+    uiScaleIncreaseTooltip: 'Augmenter la taille des boutons',
+    uiScaleDecreaseTooltip: 'Réduire la taille des boutons',
     chronometerBlocked: 'Impossible de passer en mode chronomètre',
     chronometerBlockedCaption:
       'L\'observation a déjà été démarrée ou est en mode calendrier',

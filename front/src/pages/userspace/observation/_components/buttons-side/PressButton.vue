@@ -8,7 +8,7 @@
     :disable="disabled"
     @click="methods.handleClick()"
   >
-    <q-icon name="mdi-target" size="16px" class="press-target" />
+    <q-icon name="mdi-target" class="press-target" />
     <span class="press-label">{{ observable.name }}</span>
     <q-tooltip v-if="observable.description">
       {{ observable.description }}
@@ -73,12 +73,18 @@ export default defineComponent({
      partout en mode clair. Le token gère les deux thèmes, pas d'override .body--dark. */
   background-color: var(--button-rest-bg) !important;
   color: var(--text) !important;
+  /* Échelle d'affichage (boutons) pilotée par --ui-scale (défaut 1), posée par
+     le dashboard sur .categories-wrapper. Comme en mobile. On ne scalte QUE
+     font-size : Quasar dense (padding 0.285em, min-height 2em) suit font-size.
+     À scale=1 (14px) = taille native, aucun changement par défaut. */
+  font-size: calc(14px * var(--ui-scale, 1)) !important;
 }
 
 /* Indicateur « cible » : signale que le bouton est de type push (ponctuel).
    Rond concentrique mdi-target à gauche du libellé, atténué au repos. */
 .press-target {
-  margin-right: 6px;
+  margin-right: calc(6px * var(--ui-scale, 1));
+  font-size: calc(16px * var(--ui-scale, 1));
   opacity: 0.7;
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
