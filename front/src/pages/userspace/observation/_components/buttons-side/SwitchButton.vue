@@ -3,8 +3,7 @@
     class="switch-button"
     :class="{ 'active': active, 'disabled-button': disabled }"
     :label="observable.name"
-    color="success"
-    outline
+    color="neutral"
     rounded
     dense
     no-caps
@@ -57,12 +56,19 @@ export default defineComponent({
 .switch-button {
   transition: all 0.2s ease;
   position: relative;
-  border: 1px solid #ddd;
+  /* État de repos (mode continu) : gris clair/foncé selon le thème, uniquement l'état
+     actif reste coloré (orange) - même logique que PressButton (mode ponctuel) */
+  background-color: #E5E7EB !important;
+  color: var(--text) !important;
   font-weight: normal;
 }
 
-.switch-button:hover:not(.disabled-button) {
-  background-color: #f0f0f0;
+.body--dark .switch-button {
+  background-color: var(--neutral-lower) !important;
+}
+
+.switch-button:hover:not(.disabled-button):not(.active) {
+  opacity: 0.9;
   transform: translateY(-1px);
 }
 

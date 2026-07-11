@@ -369,6 +369,12 @@ export default defineComponent({
   margin-bottom: 16px;
 }
 
+/* Thème sombre : carte plus claire que le fond du panneau (var(--secondary-high)),
+   pour un effet de relief, au lieu du gris clair fixe qui restait blanc quel que soit le thème */
+.body--dark .category-container {
+  background-color: var(--secondary-high);
+}
+
 .category-container:hover {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
 }
@@ -385,6 +391,10 @@ export default defineComponent({
   border-bottom: 1px solid #eaeaea;
 }
 
+.body--dark .category-header {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
 .category-title {
   display: flex;
   align-items: center;
@@ -393,6 +403,10 @@ export default defineComponent({
 
 .category-description {
   color: #666;
+}
+
+.body--dark .category-description {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .category-content {

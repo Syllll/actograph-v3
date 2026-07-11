@@ -675,6 +675,13 @@ export default defineComponent({
   box-sizing: border-box;
 }
 
+/* Thème sombre : fond du panneau adapté au thème (var(--secondary), gris-bleu foncé)
+   au lieu du gris clair fixe qui restait blanc quel que soit le thème */
+.body--dark .categories-wrapper {
+  background-color: var(--secondary);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
 .no-data {
   color: #777;
   display: flex;
@@ -684,5 +691,9 @@ export default defineComponent({
   height: 100%;
   min-height: 0;
   padding: 2rem;
+}
+
+.body--dark .no-data {
+  color: rgba(255, 255, 255, 0.6);
 }
 </style>
