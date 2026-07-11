@@ -42,7 +42,9 @@ $modernDarkGrey: #1f2937;
 
 // Semantic surface token: fond de repos des boutons d'observable
 // (mode ponctuel PressButton & mode continu SwitchButton).
-// Thème clair : gris très clair (#E5E7EB), plus clair que --neutral-lower
-// (#BAC2CE) jugé trop foncé en bêta-test. Thème sombre : identique à
-// --neutral-lower (déjà adapté au thème, texte blanc lisible dessus).
-@include defineColorLightAndDark('button-rest-bg', #E5E7EB, darken-compat($slate, 30));
+// Thème clair : gris très clair presque blanc (#f5f5f5 = Quasar grey-2,
+// 2eme niveau de l'échelle standard), « un blanc légèrement plus gris ».
+// Identique pour tous les boutons non actifs (continu & ponctuel).
+// Thème sombre : identique à --neutral-lower (déjà adapté au thème,
+// texte blanc lisible dessus).
+@include defineColorLightAndDark('button-rest-bg', #f5f5f5, darken-compat($slate, 30));

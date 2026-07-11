@@ -2,7 +2,6 @@
   <q-btn
     class="press-button"
     :class="{ 'is-active': state.isPressed, 'disabled-button': disabled }"
-    :label="observable.name"
     color="neutral"
     rounded
     no-caps
@@ -10,6 +9,8 @@
     :disable="disabled"
     @click="methods.handleClick()"
   >
+    <q-icon name="mdi-target" size="16px" class="press-target" />
+    <span class="press-label">{{ observable.name }}</span>
     <q-tooltip v-if="observable.description">
       {{ observable.description }}
     </q-tooltip>
@@ -67,19 +68,33 @@ export default defineComponent({
 .press-button {
   transition: all 0.2s ease;
   position: relative;
-  /* État de repos (mode ponctuel) : gris clair via le token --button-rest-bg
-     (clair #E5E7EB / sombre = --neutral-lower), éclairci suite au retour bêta-test
-     (le premier gris clair, var(--neutral-lower), restait trop foncé / peu lisible
-     en thème clair). Le token gère les deux thèmes, pas d'override .body--dark. */
+  /* État de repos (mode ponctuel) : gris très clair via le token --button-rest-bg
+     (clair #f5f5f5 = Quasar grey-2 / sombre = --neutral-lower), texte noir.
+     Le token est partagé avec SwitchButton (mode continu) : même fond de repos
+     partout en mode clair. Le token gère les deux thèmes, pas d'override .body--dark. */
   background-color: var(--button-rest-bg) !important;
   color: var(--text) !important;
 }
 
-/* État actif au clic : orange identique au mode continu (var(--accent)) */
+/* Indicateur « cible » : signale que le bouton est de type push (ponctuel).
+   Rond concentrique mdi-target à gauche du libellé, atténué au repos. */
+.press-target {
+  margin-right: 6px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* État actif au clic : flash orange identique au mode continu (var(--accent)),
+   texte blanc, et la cible se « charge » (opacité pleine + léger zoom). */
 .press-button.is-active {
   background-color: var(--accent) !important;
   color: white !important;
   box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+}
+
+.press-button.is-active .press-target {
+  opacity: 1;
+  transform: scale(1.15);
 }
 
 .press-button:hover:not(.disabled-button) {
