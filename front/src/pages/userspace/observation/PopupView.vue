@@ -1,5 +1,5 @@
 <template>
-  <div class="fit position-relative">
+  <div class="popup-view-root position-relative">
     <div v-if="state.loading" class="fit column items-center justify-center">
       <q-spinner color="primary" size="48px" />
       <div class="text-body2 q-mt-md text-grey">{{ $t('observation.popupLoading') }}</div>
@@ -183,6 +183,18 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* La route popup rend sous pages/Index.vue (un <router-view> nu, sans q-layout).
+   Or html/body/#q-app { height:100% } est commenté globalement (_layout.scss),
+   donc .fit (height:100%) s'effondrait à 0 => écran blanc même avec le bon
+   routage. On donne au root une hauteur de viewport définie (100vh) pour que
+   les enfants .fit et les composants (VideoPlayer/ButtonsSide) aient une
+   hauteur de référence. */
+.popup-view-root {
+  width: 100%;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
 .popup-hydration-overlay {
   position: absolute;
   inset: 0;
