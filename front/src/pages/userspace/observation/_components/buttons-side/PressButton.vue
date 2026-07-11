@@ -67,8 +67,11 @@ export default defineComponent({
 .press-button {
   transition: all 0.2s ease;
   position: relative;
-  /* État de repos (mode ponctuel) : gris clair au lieu du gris standard */
-  background-color: var(--neutral-lower) !important;
+  /* État de repos (mode ponctuel) : gris clair via le token --button-rest-bg
+     (clair #E5E7EB / sombre = --neutral-lower), éclairci suite au retour bêta-test
+     (le premier gris clair, var(--neutral-lower), restait trop foncé / peu lisible
+     en thème clair). Le token gère les deux thèmes, pas d'override .body--dark. */
+  background-color: var(--button-rest-bg) !important;
   color: var(--text) !important;
 }
 
