@@ -27,7 +27,7 @@ let followerObservationMetaHydrated = false;
 
 type ObservationMetaPayload = Pick<
   IObservation,
-  'id' | 'name' | 'description' | 'videoPath' | 'mode'
+  'id' | 'name' | 'description' | 'videoPath' | 'mode' | 'meta'
 >;
 
 const buildObservationMetaPayload = (
@@ -38,6 +38,7 @@ const buildObservationMetaPayload = (
   description: observation.description,
   videoPath: observation.videoPath,
   mode: observation.mode,
+  meta: observation.meta,
 });
 
 const isObservationMetaPayload = (
@@ -96,6 +97,7 @@ export const useObservation = (options?: { init?: boolean }) => {
       description: payload.description,
       videoPath: payload.videoPath,
       mode: payload.mode,
+      meta: payload.meta,
     };
   };
 
@@ -408,6 +410,7 @@ export const useObservation = (options?: { init?: boolean }) => {
         sharedState.currentObservation?.description,
         sharedState.currentObservation?.videoPath,
         sharedState.currentObservation?.mode,
+        sharedState.currentObservation?.meta,
       ] as const,
       () => {
         if (windowSync.isApplyingRemote()) return;

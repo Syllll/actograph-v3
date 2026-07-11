@@ -11,6 +11,7 @@ interface IChronicleObservation {
   description?: string | null;
   type: string;
   mode: 'Calendar' | 'Chronometer';
+  meta?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }

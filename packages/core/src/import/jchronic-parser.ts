@@ -3,12 +3,16 @@ import {
   ProtocolItemTypeEnum,
   ObservationModeEnum,
 } from '../enums';
-import { ParseError, ValidationError } from './errors';
+import {
+  ParseError,
+  ValidationError,
+} from './errors';
 import {
   IJchronicImport,
   INormalizedImport,
   INormalizedCategory,
   INormalizedObservable,
+  IObservationMeta,
 } from './types';
 
 /**
@@ -68,6 +72,52 @@ function normalizeReadingType(type: string | null | undefined): ReadingTypeEnum 
   };
 
   return aliases[normalizedType] ?? ReadingTypeEnum.DATA;
+}
+
+/**
+ * Bornes de validation du `uiScale` à l'import. Plage large pour accepter
+ * les valeurs produites par le desktop (0.7-1.6) et le mobile (0.6-1.8),
+ * tout en rejetant les valeurs aberrantes. Hors plage => champ ignoré.
+ */
+const UI_SCALE_IMPORT_MIN = 0.3;
+const UI_SCALE_IMPORT_MAX = 3;
+
+/**
+ * Normalise le meta d'observation issu du parsing.
+ *
+ * Règles (compatibilité ascendante) :
+ * - meta absent / null / non-objet => retourne undefined (aucune casse pour
+ *   les chronics anciennes qui n'ont pas de meta).
+ * - `uiScale` : conservé uniquement si nombre fini dans les bornes ; sinon
+ *   retiré silencieusement.
+ * - Les autres clés inconnues sont conservées telles quelles (forward-compat).
+ */
+function normalizeObservationMeta(
+  meta: unknown,
+): IObservationMeta | undefined {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+    return undefined;
+  }
+
+  const source = meta as Record<string, unknown>;
+  const result: IObservationMeta = {};
+
+  const uiScale = source.uiScale;
+  if (
+    typeof uiScale === 'number' &&
+    Number.isFinite(uiScale) &&
+    uiScale >= UI_SCALE_IMPORT_MIN &&
+    uiScale <= UI_SCALE_IMPORT_MAX
+  ) {
+    result.uiScale = Math.round(uiScale * 100) / 100;
+  }
+
+  for (const key of Object.keys(source)) {
+    if (key === 'uiScale') continue;
+    result[key] = source[key];
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 /**
@@ -138,6 +188,7 @@ export function normalizeJchronicData(data: IJchronicImport): INormalizedImport 
           ? data.observation.videoPath
           : undefined,
       mode: normalizeObservationMode(data.observation.mode),
+      meta: normalizeObservationMeta(data.observation.meta),
     },
     protocol: data.protocol
       ? {

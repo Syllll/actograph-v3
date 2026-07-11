@@ -192,6 +192,7 @@ export class ObservationService extends BaseService<
     description?: string;
     videoPath?: string;
     mode?: ObservationModeEnum;
+    meta?: Record<string, any>;
     protocol?: {
       name?: string;
       description?: string;
@@ -224,6 +225,7 @@ export class ObservationService extends BaseService<
       description: options.description,
       videoPath: options.videoPath,
       mode: options.mode,
+      meta: options.meta ?? null,
       type: ObservationType.Normal,
     });
     

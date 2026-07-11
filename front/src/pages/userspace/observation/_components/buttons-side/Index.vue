@@ -92,6 +92,7 @@
 <script lang="ts">
 import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, watch, PropType } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
+import { observationService } from '@services/observations/index.service';
 import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import Category from './Category.vue';
@@ -232,7 +233,12 @@ export default defineComponent({
           .map((item: any) => item as ProtocolItem);
       }),
     };
-    
+
+    // Debounce de la persistance du uiScale : on attend que l'utilisateur
+    // arrête de cliquer sur +/- pour n'émettre qu'un seul appel API par rafale.
+    const PERSIST_UI_SCALE_DEBOUNCE_MS = 400;
+    let persistUiScaleTimer: number | null = null;
+
     const methods = {
       /**
        * Met à jour la hauteur minimale du conteneur pour s'assurer qu'il est assez grand
@@ -593,9 +599,66 @@ export default defineComponent({
       },
       increaseUiScale: () => {
         methods.setUiScale(state.uiScale + UI_SCALE_STEP);
+        methods.schedulePersistUiScale();
       },
       decreaseUiScale: () => {
         methods.setUiScale(state.uiScale - UI_SCALE_STEP);
+        methods.schedulePersistUiScale();
+      },
+
+      /**
+       * Diffère la persistance du uiScale dans observation.meta pour n'émettre
+       * qu'un seul appel API par rafale de clics +/- (debounce). L'UI réagit
+       * immédiatement (setUiScale est synchrone), seul l'write backend est
+       * retardé.
+       */
+      schedulePersistUiScale: () => {
+        if (persistUiScaleTimer !== null) {
+          window.clearTimeout(persistUiScaleTimer);
+        }
+        persistUiScaleTimer = window.setTimeout(() => {
+          persistUiScaleTimer = null;
+          void methods.persistUiScaleToObservation();
+        }, PERSIST_UI_SCALE_DEBOUNCE_MS);
+      },
+
+      /**
+       * Persiste la taille globale courante (uiScale) dans observation.meta
+       * pour la retenir par chronic (export jchronic + réouverture).
+       * No-op si aucune observation n'est chargée. Échec non bloquant.
+       */
+      persistUiScaleToObservation: async () => {
+        const current = observation.sharedState.currentObservation;
+        if (!current?.id) return;
+
+        const nextMeta = {
+          ...(current.meta ?? {}),
+          uiScale: state.uiScale,
+        };
+
+        // Mise à jour optimiste du state local (évite rebond du watcher).
+        observation.sharedState.currentObservation = {
+          ...current,
+          meta: nextMeta,
+        };
+
+        try {
+          const updated = await observationService.update(current.id, {
+            meta: { uiScale: state.uiScale },
+          });
+          // Conserver uniquement la meta renvoyée par l'API (fusion côté
+          // backend). On n'écrase PAS le reste de currentObservation
+          // (protocol/readings/user ne sont pas rechargés par l'endpoint
+          // update et seraient perdus si on spreadait tout `updated`).
+          if (updated?.meta) {
+            observation.sharedState.currentObservation = {
+              ...observation.sharedState.currentObservation,
+              meta: updated.meta,
+            } as typeof observation.sharedState.currentObservation;
+          }
+        } catch (error) {
+          console.error('Failed to persist uiScale to observation meta:', error);
+        }
       },
 
       // Ouvre le panneau des boutons en fenêtre séparée (délégué au parent).
@@ -777,6 +840,24 @@ export default defineComponent({
       }
     }, { immediate: true });
 
+    // Restaure la taille globale (uiScale) depuis observation.meta quand une
+    // chronic est chargée. Compat ascendante : si la chronic n'a pas de
+    // meta.uiScale (ancienne chronic), on garde la valeur courante (préf
+    // appareil via localStorage). La restauration n'écrit PAS en backend
+    // (setUiScale est local) pour éviter une boucle avec persistUiScale.
+    watch(
+      () => observation.sharedState.currentObservation?.meta?.uiScale,
+      (uiScaleFromMeta) => {
+        if (
+          typeof uiScaleFromMeta === 'number' &&
+          Number.isFinite(uiScaleFromMeta)
+        ) {
+          methods.setUiScale(uiScaleFromMeta);
+        }
+      },
+      { immediate: true },
+    );
+
     // Update wrapper height based on category positions
     watch(state.categoryPositions, () => {
       methods.updateWrapperHeight();
@@ -800,16 +881,24 @@ export default defineComponent({
 
     onMounted(() => {
       // Restore UI scale from previous session (boutons).
-      try {
-        const stored = localStorage.getItem(UI_SCALE_STORAGE_KEY);
-        if (stored) {
-          const value = parseFloat(stored);
-          if (Number.isFinite(value)) {
-            state.uiScale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, value));
+      // On n'écrase la valeur restaurée depuis observation.meta (via le
+      // watcher immédiat ci-dessus) que si la chronic n'a pas de uiScale
+      // sauvegardé (ancienne chronic => fallback sur la prefs appareil).
+      const metaUiScale = observation.sharedState.currentObservation?.meta?.uiScale;
+      const hasMetaUiScale =
+        typeof metaUiScale === 'number' && Number.isFinite(metaUiScale);
+      if (!hasMetaUiScale) {
+        try {
+          const stored = localStorage.getItem(UI_SCALE_STORAGE_KEY);
+          if (stored) {
+            const value = parseFloat(stored);
+            if (Number.isFinite(value)) {
+              state.uiScale = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, value));
+            }
           }
+        } catch (_) {
+          /* ignore */
         }
-      } catch (_) {
-        /* ignore */
       }
 
       // Initialize category positions
@@ -839,6 +928,12 @@ export default defineComponent({
       if (containerWidthObserver) {
         containerWidthObserver.disconnect();
         containerWidthObserver = null;
+      }
+      // Annule un éventuel write uiScale en attente (debounce) pour éviter
+      // un appel API / une mutation du store après démontage.
+      if (persistUiScaleTimer !== null) {
+        window.clearTimeout(persistUiScaleTimer);
+        persistUiScaleTimer = null;
       }
     });
 

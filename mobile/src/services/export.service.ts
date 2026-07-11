@@ -14,6 +14,7 @@ export interface IJchronicExport {
     name: string;
     description?: string;
     mode?: ObservationModeEnum;
+    meta?: Record<string, unknown>;
     createdAt: string;
     updatedAt: string;
   };
@@ -105,6 +106,8 @@ class ExportService {
           name: observation.name,
           description: observation.description,
           mode: this.mapObservationMode(observation.mode),
+          // meta n'est inclus que si présent (compat ascendante).
+          meta: observation.meta ?? undefined,
           createdAt: observation.created_at || new Date().toISOString(),
           updatedAt: observation.updated_at || new Date().toISOString(),
         },

@@ -25,6 +25,7 @@ export interface IObservationService {
     description?: string;
     videoPath?: string;
     mode?: ObservationModeEnum;
+    meta?: Record<string, any>;
   }): Promise<IObservation>;
   update(
     id: number,
@@ -33,6 +34,7 @@ export interface IObservationService {
       description?: string;
       videoPath?: string;
       mode?: ObservationModeEnum;
+      meta?: Record<string, any>;
     }
   ): Promise<IObservation>;
   exportObservation(id: number): Promise<IChronicExport>;
@@ -98,6 +100,7 @@ export const observationService: IObservationService = {
     description?: string;
     videoPath?: string;
     mode?: ObservationModeEnum;
+    meta?: Record<string, any>;
   }): Promise<IObservation> => {
     // Construire le payload en incluant seulement les propriétés définies
     const payload: any = {
@@ -116,6 +119,10 @@ export const observationService: IObservationService = {
     if (options.mode !== undefined) {
       payload.mode = options.mode;
     }
+
+    if (options.meta !== undefined) {
+      payload.meta = options.meta;
+    }
     
     const response = await api().post(`${apiUrl}/observations`, payload);
     return response.data;
@@ -127,6 +134,7 @@ export const observationService: IObservationService = {
       description?: string;
       videoPath?: string;
       mode?: ObservationModeEnum;
+      meta?: Record<string, any>;
     }
   ): Promise<IObservation> => {
     const response = await api().patch(`${apiUrl}/observations/${id}`, updateData);

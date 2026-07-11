@@ -38,6 +38,7 @@ import { UserRolesGuard } from '@users/guards/user-roles.guard';
 import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
 import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
 import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
+import { IsPlainObject } from '@utils/validators/is-plain-object.decorator';
 import { IChronicExport } from '../services/observation/export';
 import { ObservationModeEnum } from '@actograph/core';
 import { MergeObservationsDto } from '../dtos/merge-observations.dto';
@@ -58,6 +59,10 @@ export class ICreateObservationDto {
   @IsOptional()
   @IsEnum(ObservationModeEnum)
   mode?: ObservationModeEnum;
+
+  @IsOptional()
+  @IsPlainObject()
+  meta?: Record<string, any>;
 }
 
 export class IUpdateObservationDto {
@@ -76,6 +81,10 @@ export class IUpdateObservationDto {
   @IsOptional()
   @IsEnum(ObservationModeEnum)
   mode?: ObservationModeEnum;
+
+  @IsOptional()
+  @IsPlainObject()
+  meta?: Record<string, any>;
 }
 
 @Controller('observations')
@@ -220,6 +229,7 @@ export class ObservationController extends BaseController {
       description: body.description,
       videoPath: body.videoPath,
       mode: body.mode,
+      meta: body.meta,
       protocol: {},
       readings: [],
       activityGraph: {},
@@ -328,6 +338,14 @@ export class ObservationController extends BaseController {
     if (body.description !== undefined) updateData.description = body.description;
     if (body.videoPath !== undefined) updateData.videoPath = body.videoPath;
     if (body.mode !== undefined) updateData.mode = body.mode;
+    // meta : fusion (shallow) avec le meta existant pour ne pas écraser les
+    // autres clés futures. Si body.meta est explicitement fourni, on merge.
+    if (body.meta !== undefined) {
+      updateData.meta = {
+        ...(observation.meta ?? {}),
+        ...body.meta,
+      };
+    }
 
     const updatedObservation = await this.observationService.update(id, updateData);
     return updatedObservation;

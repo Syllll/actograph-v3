@@ -168,6 +168,7 @@ export class Import {
       description: normalizedData.observation.description,
       videoPath: normalizedData.observation.videoPath,
       mode: normalizedData.observation.mode,
+      meta: normalizedData.observation.meta,
       protocol: normalizedData.protocol,
       readings: normalizedData.readings,
     });

@@ -103,6 +103,11 @@ export interface IObservation extends IEntity {
   type: ObservationType;
   videoPath?: string | null;
   mode?: ObservationModeEnum | null;
+  /**
+   * Métadonnées de disposition persistées avec la chronic (uiScale, ...).
+   * Null/undefined pour les observations anciennes (compat ascendante).
+   */
+  meta?: Record<string, any> | null;
   user: IUser;
   protocol?: IProtocol;
   readings?: IReading[];

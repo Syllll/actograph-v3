@@ -9,6 +9,20 @@ import { ObservationModeEnum, ReadingTypeEnum } from '../enums';
  * - Le protocole complet avec sa structure hiérarchique (sans IDs)
  * - Tous les readings associés (sans IDs)
  */
+/**
+ * Métadonnées d'observation persistées dans observation.meta (et exportées
+ * dans le .jchronic). Toutes les clés sont optionnelles pour garantir la
+ * compatibilité ascendante : une chronic sans meta reste valide.
+ *
+ * `uiScale` : facteur d'échelle global de l'UI d'observation (taille des
+ * boutons), borné côté parser/UI. Permet de retrouver la même disposition
+ * visuelle après export/import ou réouverture.
+ */
+export interface IObservationMeta {
+  uiScale?: number;
+  [key: string]: unknown;
+}
+
 export interface IJchronicImport {
   version?: string;
   exportedAt?: string;
@@ -17,6 +31,7 @@ export interface IJchronicImport {
     description?: string;
     videoPath?: string | null;
     mode?: ObservationModeEnum | null;
+    meta?: Record<string, unknown> | null;
     createdAt?: string;
     updatedAt?: string;
   };
@@ -57,6 +72,11 @@ export interface INormalizedImport {
     description?: string;
     videoPath?: string;
     mode?: ObservationModeEnum;
+    /**
+     * Métadonnées d'observation normalisées (uiScale, ...).
+     * Undefined si la chronic source n'en contient pas (compat ascendante).
+     */
+    meta?: IObservationMeta;
   };
   protocol?: INormalizedProtocol;
   readings: INormalizedReading[];
