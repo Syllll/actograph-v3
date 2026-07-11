@@ -59,15 +59,12 @@ export default defineComponent({
   /* border-style doit être fixé ici : l'état actif ne modifie que border-color et
      border-width, sans un border-style déjà posé la bordure active ne s'affiche pas */
   border: 1px solid transparent;
-  /* État de repos (mode continu) : gris clair/foncé selon le thème, uniquement l'état
-     actif reste coloré (orange) - même logique que PressButton (mode ponctuel) */
-  background-color: #E5E7EB !important;
+  /* État de repos (mode continu) : gris clair/foncé selon le thème via le token
+     --button-rest-bg, uniquement l'état actif reste coloré (orange) -
+     même logique que PressButton (mode ponctuel) */
+  background-color: var(--button-rest-bg) !important;
   color: var(--text) !important;
   font-weight: normal;
-}
-
-.body--dark .switch-button {
-  background-color: var(--neutral-lower) !important;
 }
 
 .switch-button:hover:not(.disabled-button):not(.active) {

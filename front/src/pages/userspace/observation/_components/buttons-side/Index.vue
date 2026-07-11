@@ -6,8 +6,9 @@
       </div>
       <q-space />
       <div class="col-auto">
-        <q-btn 
-          :icon="state.isResetting ? 'mdi-loading mdi-spin' : 'mdi-restart'" 
+        <q-btn
+          class="reset-categories-btn"
+          :icon="state.isResetting ? 'mdi-loading mdi-spin' : 'mdi-restart'"
           :color="state.isResetting ? 'accent' : 'grey-7'"
           flat
           round
@@ -699,5 +700,12 @@ export default defineComponent({
 
 .body--dark .no-data .q-icon {
   color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Bouton "reset" : au repos Quasar applique .text-grey-7 (gris fixe #616161,
+   ~2.4:1 sur fond sombre). En thème sombre on le passe en blanc semi-transparent.
+   Limité à .text-grey-7 pour ne pas écraser la variante accent pendant le reset. */
+.body--dark .reset-categories-btn.text-grey-7 {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 </style>
