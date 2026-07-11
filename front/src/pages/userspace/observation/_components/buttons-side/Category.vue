@@ -51,7 +51,7 @@
       :title="$t('observation.resizeCategoryTooltip')"
       @mousedown.stop.prevent="methods.handleResizeStart"
     >
-      <q-icon name="mdi-resize-bottom-right" size="18px" />
+      <q-icon name="mdi-resize-bottom-right" class="resize-handle-icon" />
     </div>
   </q-card>
 </template>
@@ -505,12 +505,18 @@ export default defineComponent({
   color: var(--accent, #f97316);
 }
 
+/* Icône de la poignée : scale avec --ui-scale (défaut 18px = taille native). */
+.resize-handle-icon {
+  font-size: calc(18px * var(--ui-scale, 1));
+}
+
 .body--dark .resize-handle {
   color: rgba(255, 255, 255, 0.55);
 }
 
 .category-header {
-  padding-bottom: 8px;
+  padding: calc(16px * var(--ui-scale, 1));
+  padding-bottom: calc(8px * var(--ui-scale, 1));
   border-bottom: 1px solid #eaeaea;
 }
 
@@ -522,10 +528,17 @@ export default defineComponent({
   display: flex;
   align-items: center;
   font-weight: 500;
+  /* Scale du titre avec --ui-scale (posé par le dashboard sur .categories-wrapper).
+     On cible le .text-subtitle1 interne pour ne pas casser l'héritage Quasar. */
+}
+
+.category-title .text-subtitle1 {
+  font-size: calc(1rem * var(--ui-scale, 1));
 }
 
 .category-description {
   color: #666;
+  font-size: calc(12px * var(--ui-scale, 1));
 }
 
 .body--dark .category-description {
@@ -535,11 +548,15 @@ export default defineComponent({
 }
 
 .category-content {
-  padding-top: 12px;
+  padding: calc(16px * var(--ui-scale, 1));
+  padding-top: calc(12px * var(--ui-scale, 1));
 }
 
 .drag-handle {
   cursor: grab;
+  /* Scale du bouton drag avec --ui-scale. q-btn dense suit font-size
+     (min-height 2em, padding em). À scale=1 = taille native. */
+  font-size: calc(14px * var(--ui-scale, 1));
 }
 
 .buttons-container {

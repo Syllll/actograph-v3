@@ -39,14 +39,12 @@
           v-for="observable in category.children"
           :key="observable.id"
           :label="observable.name"
-          :color="activeObservableByCategory[category.id] === observable.name ? 'accent-strong' : 'grey-6'"
-          :text-color="activeObservableByCategory[category.id] === observable.name ? 'white' : 'dark'"
-          :outline="activeObservableByCategory[category.id] !== observable.name"
+          :class="{ 'is-active': activeObservableByCategory[category.id] === observable.name }"
           :disable="continuousObservablesDisabled"
           rounded
           unelevated
           no-caps
-          class="observable-btn-small"
+          class="observable-btn-small observable-btn-rest"
           @click="onToggleObservable ? onToggleObservable(category, observable) : undefined"
         />
       </div>
@@ -56,16 +54,17 @@
         <q-btn
           v-for="observable in category.children"
           :key="observable.id"
-          :label="observable.name"
-          color="grey-6"
-          text-color="dark"
-          outline
+          :class="{ 'is-pressed': state.pressedId === observable.id }"
           :disable="discreteObservablesDisabled"
           rounded
+          unelevated
           no-caps
-          class="observable-btn-small"
-          @click="onPressObservable ? onPressObservable(observable) : undefined"
-        />
+          class="observable-btn-small observable-btn-rest"
+          @click="methods.handlePress(observable)"
+        >
+          <q-icon name="mdi-target" class="press-target" left />
+          <span class="press-label">{{ observable.name }}</span>
+        </q-btn>
       </div>
     </q-card-section>
 
@@ -104,6 +103,11 @@ interface ResizeState {
   isResizing: boolean;
   startTouchX: number;
   startWidth: number;
+}
+
+interface PressState {
+  // ID de l'observable ponctuel actuellement "pressé" (flash orange ~200ms).
+  pressedId: number | null;
 }
 
 export default defineComponent({
@@ -234,13 +238,14 @@ export default defineComponent({
     // State
     // ========================================================================
 
-    const state = reactive<DragState & ResizeState>({
+    const state = reactive<DragState & ResizeState & PressState>({
       isDragging: false,
       startTouch: { x: 0, y: 0 },
       initialPosition: { x: 0, y: 0 },
       isResizing: false,
       startTouchX: 0,
       startWidth: 0,
+      pressedId: null,
     });
 
     // ========================================================================
@@ -326,6 +331,22 @@ export default defineComponent({
 
         state.isDragging = false;
         emit('dragEnd', props.category.id);
+      },
+
+      /**
+       * Handle press on a discrete observable : flash orange (~200ms) comme sur
+       * desktop (PressButton), pour indiquer visuellement le "push". Déclenche
+       * ensuite le handler onPressObservable fourni par le parent.
+       */
+      handlePress: (observable: IProtocolItemWithChildren) => {
+        if (props.discreteObservablesDisabled) return;
+        state.pressedId = observable.id as unknown as number;
+        if (props.onPressObservable) props.onPressObservable(observable);
+        setTimeout(() => {
+          if (state.pressedId === (observable.id as unknown as number)) {
+            state.pressedId = null;
+          }
+        }, 200);
       },
 
       // ----------------------------------------------------------------------
@@ -506,6 +527,50 @@ export default defineComponent({
     font-size: calc(14px * var(--ui-scale, 1));
     padding: calc(10px * var(--ui-scale, 1)) calc(12px * var(--ui-scale, 1));
     min-height: calc(48px * var(--ui-scale, 1));
+  }
+
+  // Aspect des boutons d'observable aligné sur le desktop (front/) :
+  // - repos : fond --button-rest-bg (gris clair #e8e8ec / sombre #445a78),
+  //   texte --text (noir/blanc selon thème)
+  // - actif (continu) / pressé (ponctuel) : fond --accent-strong (#c2410c),
+  //   texte blanc, flash ~200ms pour le ponctuel
+  // - ponctuel : icône cible mdi-target à gauche (cf. desktop PressButton)
+  .observable-btn-rest {
+    background-color: var(--button-rest-bg) !important;
+    color: var(--text) !important;
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+
+    &.is-active {
+      background-color: var(--accent-strong) !important;
+      color: white !important;
+      box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+      font-weight: 600;
+    }
+
+    &.is-pressed {
+      background-color: var(--accent-strong) !important;
+      color: white !important;
+      box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
+
+      .press-target {
+        opacity: 1;
+        transform: scale(1.15);
+      }
+    }
+  }
+
+  .press-target {
+    margin-right: calc(6px * var(--ui-scale, 1));
+    font-size: calc(16px * var(--ui-scale, 1));
+    opacity: 0.7;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .press-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   // Poignée de redimensionnement (coin bas-droit).

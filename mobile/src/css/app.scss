@@ -44,6 +44,11 @@ $modernDarkGrey: #1f2937;
   --text-invert: #{$white};
   --background: #{$white};
   --background-dark: #{$modernDarkGrey};
+  // Fond de repos des boutons d'observable (PressButton & SwitchButton).
+  // Aligné sur front/src/css/_colors.scss : gris clair (#e8e8ec) en thème clair,
+  // surface sombre en thème sombre. État actif = --accent-strong (#c2410c).
+  --button-rest-bg: #e8e8ec;
+  --button-rest-bg-dark: #{$slate};
 }
 
 // Quasar injects the --q-accent-strong brand variable from quasar.config.js but
@@ -67,6 +72,9 @@ body.body--dark {
   --text-disabled: #64748b;
   --text-invert: #{$black};
   --background: #{$modernDarkGrey};
+  // Fond de repos des boutons en thème sombre : surface sombre lisible
+  // avec texte blanc. Aligné sur front (darken-compat($slate, 30)).
+  --button-rest-bg: #445a78;
 
   .bg-white {
     background-color: $dark-surface !important;

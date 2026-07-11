@@ -1,5 +1,9 @@
 <template>
-  <div></div>
+  <div class="fit column items-center justify-center q-pa-md text-grey-7">
+    <q-icon name="mdi-alert-circle-outline" size="48px" />
+    <div class="text-h6 q-mt-md">Page introuvable</div>
+    <div class="text-caption q-mt-xs">{{ currentPath }}</div>
+  </div>
   <!--<div
     class="fullscreen bg-blue text-white text-center q-pa-md flex flex-center"
   >
@@ -22,7 +26,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 export default defineComponent({
   name: 'ErrorNotFound',
@@ -31,7 +35,9 @@ export default defineComponent({
     const route = useRoute();
 
     console.log('current route url: ', router.currentRoute.value.fullPath);
+    const currentPath = computed(() => router.currentRoute.value.fullPath);
     return {
+      currentPath,
       goHome() {
         router.push('/home');
       },

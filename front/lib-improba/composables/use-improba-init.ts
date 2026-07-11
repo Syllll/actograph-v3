@@ -8,10 +8,19 @@ import { Router } from 'vue-router';
 // en hash mode `#/popup/<component>?observationId=...`. Elle partage le même SPA
 // et donc le même boot : il faut préserver son hash au lieu de le rediriger vers
 // le gateway comme la fenêtre principale.
-const isPopupWindow = (): boolean =>
-  typeof window !== 'undefined' &&
-  !!window.location &&
-  window.location.hash.startsWith('#/popup/');
+//
+// On teste À LA FOIS window.location.hash et window.location.href : selon le
+// timing de Electron (parse de l'URL file:// + query avant le hash), le hash
+// peut ne pas encore être peuplé au moment du boot. Le fallback sur href
+// évite qu'initRouteQuery() écrase #/popup/ et renvoie la fenêtre sur une
+// route 404 vide (écran blanc).
+const isPopupWindow = (): boolean => {
+  if (typeof window === 'undefined' || !window.location) return false;
+  if (window.location.hash && window.location.hash.startsWith('#/popup/')) {
+    return true;
+  }
+  return window.location.href.includes('#/popup/');
+};
 
 // Init improba composables that need to be initialized at the start of the app
 export const useImprobaInit = async (quasar: QVueGlobals, router: Router) => {

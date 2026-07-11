@@ -162,6 +162,36 @@ async function createWindow() {
     mainWindow?.show();
   });
 
+  // Pop-out (vidéo / boutons) ouverts via window.open() depuis le renderer.
+  // Sans setWindowOpenHandler, Electron crée la fenêtre fille avec des
+  // webPreferences par défaut : pas de preload (window.api absent) et
+  // webSecurity: true (les appels HTTP file:// -> http://127.0.0.1:serverPort
+  // sont bloqués). Résultat : le SPA boote mais ne peut s'authentifier ni
+  // charger l'observation => fenêtre blanche.
+  // On surcharge les webPreferences pour aligner sur la fenêtre principale.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // Les liens externes (http/https) ne doivent pas s'ouvrir dans une
+    // fenêtre Electron : on les confie au navigateur système.
+    if (/^https?:\/\//i.test(url)) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        webPreferences: {
+          contextIsolation: true,
+          preload: path.resolve(
+            __dirname,
+            process.env.QUASAR_ELECTRON_PRELOAD || ''
+          ),
+          webSecurity: false,
+          backgroundThrottling: false,
+        },
+      },
+    };
+  });
+
   // Load the URL with query parameters
   const loadPromise = mainWindow.loadURL(
     <string>process.env.APP_URL +
