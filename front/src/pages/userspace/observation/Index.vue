@@ -189,13 +189,20 @@ export default defineComponent({
 
       const left = window.screenX + 50;
       const top = window.screenY + 50;
-      // On retire `targetRoute` de la search string héritée de la fenêtre
-      // principale : ce paramètre redirigerait le pop-out vers /gateway (accueil)
-      // au boot. On garde `serverPort` (nécessaire pour joindre l'API locale).
-      const baseBeforeHash = window.location.href.split('#')[0];
-      const url = new URL(baseBeforeHash);
-      url.searchParams.delete('targetRoute');
-      const baseUrl = url.toString();
+      // On reconstruit une URL propre pour le pop-out à partir de l'origin de
+      // l'app, plutôt que de réutiliser la search string héritée (qui contient
+      // `targetRoute=/gateway` -> redirigerait le pop-out vers l'accueil au boot,
+      // et `serverPort=undefined` en dev -> pollue l'URL). On ne conserve
+      // `serverPort` que s'il s'agit d'un port réel (mode prod Electron, où l'API
+      // tourne sur 127.0.0.1:serverPort). En dev, http.utils tombe sur API_URL
+      // et n'a pas besoin de serverPort.
+      const appUrl = new URL(window.location.href);
+      const cleanUrl = new URL(appUrl.origin + appUrl.pathname);
+      const serverPort = appUrl.searchParams.get('serverPort');
+      if (serverPort && /^\d+$/.test(serverPort)) {
+        cleanUrl.searchParams.set('serverPort', serverPort);
+      }
+      const baseUrl = cleanUrl.toString();
       const popup = window.open(
         `${baseUrl}#/popup/${component}?observationId=${observationId}`,
         `actograph-${component}`,

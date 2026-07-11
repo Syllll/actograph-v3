@@ -169,27 +169,59 @@ async function createWindow() {
   // sont bloqués). Résultat : le SPA boote mais ne peut s'authentifier ni
   // charger l'observation => fenêtre blanche.
   // On surcharge les webPreferences pour aligner sur la fenêtre principale.
+  //
+  // IMPORTANT : en mode dev, l'app elle-même est servie en http://localhost:PORT.
+  // Il ne faut donc PAS rediriger tous les http(s):// vers le navigateur système,
+  // sinon le pop-out (http://localhost:PORT/#/popup/...) s'ouvre dans Chrome =>
+  // "onglet chrome" + échec d'auth/chargement (pas d'accès au backend). On
+  // n'envo vers shell.openExternal que les URLs vraiment externes (autre origine
+  // que l'app). Les pop-out de l'app (dev http://localhost:PORT, prod file://)
+  // deviennent des fenêtres Electron propres.
+  const appOrigin = (() => {
+    try {
+      return new URL(String(process.env.APP_URL || '')).origin;
+    } catch {
+      return String(process.env.APP_URL || '');
+    }
+  })();
+  const safeOrigin = (raw: string): string => {
+    try {
+      return new URL(raw).origin;
+    } catch {
+      return '';
+    }
+  };
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Les liens externes (http/https) ne doivent pas s'ouvrir dans une
-    // fenêtre Electron : on les confie au navigateur système.
+    const isFileUrl = url.startsWith('file://');
+    const isAppUrl = appOrigin.length > 0 && safeOrigin(url) === appOrigin;
+
+    if (isFileUrl || isAppUrl) {
+      // Pop-out de l'app => fenêtre Electron propre, mêmes webPreferences que
+      // la fenêtre principale (preload pour window.api, webSecurity:false pour
+      // autoriser les appels vers le backend local sans CORS).
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          autoHideMenuBar: true,
+          webPreferences: {
+            contextIsolation: true,
+            preload: path.resolve(
+              __dirname,
+              process.env.QUASAR_ELECTRON_PRELOAD || ''
+            ),
+            webSecurity: false,
+            backgroundThrottling: false,
+          },
+        },
+      };
+    }
+
+    // URL vraiment externe (http/https hors app) => navigateur système, pas
+    // une fenêtre Electron.
     if (/^https?:\/\//i.test(url)) {
       shell.openExternal(url);
-      return { action: 'deny' };
     }
-    return {
-      action: 'allow',
-      overrideBrowserWindowOptions: {
-        webPreferences: {
-          contextIsolation: true,
-          preload: path.resolve(
-            __dirname,
-            process.env.QUASAR_ELECTRON_PRELOAD || ''
-          ),
-          webSecurity: false,
-          backgroundThrottling: false,
-        },
-      },
-    };
+    return { action: 'deny' };
   });
 
   // Load the URL with query parameters
