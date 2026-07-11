@@ -71,6 +71,16 @@
         >
           <q-tooltip>{{ $t('graphUi.tooltipExportLegendPng') }}</q-tooltip>
         </q-btn>
+        <q-btn
+          flat
+          round
+          dense
+          icon="mdi-format-list-bulleted-type"
+          color="grey-8"
+          @click="methods.exportLegendAsJpeg"
+        >
+          <q-tooltip>{{ $t('graphUi.tooltipExportLegendJpeg') }}</q-tooltip>
+        </q-btn>
       </div>
     </div>
 
@@ -201,7 +211,10 @@ export default defineComponent({
         }
         await methods.saveImageFile(dataUrl, 'jpeg');
       },
-      exportLegendAsPng: async () => {
+      // Construit le canvas de légende (noms de catégories/observables + pastilles
+      // de couleur). Partagé par les exports PNG et JPEG de la légende, pour que
+      // les deux formats contiennent toujours exactement le même contenu.
+      buildLegendCanvas: (): HTMLCanvasElement | null => {
         const protocol = observation.protocol.sharedState.currentProtocol as any;
         const items = protocol?._items || [];
         if (!Array.isArray(items) || items.length === 0) {
@@ -209,7 +222,7 @@ export default defineComponent({
             type: 'warning',
             message: t('graphUi.noLegendToExport'),
           });
-          return;
+          return null;
         }
 
         const rows: Array<{ label: string; color: string; isCategory?: boolean }> = [];
@@ -217,7 +230,11 @@ export default defineComponent({
           if (String(category?.type ?? '').toLowerCase() !== 'category') continue;
           const categoryColor = category?.graphPreferences?.color || DEFAULT_GRAPH_COLOR;
           rows.push({
-            label: t('graphUi.legendCategoryPrefix', { name: category.name }),
+            // Le nom de la catégorie est une donnée utilisateur, pas un texte à
+            // traduire : on l'affiche directement plutôt que de passer par la clé
+            // i18n legendCategoryPrefix ('{name}'), qui ne s'interpolait jamais et
+            // affichait donc littéralement "{name}" dans la légende exportée.
+            label: category.name,
             color: categoryColor,
             isCategory: true,
           });
@@ -235,7 +252,7 @@ export default defineComponent({
             type: 'warning',
             message: t('graphUi.noLegendToExport'),
           });
-          return;
+          return null;
         }
 
         const rowHeight = 28;
@@ -252,9 +269,11 @@ export default defineComponent({
             type: 'negative',
             message: t('graphUi.legendImageFailed'),
           });
-          return;
+          return null;
         }
 
+        // Fond blanc opaque : indispensable pour le JPEG (pas de transparence),
+        // et cohérent avec le rendu PNG existant.
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
         ctx.strokeStyle = '#d1d5db';
@@ -279,8 +298,19 @@ export default defineComponent({
           }
         });
 
+        return legendCanvas;
+      },
+      exportLegendAsPng: async () => {
+        const legendCanvas = methods.buildLegendCanvas();
+        if (!legendCanvas) return;
         const dataUrl = legendCanvas.toDataURL('image/png');
         await methods.saveImageFile(dataUrl, 'png');
+      },
+      exportLegendAsJpeg: async () => {
+        const legendCanvas = methods.buildLegendCanvas();
+        if (!legendCanvas) return;
+        const dataUrl = legendCanvas.toDataURL('image/jpeg', 0.92);
+        await methods.saveImageFile(dataUrl, 'jpeg');
       },
       saveImageFile: async (dataUrl: string, format: 'png' | 'jpeg') => {
         const observationName =
