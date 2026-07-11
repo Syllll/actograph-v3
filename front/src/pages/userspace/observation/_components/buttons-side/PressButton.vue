@@ -73,6 +73,13 @@ export default defineComponent({
   color: var(--text) !important;
 }
 
+/* En thème sombre, --text devient blanc : on garde la variable d'origine
+   (déjà adaptée au thème sombre) plutôt que le gris clair fixe ci-dessus,
+   sinon le texte blanc devient illisible sur fond gris clair */
+.body--dark .press-button {
+  background-color: var(--neutral-lower) !important;
+}
+
 /* État actif au clic : orange identique au mode continu (var(--accent)) */
 .press-button.is-active {
   background-color: var(--accent) !important;
