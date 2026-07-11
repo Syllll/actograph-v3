@@ -67,10 +67,7 @@
               <div class="text-weight-medium q-mb-sm">{{ $t('graphUi.exportSectionFormat') }}</div>
               <div class="row q-gutter-sm q-mb-md">
                 <q-btn
-                  v-for="opt in [
-                    { label: 'PNG', value: 'png' },
-                    { label: 'JPEG', value: 'jpeg' },
-                  ]"
+                  v-for="opt in exportFormatOptions"
                   :key="opt.value"
                   :label="opt.label"
                   :color="exportSelection.format === opt.value ? 'primary' : 'grey-3'"
@@ -171,10 +168,21 @@ export default defineComponent({
     });
 
     // Sélection courante du panneau d'export : contenu × format, indépendants.
-    const exportSelection = reactive({
-      content: 'graph' as 'graph' | 'legend' | 'combined',
-      format: 'png' as 'png' | 'jpeg',
+    type ExportFormat = 'png' | 'jpeg';
+    type ExportContent = 'graph' | 'legend' | 'combined';
+
+    const exportSelection = reactive<{
+      content: ExportContent;
+      format: ExportFormat;
+    }>({
+      content: 'graph',
+      format: 'png',
     });
+
+    const exportFormatOptions: Array<{ label: string; value: ExportFormat }> = [
+      { label: 'PNG', value: 'png' },
+      { label: 'JPEG', value: 'jpeg' },
+    ];
 
     // Composable pour accéder au nom de l'observation courante (pour le nom du fichier exporté)
     const observation = useObservation();
@@ -445,6 +453,7 @@ export default defineComponent({
       canvasRef,
       state,
       exportSelection,
+      exportFormatOptions,
       methods,
       customization,
       props,
