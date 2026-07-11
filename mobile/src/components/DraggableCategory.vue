@@ -498,7 +498,10 @@ export default defineComponent({
 
   .category-content {
     min-height: calc(56px * var(--ui-scale, 1));
-    background: white;
+    // Fond hérité de la carte (.draggable-category) : blanc en thème clair,
+    // surface sombre en thème sombre. Ne PAS hardcoder white ici, sinon le
+    // contenu reste blanc en mode sombre (boutons sombres sur fond blanc).
+    background: transparent;
   }
 
   .observables-list {
