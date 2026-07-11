@@ -67,6 +67,11 @@ export default defineComponent({
      donc ils suivent font-size automatiquement. À scale=1 (14px) on retrouve
      exactement la taille native, sans changement visuel par défaut. */
   font-size: calc(14px * var(--ui-scale, 1)) !important;
+  /* Bouton à largeur de contenu dans un conteneur en row : ne s'étire pas quand
+     la catégorie est élargie (flex: 0 0 auto), caps à 100% pour ne pas déborder. */
+  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .switch-button:hover:not(.disabled-button):not(.active) {

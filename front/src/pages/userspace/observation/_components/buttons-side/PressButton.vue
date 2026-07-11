@@ -78,6 +78,19 @@ export default defineComponent({
      font-size : Quasar dense (padding 0.285em, min-height 2em) suit font-size.
      À scale=1 (14px) = taille native, aucun changement par défaut. */
   font-size: calc(14px * var(--ui-scale, 1)) !important;
+  /* Bouton à largeur de contenu dans un conteneur en row : ne s'étire pas quand
+     la catégorie est élargie (flex: 0 0 auto), caps à 100% pour ne pas déborder,
+     et les libellés longs tronquent (ellipsis) plutôt que d'agrandir le bouton. */
+  flex: 0 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.press-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 /* Indicateur « cible » : signale que le bouton est de type push (ponctuel).

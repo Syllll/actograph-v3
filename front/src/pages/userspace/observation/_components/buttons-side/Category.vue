@@ -22,7 +22,7 @@
     </q-card-section>
 
     <q-card-section class="category-content">
-      <div v-if="computedState.isContinuous.value" class="buttons-container row q-gutter-y-sm">
+      <div v-if="computedState.isContinuous.value" class="buttons-container row q-gutter-x-sm q-gutter-y-sm">
         <SwitchButton
           v-for="observable in category.children"
           :key="observable.id"
@@ -33,7 +33,7 @@
         />
       </div>
 
-      <div v-else class="buttons-container column q-gutter-y-sm">
+      <div v-else class="buttons-container row q-gutter-x-sm q-gutter-y-sm">
         <PressButton
           v-for="observable in category.children"
           :key="observable.id"
@@ -544,6 +544,9 @@ export default defineComponent({
 
 .buttons-container {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  /* flex-direction laissé à la classe Quasar (row) : les observables se
+     disposent en ligne et passent à la ligne quand la catégorie est étroite,
+     et s'alignent sur plusieurs colonnes quand on l'élargit. */
 }
 </style> 
