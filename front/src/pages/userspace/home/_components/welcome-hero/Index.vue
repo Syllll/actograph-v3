@@ -103,7 +103,7 @@ export default defineComponent({
   }
   border-radius: 0.75rem;
   border: 1px solid $grey-4;
- // Fond adapté au thème (clair/sombre) au lieu d'un blanc fixe, qui rendait
+  // Fond adapté au thème (clair/sombre) au lieu d'un blanc fixe, qui rendait
   // le texte illisible en thème sombre (retour bêta-test, "noir sur noir").
   background: var(--secondary);
   color: var(--text);
@@ -114,5 +114,10 @@ export default defineComponent({
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     transform: translateY(-2px);
   }
+}
+
+/* Captions : .text-grey-6 est un gris Quasar fixe, illisible sur var(--secondary) en sombre */
+.body--dark .action-card .text-grey-6 {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 </style>
