@@ -72,18 +72,20 @@ export default defineComponent({
   transform: translateY(-1px);
 }
 
-/* Bug 2.1 : État actif plus visible - contraste renforcé */
+/* Bug 2.1 : État actif plus visible - contraste renforcé.
+   Fond --accent-strong (#c2410c, orange plus foncé) pour que le texte blanc
+   atteigne ~5.2:1 (AA), au lieu de --accent (#f97316) qui ne donnait que ~2.8:1. */
 .switch-button.active {
-  background-color: var(--accent) !important;
+  background-color: var(--accent-strong) !important;
   color: white !important;
-  border-color: var(--accent) !important;
+  border-color: var(--accent-strong) !important;
   border-width: 2px !important;
   box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
   font-weight: 600;
 }
 
 .switch-button.active:hover:not(.disabled-button) {
-  background-color: var(--accent) !important;
+  background-color: var(--accent-strong) !important;
   opacity: 0.95;
   box-shadow: 0 3px 10px rgba(249, 115, 22, 0.5);
 }

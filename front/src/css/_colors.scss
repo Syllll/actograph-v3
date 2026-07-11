@@ -29,6 +29,11 @@ $modernDarkGrey: #1f2937;
 
 // Apply color variations using our mixin
 @include defineColorVariations('accent', $orange);
+// Accent plus foncé pour les fonds portant du texte blanc (états actifs).
+// Blanc sur --accent (#f97316) = ~2.8:1 (sous AA 4.5:1) ;
+// blanc sur --accent-strong (#c2410c) = ~5.2:1 (AA ok).
+// Aligné sur la refonte WCAG mobile « accent-strong ».
+@include defineColorLightAndDark('accent-strong', #c2410c, #c2410c);
 @include defineColorVariations('primary', $modernDarkGrey);
 @include defineColorVariationsLightAndDark(
   'secondary',

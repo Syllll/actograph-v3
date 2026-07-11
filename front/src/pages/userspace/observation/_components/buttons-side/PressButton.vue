@@ -84,10 +84,12 @@ export default defineComponent({
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-/* État actif au clic : flash orange identique au mode continu (var(--accent)),
-   texte blanc, et la cible se « charge » (opacité pleine + léger zoom). */
+/* État actif au clic : flash orange identique au mode continu (var(--accent-strong)),
+   texte blanc, et la cible se « charge » (opacité pleine + léger zoom).
+   --accent-strong (#c2410c) plutôt que --accent (#f97316) : blanc dessus = ~5.2:1
+   (AA) au lieu de ~2.8:1. */
 .press-button.is-active {
-  background-color: var(--accent) !important;
+  background-color: var(--accent-strong) !important;
   color: white !important;
   box-shadow: 0 2px 8px rgba(249, 115, 22, 0.4);
 }
