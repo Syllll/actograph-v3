@@ -313,6 +313,10 @@ export class BaseRepository<
           ${myCondValue}
         `;
 
+        if (cond.operator === OperatorEnum.LIKE) {
+          whereContent = `${whereContent.trim()} ESCAPE '\\'`;
+        }
+
         // Create the whereOptions object that will be used to insert the value used by condition
         let whereOptions: any = {};
         whereOptions[myCondName] = cond.value;

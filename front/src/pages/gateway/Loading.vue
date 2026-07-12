@@ -48,6 +48,7 @@ import { useRouter } from 'vue-router';
 import { useAuth } from '@lib-improba/composables/use-auth';
 import securityService from '@services/security/index.service';
 import { useStartupLoading } from 'src/composables/use-startup-loading';
+import { deriveElectronLocalPassword } from '@actograph/core';
 
 // window.api type is already declared in lib-improba/boot/lib-improba.ts
 
@@ -149,7 +150,10 @@ export default defineComponent({
       const localUserName = await securityService.getLocalUserName();
 
       try {
-        await auth.methods.login(localUserName, localUserName.split('-')[1]);
+        await auth.methods.login(
+          localUserName,
+          deriveElectronLocalPassword(localUserName),
+        );
       } catch (error) {
         state.error = t('gateway.initAuthError');
         state.loading = false;

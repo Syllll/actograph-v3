@@ -35,8 +35,55 @@ const sharedState = reactive({
 
 // Ensure we do not run multiple synchronization loops or overlapping syncs
 let isSyncInFlight = false;
+let syncPending = false;
 let hasStartedSyncLoop = false;
 let syncTimeoutId: number | null = null;
+
+const READINGS_PAGE_SIZE = 1000;
+
+const cloneReadingSnapshot = (reading: IReading): IReading => ({
+  ...reading,
+  dateTime: new Date(reading.dateTime),
+  createdAt: reading.createdAt instanceof Date
+    ? reading.createdAt
+    : reading.createdAt
+      ? new Date(reading.createdAt)
+      : undefined,
+  updatedAt: reading.updatedAt instanceof Date
+    ? reading.updatedAt
+    : reading.updatedAt
+      ? new Date(reading.updatedAt)
+      : undefined,
+});
+
+const findInitialReadingIndex = (reading: IReading): number =>
+  stateless.initialReadings.findIndex((initial) => {
+    if (reading.tempId && initial.tempId && reading.tempId === initial.tempId) {
+      return true;
+    }
+    if (reading.id && initial.id && reading.id === initial.id) {
+      return true;
+    }
+    return false;
+  });
+
+const upsertInitialReading = (reading: IReading): void => {
+  const snapshot = cloneReadingSnapshot(reading);
+  const index = findInitialReadingIndex(reading);
+  if (index >= 0) {
+    stateless.initialReadings[index] = snapshot;
+  } else {
+    stateless.initialReadings.push(snapshot);
+  }
+};
+
+const removeInitialReadingsByIds = (ids: number[]): void => {
+  if (ids.length === 0) return;
+  const idSet = new Set(ids);
+  stateless.initialReadings = stateless.initialReadings.filter(
+    (reading) => !reading.id || !idSet.has(reading.id),
+  );
+};
 
 // Garde pour n'installer qu'une seule fois la synchronisation inter-fenêtres.
 let hasSetupWindowSync = false;
@@ -80,18 +127,29 @@ export const useReadings = (options: {
      * @returns Promise that resolves when readings are loaded
      */
     loadReadings: async (observation: IObservation) => {
-      const r = await readingService.findWithPagination(
-        {
-          offset: 0,
-          limit: 999999, // Request all readings (large limit)
-          order: 'ASC',
-          orderBy: 'dateTime',
-        },
-        {
-          observationId: observation.id,
+      const readings: IReading[] = [];
+      let offset = 0;
+      let totalCount = Number.POSITIVE_INFINITY;
+
+      while (offset < totalCount) {
+        const page = await readingService.findWithPagination(
+          {
+            offset,
+            limit: READINGS_PAGE_SIZE,
+            order: 'ASC',
+            orderBy: 'dateTime',
+          },
+          {
+            observationId: observation.id,
+          },
+        );
+        readings.push(...page.results);
+        totalCount = page.count;
+        if (page.results.length === 0) {
+          break;
         }
-      );
-      const readings = r.results;
+        offset += page.results.length;
+      }
       
       // Convert dateTime strings to Date objects
       const readingsWithDates = readings.map((reading: IReading) => ({
@@ -109,22 +167,7 @@ export const useReadings = (options: {
             : undefined,
       }));
       
-      // Deep copy to ensure initialReadings is independent from currentReadings
-      // This prevents modifications to currentReadings from affecting initialReadings
-      stateless.initialReadings = readingsWithDates.map((r) => ({
-        ...r,
-        dateTime: new Date(r.dateTime),
-        createdAt: r.createdAt instanceof Date 
-          ? r.createdAt 
-          : r.createdAt 
-            ? new Date(r.createdAt)
-            : undefined,
-        updatedAt: r.updatedAt instanceof Date 
-          ? r.updatedAt 
-          : r.updatedAt 
-            ? new Date(r.updatedAt)
-            : undefined,
-      }));
+      stateless.initialReadings = readingsWithDates.map(cloneReadingSnapshot);
       sharedState.currentReadings = readingsWithDates;
     },
     
@@ -142,12 +185,21 @@ export const useReadings = (options: {
      */
     synchronizeReadings: async () => {
       if (isSyncInFlight) {
+        syncPending = true;
         return;
       }
+      const syncObservationId = options.sharedStateFromObservation.currentObservation?.id ?? null;
       isSyncInFlight = true;
       try {
       // Make a local copy of the current readings
       const currentReadings = [...sharedState.currentReadings];
+
+      const isStaleSync = () =>
+        syncObservationId !== (options.sharedStateFromObservation.currentObservation?.id ?? null);
+
+      if (isStaleSync()) {
+        return;
+      }
 
       const doesReadingExistInInitialReadings = (reading: IReading) => {
         return stateless.initialReadings.some((initial) => {
@@ -271,6 +323,9 @@ export const useReadings = (options: {
           }),
           'creating new readings'
         );
+        if (isStaleSync()) {
+          return;
+        }
         // Merge server-assigned IDs into local state using tempId
         if (Array.isArray(created)) {
           for (const createdReading of created) {
@@ -284,6 +339,7 @@ export const useReadings = (options: {
                 createdAt: createdReading.createdAt ?? sharedState.currentReadings[idx].createdAt,
                 updatedAt: createdReading.updatedAt ?? sharedState.currentReadings[idx].updatedAt,
               } as IReading;
+              upsertInitialReading(sharedState.currentReadings[idx]);
             }
           }
         }
@@ -308,6 +364,15 @@ export const useReadings = (options: {
           }),
           'updating readings'
         );
+        if (isStaleSync()) {
+          return;
+        }
+        for (const reading of readingsToUpdate) {
+          const current = sharedState.currentReadings.find((r) => r.id === reading.id);
+          if (current) {
+            upsertInitialReading(current);
+          }
+        }
       }
 
       // Delete readings with retry logic (only those that have a persisted id)
@@ -321,26 +386,24 @@ export const useReadings = (options: {
           }),
           'deleting readings'
         );
+        if (isStaleSync()) {
+          return;
+        }
+        removeInitialReadingsByIds(
+          deletablesWithId.map((reading) => reading.id as number),
+        );
       }
 
-      // Update the initialReadings to match the current state after successful synchronization
-      // Deep copy to ensure initialReadings is independent from currentReadings
-      stateless.initialReadings = sharedState.currentReadings.map((r) => ({
-        ...r,
-        dateTime: new Date(r.dateTime),
-        createdAt: r.createdAt instanceof Date 
-          ? r.createdAt 
-          : r.createdAt 
-            ? new Date(r.createdAt)
-            : undefined,
-        updatedAt: r.updatedAt instanceof Date 
-          ? r.updatedAt 
-          : r.updatedAt 
-            ? new Date(r.updatedAt)
-            : undefined,
-      }));
+      // Alignement final avec l'état courant après synchronisation complète
+      if (!isStaleSync()) {
+        stateless.initialReadings = sharedState.currentReadings.map(cloneReadingSnapshot);
+      }
       } finally {
         isSyncInFlight = false;
+        if (syncPending) {
+          syncPending = false;
+          void methods.synchronizeReadings();
+        }
       }
     },
     
@@ -445,8 +508,12 @@ export const useReadings = (options: {
       // If a reading is selected, copy some of its properties (if not already specified)
       // and insert after it in the list
       if (sharedState.selectedReading) {
+        const selected = sharedState.selectedReading;
         const selectedIndex = sharedState.currentReadings.findIndex(
-          (r: IReading) => r.id === sharedState.selectedReading?.id
+          (r: IReading) =>
+            (selected.id != null && r.id === selected.id) ||
+            (selected.tempId != null && r.tempId === selected.tempId) ||
+            r === selected,
         );
         
         if (selectedIndex !== -1) {
@@ -702,8 +769,12 @@ export const useReadings = (options: {
     syncTimeoutId = window.setTimeout(async () => {
       syncTimeoutId = null;
       const start = new Date();
-      if (options.sharedStateFromObservation.currentObservation?.id && !options.sharedStateFromObservation.loading) {
-        await methods.synchronizeReadings();
+      try {
+        if (options.sharedStateFromObservation.currentObservation?.id && !options.sharedStateFromObservation.loading) {
+          await methods.synchronizeReadings();
+        }
+      } catch (error) {
+        console.error('Readings sync loop error:', error);
       }
       const end = new Date();
       const duration = end.getTime() - start.getTime();

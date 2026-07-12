@@ -98,7 +98,7 @@ Les fonctionnalités suivantes ont été implémentées et sont maintenant dispo
 - ✅ **#31** : Zoom et pan sur le graphique d'activité (molette souris, boutons, détection intelligente)
 
 📝 **Documentation détaillée** :
-- Statistiques : `docs/features/22-23-statistiques/22-23-statistiques.md`
+- Statistiques : `docs/features/20250115000000-22-23-statistiques-Sylvain-Meylan.md`
 - Autosave : `docs/features/27-autosave/27-autosave.md`
 
 ### 🟡 Priorité 2 : Améliorations importantes (P2-Should Have)
@@ -545,10 +545,11 @@ Les fonctionnalités suivantes ont été implémentées et sont maintenant dispo
   - ✅ Frontend : Service de statistiques (`front/src/services/observations/statistics.service.ts`)
   - ✅ Frontend : Composable `useStatistics` (`front/src/composables/use-statistics/index.ts`)
   - ✅ Vue globale avec tableau des statistiques générales (`front/src/pages/userspace/statistics/_components/GeneralStatisticsView.vue`)
-  - ✅ Calculs : Durée totale, durée d'observation (moins pauses), nombre de readings, pauses
+  - ✅ Calculs : Durée totale, durée d'observation (moins pauses par défaut), nombre de readings, pauses
+  - ✅ Option **« Traiter les pauses comme un état séparé »** (défaut activé) : pause comme état distinct ou transparente
   - ✅ Statistiques par catégorie : nombre d'observables actifs, durée totale
   - ✅ Logs détaillés pour le debugging
-  - 📝 **Documentation** : `docs/features/22-23-statistiques/22-23-statistiques.md`
+  - 📝 **Documentation** : `docs/features/20250115000000-22-23-statistiques-Sylvain-Meylan.md`
 
 ### #23 - ETQ user je peux voir les statistiques sous forme de diagrammes Par catégorie et Combinés
 - **Statut GitHub** : Backlog
@@ -561,10 +562,11 @@ Les fonctionnalités suivantes ont été implémentées et sont maintenant dispo
   - ✅ Histogramme (BarChart) pour les durées d'état "on" (`front/src/pages/userspace/statistics/_components/BarChart.vue`)
   - ✅ Mode avancé avec conditions (ET/OU) (`front/src/pages/userspace/statistics/_components/ConditionalStatisticsView.vue`)
   - ✅ Construction de conditions multiples avec opérateurs logiques
-  - ✅ Calcul des durées d'état "on" avec gestion des pauses
+  - ✅ Calcul des durées d'état "on" avec gestion des pauses (exclusion par défaut, option transparente)
+  - ✅ Camembert : segment « Pause » et dénominateur unifié (somme 100 %) en mode « état séparé »
   - ✅ Calcul des pourcentages par rapport à la durée totale d'observation
   - ✅ Interface complète avec onglets (Vue globale, Par catégorie, Mode avancé)
-  - 📝 **Documentation** : `docs/features/22-23-statistiques/22-23-statistiques.md`
+  - 📝 **Documentation** : `docs/features/20250115000000-22-23-statistiques-Sylvain-Meylan.md`
 
 ### #32 - ETQ user, je peux croiser les statistiques entre catégories et observables
 - **Statut GitHub** : Backlog

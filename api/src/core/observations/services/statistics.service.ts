@@ -10,6 +10,7 @@ import {
   calculateGeneralStatistics,
   calculateCategoryStatistics,
   calculateConditionalStatistics,
+  scopeReadingsForStatistics,
 } from '@actograph/core';
 import { GeneralStatisticsDto } from '../dtos/statistics-general.dto';
 import { CategoryStatisticsDto } from '../dtos/statistics-category.dto';
@@ -17,6 +18,18 @@ import {
   ConditionalStatisticsRequestDto,
   ConditionalStatisticsDto,
 } from '../dtos/statistics-conditional.dto';
+
+function parseProtocolItems(protocol: { items: string } | null | undefined): ProtocolItem[] {
+  if (!protocol?.items) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(protocol.items);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    throw new NotFoundException('Protocol data is corrupted and cannot be parsed');
+  }
+}
 
 /**
  * Normalize readings for video mode: clamp DATA reading timestamps to observation bounds.
@@ -30,27 +43,16 @@ function normalizeReadingsForStatistics(
   observationStart: Date;
   observationEnd: Date;
 } | null {
-  const sortedReadings = [...readings].sort(
-    (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
-  );
-  const startReadings = sortedReadings.filter(
-    (r) => r.type === ReadingTypeEnum.START,
-  );
-  const stopReadings = sortedReadings.filter(
-    (r) => r.type === ReadingTypeEnum.STOP,
-  );
-  if (startReadings.length === 0 || stopReadings.length === 0) {
+  const { scopedReadings, observationStart, observationEnd } =
+    scopeReadingsForStatistics(readings);
+
+  if (!observationStart || !observationEnd || scopedReadings.length === 0) {
     return null;
   }
-  const observationStart = new Date(
-    Math.min(...startReadings.map((r) => r.dateTime.getTime())),
-  );
-  const observationEnd = new Date(
-    Math.max(...stopReadings.map((r) => r.dateTime.getTime())),
-  );
+
   const startT = observationStart.getTime();
   const endT = observationEnd.getTime();
-  const normalizedReadings = sortedReadings.map((r) => {
+  const normalizedReadings = scopedReadings.map((r) => {
     if (r.type !== ReadingTypeEnum.DATA) {
       return r;
     }
@@ -110,9 +112,7 @@ export class StatisticsService {
     }
 
     // Parse protocol items
-    const protocolItems: ProtocolItem[] = observation.protocol
-      ? JSON.parse(observation.protocol.items)
-      : [];
+    const protocolItems = parseProtocolItems(observation.protocol);
 
     // Normalize readings for video mode (clamp DATA timestamps to observation bounds)
     const normalized = normalizeReadingsForStatistics(observation.readings);
@@ -153,7 +153,7 @@ export class StatisticsService {
         throw new NotFoundException('Protocol or readings not found');
       }
 
-      const protocolItems: ProtocolItem[] = JSON.parse(observation.protocol.items);
+      const protocolItems = parseProtocolItems(observation.protocol);
       const category = protocolItems.find(
         (item) => item.id === categoryId && item.type === ProtocolItemTypeEnum.Category,
       );
@@ -230,7 +230,7 @@ export class StatisticsService {
       throw new NotFoundException('Protocol or readings not found');
     }
 
-    const protocolItems: ProtocolItem[] = JSON.parse(observation.protocol.items);
+    const protocolItems = parseProtocolItems(observation.protocol);
 
     // Normalize readings for video mode (clamp DATA timestamps to observation bounds)
     const normalized = normalizeReadingsForStatistics(observation.readings);

@@ -15,7 +15,15 @@ import { BaseService } from '@utils/services/base.service';
 import {
   Observation,
 } from '../../entities/observation.entity';
-import { ObservationType, ObservationModeEnum } from '@actograph/core';
+import {
+  ObservationType,
+  ObservationModeEnum,
+  autoCorrectReadings,
+  ProtocolItemTypeEnum,
+  ProtocolItemActionEnum,
+  ReadingTypeEnum,
+  type IReading,
+} from '@actograph/core';
 import { ObservationRepository } from '../../repositories/obsavation.repository';
 import {
   IConditions,
@@ -32,7 +40,6 @@ import { ReadingService } from '../reading.service';
 import { Example } from './example';
 import { Export } from './export';
 import { Import } from './import';
-import { ProtocolItemTypeEnum, ProtocolItemActionEnum, ReadingTypeEnum } from '@actograph/core';
 import { ProtocolItem } from '../../entities/protocol.entity';
 
 @Injectable()
@@ -348,12 +355,18 @@ export class ObservationService extends BaseService<
     });
 
     // Copy readings from both observations
-    const allReadings: { name: string; type: ReadingTypeEnum; dateTime: Date }[] = [];
+    const allReadings: {
+      name: string;
+      description?: string;
+      type: ReadingTypeEnum;
+      dateTime: Date;
+    }[] = [];
 
     if (obs1.readings) {
       for (const r of obs1.readings) {
         allReadings.push({
           name: r.name ?? '',
+          description: r.description ?? '',
           type: r.type,
           dateTime: r.dateTime,
         });
@@ -363,6 +376,7 @@ export class ObservationService extends BaseService<
       for (const r of obs2.readings) {
         allReadings.push({
           name: r.name ?? '',
+          description: r.description ?? '',
           type: r.type,
           dateTime: r.dateTime,
         });
@@ -370,10 +384,29 @@ export class ObservationService extends BaseService<
     }
 
     if (allReadings.length > 0) {
+      const sortedReadings = allReadings.sort(
+        (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
+      );
+      const { correctedReadings } = autoCorrectReadings(
+        sortedReadings.map((reading) => ({
+          name: reading.name,
+          description: reading.description,
+          type: reading.type,
+          dateTime: reading.dateTime,
+        })) as IReading[],
+        true,
+      );
+
       await this.readingService.createMany(
-        allReadings.map((r) => ({
-          ...r,
+        correctedReadings.map((reading) => ({
+          name: reading.name ?? '',
+          description: reading.description ?? '',
           observationId: mergedObservation.id,
+          type: reading.type,
+          dateTime:
+            reading.dateTime instanceof Date
+              ? reading.dateTime
+              : new Date(reading.dateTime),
         })),
       );
     }

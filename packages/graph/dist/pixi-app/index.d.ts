@@ -1,5 +1,6 @@
 import { EventEmitter } from 'pixi.js';
-import type { IObservation, IProtocol, IGraphPreferences } from '@actograph/core';
+import type { IObservation, IProtocol, IGraphPreferences, IPeriod } from '@actograph/core';
+import type { IGraphRenderOptions } from '../types/graph-render-options';
 interface IPixiAppInitOptions {
     view: HTMLCanvasElement;
     interactive?: boolean;
@@ -48,6 +49,11 @@ export declare class PixiApp {
      * destroy) lève "Cannot read properties of undefined (reading 'canvas')".
      */
     private isInitialized;
+    private worldBounds;
+    private fitViewport;
+    private needsInitialFit;
+    private pausePeriods;
+    private graphRenderOptions;
     /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
     events: EventEmitter<string | symbol, any>;
     private zoomState;
@@ -72,16 +78,25 @@ export declare class PixiApp {
     refreshAfterResume(): void;
     private bindWebGLContextHandlers;
     setData(observation: IObservation): void;
+    getPausePeriods(): IPeriod[];
+    getGraphRenderOptions(): IGraphRenderOptions;
+    setGraphRenderOptions(options: Partial<IGraphRenderOptions>, drawOptions?: {
+        redraw?: boolean;
+    }): void;
     setProtocol(protocol: IProtocol): void;
     getObservablePreferences(observableId: string): IGraphPreferences | null;
     updateObservablePreference(observableId: string, preference: Partial<IGraphPreferences>): void;
     draw(): Promise<void>;
     clear(): Promise<void>;
+    private getCanvasSize;
+    private updateWorldBounds;
+    private recalculateFitViewport;
+    private setViewportTransform;
     private setupZoomAndPan;
     private updateTimeScale;
     zoomIn(): void;
     zoomOut(): void;
-    resetView(): void;
+    resetView(): Promise<void>;
     getZoomLevel(): number;
     /**
      * Exporte le graphique sous forme d'image (data URL)
@@ -99,7 +114,7 @@ export declare class PixiApp {
      * neutralise le `style.height` inline écrit par autoDensity), donc pas de
      * boucle ResizeObserver.
      */
-    exportAsImage(format?: 'png' | 'jpeg', quality?: number): string | null;
+    exportAsImage(format?: 'png' | 'jpeg', quality?: number): Promise<string | null>;
     destroy(): void;
 }
 export {};

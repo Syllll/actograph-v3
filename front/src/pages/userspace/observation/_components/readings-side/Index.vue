@@ -1,6 +1,18 @@
 <template>
   <div class="readings-side-container">
     <div class="readings-side-content q-pa-sm column">
+      <q-banner
+        v-if="hasReadingsAfterLastStop"
+        dense
+        rounded
+        class="readings-scope-warning q-mb-sm"
+      >
+        <template #avatar>
+          <q-icon name="warning" color="warning" />
+        </template>
+        {{ t('graphUi.readingsAfterLastStopWarning') }}
+      </q-banner>
+
       <!-- Toolbar with search, add, and remove buttons -->
       <readings-toolbar
         class="col-auto"
@@ -31,7 +43,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onUnmounted, nextTick } from 'vue';
+import { defineComponent, ref, computed, watch, onBeforeUnmount, nextTick } from 'vue';
 import { useReadings } from 'src/composables/use-observation/use-readings';
 import { IReading, ReadingTypeEnum, ObservationModeEnum } from '@services/observations/interface';
 import ReadingsToolbar from './ReadingsToolbar.vue';
@@ -39,6 +51,7 @@ import ReadingsTable from './ReadingsTable.vue';
 import { useObservation } from 'src/composables/use-observation';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
+import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
 import { Dialog } from 'quasar';
 import AutoCorrectReadingsDialog from './AutoCorrectReadingsDialog.vue';
@@ -360,20 +373,24 @@ export default defineComponent({
       }
     };
 
+    const hasReadingsAfterLastStop = computed(() =>
+      detectReadingsAfterLastStop(sharedState.currentReadings)
+    );
+
     // Lifecycle hook: synchronize readings when component is unmounted
-    // This ensures any pending changes are saved to the backend before the component is destroyed
-    onUnmounted(async () => {
-      // When unmounted, trigger the sync to persist any changes
-      await methods.synchronizeReadings();
-    })
+    onBeforeUnmount(() => {
+      void methods.synchronizeReadings();
+    });
 
     return {
+      t,
       search,
       selectedReading,
       hasSelectedReading,
       filteredReadings,
       currentObservationMode,
       canActivateChronometerMode,
+      hasReadingsAfterLastStop,
       handleAddReading,
       handleAddComment,
       handleRemoveReading,

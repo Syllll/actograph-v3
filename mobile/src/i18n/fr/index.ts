@@ -45,5 +45,9 @@ export default {
     paused: 'En pause',
     stopped: 'Arrêté',
   },
+  graphUi: {
+    readingsAfterLastStopWarning:
+      'Certains relevés sont ignorés par le graphique (orphelins entre deux sessions ou après le dernier arrêt).',
+  },
 };
 

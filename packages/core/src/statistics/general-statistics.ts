@@ -1,4 +1,4 @@
-import { ReadingTypeEnum, ProtocolItemTypeEnum, ProtocolItemActionEnum } from '../enums';
+import { ProtocolItemTypeEnum, ProtocolItemActionEnum } from '../enums';
 import {
   IReading,
   IProtocolItem,
@@ -10,6 +10,7 @@ import {
   calculateContinuousObservableDurations,
   calculateDiscreteObservableCount,
 } from './category-statistics';
+import { scopeReadingsForStatistics } from './reading-scope';
 
 /**
  * Calculate general statistics for an observation
@@ -17,6 +18,7 @@ import {
 export function calculateGeneralStatistics(
   readings: IReading[],
   protocolItems: IProtocolItem[],
+  includePauses = false,
 ): IGeneralStatistics {
   if (!readings || readings.length === 0) {
     return {
@@ -29,20 +31,13 @@ export function calculateGeneralStatistics(
     };
   }
 
-  const sortedReadings = [...readings].sort(
-    (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
-  );
+  const { scopedReadings, observationStart, observationEnd } =
+    scopeReadingsForStatistics(readings);
 
-  // Find START and STOP readings
-  const startReading = sortedReadings.find((r) => r.type === ReadingTypeEnum.START);
-  const stopReading = [...sortedReadings]
-    .reverse()
-    .find((r) => r.type === ReadingTypeEnum.STOP);
-
-  if (!startReading || !stopReading) {
+  if (!observationStart || !observationEnd || scopedReadings.length === 0) {
     return {
       totalDuration: 0,
-      totalReadings: sortedReadings.length,
+      totalReadings: scopedReadings.length,
       pauseCount: 0,
       pauseDuration: 0,
       observationDuration: 0,
@@ -50,29 +45,34 @@ export function calculateGeneralStatistics(
     };
   }
 
-  const totalDuration =
-    stopReading.dateTime.getTime() - startReading.dateTime.getTime();
+  const sortedReadings = [...scopedReadings].sort(
+    (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
+  );
 
-  // Calculate pause duration
+  const totalDuration =
+    observationEnd.getTime() - observationStart.getTime();
+
   const pausePeriods = calculatePausePeriods(sortedReadings);
   const pauseDuration = pausePeriods.reduce(
     (sum, period) => sum + (period.end.getTime() - period.start.getTime()),
     0,
   );
   const pauseCount = pausePeriods.length;
-  const observationDuration = totalDuration - pauseDuration;
+  const observationDuration = includePauses
+    ? totalDuration
+    : totalDuration - pauseDuration;
 
-  // Calculate category summaries
   const categories = calculateCategorySummaries(
     protocolItems,
     sortedReadings,
     pausePeriods,
-    stopReading.dateTime,
+    observationEnd,
+    includePauses,
   );
 
   return {
     totalDuration,
-    totalReadings: sortedReadings.length,
+    totalReadings: scopedReadings.length,
     pauseCount,
     pauseDuration,
     observationDuration,
@@ -88,6 +88,7 @@ export function calculateCategorySummaries(
   readings: IReading[],
   pausePeriods: Array<{ start: Date; end: Date }>,
   observationEnd: Date,
+  includePauses = false,
 ): ICategoryStatisticsSummary[] {
   const categories = protocolItems.filter(
     (item) => item.type === ProtocolItemTypeEnum.Category,
@@ -114,6 +115,7 @@ export function calculateCategorySummaries(
           readings,
           pausePeriods,
           observationEnd,
+          includePauses,
         );
 
         if (durations.onDuration > 0) {

@@ -23,6 +23,7 @@ export function calculateContinuousObservableDurations(
   readings: IReading[],
   pausePeriods: IPeriod[],
   observationEnd: Date,
+  includePauses = false,
 ): { onDuration: number; onCount: number } {
   let onDuration = 0;
   let onCount = 0;
@@ -48,17 +49,15 @@ export function calculateContinuousObservableDurations(
     if (currentStart && currentObservable === observableName) {
       const periodDuration = readingTime.getTime() - currentStart.getTime();
       
-      // Only calculate pause overlap if period duration is positive
-      let pauseOverlap = 0;
-      if (periodDuration > 0) {
-        pauseOverlap = calculatePauseOverlap(
+      let effectiveDuration = periodDuration;
+      if (!includePauses && periodDuration > 0) {
+        const pauseOverlap = calculatePauseOverlap(
           currentStart,
           readingTime,
           pausePeriods,
         );
+        effectiveDuration = Math.max(0, periodDuration - pauseOverlap);
       }
-      
-      const effectiveDuration = Math.max(0, periodDuration - pauseOverlap);
       onDuration += effectiveDuration;
       
       currentStart = null;
@@ -76,12 +75,15 @@ export function calculateContinuousObservableDurations(
   // Handle case where observable is still "on" at the end
   if (currentStart && currentObservable === observableName) {
     const periodDuration = observationEnd.getTime() - currentStart.getTime();
-    const pauseOverlap = calculatePauseOverlap(
-      currentStart,
-      observationEnd,
-      pausePeriods,
-    );
-    const effectiveDuration = Math.max(0, periodDuration - pauseOverlap);
+    let effectiveDuration = periodDuration;
+    if (!includePauses) {
+      const pauseOverlap = calculatePauseOverlap(
+        currentStart,
+        observationEnd,
+        pausePeriods,
+      );
+      effectiveDuration = Math.max(0, periodDuration - pauseOverlap);
+    }
     onDuration += effectiveDuration;
   }
 
@@ -175,6 +177,7 @@ export function calculateCategoryStatistics(
   readings: IReading[],
   observationStart: Date,
   observationEnd: Date,
+  includePauses = false,
 ): ICategoryStatistics {
   const sortedReadings = [...readings].sort(
     (a, b) => a.dateTime.getTime() - b.dateTime.getTime()
@@ -186,8 +189,11 @@ export function calculateCategoryStatistics(
     0
   );
   
-  const totalDuration = 
-    observationEnd.getTime() - observationStart.getTime() - pauseDuration;
+  const rawDuration =
+    observationEnd.getTime() - observationStart.getTime();
+  const totalDuration = includePauses
+    ? rawDuration
+    : rawDuration - pauseDuration;
 
   const observables = category.children || [];
   const isContinuous = !category.action || category.action === ProtocolItemActionEnum.Continuous;
@@ -200,6 +206,7 @@ export function calculateCategoryStatistics(
         sortedReadings,
         pausePeriods,
         observationEnd,
+        includePauses,
       );
 
       return {

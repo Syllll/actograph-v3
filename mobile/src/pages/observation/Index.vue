@@ -485,6 +485,7 @@ import { protocolService } from '@services/protocol.service';
 import { observationService } from '@services/observation.service';
 import { DPage, DraggableCategory } from '@components';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
+import { isRecordingActiveFromReadings, convertMobileReadings } from '@actograph/core';
 
 export default defineComponent({
   name: 'ObservationPage',
@@ -650,13 +651,9 @@ export default defineComponent({
         }
         state.totalReadingsCount = newCount;
 
-        const startStopReadings = readings.filter((r) => r.type === 'START' || r.type === 'STOP');
-        if (startStopReadings.length > 0) {
-          const lastStartStop = startStopReadings[startStopReadings.length - 1];
-          state.isRecording = lastStartStop.type === 'START';
-        } else {
-          state.isRecording = false;
-        }
+        state.isRecording = isRecordingActiveFromReadings(
+          convertMobileReadings(readings),
+        );
 
         const nextActiveObservableByCategory: Record<number, string> = {};
         state.categories.forEach((category) => {

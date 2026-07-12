@@ -2,9 +2,19 @@ import { Application, Container, EventEmitter } from 'pixi.js';
 import { xAxis } from './axis/x-axis';
 import { YAxis } from './axis/y-axis';
 import { DataArea } from './data-area';
-import type { IObservation, IProtocol, IGraphPreferences, IProtocolItem } from '@actograph/core';
+import type { IObservation, IProtocol, IGraphPreferences, IProtocolItem, IPeriod } from '@actograph/core';
+import { filterReadingsForGraphDisplay } from '@actograph/core';
+import { getGraphPausePeriods } from '../utils/pause-periods.utils';
 import { getObservableGraphPreferences, hydrateProtocolItemsFromStringIfNeeded } from '../utils/protocol.utils';
 import { clearPatternTextureCache } from '../lib/pattern-textures';
+import {
+  clampViewport,
+  computeFitViewport,
+  preserveViewportOnResize,
+  type WorldBounds,
+} from '../utils/viewport.utils';
+import type { IGraphRenderOptions } from '../types/graph-render-options';
+import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../types/graph-render-options';
 
 interface IPixiAppInitOptions {
   view: HTMLCanvasElement;
@@ -55,6 +65,11 @@ export class PixiApp {
    * destroy) lève "Cannot read properties of undefined (reading 'canvas')".
    */
   private isInitialized = false;
+  private worldBounds: WorldBounds = { width: 1, height: 1 };
+  private fitViewport = { scale: 1, x: 0, y: 0 };
+  private needsInitialFit = false;
+  private pausePeriods: IPeriod[] = [];
+  private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
 
   /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
   public events = new EventEmitter();
@@ -128,6 +143,7 @@ export class PixiApp {
     this.plot.addChild(this.xAxis);
     this.plot.addChild(this.yAxis);
     this.plot.addChild(this.dataArea);
+    this.dataArea.setPlotContainer(this.plot);
 
     this.viewport.addChild(this.plot);
     this.app.stage.addChild(this.viewport);
@@ -140,6 +156,9 @@ export class PixiApp {
     this.bindWebGLContextHandlers();
 
     this.isInitialized = true;
+    if (this.isInteractive) {
+      this.needsInitialFit = true;
+    }
 
     // Premier rendu immédiat pour effacer le buffer WebGL (noir) avec le
     // fond blanc, avant même que les données soient dessinées.
@@ -191,7 +210,22 @@ export class PixiApp {
     }
 
     this.app.renderer.resize(width, height);
-    this.app.render();
+    if (this.isInteractive) {
+      this.updateWorldBounds();
+      this.recalculateFitViewport();
+      const clamped = preserveViewportOnResize(
+        {
+          scale: this.zoomState.scale,
+          x: this.viewport.x,
+          y: this.viewport.y,
+        },
+        this.worldBounds,
+        this.getCanvasSize(),
+      );
+      this.setViewportTransform(clamped, { emitZoom: false });
+    } else {
+      this.app.render();
+    }
   }
 
   /**
@@ -236,9 +270,18 @@ export class PixiApp {
     this.protocol = observation.protocol;
     this.dataArea.setProtocol(observation.protocol);
 
-    this.yAxis.setData(observation);
-    this.xAxis.setData(observation);
-    this.dataArea.setData(observation);
+    const graphObservation: IObservation = {
+      ...observation,
+      readings: filterReadingsForGraphDisplay(observation.readings),
+    };
+
+    this.pausePeriods = getGraphPausePeriods(graphObservation.readings ?? []);
+
+    this.yAxis.setData(graphObservation);
+    this.xAxis.setData(graphObservation);
+    this.dataArea.setPausePeriods(this.pausePeriods);
+    this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
+    this.dataArea.setData(graphObservation);
 
     // Mode interactif (graphe desktop) : on ne fait JAMAIS grossir le renderer
     // au-delà de la boîte CSS du canvas. Avant, `app.renderer.resize(w,
@@ -272,6 +315,28 @@ export class PixiApp {
     const canvasParent = this.app.canvas?.parentElement as HTMLElement | null;
     if (canvasParent) {
       canvasParent.style.height = `${targetHeight}px`;
+    }
+  }
+
+  public getPausePeriods(): IPeriod[] {
+    return this.pausePeriods;
+  }
+
+  public getGraphRenderOptions(): IGraphRenderOptions {
+    return { ...this.graphRenderOptions };
+  }
+
+  public setGraphRenderOptions(
+    options: Partial<IGraphRenderOptions>,
+    drawOptions?: { redraw?: boolean },
+  ): void {
+    this.graphRenderOptions = {
+      ...this.graphRenderOptions,
+      ...options,
+    };
+    this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
+    if (drawOptions?.redraw !== false) {
+      void this.draw();
     }
   }
 
@@ -332,6 +397,26 @@ export class PixiApp {
     this.viewport.scale.set(currentScale + 0.0001);
     this.viewport.scale.set(currentScale);
 
+    if (this.isInteractive) {
+      this.updateWorldBounds();
+      this.recalculateFitViewport();
+      if (this.needsInitialFit) {
+        this.needsInitialFit = false;
+        this.setViewportTransform({ ...this.fitViewport }, { skipRender: true });
+      } else {
+        // Les bornes du plot peuvent avoir changé (protocole, relevés) sans
+        // reset volontaire du zoom : on reclamp la vue courante.
+        this.setViewportTransform(
+          {
+            scale: this.zoomState.scale,
+            x: this.zoomState.x,
+            y: this.zoomState.y,
+          },
+          { emitZoom: false, skipRender: true },
+        );
+      }
+    }
+
     // Rendu explicite : ne pas dépendre uniquement du ticker. Sans cela, le
     // canvas WebGL reste sur son buffer initial (noir) jusqu'à ce qu'un
     // événement (resize/interaction) déclenche enfin un rendu.
@@ -344,6 +429,67 @@ export class PixiApp {
     this.yAxis.clear();
     this.xAxis.clear();
     this.dataArea.clear();
+  }
+
+  private getCanvasSize(): { width: number; height: number } {
+    return {
+      width: this.app.screen.width,
+      height: this.app.screen.height,
+    };
+  }
+
+  private updateWorldBounds(): void {
+    const height = this.yAxis.getRequiredHeight();
+    const axisEnd = this.xAxis.getAxisEnd();
+    const width =
+      typeof axisEnd?.x === 'number' ? axisEnd.x + 20 : this.app.screen.width;
+
+    this.worldBounds = {
+      width: Math.max(1, width),
+      height: Math.max(1, height),
+    };
+  }
+
+  private recalculateFitViewport(): void {
+    const canvasSize = this.getCanvasSize();
+    this.fitViewport = computeFitViewport(
+      this.worldBounds,
+      canvasSize,
+      this.zoomState.minScale,
+      this.zoomState.maxScale,
+    );
+  }
+
+  private setViewportTransform(
+    transform: { scale?: number; x?: number; y?: number },
+    options?: { emitZoom?: boolean; skipRender?: boolean },
+  ): void {
+    const scale = transform.scale ?? this.zoomState.scale;
+    const clamped = clampViewport(
+      {
+        scale,
+        x: transform.x ?? this.viewport.x,
+        y: transform.y ?? this.viewport.y,
+      },
+      this.worldBounds,
+      this.getCanvasSize(),
+    );
+
+    this.zoomState.scale = clamped.scale;
+    this.zoomState.x = clamped.x;
+    this.zoomState.y = clamped.y;
+    this.viewport.scale.set(clamped.scale);
+    this.viewport.x = clamped.x;
+    this.viewport.y = clamped.y;
+
+    if (options?.emitZoom !== false) {
+      this.events.emit('zoom', clamped.scale);
+      this.updateTimeScale();
+    }
+
+    if (!options?.skipRender && this.isInitialized && this.app.renderer) {
+      this.app.render();
+    }
   }
 
   private setupZoomAndPan() {
@@ -374,17 +520,11 @@ export class PixiApp {
         Math.min(this.zoomState.maxScale, this.zoomState.scale * zoomFactor)
       );
 
-      this.zoomState.scale = newScale;
-
-      this.viewport.x = mouseX - worldPos.x * newScale;
-      this.viewport.y = mouseY - worldPos.y * newScale;
-
-      this.viewport.scale.set(newScale);
-      this.zoomState.x = this.viewport.x;
-      this.zoomState.y = this.viewport.y;
-
-      this.events.emit('zoom', newScale);
-      this.updateTimeScale();
+      this.setViewportTransform({
+        scale: newScale,
+        x: mouseX - worldPos.x * newScale,
+        y: mouseY - worldPos.y * newScale,
+      });
     };
 
     // CORRECTION : mouseDownHandler doit activer le panning
@@ -414,10 +554,13 @@ export class PixiApp {
       }
 
       if (this.zoomState.isPanning) {
-        this.viewport.x = evt.clientX - this.zoomState.panStartX;
-        this.viewport.y = evt.clientY - this.zoomState.panStartY;
-        this.zoomState.x = this.viewport.x;
-        this.zoomState.y = this.viewport.y;
+        this.setViewportTransform(
+          {
+            x: evt.clientX - this.zoomState.panStartX,
+            y: evt.clientY - this.zoomState.panStartY,
+          },
+          { emitZoom: false },
+        );
       } else {
         // Changer le curseur au survol si on peut panner
         this.app.canvas.style.cursor = 'grab';
@@ -463,10 +606,13 @@ export class PixiApp {
       }
 
       if (this.zoomState.isPanning) {
-        this.viewport.x = evt.clientX - this.zoomState.panStartX;
-        this.viewport.y = evt.clientY - this.zoomState.panStartY;
-        this.zoomState.x = this.viewport.x;
-        this.zoomState.y = this.viewport.y;
+        this.setViewportTransform(
+          {
+            x: evt.clientX - this.zoomState.panStartX,
+            y: evt.clientY - this.zoomState.panStartY,
+          },
+          { emitZoom: false },
+        );
         evt.preventDefault();
       }
     };
@@ -535,10 +681,13 @@ export class PixiApp {
       if (evt.touches.length === 1 && this.zoomState.isPanning && !this.zoomState.isPinching) {
         // Pan avec un doigt
         const touch = evt.touches[0];
-        this.viewport.x = touch.clientX - this.zoomState.panStartX;
-        this.viewport.y = touch.clientY - this.zoomState.panStartY;
-        this.zoomState.x = this.viewport.x;
-        this.zoomState.y = this.viewport.y;
+        this.setViewportTransform(
+          {
+            x: touch.clientX - this.zoomState.panStartX,
+            y: touch.clientY - this.zoomState.panStartY,
+          },
+          { emitZoom: false },
+        );
       } else if (evt.touches.length === 2 && this.zoomState.isPinching) {
         // Pinch-to-zoom avec deux doigts
         const touch1 = evt.touches[0];
@@ -559,17 +708,12 @@ export class PixiApp {
           
           // Convertir la position du centre en coordonnées monde
           const worldPos = this.viewport.toLocal({ x: centerX, y: centerY } as any);
-          
-          // Appliquer le zoom centré sur le point de contact
-          this.zoomState.scale = newScale;
-          this.viewport.x = centerX - worldPos.x * newScale;
-          this.viewport.y = centerY - worldPos.y * newScale;
-          this.viewport.scale.set(newScale);
-          this.zoomState.x = this.viewport.x;
-          this.zoomState.y = this.viewport.y;
-          
-          this.events.emit('zoom', newScale);
-          this.updateTimeScale();
+
+          this.setViewportTransform({
+            scale: newScale,
+            x: centerX - worldPos.x * newScale,
+            y: centerY - worldPos.y * newScale,
+          });
         }
         
         this.zoomState.lastPinchDistance = distance;
@@ -645,16 +789,12 @@ export class PixiApp {
     const worldPos = this.viewport.toLocal({ x: centerX, y: centerY } as any);
 
     const newScale = Math.min(this.zoomState.maxScale, this.zoomState.scale * 1.2);
-    this.zoomState.scale = newScale;
 
-    this.viewport.x = centerX - worldPos.x * newScale;
-    this.viewport.y = centerY - worldPos.y * newScale;
-    this.viewport.scale.set(newScale);
-    this.zoomState.x = this.viewport.x;
-    this.zoomState.y = this.viewport.y;
-
-    this.events.emit('zoom', newScale);
-    this.updateTimeScale();
+    this.setViewportTransform({
+      scale: newScale,
+      x: centerX - worldPos.x * newScale,
+      y: centerY - worldPos.y * newScale,
+    });
   }
 
   public zoomOut() {
@@ -666,31 +806,20 @@ export class PixiApp {
     const worldPos = this.viewport.toLocal({ x: centerX, y: centerY } as any);
 
     const newScale = Math.max(this.zoomState.minScale, this.zoomState.scale * 0.8);
-    this.zoomState.scale = newScale;
 
-    this.viewport.x = centerX - worldPos.x * newScale;
-    this.viewport.y = centerY - worldPos.y * newScale;
-    this.viewport.scale.set(newScale);
-    this.zoomState.x = this.viewport.x;
-    this.zoomState.y = this.viewport.y;
-
-    this.events.emit('zoom', newScale);
-    this.updateTimeScale();
+    this.setViewportTransform({
+      scale: newScale,
+      x: centerX - worldPos.x * newScale,
+      y: centerY - worldPos.y * newScale,
+    });
   }
 
-  public resetView() {
-    if (!this.isInteractive) return;
-    this.zoomState.scale = 1;
-    this.viewport.scale.set(1);
-
-    this.viewport.x = 0;
-    this.viewport.y = 0;
-    this.zoomState.x = 0;
-    this.zoomState.y = 0;
-
-    this.events.emit('zoom', 1);
-    this.updateTimeScale();
-    this.draw();
+  public resetView(): Promise<void> {
+    if (!this.isInteractive) {
+      return Promise.resolve();
+    }
+    this.needsInitialFit = true;
+    return this.draw();
   }
 
   public getZoomLevel(): number {
@@ -713,7 +842,10 @@ export class PixiApp {
    * neutralise le `style.height` inline écrit par autoDensity), donc pas de
    * boucle ResizeObserver.
    */
-  public exportAsImage(format: 'png' | 'jpeg' = 'png', quality = 0.92): string | null {
+  public async exportAsImage(
+    format: 'png' | 'jpeg' = 'png',
+    quality = 0.92,
+  ): Promise<string | null> {
     if (!this.app.canvas || !this.isInitialized || !this.app.renderer) {
       return null;
     }
@@ -723,20 +855,46 @@ export class PixiApp {
     const requiredHeight = this.yAxis.getRequiredHeight();
     const exportHeight = Math.max(originalHeight, requiredHeight);
 
-    let restored = false;
-    if (this.isInteractive && exportHeight !== originalHeight) {
-      this.app.renderer.resize(originalWidth, exportHeight);
-      void this.draw();
-      restored = true;
+    const savedViewport = {
+      scale: this.zoomState.scale,
+      x: this.zoomState.x,
+      y: this.zoomState.y,
+    };
+
+    let resizedForExport = false;
+    if (this.isInteractive) {
+      if (exportHeight !== originalHeight) {
+        this.app.renderer.resize(originalWidth, exportHeight);
+        resizedForExport = true;
+      }
+
+      this.updateWorldBounds();
+      const exportCanvasSize = {
+        width: originalWidth,
+        height: exportHeight,
+      };
+      const fitViewport = computeFitViewport(
+        this.worldBounds,
+        exportCanvasSize,
+        this.zoomState.minScale,
+        this.zoomState.maxScale,
+      );
+      this.setViewportTransform(fitViewport, { emitZoom: false, skipRender: true });
     }
 
+    await this.draw();
     this.app.render();
     const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
     const dataUrl = (this.app.canvas as HTMLCanvasElement).toDataURL(mimeType, quality);
 
-    if (restored) {
-      this.app.renderer.resize(originalWidth, originalHeight);
-      void this.draw();
+    if (this.isInteractive) {
+      if (resizedForExport) {
+        this.app.renderer.resize(originalWidth, originalHeight);
+        this.updateWorldBounds();
+        this.recalculateFitViewport();
+      }
+      this.setViewportTransform(savedViewport, { emitZoom: false, skipRender: true });
+      await this.draw();
     }
 
     return dataUrl;

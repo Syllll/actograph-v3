@@ -18,6 +18,17 @@
 
     <q-separator v-if="!isMinimized" class="q-mb-xs" />
 
+    <div v-if="!isMinimized" class="row items-center q-px-sm q-pb-sm">
+      <q-toggle
+        :model-value="graph.sharedState.graphRenderOptions.maskPauses !== false"
+        :label="$t('graphUi.maskPauses')"
+        dense
+        @update:model-value="methods.onMaskPausesChange"
+      />
+    </div>
+
+    <q-separator v-if="!isMinimized" class="q-mb-xs" />
+
     <!-- Content -->
     <DScrollArea 
       v-if="!isMinimized"
@@ -430,6 +441,10 @@ export default defineComponent({
     };
 
     const methods = {
+      onMaskPausesChange: (enabled: boolean) => {
+        graph.setMaskPauses(enabled);
+      },
+
       /**
        * Vérifie si un observable hérite des préférences de sa catégorie
        */
@@ -827,6 +842,7 @@ export default defineComponent({
     return {
       customization,
       protocol,
+      graph,
       state,
       patternOptions,
       displayModeOptions,

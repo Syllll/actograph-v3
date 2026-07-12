@@ -32,15 +32,8 @@
           </div>
 
           <div v-if="isContinuousCategory" class="q-mb-lg">
-            <div class="row items-center justify-between q-mb-sm">
-              <div class="text-subtitle2">
-                {{ t('statisticsUi.categoryOnTimePieTitle') }}
-              </div>
-              <q-toggle
-                v-model="state.showPauseInPieChart"
-                :label="t('statisticsUi.toggleIncludePauses')"
-                dense
-              />
+            <div class="text-subtitle2 q-mb-sm">
+              {{ t('statisticsUi.categoryOnTimePieTitle') }}
             </div>
             <AmChartsPieChart
               :data="pieChartData"
@@ -73,6 +66,10 @@ import {
   ProtocolItemActionEnum,
   protocolService,
 } from '@services/observations/protocol.service';
+import {
+  buildCategoryPieChartColors,
+  buildCategoryPieChartData,
+} from 'src/composables/use-statistics/category-pie-chart.utils';
 import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
 
@@ -95,7 +92,6 @@ export default defineComponent({
 
     const state = reactive({
       selectedCategoryId: null as string | null,
-      showPauseInPieChart: false,
     });
 
     const categoryOptions = computed(() => {
@@ -145,63 +141,23 @@ export default defineComponent({
 
     const pieChartData = computed(() => {
       const stats = statistics.sharedState.categoryStatistics;
-      if (!stats || !stats.observables || stats.observables.length === 0) {
+      if (!stats) {
         return [];
       }
 
-      let totalCategoryDuration = stats.totalCategoryDuration || 0;
-      if (totalCategoryDuration === 0) {
-        totalCategoryDuration = stats.observables.reduce(
-          (sum, obs) => sum + (obs.onDuration || 0),
-          0,
-        );
-      }
-      const pauseDuration = stats.pauseDuration || 0;
-      const totalWithPause = totalCategoryDuration + pauseDuration;
-
-      const data = stats.observables
-        .filter((obs) => {
-          const hasDuration = obs.onDuration > 0;
-          const hasCount = obs.onCount > 0;
-          return hasDuration || hasCount;
-        })
-        .map((obs) => {
-          const percentage = obs.onPercentage || 0;
-          return {
-            label: obs.observableName,
-            value: Math.max(0, percentage),
-          };
-        });
-
-      if (state.showPauseInPieChart && pauseDuration > 0 && totalWithPause > 0) {
-        const pausePercentage = (pauseDuration / totalWithPause) * 100;
-        data.push({
-          label: t('statisticsUi.pauseSegmentLabel'),
-          value: pausePercentage,
-        });
-      }
-
-      return data.length > 0 ? data : [];
+      return buildCategoryPieChartData(stats, {
+        treatPausesAsSeparateState: statistics.sharedState.treatPausesAsSeparateState,
+        pauseSegmentLabel: t('statisticsUi.pauseSegmentLabel'),
+      });
     });
 
     const pieChartColors = computed(() => {
       const stats = statistics.sharedState.categoryStatistics;
-      const baseColors = [
-        '#1976D2',
-        '#388E3C',
-        '#F57C00',
-        '#7B1FA2',
-        '#C2185B',
-        '#00796B',
-        '#0288D1',
-        '#5D4037',
-      ];
 
-      if (state.showPauseInPieChart && stats?.pauseDuration && stats.pauseDuration > 0) {
-        return [...baseColors, '#9E9E9E'];
-      }
-
-      return baseColors;
+      return buildCategoryPieChartColors(
+        statistics.sharedState.treatPausesAsSeparateState,
+        stats?.pauseDuration || 0,
+      );
     });
 
     const isContinuousCategory = computed(() => {

@@ -2,7 +2,7 @@ import { Application, Container, Text } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
 import type { IReading, IObservation } from '@actograph/core';
-import { ObservationModeEnum, ReadingTypeEnum } from '@actograph/core';
+import { getGraphDisplayTimeBounds, ObservationModeEnum, ReadingTypeEnum } from '@actograph/core';
 import { YAxis } from './y-axis';
 import {
   formatAxisLabel,
@@ -151,24 +151,22 @@ export class xAxis extends BaseGroup {
 
     this.readings = readings;
 
-    // Bug 3.3: Use START and STOP readings for axis bounds (not array order)
+    // Bug 3.3: Use graph display bounds (START through last STOP, or in-progress session)
     const sortedByTime = [...readings].sort((a, b) => {
       const ta = this.getReadingTimeInMsec(a) ?? 0;
       const tb = this.getReadingTimeInMsec(b) ?? 0;
       return ta - tb;
     });
 
-    const startReading = sortedByTime.find((r) => r.type === ReadingTypeEnum.START);
-    const stopReading = [...sortedByTime].reverse().find((r) => r.type === ReadingTypeEnum.STOP);
+    const displayBounds = getGraphDisplayTimeBounds(readings);
 
     let minTimeInMsec: number;
     let maxTimeInMsec: number;
 
-    if (startReading && stopReading) {
-      minTimeInMsec = this.getReadingTimeInMsec(startReading) ?? Date.now();
-      maxTimeInMsec = this.getReadingTimeInMsec(stopReading) ?? minTimeInMsec + 1;
+    if (displayBounds) {
+      minTimeInMsec = displayBounds.startMs;
+      maxTimeInMsec = displayBounds.endMs;
     } else {
-      // Fallback: use first and last by chronological order
       minTimeInMsec = this.getReadingTimeInMsec(sortedByTime[0]!) ?? Date.now();
       maxTimeInMsec =
         this.getReadingTimeInMsec(sortedByTime[sortedByTime.length - 1]!) ?? minTimeInMsec + 1;

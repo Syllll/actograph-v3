@@ -1,10 +1,21 @@
 import { onMounted, onUnmounted, shallowReactive, watch } from 'vue';
 import { PixiApp } from '@actograph/graph';
+import type { IGraphRenderOptions } from '@actograph/graph';
+import { DEFAULT_GRAPH_RENDER_OPTIONS } from '@actograph/graph';
 import { useObservation } from 'src/composables/use-observation';
 import { useAppResume } from 'src/composables/use-app-resume';
 import { isElementVisible } from 'src/utils/dom.utils';
 import { IObservation, IProtocol, IReading } from '@services/observations/interface';
-import type { IObservation as ICoreObservation } from '@actograph/core';
+import type { IObservation as ICoreObservation, IReading as ICoreReading } from '@actograph/core';
+
+/** API may deserialize dateTime as string; normalize before graph helpers. */
+function normalizeReadingsForGraph(readings: IReading[]): ICoreReading[] {
+  return readings.map((reading) => ({
+    ...reading,
+    dateTime:
+      reading.dateTime instanceof Date ? reading.dateTime : new Date(reading.dateTime),
+  }));
+}
 
 /**
  * État partagé du graphique.
@@ -21,6 +32,9 @@ const sharedState = shallowReactive({
   // true une fois que init() a abouti (renderer + axes/dataArea créés).
   // Garde pour éviter les setData()/draw() avant que PixiApp soit prêt.
   ready: false,
+  graphRenderOptions: {
+    ...DEFAULT_GRAPH_RENDER_OPTIONS,
+  } as IGraphRenderOptions,
 });
 
 /**
@@ -56,7 +70,7 @@ export const useGraph = (options?: {
   // Récupération du composable d'observation pour accéder aux données
   const observation = useObservation();
 
-  const redrawFromObservation = (pixiApp: PixiApp): void => {
+  const redrawFromObservation = async (pixiApp: PixiApp): Promise<void> => {
     const obs = observation.sharedState.currentObservation as IObservation;
     if (!obs) return;
 
@@ -65,10 +79,15 @@ export const useGraph = (options?: {
     if (!protocol) return;
 
     try {
-      obs.readings = readings as IReading[];
+      const normalizedReadings = normalizeReadingsForGraph(readings as IReading[]);
+      obs.readings = normalizedReadings as IReading[];
       obs.protocol = protocol as IProtocol;
-      pixiApp.setData(obs as ICoreObservation);
-      pixiApp.draw();
+      pixiApp.setGraphRenderOptions(sharedState.graphRenderOptions, { redraw: false });
+      pixiApp.setData({
+        ...(obs as ICoreObservation),
+        readings: normalizedReadings,
+      });
+      await pixiApp.draw();
     } catch (error) {
       // Guard rail: don't break the page on transient/partial data while editing.
       console.warn('Graph redraw skipped due to inconsistent data:', error);
@@ -84,7 +103,7 @@ export const useGraph = (options?: {
       return;
     }
     sharedState.pixiApp.resizeFromCanvas();
-    redrawFromObservation(sharedState.pixiApp);
+    void redrawFromObservation(sharedState.pixiApp);
   };
 
   const onCanvasResize = (): void => {
@@ -95,7 +114,7 @@ export const useGraph = (options?: {
       return;
     }
     sharedState.pixiApp.resizeFromCanvas();
-    redrawFromObservation(sharedState.pixiApp);
+    void redrawFromObservation(sharedState.pixiApp);
   };
 
   // Si des options d'initialisation sont fournies, créer et initialiser PixiApp
@@ -133,7 +152,7 @@ export const useGraph = (options?: {
         sharedState.ready = true;
 
         // Récupération de l'observation courante depuis le composable
-        redrawFromObservation(pixiApp);
+        await redrawFromObservation(pixiApp);
 
         console.info('Pixi app initialized');
 
@@ -160,7 +179,7 @@ export const useGraph = (options?: {
       () => observation.readings?.sharedState?.currentReadings ?? [],
       () => {
         if (!sharedState.ready || !sharedState.pixiApp) return;
-        redrawFromObservation(sharedState.pixiApp);
+        void redrawFromObservation(sharedState.pixiApp);
       },
       { deep: true }
     );
@@ -169,7 +188,7 @@ export const useGraph = (options?: {
       () => observation.protocol?.sharedState?.currentProtocol,
       () => {
         if (!sharedState.ready || !sharedState.pixiApp) return;
-        redrawFromObservation(sharedState.pixiApp);
+        void redrawFromObservation(sharedState.pixiApp);
       },
       { deep: true }
     );
@@ -190,5 +209,15 @@ export const useGraph = (options?: {
   return {
     sharedState,
     onCanvasResize,
+    setMaskPauses: (maskPauses: boolean) => {
+      sharedState.graphRenderOptions = {
+        ...sharedState.graphRenderOptions,
+        maskPauses,
+      };
+      if (!sharedState.ready || !sharedState.pixiApp) {
+        return;
+      }
+      sharedState.pixiApp.setGraphRenderOptions({ maskPauses });
+    },
   };
 }

@@ -16,6 +16,7 @@ import {
   filterByTimeRange,
 } from './period-calculator';
 import { findObservablePeriods } from './category-statistics';
+import { scopeReadingsForStatistics } from './reading-scope';
 
 /**
  * Apply conditions to filter readings periods
@@ -218,24 +219,22 @@ export function calculateConditionalStatistics(
   protocolItems: IProtocolItem[],
   request: IConditionalStatisticsRequest,
 ): { categoryStatistics: ICategoryStatistics; filteredPeriods: IPeriod[] } {
-  const sortedReadings = [...readings].sort(
+  const { scopedReadings, observationStart, observationEnd } =
+    scopeReadingsForStatistics(readings);
+
+  const sortedReadings = [...scopedReadings].sort(
     (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
   );
 
   // Filter readings based on conditions
-  // If no conditions, use the entire observation period
+  // If no conditions, use the graph-aligned observation period
   let filteredPeriods: IPeriod[] = [];
   if (request.conditionGroups.length === 0) {
-    // No conditions: use entire observation period
-    const startReading = sortedReadings.find((r) => r.type === ReadingTypeEnum.START);
-    const stopReading = [...sortedReadings]
-      .reverse()
-      .find((r) => r.type === ReadingTypeEnum.STOP);
-    if (startReading && stopReading) {
+    if (observationStart && observationEnd) {
       filteredPeriods = [
         {
-          start: startReading.dateTime,
-          end: stopReading.dateTime,
+          start: observationStart,
+          end: observationEnd,
         },
       ];
     }

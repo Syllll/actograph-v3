@@ -388,7 +388,7 @@ export default {
     categoryPickerTitle: 'Select a category',
     categoryStatsHeading: 'Statistics: {name}',
     categoryOnTimePieTitle: 'On-time share within the category',
-    toggleIncludePauses: 'Show pauses',
+    toggleTreatPausesAsSeparateState: 'Treat pauses as a separate state',
     categoryOccurrencesChartTitle: 'Number of occurrences',
     chartNoData: 'No data',
     pauseSegmentLabel: 'Pause',
@@ -447,6 +447,9 @@ export default {
     displayNormal: 'Normal',
     displayFrieze: 'Frieze',
     discreteCategoryNormalOnly: 'Discrete categories can only be in Normal mode',
+    readingsAfterLastStopWarning:
+      'Some readings are ignored by the chart (orphans between sessions or after the last stop).',
+    maskPauses: 'Hide pauses',
   },
   appRoot: {
     updateAvailableTitle: 'Update available',

@@ -94,6 +94,19 @@
       </div>
     </div>
 
+    <q-banner
+      v-if="hasReadingsAfterLastStop"
+      dense
+      rounded
+      class="graph-scope-warning q-mx-sm q-mb-xs"
+      inline-actions
+    >
+      <template #avatar>
+        <q-icon name="warning" color="warning" />
+      </template>
+      {{ $t('graphUi.readingsAfterLastStopWarning') }}
+    </q-banner>
+
     <!-- 
       Composant canvas personnalisé qui sera utilisé par PixiJS pour le rendu.
       Le canvas est référencé pour être passé à PixiApp lors de l'initialisation.
@@ -128,6 +141,7 @@ import { useGraphCustomization } from '../graph-customization-drawer/use-graph-c
 import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
 import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
+import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
 import StudentWatermark from '@components/student-watermark/Index.vue';
 
 /**
@@ -213,10 +227,9 @@ export default defineComponent({
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
       },
-      resetView: () => {
+      resetView: async () => {
         if (graph.sharedState.pixiApp) {
-          graph.sharedState.pixiApp.resetView();
-          // Mettre à jour le zoom level immédiatement après l'action
+          await graph.sharedState.pixiApp.resetView();
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
       },
@@ -317,7 +330,7 @@ export default defineComponent({
           $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
           return null;
         }
-        const graphDataUrl = graph.sharedState.pixiApp.exportAsImage('png');
+        const graphDataUrl = await graph.sharedState.pixiApp.exportAsImage('png');
         if (!graphDataUrl) {
           $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
           return null;
@@ -374,7 +387,7 @@ export default defineComponent({
             $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
             return;
           }
-          dataUrl = graph.sharedState.pixiApp.exportAsImage(format, 0.92);
+          dataUrl = await graph.sharedState.pixiApp.exportAsImage(format, 0.92);
           if (!dataUrl) {
             $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
             return;
@@ -448,6 +461,16 @@ export default defineComponent({
       return true; // Toujours vrai car il y a toujours les boutons zoom in/out avant
     });
 
+    const hasReadingsAfterLastStop = computed(() => {
+      const readings = observation.readings?.sharedState?.currentReadings ?? [];
+      const normalized = readings.map((reading) => ({
+        ...reading,
+        dateTime:
+          reading.dateTime instanceof Date ? reading.dateTime : new Date(reading.dateTime),
+      }));
+      return detectReadingsAfterLastStop(normalized);
+    });
+
     return {
       graph,
       canvasRef,
@@ -458,6 +481,7 @@ export default defineComponent({
       customization,
       props,
       showSeparatorBeforeReset,
+      hasReadingsAfterLastStop,
     };
   },
 });
@@ -468,6 +492,11 @@ export default defineComponent({
   flex-shrink: 0;
   background-color: rgba(255, 255, 255, 0.95);
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.graph-scope-warning {
+  flex-shrink: 0;
+  background-color: #fff8e1;
 }
 
 .canvas-container {
@@ -501,6 +530,7 @@ export default defineComponent({
   :deep(.q-separator--vertical) {
     height: 24px;
     margin: 0 4px;
+    align-self: center;
   }
 }
 </style>

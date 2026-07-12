@@ -7,6 +7,7 @@ import type {
   IProtocol,
   IGraphPreferences,
   IProtocolItem,
+  IPeriod,
 } from '@actograph/core';
 import {
   ReadingTypeEnum,
@@ -25,11 +26,25 @@ import {
 import { formatFromDate } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 import { createTilingPatternSprite } from '../../lib/pattern-textures';
+import {
+  extractSessionBoundaryReadings,
+  getContinuousSegmentStartIndices,
+  iterContinuousDataPairs,
+  mergeContinuousCategoryReadings,
+  shouldSkipInContinuousDraw,
+} from '../../utils/continuous-segments.utils';
+import type { IGraphRenderOptions } from '../../types/graph-render-options';
+import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
+import {
+  computePauseOverlayRects,
+  DEFAULT_PAUSE_OVERLAY_STYLE,
+} from '../../utils/pause-overlay.utils';
 
 export class DataArea extends BaseGroup {
   private yAxis: YAxis;
   private xAxis: xAxis;
   private graphInteractionEnabled: boolean;
+  private plotContainer: Container | null = null;
 
   private readingsPerCategory: {
     category: ProtocolItem;
@@ -47,6 +62,7 @@ export class DataArea extends BaseGroup {
   }[] = [];
 
   private graphicForBackground: BaseGraphic;
+  private pauseOverlayGraphic: BaseGraphic;
   private pointerDashedLines: BaseGraphic;
   private timeLabelContainer: Container | null = null;
   private timeLabel: Text | null = null;
@@ -54,6 +70,8 @@ export class DataArea extends BaseGroup {
 
   private protocol: IProtocol | null = null;
   protected observation: IObservation | null = null;
+  private pausePeriods: IPeriod[] = [];
+  private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
 
   constructor(
     app: Application,
@@ -69,6 +87,9 @@ export class DataArea extends BaseGroup {
 
     this.graphicForBackground = new BaseGraphic(app);
     this.addChild(this.graphicForBackground);
+
+    this.pauseOverlayGraphic = new BaseGraphic(app);
+    this.addChild(this.pauseOverlayGraphic);
 
     this.pointerDashedLines = new BaseGraphic(app);
     this.addChild(this.pointerDashedLines);
@@ -88,6 +109,10 @@ export class DataArea extends BaseGroup {
       },
     });
     this.timeLabelContainer.addChild(this.timeLabel);
+  }
+
+  public setPlotContainer(plotContainer: Container): void {
+    this.plotContainer = plotContainer;
   }
 
   public init() {
@@ -130,10 +155,13 @@ export class DataArea extends BaseGroup {
 
       if (this.timeLabel) {
         try {
-          const globalPos = this.pointerDashedLines.toGlobal({ x: p.x, y: p.y });
-          const stagePos = this.app.stage.toLocal(globalPos);
+          const plotParent = this.parent;
+          if (!plotParent || plotParent !== this.plotContainer) {
+            return;
+          }
 
-          const dateTime = this.xAxis.getDateTimeFromPos(stagePos.x);
+          const plotPos = evt.getLocalPosition(plotParent);
+          const dateTime = this.xAxis.getDateTimeFromPos(plotPos.x);
 
           let timeString: string;
           if (this.observation?.mode === ObservationModeEnum.Chronometer) {
@@ -188,6 +216,14 @@ export class DataArea extends BaseGroup {
         this.timeLabelContainer.visible = false;
       }
     });
+  }
+
+  public setPausePeriods(periods: IPeriod[]): void {
+    this.pausePeriods = periods;
+  }
+
+  public setGraphRenderOptions(options: IGraphRenderOptions): void {
+    this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS, ...options };
   }
 
   public setProtocol(protocol: IProtocol) {
@@ -256,18 +292,20 @@ export class DataArea extends BaseGroup {
       }
     }
 
-    const stopReading = [...sortedReadings]
-      .reverse()
-      .find((reading) => reading.type === ReadingTypeEnum.STOP);
+    const sessionBoundaryReadings = extractSessionBoundaryReadings(sortedReadings);
 
-    if (stopReading) {
-      for (const categoryEntry of this.readingsPerCategory) {
-        const isContinuous = !categoryEntry.category.action ||
-          categoryEntry.category.action === ProtocolItemActionEnum.Continuous;
-        if (isContinuous) {
-          categoryEntry.readings.push(stopReading);
-        }
+    for (const categoryEntry of this.readingsPerCategory) {
+      const isContinuous = !categoryEntry.category.action ||
+        categoryEntry.category.action === ProtocolItemActionEnum.Continuous;
+
+      if (!isContinuous) {
+        continue;
       }
+
+      categoryEntry.readings = mergeContinuousCategoryReadings(
+        categoryEntry.readings,
+        sessionBoundaryReadings,
+      );
     }
   }
 
@@ -275,6 +313,7 @@ export class DataArea extends BaseGroup {
     super.clear();
 
     this.graphicForBackground.clear();
+    this.pauseOverlayGraphic.clear();
     this.pointerDashedLines.clear();
 
     if (this.timeLabelContainer) {
@@ -370,6 +409,48 @@ export class DataArea extends BaseGroup {
         console.warn(`Failed to draw normal category ${categoryEntry.category.name}:`, e);
       }
     }
+
+    this.drawPauseOverlay(bottomLeft, topRight);
+    this.ensureCursorUiOnTop();
+  }
+
+  private drawPauseOverlay(
+    bottomLeft: { x: number; y: number },
+    topRight: { x: number; y: number },
+  ): void {
+    this.pauseOverlayGraphic.clear();
+
+    const rects = computePauseOverlayRects(
+      this.pausePeriods,
+      {
+        leftX: bottomLeft.x,
+        rightX: topRight.x,
+        topY: topRight.y,
+        bottomY: bottomLeft.y,
+      },
+      (date) => this.xAxis.getPosFromDateTime(date),
+      this.graphRenderOptions,
+    );
+
+    for (const rect of rects) {
+      this.pauseOverlayGraphic
+        .rect(rect.x, rect.y, rect.width, rect.height)
+        .fill({
+          color: DEFAULT_PAUSE_OVERLAY_STYLE.color,
+          alpha: DEFAULT_PAUSE_OVERLAY_STYLE.alpha,
+        });
+    }
+  }
+
+  /** Keep crosshair and time label above segments and pause overlays. */
+  private ensureCursorUiOnTop(): void {
+    const count = this.children.length;
+    if (count < 3) {
+      return;
+    }
+    this.setChildIndex(this.timeLabelContainer!, count - 1);
+    this.setChildIndex(this.pointerDashedLines, count - 2);
+    this.setChildIndex(this.pauseOverlayGraphic, count - 3);
   }
 
   private getOrCreateGraphicForCategory(category: ProtocolItem): BaseGraphic {
@@ -414,16 +495,18 @@ export class DataArea extends BaseGroup {
         }
       }
     } else {
-      const firstReading = readings[0];
-      if (!firstReading) return;
+      const firstDataReading = readings.find(
+        (reading) => reading.type === ReadingTypeEnum.DATA
+      );
+      if (!firstDataReading) return;
 
-      const startY = this.getYPosForReading(category, firstReading.name || '');
+      const startY = this.getYPosForReading(category, firstDataReading.name || '');
       if (startY < 0) return;
 
       const start = {
         // Start the first segment at the first DATA timestamp for this category.
         // Otherwise categories that start later appear active from axis origin.
-        x: this.xAxis.getPosFromDateTime(firstReading.dateTime),
+        x: this.xAxis.getPosFromDateTime(firstDataReading.dateTime),
         y: startY,
       };
 
@@ -434,10 +517,38 @@ export class DataArea extends BaseGroup {
         return;
       }
       const axisEndX = xAxisEnd.x;
+      const newSegmentIndices = new Set(
+        getContinuousSegmentStartIndices(readings).filter((idx) => idx > 0),
+      );
 
       for (let i = 1; i < readings.length; i++) {
         const reading = readings[i];
         if (!reading) throw new Error('No reading found');
+
+        const previousReading = readings[i - 1];
+
+        if (shouldSkipInContinuousDraw(reading, previousReading)) {
+          continue;
+        }
+
+        // New segment after STOP: fresh anchor, no bridge across the gap.
+        if (reading.type === ReadingTypeEnum.DATA && newSegmentIndices.has(i)) {
+          const yPos = this.getYPosForReading(category, reading.name || '');
+          if (yPos < 0) continue;
+
+          const rawXPos = this.xAxis.getPosFromDateTime(reading.dateTime);
+          let xPos = rawXPos;
+          if (xPos <= last.x) {
+            xPos = last.x + minVisibleSegmentPx;
+          }
+          if (xPos > axisEndX) {
+            xPos = axisEndX;
+          }
+
+          last.x = xPos;
+          last.y = yPos;
+          continue;
+        }
 
         const yPos =
           reading.type === ReadingTypeEnum.STOP
@@ -455,8 +566,12 @@ export class DataArea extends BaseGroup {
           xPos = axisEndX;
         }
 
+        const previousDataName =
+          previousReading?.type === ReadingTypeEnum.DATA
+            ? previousReading.name
+            : firstDataReading.name || '';
         const horizontalPrefs = this.getObservablePreferencesForReading(
-          readings[i - 1]?.name || firstReading.name || ''
+          previousDataName || firstDataReading.name || ''
         );
         const horizontalColor = horizontalPrefs?.color ?? 'green';
         const horizontalStrokeWidth = horizontalPrefs?.strokeWidth ?? 2;
@@ -480,7 +595,9 @@ export class DataArea extends BaseGroup {
         }
 
         last.x = xPos;
-        last.y = yPos;
+        if (yPos >= 0) {
+          last.y = yPos;
+        }
       }
     }
   }
@@ -527,20 +644,14 @@ export class DataArea extends BaseGroup {
       return;
     }
 
-    for (let i = 0; i < readings.length; i++) {
-      const reading = readings[i];
-      if (!reading || reading.type !== ReadingTypeEnum.DATA) continue;
-
-      const nextReading = readings[i + 1];
-      if (!nextReading) continue;
-
-      const startX = this.xAxis.getPosFromDateTime(reading.dateTime);
-      const endX = this.xAxis.getPosFromDateTime(nextReading.dateTime);
+    for (const { from, to } of iterContinuousDataPairs(readings)) {
+      const startX = this.xAxis.getPosFromDateTime(from.dateTime);
+      const endX = this.xAxis.getPosFromDateTime(to.dateTime);
       const zoneWidth = endX - startX;
 
       if (zoneWidth <= 0) continue;
 
-      const prefs = this.getObservablePreferencesForReading(reading.name || '');
+      const prefs = this.getObservablePreferencesForReading(from.name || '');
       const color = prefs?.color ?? category.graphPreferences?.color ?? 'green';
       const pattern =
         prefs?.backgroundPattern ??
@@ -709,21 +820,14 @@ export class DataArea extends BaseGroup {
     const friezeTopY = friezeInfo.endY;
     const friezeHeight = friezeInfo.height;
 
-    for (let i = 0; i < readings.length; i++) {
-      const reading = readings[i];
-      if (!reading || reading.type !== ReadingTypeEnum.DATA) continue;
-
-      const segmentStartX = this.xAxis.getPosFromDateTime(reading.dateTime);
-
-      const nextReading = readings[i + 1];
-      if (!nextReading) continue;
-
-      const segmentEndX = this.xAxis.getPosFromDateTime(nextReading.dateTime);
+    for (const { from, to } of iterContinuousDataPairs(readings)) {
+      const segmentStartX = this.xAxis.getPosFromDateTime(from.dateTime);
+      const segmentEndX = this.xAxis.getPosFromDateTime(to.dateTime);
       const segmentWidth = segmentEndX - segmentStartX;
 
       if (segmentWidth <= 0) continue;
 
-      const prefs = this.getObservablePreferencesForReading(reading.name || '');
+      const prefs = this.getObservablePreferencesForReading(from.name || '');
       const color = prefs?.color ?? category.graphPreferences?.color ?? 'green';
       const pattern =
         prefs?.backgroundPattern ??

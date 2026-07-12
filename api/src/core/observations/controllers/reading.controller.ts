@@ -63,12 +63,12 @@ class CreateReadingDto {
   dateTime!: Date;
 
   @IsDateString()
-  @IsNotEmpty()
-  createdAt!: Date;
+  @IsOptional()
+  createdAt?: Date;
 
   @IsDateString()
-  @IsNotEmpty()
-  updatedAt!: Date;
+  @IsOptional()
+  updatedAt?: Date;
 }
 
 class UpdateReadingDto {
@@ -190,7 +190,7 @@ export class ReadingController extends BaseController {
   @UseGuards(JwtAuthGuard, UserRolesGuard)
   @Roles(UserRoleEnum.User)
   async createMany(
-    @Body() body: CreateReadingsDto,
+    @Body(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true })) body: CreateReadingsDto,
     @Req() req: any,
   ) {
     const user = req.user;

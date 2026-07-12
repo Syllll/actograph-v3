@@ -10,6 +10,10 @@ export class ParseFilterPipe implements PipeTransform {
   // constructor(options: any) {}
   constructor() {}
 
+  private escapeLikeWildcards(value: string): string {
+    return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+  }
+
   parseAndValidate(value: any, metadata: ArgumentMetadata) {
     if (typeof value !== 'string')
       throw new BadRequestException(
@@ -31,6 +35,11 @@ export class ParseFilterPipe implements PipeTransform {
       if (parsedValue[lastIndex] === '*') parsedValue[lastIndex] = '%';
     }
 
-    return parsedValue.join('');
+    const joined = parsedValue.join('');
+    if (joined === '%') {
+      return joined;
+    }
+
+    return this.escapeLikeWildcards(joined);
   }
 }

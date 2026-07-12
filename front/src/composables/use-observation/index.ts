@@ -6,6 +6,7 @@ import {
   ReadingTypeEnum,
 } from '@services/observations/interface';
 import { observationService } from '@services/observations/index.service';
+import { isRecordingActiveFromReadings } from '@actograph/core';
 import { useProtocol } from './use-protocol';
 import { useReadings } from './use-readings';
 import { useDuration } from '../use-duration';
@@ -129,15 +130,9 @@ export const useObservation = (options?: { init?: boolean }) => {
     startTimer: () => {
       if (sharedState.isPlaying) return;
 
-      const startStopReadings = readings.sharedState.currentReadings.filter(
-        (reading: IReading) => (
-          reading.type === ReadingTypeEnum.START
-          || reading.type === ReadingTypeEnum.STOP
-        ),
+      const shouldCreateStartReading = !isRecordingActiveFromReadings(
+        readings.sharedState.currentReadings,
       );
-      const lastStartStopReading = startStopReadings[startStopReadings.length - 1];
-      const shouldCreateStartReading = !lastStartStopReading
-        || lastStartStopReading.type === ReadingTypeEnum.STOP;
 
       if (shouldCreateStartReading) {
         readings.methods.addStartReading();

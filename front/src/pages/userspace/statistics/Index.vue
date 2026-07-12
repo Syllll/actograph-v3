@@ -23,7 +23,15 @@
           <q-tab name="advanced" :label="t('statisticsUi.tabAdvanced')" />
         </q-tabs>
 
-        <q-btn
+        <div class="row items-center q-gutter-sm">
+          <q-toggle
+            :model-value="statistics.sharedState.treatPausesAsSeparateState"
+            :label="t('statisticsUi.toggleTreatPausesAsSeparateState')"
+            dense
+            :disable="statistics.sharedState.loading"
+            @update:model-value="onTreatPausesAsSeparateStateChange"
+          />
+          <q-btn
           flat
           dense
           no-caps
@@ -62,9 +70,22 @@
             </div>
           </q-menu>
         </q-btn>
+        </div>
       </div>
 
       <q-separator />
+
+      <q-banner
+        v-if="hasReadingsAfterLastStop"
+        dense
+        rounded
+        class="readings-scope-warning q-ma-sm"
+      >
+        <template #avatar>
+          <q-icon name="warning" color="warning" />
+        </template>
+        {{ t('graphUi.readingsAfterLastStopWarning') }}
+      </q-banner>
 
       <q-tab-panels v-model="state.activeTab" animated class="col">
         <!-- Vue globale -->
@@ -99,8 +120,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, onMounted, watch } from 'vue';
+import { defineComponent, reactive, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useStatisticsExport } from 'src/composables/use-statistics/use-statistics-export';
 import { StatisticsExportTab } from 'src/composables/use-statistics/statistics-export.utils';
@@ -141,6 +163,14 @@ export default defineComponent({
       }
     };
 
+    const onTreatPausesAsSeparateStateChange = async (value: boolean) => {
+      try {
+        await statistics.methods.setTreatPausesAsSeparateState(value);
+      } catch (error) {
+        console.error('Failed to reload statistics with treatPausesAsSeparateState:', error);
+      }
+    };
+
     onMounted(loadGeneralStatisticsIfPossible);
 
     watch(
@@ -159,14 +189,20 @@ export default defineComponent({
       },
     );
 
+    const hasReadingsAfterLastStop = computed(() =>
+      detectReadingsAfterLastStop(observation.readings.sharedState.currentReadings)
+    );
+
     return {
       t,
       statistics,
       exportSelection,
       exportFormatOptions,
       runExport,
+      onTreatPausesAsSeparateStateChange,
       state,
       isStudentAccess,
+      hasReadingsAfterLastStop,
     };
   },
 });

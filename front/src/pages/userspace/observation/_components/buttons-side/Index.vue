@@ -95,6 +95,7 @@ import { useObservation } from 'src/composables/use-observation';
 import { observationService } from '@services/observations/index.service';
 import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
+import { isRecordingActiveFromReadings } from '@actograph/core';
 import Category from './Category.vue';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
@@ -196,19 +197,18 @@ export default defineComponent({
     };
 
     // Computed
-    const isRecordingStarted = computed(() => {
-      const startStopReadings = readings.sharedState.currentReadings.filter(
-        (reading: IReading) => reading.type === ReadingTypeEnum.START || reading.type === ReadingTypeEnum.STOP
-      );
-      if (startStopReadings.length === 0) {
-        return false;
-      }
-      return startStopReadings[startStopReadings.length - 1].type === ReadingTypeEnum.START;
-    });
+    const isRecordingStarted = computed(() =>
+      isRecordingActiveFromReadings(readings.sharedState.currentReadings)
+    );
+
+    const canRecordReading = computed(
+      () => isRecordingStarted.value && observation.sharedState.isPlaying
+    );
 
     const computedState = {
       isRecordingStarted,
       isPaused: computed(() => isRecordingStarted.value && !observation.sharedState.isPlaying),
+      canRecordReading,
       // Bug 2.3 / 2.4: les boutons doivent rester utilisables
       // même sans START explicite et en pause.
       isContinuousDisabled: computed(() => false),
@@ -462,6 +462,9 @@ export default defineComponent({
         action: ProtocolItemActionEnum
       ) => {
         if (action === ProtocolItemActionEnum.Discrete && computedState.isDiscreteDisabled.value) {
+          return;
+        }
+        if (!computedState.canRecordReading.value) {
           return;
         }
 

@@ -94,7 +94,7 @@ export function useGraph(options: UseGraphOptions) {
   /**
    * Draw/redraw the graph with current data.
    */
-  function drawGraph(): void {
+  async function drawGraph(): Promise<void> {
     if (!pixiAppInstance) {
       console.warn('[useGraph] Cannot draw: PixiApp not initialized');
       return;
@@ -120,7 +120,7 @@ export function useGraph(options: UseGraphOptions) {
       console.log('[useGraph] Drawing', observation.readings?.length, 'readings');
 
       pixiAppInstance.setData(observation);
-      pixiAppInstance.draw();
+      await pixiAppInstance.draw();
       sharedState.error = null;
     } catch (error) {
       console.error('[useGraph] Draw failed:', error);
@@ -231,7 +231,7 @@ export function useGraph(options: UseGraphOptions) {
       }
 
       // Dessiner le graphique avec les données actuelles
-      drawGraph();
+      await drawGraph();
 
       sharedState.ready = true;
       console.log('[useGraph] Graph initialized successfully');
@@ -260,9 +260,9 @@ export function useGraph(options: UseGraphOptions) {
     sharedState.zoomLevel = pixiAppInstance.getZoomLevel();
   }
 
-  function resetView(): void {
+  async function resetView(): Promise<void> {
     if (!pixiAppInstance) return;
-    pixiAppInstance.resetView();
+    await pixiAppInstance.resetView();
     sharedState.zoomLevel = pixiAppInstance.getZoomLevel();
   }
 
@@ -322,7 +322,7 @@ export function useGraph(options: UseGraphOptions) {
           });
         
         if (hasChanged) {
-          drawGraph();
+          void drawGraph();
         }
       }
     },
@@ -334,7 +334,7 @@ export function useGraph(options: UseGraphOptions) {
     () => chronicle.sharedState.currentProtocol,
     () => {
       if (sharedState.ready && pixiAppInstance) {
-        drawGraph();
+        void drawGraph();
       }
     },
     { deep: true }

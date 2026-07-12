@@ -3,7 +3,11 @@
     <!-- Conteneur principal avec positionnement absolu -->
     <div class="graph-page">
       <div class="graph-header row items-center q-px-sm q-py-xs">
-        <div v-if="graph.sharedState.error" class="text-negative text-caption row items-center">
+        <div v-if="hasReadingsAfterLastStop" class="text-warning text-caption row items-center col">
+          <q-icon name="warning" size="xs" class="q-mr-xs" />
+          <span>{{ $t('graphUi.readingsAfterLastStopWarning') }}</span>
+        </div>
+        <div v-else-if="graph.sharedState.error" class="text-negative text-caption row items-center">
           <q-icon name="warning" size="xs" class="q-mr-xs" />
           <span>{{ graph.sharedState.error }}</span>
         </div>
@@ -48,9 +52,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, watch } from 'vue';
+import { defineComponent, ref, watch, computed } from 'vue';
 import { useGraph, useChronicle } from '@composables';
 import { DPage, DCanvas } from '@components';
+import { hasReadingsAfterLastStop as detectReadingsAfterLastStop, convertMobileReadings } from '@actograph/core';
 
 /**
  * Graph page component - Affiche l'actogramme avec PixiJS.
@@ -123,10 +128,19 @@ export default defineComponent({
       }
     );
 
+    const hasReadingsAfterLastStop = computed(() => {
+      const readings = chronicle.sharedState.currentReadings;
+      if (!readings?.length) {
+        return false;
+      }
+      return detectReadingsAfterLastStop(convertMobileReadings(readings));
+    });
+
     return {
       canvasRef,
       graph,
       chronicle,
+      hasReadingsAfterLastStop,
       onCanvasReady,
       onCanvasResized,
     };

@@ -15,8 +15,10 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return the app HTML status page', () => {
+      const response = appController.getHello();
+      expect(response).toContain('actograph-v3-api');
+      expect(response).toContain('version');
     });
   });
 });

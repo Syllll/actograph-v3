@@ -73,7 +73,7 @@ Implémentation complète du système de statistiques pour les observations, per
 - [x] Créer le composant camembert (PieChart) avec AmCharts 5
 - [x] Créer le composant histogramme (BarChart) avec AmCharts 5
 - [x] Afficher les pourcentages et durées formatées
-- [x] Ajouter l'option pour afficher les pauses dans le camembert
+- [x] Ajouter l'option pour traiter les pauses comme un état séparé (toggle unique, camembert)
 
 ### Phase 3 : Mode avancé avec conditions
 
@@ -147,7 +147,11 @@ Implémentation complète du système de statistiques pour les observations, per
 - `front/src/pages/userspace/statistics/_components/AmChartsBarChart.vue`
 
 **Modifiés** :
-- `front/src/pages/userspace/statistics/Index.vue` : Remplacement de "En construction" par l'interface complète
+- `front/src/pages/userspace/statistics/Index.vue` : Remplacement de "En construction" par l'interface complète ; toggle **« Traiter les pauses comme un état séparé »** (défaut activé)
+
+**Ajoutés (gestion des pauses, 2026)** :
+- `front/src/composables/use-statistics/category-pie-chart.utils.ts` : construction des segments du camembert et dénominateur unifié
+- `front/src/composables/use-statistics/__tests__/category-pie-chart.utils.test.ts` : tests (somme à 100 % en mode séparé)
 
 ---
 
@@ -169,10 +173,35 @@ Le système distingue deux types de catégories selon leur `action` dans le prot
 
 ### Gestion des pauses
 
-Les pauses sont automatiquement exclues des calculs de durées :
-- Les périodes PAUSE_START à PAUSE_END sont identifiées
-- Le chevauchement avec les périodes "on" est calculé et soustrait
-- La durée d'observation effective = Durée totale - Durée des pauses
+Une pause est une **métadonnée temporelle** (`PAUSE_START` / `PAUSE_END`). Elle ne coupe pas les états actifs sur le graphe (voir `docs/graph.md`, section Pauses). Côté statistiques, le comportement est piloté par une **option unique** dans la barre d'outils :
+
+**« Traiter les pauses comme un état séparé »** (`treatPausesAsSeparateState`, défaut `true`, composable `use-statistics`).
+
+#### Mode par défaut (option activée)
+
+La pause est un **état à part entière** :
+- Les périodes `PAUSE_START` à `PAUSE_END` sont identifiées (`calculatePausePeriods` dans `@actograph/core`).
+- Le chevauchement avec les périodes « on » est calculé et **soustrait** des durées des observables continus (`calculatePauseOverlap`).
+- La durée d'observation effective = durée totale − durée des pauses.
+- Un segment **« Pause »** (gris) est ajouté au **camembert** lorsque `pauseDuration > 0`.
+- Le camembert utilise un **dénominateur unique** : durée totale d'observation **incluant** les pauses (`totalCategoryDuration + pauseDuration`). Chaque part observable = durée active / dénominateur ; part Pause = durée de pause / dénominateur. La somme fait **100 %**.
+
+En interne : `includePauses = false` (comportement historique de l'API backend).
+
+#### Mode pauses transparentes (option désactivée)
+
+Les pauses sont **fondues** dans les durées des observables :
+- Aucune soustraction du chevauchement pause sur les périodes « on ».
+- La durée d'observation effective = durée totale (pauses incluses).
+- Aucun segment « Pause » séparé dans le camembert.
+
+En interne : `includePauses = true` ; le front recalcule localement via `@actograph/core` (l'API backend conserve le comportement par défaut d'exclusion).
+
+#### Cas particuliers
+
+- **Catégories discrètes** (Évènements) : les pauses n'affectent pas le comptage des occurrences.
+- **Pause orpheline** (`PAUSE_START` sans `PAUSE_END` correspondant, ou l'inverse) : ignorée silencieusement (voir `docs/reading.md`).
+- **Mode chronomètre + vidéo** : aucun relevé de pause créé ; l'option n'a aucun effet (voir `docs/graph.md`).
 
 ### Performance
 

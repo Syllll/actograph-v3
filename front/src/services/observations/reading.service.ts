@@ -37,6 +37,7 @@ export const readingService = {
         description?: string;
         type: ReadingTypeEnum;
         dateTime: Date | string;
+        tempId?: string | null;
       }[],
     }
   ) {
@@ -46,6 +47,7 @@ export const readingService = {
       dateTime: reading.dateTime instanceof Date 
         ? reading.dateTime.toISOString() 
         : reading.dateTime,
+      ...(reading.tempId !== undefined && reading.tempId !== null ? { tempId: reading.tempId } : {}),
     }));
 
     const response = await api().post(`${apiUrl}/observations/readings`, {

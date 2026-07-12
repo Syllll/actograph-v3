@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "dev": "tsc --watch --project tsconfig.build.json",
-    "lint": "eslint \"src/**/*.ts\" --fix"
+    "lint": "eslint \"src/**/*.ts\" --fix",
+    "test": "jest"
   },
   "dependencies": {
     "pixi.js": "^8.12.0"
@@ -20,8 +21,18 @@
   },
   "devDependencies": {
     "@actograph/core": "file:../core",
+    "@types/jest": "^29.0.1",
     "@types/node": "^20.0.0",
+    "jest": "^29.0.1",
+    "ts-jest": "^29.0.1",
     "typescript": "^5.3.3"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "rootDir": "src",
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node", "mjs", "cjs"],
+    "testMatch": ["**/__tests__/**/*.test.ts"]
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

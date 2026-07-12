@@ -381,6 +381,8 @@ Les readings sont visualisés comme une ligne qui :
 - **Vert épais (2px)** : Segments horizontaux (maintien sur le même observable)
 - **Gris fin (1px)** : Segments verticaux (transitions entre observables)
 
+Les relevés `PAUSE_START` et `PAUSE_END` ne coupent pas les segments continus : les lignes restent continues à travers les pauses. Voir la section [Pauses](#pauses) pour la sémantique et le rendu de l'overlay.
+
 ### Interactions souris
 
 La zone de données gère les interactions avec la souris :
@@ -431,6 +433,65 @@ Le rendu utilise des primitives PixiJS :
 ### Méthodes privées
 
 - `drawCategory(categoryEntry)`: Dessine les readings d'une catégorie sous forme de segments
+
+## Pauses
+
+### Sémantique
+
+Une pause est une **métadonnée temporelle**, matérialisée par deux relevés `PAUSE_START` et `PAUSE_END`. Elle ne constitue pas une frontière d'état.
+
+Pour les catégories à observables **continus** (Lieu, Action) :
+- Les segments traversent les pauses **sans coupure**.
+- La fin d'un état actif reste déduite au relevé `DATA` ou `STOP` suivant, comme en dehors d'une pause.
+- Les relevés `PAUSE_START` et `PAUSE_END` sont ignorés par la boucle de rendu continu : ils ne dessinent pas de géométrie et ne scindent pas les segments.
+
+Pour les catégories **discrètes** (Évènements, observables one-shot) :
+- Les pauses n'ont aucun effet sur le rendu : chaque relevé `DATA` reste un événement ponctuel, indépendamment des pauses.
+
+### Overlay `maskPauses`
+
+L'option de rendu `maskPauses` (défaut `true`) contrôle l'affichage visuel des pauses sur le graphe.
+
+Quand `maskPauses` est activé :
+- Un **overlay semi-transparent** (rectangle gris, pleine hauteur de la zone de données) est dessiné sur chaque intervalle de pause, **au-dessus** des segments.
+- Les segments continus restent visibles en dessous : l'overlay se superpose, il ne coupe pas les lignes.
+
+Quand `maskPauses` est désactivé (`false`) :
+- Aucun overlay n'est dessiné ; seuls les segments et marqueurs habituels sont visibles.
+
+L'option est exposée via `IGraphRenderOptions.maskPauses` (défaut dans `DEFAULT_GRAPH_RENDER_OPTIONS`). Dans l'interface, le toggle **« Masquer les pauses »** du drawer de personnalisation du graphe (`graph-customization-drawer`) pilote cette option.
+
+Les intervalles de pause sont calculés à partir des paires `PAUSE_START` / `PAUSE_END` (logique partagée avec `@actograph/core`, module `calculatePausePeriods`).
+
+### Statistiques
+
+Les pauses interagissent aussi avec les statistiques, indépendamment du rendu graphique.
+
+Une **option unique** dans la barre d'outils des statistiques : **« Traiter les pauses comme un état séparé »** (défaut activé, composable `use-statistics`, état `treatPausesAsSeparateState`).
+
+Quand l'option est **activée** (défaut) :
+- Les temps de pause sont **exclus** des durées des observables continus.
+- Un segment **« Pause »** apparaît dans le camembert lorsque `pauseDuration > 0`.
+- Le camembert utilise un **dénominateur unique** : durée totale d'observation incluant les pauses. Parts observables = durée active / durée totale ; part Pause = durée de pause / durée totale. La somme fait 100 %.
+
+Quand l'option est **désactivée** (pauses transparentes) :
+- Les temps de pause sont **inclus** dans les durées des observables.
+- Aucun segment « Pause » séparé n'est affiché dans le camembert.
+
+En interne : `includePauses = !treatPausesAsSeparateState` pour les appels à `@actograph/core`.
+
+Voir `docs/features/20250115000000-22-23-statistiques-Sylvain-Meylan.md` pour le détail des calculs.
+
+### Limitation : mode chronomètre + vidéo
+
+En mode chronomètre avec une vidéo chargée (`videoPath` renseigné), les relevés `PAUSE_START` et `PAUSE_END` ne sont **pas** créés lors d'une pause de l'observation (comportement préexistant, voir `use-readings.ts`, méthodes `addPauseStartReading` / `addPauseEndReading`).
+
+Conséquences :
+- Aucun intervalle de pause n'est disponible pour le graphe ni pour les statistiques.
+- L'option `maskPauses` et le toggle « Masquer les pauses » n'ont **aucun effet**.
+- L'option « Traiter les pauses comme un état séparé » n'a **aucun effet** non plus.
+
+Voir `docs/reading.md` (section intégration vidéo) pour le contexte d'enregistrement en mode vidéo.
 
 ## Intégration Vue
 
@@ -696,8 +757,25 @@ Les styles peuvent être personnalisés :
 - Couleurs des readings par type
 - Taille des marqueurs
 - Police et taille des labels
+- Overlay des pauses (`maskPauses`, voir section [Pauses](#pauses))
 
-### Configuration
+### Options de rendu du graphe
+
+```typescript
+import { DEFAULT_GRAPH_RENDER_OPTIONS } from '@actograph/graph';
+
+// maskPauses : true par défaut — overlay semi-transparent sur les intervalles de pause
+const renderOptions = {
+  ...DEFAULT_GRAPH_RENDER_OPTIONS,
+  maskPauses: true, // false pour désactiver l'overlay (segments toujours continus, visibles à travers)
+};
+
+pixiApp.setGraphRenderOptions(renderOptions);
+```
+
+Le drawer de personnalisation du graphe expose le toggle **« Masquer les pauses »**, qui met à jour `maskPauses` via `use-graph` (`setMaskPauses`).
+
+### Configuration (couleurs)
 
 ```typescript
 const config = {

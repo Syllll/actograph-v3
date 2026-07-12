@@ -393,7 +393,7 @@ export default {
     categoryPickerTitle: 'Sélectionner une catégorie',
     categoryStatsHeading: 'Statistiques : {name}',
     categoryOnTimePieTitle: 'Pourcentage de temps « on » au sein de la catégorie',
-    toggleIncludePauses: 'Afficher les pauses',
+    toggleTreatPausesAsSeparateState: 'Traiter les pauses comme un état séparé',
     categoryOccurrencesChartTitle: 'Nombre d\'occurrences',
     chartNoData: 'Aucune donnée',
     pauseSegmentLabel: 'Pause',
@@ -452,6 +452,9 @@ export default {
     displayNormal: 'Normal',
     displayFrieze: 'Frise',
     discreteCategoryNormalOnly: 'Les catégories discrètes ne peuvent être qu\'en mode Normal',
+    readingsAfterLastStopWarning:
+      'Certains relevés sont ignorés par le graphique (orphelins entre deux sessions ou après le dernier arrêt).',
+    maskPauses: 'Masquer les pauses',
   },
   appRoot: {
     updateAvailableTitle: 'Mise à jour disponible',

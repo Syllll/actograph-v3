@@ -6,12 +6,21 @@
 import { reactive, computed, watch } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
 import { statisticsService } from '@services/observations/statistics.service';
+import { protocolService } from '@services/observations/protocol.service';
 import {
   IGeneralStatistics,
   ICategoryStatistics,
   IConditionalStatistics,
   IConditionalStatisticsRequest,
 } from '@services/observations/statistics.interface';
+import {
+  calculateGeneralStatistics,
+  calculateCategoryStatistics,
+  scopeReadingsForStatistics,
+  ReadingTypeEnum,
+  type IReading as ICoreReading,
+  type IProtocolItem,
+} from '@actograph/core';
 
 const sharedState = reactive({
   generalStatistics: null as IGeneralStatistics | null,
@@ -19,6 +28,8 @@ const sharedState = reactive({
   conditionalStatistics: null as IConditionalStatistics | null,
   loading: false,
   error: null as string | null,
+  treatPausesAsSeparateState: true,
+  lastCategoryId: null as string | null,
 });
 
 let statisticsObservationWatchRegistered = false;
@@ -28,7 +39,52 @@ const resetStatisticsCache = () => {
   sharedState.categoryStatistics = null;
   sharedState.conditionalStatistics = null;
   sharedState.error = null;
+  sharedState.lastCategoryId = null;
 };
+
+function normalizeReadingsForStatistics(readings: ICoreReading[]): {
+  normalizedReadings: ICoreReading[];
+  observationStart: Date;
+  observationEnd: Date;
+} | null {
+  const { scopedReadings, observationStart, observationEnd } =
+    scopeReadingsForStatistics(readings);
+
+  if (!observationStart || !observationEnd || scopedReadings.length === 0) {
+    return null;
+  }
+
+  const startT = observationStart.getTime();
+  const endT = observationEnd.getTime();
+  const normalizedReadings = scopedReadings.map((r) => {
+    if (r.type !== ReadingTypeEnum.DATA) {
+      return r;
+    }
+    const t = r.dateTime.getTime();
+    if (t < startT || t > endT) {
+      return { ...r, dateTime: new Date(Math.max(startT, Math.min(endT, t))) };
+    }
+    return r;
+  });
+
+  return { normalizedReadings, observationStart, observationEnd };
+}
+
+function getLocalStatisticsInputs(observation: ReturnType<typeof useObservation>) {
+  const readings = observation.readings.sharedState.currentReadings as ICoreReading[];
+  const protocol = observation.protocol.sharedState.currentProtocol;
+  if (!readings.length || !protocol) {
+    return null;
+  }
+
+  const normalized = normalizeReadingsForStatistics(readings);
+  if (!normalized) {
+    return null;
+  }
+
+  const protocolItems = protocolService.parseProtocolItems(protocol) as IProtocolItem[];
+  return { ...normalized, protocolItems };
+}
 
 /**
  * Format duration in milliseconds to human-readable string
@@ -82,8 +138,30 @@ export const useStatistics = () => {
       try {
         sharedState.loading = true;
         sharedState.error = null;
-        sharedState.generalStatistics =
-          await statisticsService.getGeneralStatistics(currentObservation.id);
+
+        const includePauses = !sharedState.treatPausesAsSeparateState;
+        if (includePauses) {
+          const inputs = getLocalStatisticsInputs(observation);
+          if (!inputs) {
+            sharedState.generalStatistics = {
+              totalDuration: 0,
+              totalReadings: 0,
+              pauseCount: 0,
+              pauseDuration: 0,
+              observationDuration: 0,
+              categories: [],
+            };
+            return;
+          }
+          sharedState.generalStatistics = calculateGeneralStatistics(
+            inputs.normalizedReadings,
+            inputs.protocolItems,
+            true,
+          );
+        } else {
+          sharedState.generalStatistics =
+            await statisticsService.getGeneralStatistics(currentObservation.id);
+        }
       } catch (error) {
         sharedState.error =
           error instanceof Error ? error.message : 'Unknown error';
@@ -105,11 +183,37 @@ export const useStatistics = () => {
       try {
         sharedState.loading = true;
         sharedState.error = null;
-        sharedState.categoryStatistics =
-          await statisticsService.getCategoryStatistics(
-            currentObservation.id,
-            categoryId,
+        sharedState.lastCategoryId = categoryId;
+
+        const includePauses = !sharedState.treatPausesAsSeparateState;
+        if (includePauses) {
+          const inputs = getLocalStatisticsInputs(observation);
+          if (!inputs) {
+            sharedState.categoryStatistics = null;
+            return;
+          }
+
+          const category = inputs.protocolItems.find(
+            (item) => item.id === categoryId,
           );
+          if (!category) {
+            throw new Error('Category not found');
+          }
+
+          sharedState.categoryStatistics = calculateCategoryStatistics(
+            category,
+            inputs.normalizedReadings,
+            inputs.observationStart,
+            inputs.observationEnd,
+            true,
+          );
+        } else {
+          sharedState.categoryStatistics =
+            await statisticsService.getCategoryStatistics(
+              currentObservation.id,
+              categoryId,
+            );
+        }
       } catch (error) {
         sharedState.error =
           error instanceof Error ? error.message : 'Unknown error';
@@ -117,6 +221,34 @@ export const useStatistics = () => {
       } finally {
         sharedState.loading = false;
       }
+    },
+
+    /**
+     * Toggle whether pauses are treated as a separate state (ON) or transparent (OFF).
+     * ON: pauses excluded from observable durations, pause segment shown in pie chart.
+     * OFF: pauses included in durations, no separate pause segment.
+     */
+    setTreatPausesAsSeparateState: async (treatPausesAsSeparateState: boolean) => {
+      if (sharedState.treatPausesAsSeparateState === treatPausesAsSeparateState) {
+        return;
+      }
+
+      const categoryIdToReload = sharedState.lastCategoryId;
+      sharedState.treatPausesAsSeparateState = treatPausesAsSeparateState;
+      sharedState.generalStatistics = null;
+      sharedState.categoryStatistics = null;
+      sharedState.conditionalStatistics = null;
+      sharedState.error = null;
+
+      const reloadTasks: Promise<void>[] = [
+        methods.loadGeneralStatistics(),
+      ];
+      if (categoryIdToReload) {
+        reloadTasks.push(
+          methods.loadCategoryStatistics(categoryIdToReload),
+        );
+      }
+      await Promise.all(reloadTasks);
     },
 
     /**

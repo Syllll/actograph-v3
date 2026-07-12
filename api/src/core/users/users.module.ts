@@ -13,6 +13,7 @@ import { UserRoleEnum } from './utils/user-role.enum';
 import { JwtStrategy } from './jwt.strategy';
 import { SecurityModule } from '../security/index.module';
 import { SecurityService } from '@core/security/services/security/index.service';
+import { deriveElectronLocalPassword } from '@actograph/core';
 
 /**
  * Module principal pour la gestion des utilisateurs.
@@ -102,7 +103,7 @@ export class UsersModule implements OnModuleInit {
           roles: [UserRoleEnum.User],
           userJwt: {
             username: localUsername,
-            password: localUsername.split('-')[1],
+            password: deriveElectronLocalPassword(localUsername),
             activated: true,
           },
         });
