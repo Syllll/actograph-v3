@@ -38,15 +38,15 @@
               <div class="text-weight-medium q-mb-sm">{{ t('graphUi.exportSectionFormat') }}</div>
               <div class="row q-gutter-sm q-mb-md">
                 <q-btn
-                  v-for="opt in statisticsExport.exportFormatOptions"
+                  v-for="opt in exportFormatOptions"
                   :key="opt.value"
                   :label="opt.label"
-                  :color="statisticsExport.exportSelection.format === opt.value ? 'primary' : 'grey-3'"
-                  :text-color="statisticsExport.exportSelection.format === opt.value ? 'white' : 'grey-9'"
+                  :color="exportSelection.format === opt.value ? 'primary' : 'grey-3'"
+                  :text-color="exportSelection.format === opt.value ? 'white' : 'grey-9'"
                   no-caps
                   unelevated
                   class="col"
-                  @click="statisticsExport.exportSelection.format = opt.value"
+                  @click="exportSelection.format = opt.value"
                 />
               </div>
               <q-btn
@@ -57,7 +57,7 @@
                 :label="t('graphUi.exportAction')"
                 class="full-width"
                 v-close-popup
-                @click="statisticsExport.runExport"
+                @click="runExport"
               />
             </div>
           </q-menu>
@@ -130,6 +130,7 @@ export default defineComponent({
     });
 
     const statisticsExport = useStatisticsExport(() => state.activeTab);
+    const { exportSelection, exportFormatOptions, runExport } = statisticsExport;
 
     const loadGeneralStatisticsIfPossible = async () => {
       if (!statistics.computedState.canCalculateStatistics.value) return;
@@ -161,8 +162,9 @@ export default defineComponent({
     return {
       t,
       statistics,
-      statisticsExport,
-      observation,
+      exportSelection,
+      exportFormatOptions,
+      runExport,
       state,
       isStudentAccess,
     };

@@ -22,7 +22,7 @@ export const useStatisticsExport = (getActiveTab: () => StatisticsExportTab) => 
     format: 'excel',
   });
 
-  const getWorksheets = () =>
+  const worksheetsForExport = computed(() =>
     buildStatisticsWorksheets({
       activeTab: getActiveTab(),
       generalStatistics: statistics.sharedState.generalStatistics,
@@ -30,9 +30,12 @@ export const useStatisticsExport = (getActiveTab: () => StatisticsExportTab) => 
       conditionalStatistics: statistics.sharedState.conditionalStatistics,
       t,
       formatDuration: statistics.methods.formatDuration,
-    });
+    }),
+  );
 
-  const requiresExcelOnly = computed(() => (getWorksheets()?.length ?? 0) > 1);
+  const requiresExcelOnly = computed(
+    () => (worksheetsForExport.value?.length ?? 0) > 1,
+  );
 
   const exportFormatOptions = computed(() => {
     const options: Array<{ label: string; value: StatisticsExportFormat }> = [
@@ -55,7 +58,7 @@ export const useStatisticsExport = (getActiveTab: () => StatisticsExportTab) => 
   const runExport = async () => {
     if (statistics.sharedState.loading) return;
 
-    const worksheets = getWorksheets();
+    const worksheets = worksheetsForExport.value;
     if (!worksheets || worksheets.length === 0) {
       $q.notify({ type: 'warning', message: t('statisticsUi.exportNoData') });
       return;
