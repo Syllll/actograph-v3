@@ -2,6 +2,9 @@ import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 import { createDialog } from 'src/../lib-improba/utils/dialog.utils';
 import DExportCustomCompoForDialog from 'src/../lib-improba/components/utils/DExportCustomCompoForDialog.vue';
+import { sanitizeWorksheetName } from './sanitize-worksheet-name';
+
+export { sanitizeWorksheetName } from './sanitize-worksheet-name';
 
 // ****************
 // Use cases
@@ -54,14 +57,6 @@ export interface IWorksheet {
     [key: string]: any;
   }[];
 }
-
-export const sanitizeWorksheetName = (name: string): string => {
-  const sanitized = name
-    .replace(/[\\/*?:\[\]]/g, '-')
-    .replace(/^'+|'+$/g, '')
-    .trim();
-  return (sanitized || 'Sheet').slice(0, 31);
-};
 
 export const exportDataWithDialog = async (options: {
   worksheets: IWorksheet[];
