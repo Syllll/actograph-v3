@@ -9,7 +9,7 @@
     </div>
 
     <div v-else class="fit column relative-position">
-      <div class="row items-center justify-between">
+      <div class="row items-center justify-between statistics-toolbar">
         <q-tabs
           v-model="state.activeTab"
           dense
@@ -25,15 +25,42 @@
 
         <q-btn
           flat
-          round
           dense
-          icon="mdi-file-excel-outline"
+          no-caps
           color="grey-8"
-          class="q-mr-sm"
+          icon="mdi-download"
+          :label="t('graphUi.exportMenuLabel')"
           :disable="statistics.sharedState.loading"
-          @click="statisticsExport.exportStatistics"
+          class="q-mr-sm statistics-export-btn"
         >
-          <q-tooltip>{{ t('statisticsUi.tooltipExportStats') }}</q-tooltip>
+          <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
+            <div class="q-pa-md" style="min-width: 280px">
+              <div class="text-weight-medium q-mb-sm">{{ t('graphUi.exportSectionFormat') }}</div>
+              <div class="row q-gutter-sm q-mb-md">
+                <q-btn
+                  v-for="opt in statisticsExport.exportFormatOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :color="statisticsExport.exportSelection.format === opt.value ? 'primary' : 'grey-3'"
+                  :text-color="statisticsExport.exportSelection.format === opt.value ? 'white' : 'grey-9'"
+                  no-caps
+                  unelevated
+                  class="col"
+                  @click="statisticsExport.exportSelection.format = opt.value"
+                />
+              </div>
+              <q-btn
+                color="primary"
+                no-caps
+                unelevated
+                icon="mdi-download"
+                :label="t('graphUi.exportAction')"
+                class="full-width"
+                v-close-popup
+                @click="statisticsExport.runExport"
+              />
+            </div>
+          </q-menu>
         </q-btn>
       </div>
 
@@ -144,6 +171,16 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+.statistics-toolbar {
+  flex-shrink: 0;
+}
+
+.statistics-export-btn {
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .student-stats-notice {
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(0, 0, 0, 0.02);
