@@ -66,6 +66,7 @@ export const exportDataWithDialog = async (options: {
     component: DExportCustomCompoForDialog,
     componentProps: {
       defaultFileName: options.defaultFileName ?? '',
+      excelOnly: options.worksheets.length > 1,
     },
     persistent: true,
   });

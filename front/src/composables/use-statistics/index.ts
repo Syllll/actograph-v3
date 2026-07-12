@@ -3,7 +3,7 @@
  * Manages statistics data and calculations for observations
  */
 
-import { reactive, computed } from 'vue';
+import { reactive, computed, watch } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
 import { statisticsService } from '@services/observations/statistics.service';
 import {
@@ -20,6 +20,15 @@ const sharedState = reactive({
   loading: false,
   error: null as string | null,
 });
+
+let statisticsObservationWatchRegistered = false;
+
+const resetStatisticsCache = () => {
+  sharedState.generalStatistics = null;
+  sharedState.categoryStatistics = null;
+  sharedState.conditionalStatistics = null;
+  sharedState.error = null;
+};
 
 /**
  * Format duration in milliseconds to human-readable string
@@ -47,6 +56,18 @@ function formatDuration(ms: number): string {
  */
 export const useStatistics = () => {
   const observation = useObservation();
+
+  if (!statisticsObservationWatchRegistered) {
+    statisticsObservationWatchRegistered = true;
+    watch(
+      () => observation.sharedState.currentObservation?.id,
+      (observationId, previousObservationId) => {
+        if (observationId !== previousObservationId) {
+          resetStatisticsCache();
+        }
+      },
+    );
+  }
 
   const methods = {
     /**
