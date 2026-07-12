@@ -1,4 +1,4 @@
-import { sanitizeWorksheetName } from '../sanitize-worksheet-name';
+import { sanitizeWorksheetName, ensureUniqueWorksheetNames } from '../sanitize-worksheet-name';
 
 describe('sanitizeWorksheetName', () => {
   it('replaces Excel-forbidden characters with hyphens', () => {
@@ -42,5 +42,41 @@ describe('sanitizeWorksheetName', () => {
     expect(sanitizeWorksheetName('Statistiques conditionnelles')).toBe(
       'Statistiques conditionnelles',
     );
+  });
+});
+
+describe('ensureUniqueWorksheetNames', () => {
+  it('returns sanitized names when there is no collision', () => {
+    expect(ensureUniqueWorksheetNames(['Général', 'Par catégorie'])).toEqual([
+      'Général',
+      'Par catégorie',
+    ]);
+  });
+
+  it('suffixes colliding names after sanitization', () => {
+    expect(ensureUniqueWorksheetNames(['Cat?1', 'Cat*1'])).toEqual(['Cat-1', 'Cat-1-2']);
+    expect(ensureUniqueWorksheetNames(['Cat?1', 'Cat*1', 'Cat/1'])).toEqual([
+      'Cat-1',
+      'Cat-1-2',
+      'Cat-1-3',
+    ]);
+  });
+
+  it('suffixes repeated empty names', () => {
+    expect(ensureUniqueWorksheetNames(['', '   '])).toEqual(['Sheet', 'Sheet-2']);
+  });
+
+  it('keeps suffixes within the 31-character Excel limit', () => {
+    const longBase = 'a'.repeat(31);
+    const [first, second] = ensureUniqueWorksheetNames([longBase, longBase]);
+
+    expect(first).toHaveLength(31);
+    expect(second).toHaveLength(31);
+    expect(second.endsWith('-2')).toBe(true);
+    expect(new Set([first, second]).size).toBe(2);
+  });
+
+  it('handles collisions between a base name and an existing suffix', () => {
+    expect(ensureUniqueWorksheetNames(['Cat-1', 'Cat?1'])).toEqual(['Cat-1', 'Cat-1-2']);
   });
 });

@@ -2,9 +2,9 @@ import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 import { createDialog } from 'src/../lib-improba/utils/dialog.utils';
 import DExportCustomCompoForDialog from 'src/../lib-improba/components/utils/DExportCustomCompoForDialog.vue';
-import { sanitizeWorksheetName } from './sanitize-worksheet-name';
+import { ensureUniqueWorksheetNames } from './sanitize-worksheet-name';
 
-export { sanitizeWorksheetName } from './sanitize-worksheet-name';
+export { sanitizeWorksheetName, ensureUniqueWorksheetNames } from './sanitize-worksheet-name';
 
 // ****************
 // Use cases
@@ -85,8 +85,13 @@ export const exportData = async (options: {
   worksheets: IWorksheet[];
 }) => {
   const workbook = new Workbook();
-  for (const worksheet of options.worksheets) {
-    const ws = workbook.addWorksheet(sanitizeWorksheetName(worksheet.name));
+  const worksheetNames = ensureUniqueWorksheetNames(
+    options.worksheets.map((worksheet) => worksheet.name),
+  );
+
+  for (let index = 0; index < options.worksheets.length; index += 1) {
+    const worksheet = options.worksheets[index];
+    const ws = workbook.addWorksheet(worksheetNames[index]);
 
     ws.columns = worksheet.columns.map(
       (col: {
