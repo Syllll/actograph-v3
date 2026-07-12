@@ -62,9 +62,13 @@ export default defineComponent({
       type: Boolean,
       default: true,
     },
+    defaultFileName: {
+      type: String,
+      default: '',
+    },
   },
   emits: [...useDialogPluginComponent.emits],
-  setup() {
+  setup(props) {
     const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } =
       useDialogPluginComponent();
 
@@ -79,7 +83,7 @@ export default defineComponent({
     };
 
     const state = reactive({
-      name: '',
+      name: props.defaultFileName,
       type: 'excel',
     });
 

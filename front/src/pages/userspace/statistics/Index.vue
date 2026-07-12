@@ -9,18 +9,33 @@
     </div>
 
     <div v-else class="fit column relative-position">
-      <q-tabs
-        v-model="state.activeTab"
-        dense
-        class="text-grey-7"
-        active-color="primary"
-        indicator-color="primary"
-        align="left"
-      >
-        <q-tab name="general" :label="t('statisticsUi.tabGeneral')" />
-        <q-tab name="category" :label="t('statisticsUi.tabByCategory')" />
-        <q-tab name="advanced" :label="t('statisticsUi.tabAdvanced')" />
-      </q-tabs>
+      <div class="row items-center justify-between">
+        <q-tabs
+          v-model="state.activeTab"
+          dense
+          class="text-grey-7"
+          active-color="primary"
+          indicator-color="primary"
+          align="left"
+        >
+          <q-tab name="general" :label="t('statisticsUi.tabGeneral')" />
+          <q-tab name="category" :label="t('statisticsUi.tabByCategory')" />
+          <q-tab name="advanced" :label="t('statisticsUi.tabAdvanced')" />
+        </q-tabs>
+
+        <q-btn
+          flat
+          round
+          dense
+          icon="mdi-file-excel-outline"
+          color="grey-8"
+          class="q-mr-sm"
+          :disable="statistics.sharedState.loading"
+          @click="statisticsExport.exportStatistics"
+        >
+          <q-tooltip>{{ t('statisticsUi.tooltipExportStats') }}</q-tooltip>
+        </q-btn>
+      </div>
 
       <q-separator />
 
@@ -60,6 +75,8 @@
 import { defineComponent, reactive, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useStatistics } from 'src/composables/use-statistics';
+import { useStatisticsExport } from 'src/composables/use-statistics/use-statistics-export';
+import { StatisticsExportTab } from 'src/composables/use-statistics/statistics-export.utils';
 import { useObservation } from 'src/composables/use-observation';
 import { useLicense } from 'src/composables/use-license';
 import { emitChartsRefresh } from 'src/composables/use-app-resume';
@@ -82,19 +99,28 @@ export default defineComponent({
     const { isStudentAccess } = useLicense();
 
     const state = reactive({
-      activeTab: 'general',
+      activeTab: 'general' as StatisticsExportTab,
     });
 
-    onMounted(async () => {
-      // Load general statistics on mount
-      if (statistics.computedState.canCalculateStatistics.value) {
-        try {
-          await statistics.methods.loadGeneralStatistics();
-        } catch (error) {
-          console.error('Failed to load general statistics:', error);
-        }
+    const statisticsExport = useStatisticsExport(() => state.activeTab);
+
+    const loadGeneralStatisticsIfPossible = async () => {
+      if (!statistics.computedState.canCalculateStatistics.value) return;
+      try {
+        await statistics.methods.loadGeneralStatistics();
+      } catch (error) {
+        console.error('Failed to load general statistics:', error);
       }
-    });
+    };
+
+    onMounted(loadGeneralStatisticsIfPossible);
+
+    watch(
+      () => observation.sharedState.currentObservation?.id,
+      () => {
+        void loadGeneralStatisticsIfPossible();
+      },
+    );
 
     watch(
       () => state.activeTab,
@@ -102,12 +128,13 @@ export default defineComponent({
         if (tab === 'category' || tab === 'advanced') {
           emitChartsRefresh();
         }
-      }
+      },
     );
 
     return {
       t,
       statistics,
+      statisticsExport,
       observation,
       state,
       isStudentAccess,

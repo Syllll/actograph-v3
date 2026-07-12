@@ -2,6 +2,9 @@ import { Workbook } from 'exceljs';
 import { saveAs } from 'file-saver';
 import { createDialog } from 'src/../lib-improba/utils/dialog.utils';
 import DExportCustomCompoForDialog from 'src/../lib-improba/components/utils/DExportCustomCompoForDialog.vue';
+import { ensureUniqueWorksheetNames } from './sanitize-worksheet-name';
+
+export { sanitizeWorksheetName, ensureUniqueWorksheetNames } from './sanitize-worksheet-name';
 
 // ****************
 // Use cases
@@ -57,10 +60,14 @@ export interface IWorksheet {
 
 export const exportDataWithDialog = async (options: {
   worksheets: IWorksheet[];
+  defaultFileName?: string;
 }) => {
   const dialogRes = await createDialog({
     component: DExportCustomCompoForDialog,
-    componentProps: {},
+    componentProps: {
+      defaultFileName: options.defaultFileName ?? '',
+      excelOnly: options.worksheets.length > 1,
+    },
     persistent: true,
   });
 
@@ -79,8 +86,13 @@ export const exportData = async (options: {
   worksheets: IWorksheet[];
 }) => {
   const workbook = new Workbook();
-  for (const worksheet of options.worksheets) {
-    const ws = workbook.addWorksheet(worksheet.name);
+  const worksheetNames = ensureUniqueWorksheetNames(
+    options.worksheets.map((worksheet) => worksheet.name),
+  );
+
+  for (let index = 0; index < options.worksheets.length; index += 1) {
+    const worksheet = options.worksheets[index];
+    const ws = workbook.addWorksheet(worksheetNames[index]);
 
     ws.columns = worksheet.columns.map(
       (col: {
