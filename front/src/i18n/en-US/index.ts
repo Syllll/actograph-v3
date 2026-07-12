@@ -397,6 +397,7 @@ export default {
     chartSeriesOccurrences: 'Occurrences',
     tooltipExportStats: 'Export statistics',
     exportNoData: 'No statistics to export for this tab',
+    exportFailed: 'Could not export statistics',
     exportSheetGeneral: 'General',
     exportSheetGeneralByCategory: 'By category',
     exportSheetCategory: 'Category',

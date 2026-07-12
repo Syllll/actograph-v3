@@ -55,12 +55,23 @@ export interface IWorksheet {
   }[];
 }
 
+export const sanitizeWorksheetName = (name: string): string => {
+  const sanitized = name
+    .replace(/[\\/*?:\[\]]/g, '-')
+    .replace(/^'+|'+$/g, '')
+    .trim();
+  return (sanitized || 'Sheet').slice(0, 31);
+};
+
 export const exportDataWithDialog = async (options: {
   worksheets: IWorksheet[];
+  defaultFileName?: string;
 }) => {
   const dialogRes = await createDialog({
     component: DExportCustomCompoForDialog,
-    componentProps: {},
+    componentProps: {
+      defaultFileName: options.defaultFileName ?? '',
+    },
     persistent: true,
   });
 
@@ -80,7 +91,7 @@ export const exportData = async (options: {
 }) => {
   const workbook = new Workbook();
   for (const worksheet of options.worksheets) {
-    const ws = workbook.addWorksheet(worksheet.name);
+    const ws = workbook.addWorksheet(sanitizeWorksheetName(worksheet.name));
 
     ws.columns = worksheet.columns.map(
       (col: {

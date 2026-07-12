@@ -402,6 +402,7 @@ export default {
     chartSeriesOccurrences: 'Occurrences',
     tooltipExportStats: 'Exporter les statistiques',
     exportNoData: 'Aucune statistique à exporter pour cet onglet',
+    exportFailed: 'Erreur lors de l\'export des statistiques',
     exportSheetGeneral: 'Général',
     exportSheetGeneralByCategory: 'Par catégorie',
     exportSheetCategory: 'Catégorie',

@@ -103,13 +103,41 @@ export default defineComponent({
     });
 
     const methods = {
+      buildDefaultFileName: (): string => {
+        const observationName =
+          observation.sharedState.currentObservation?.name || 'statistics';
+        const safeName = (
+          observationName.replace(/[<>:"/\\|?*]/g, '-').trim() || 'statistics'
+        ).slice(0, 100);
+        return `${safeName}-statistics`;
+      },
+
+      formatOnPercentage: (
+        obs: { onDuration: number; onPercentage: number },
+        totalCategoryDuration: number,
+      ): string => {
+        let percentage = obs.onPercentage || 0;
+        if (totalCategoryDuration > 0 && percentage === 0 && obs.onDuration > 0) {
+          percentage = (obs.onDuration / totalCategoryDuration) * 100;
+        }
+        return `${percentage.toFixed(1)}%`;
+      },
+
       exportStatistics: async () => {
         const worksheets = methods.buildWorksheets();
         if (!worksheets || worksheets.length === 0) {
           $q.notify({ type: 'warning', message: t('statisticsUi.exportNoData') });
           return;
         }
-        await exportDataWithDialog({ worksheets });
+        try {
+          await exportDataWithDialog({
+            worksheets,
+            defaultFileName: methods.buildDefaultFileName(),
+          });
+        } catch (error) {
+          console.error('Failed to export statistics:', error);
+          $q.notify({ type: 'negative', message: t('statisticsUi.exportFailed') });
+        }
       },
 
       buildWorksheets: (): IWorksheet[] | null => {
@@ -174,7 +202,7 @@ export default defineComponent({
 
           return [
             {
-              name: `${t('statisticsUi.exportSheetCategory')} - ${stats.categoryName}`.slice(0, 31),
+              name: `${t('statisticsUi.exportSheetCategory')} - ${stats.categoryName}`,
               columns: [
                 { header: t('statisticsUi.colObservable'), key: 'observableName', width: 30 },
                 { header: t('statisticsUi.colOnDuration'), key: 'onDuration', width: 20 },
@@ -195,9 +223,17 @@ export default defineComponent({
           const stats = statistics.sharedState.conditionalStatistics;
           if (!stats || !stats.targetCategory || !stats.targetCategory.observables) return null;
 
+          let totalCategoryDuration = stats.targetCategory.totalCategoryDuration || 0;
+          if (totalCategoryDuration === 0) {
+            totalCategoryDuration = stats.targetCategory.observables.reduce(
+              (sum, obs) => sum + (obs.onDuration || 0),
+              0,
+            );
+          }
+
           return [
             {
-              name: t('statisticsUi.exportSheetConditional').slice(0, 31),
+              name: t('statisticsUi.exportSheetConditional'),
               columns: [
                 { header: t('statisticsUi.colObservable'), key: 'observableName', width: 30 },
                 { header: t('statisticsUi.colOnDuration'), key: 'onDuration', width: 20 },
@@ -214,7 +250,7 @@ export default defineComponent({
                 ...stats.targetCategory.observables.map((obs) => ({
                   observableName: obs.observableName,
                   onDuration: statistics.methods.formatDuration(obs.onDuration),
-                  onPercentage: `${(obs.onPercentage || 0).toFixed(1)}%`,
+                  onPercentage: methods.formatOnPercentage(obs, totalCategoryDuration),
                   onCount: obs.onCount,
                 })),
               ],
