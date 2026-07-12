@@ -9,18 +9,32 @@
     </div>
 
     <div v-else class="fit column relative-position">
-      <q-tabs
-        v-model="state.activeTab"
-        dense
-        class="text-grey-7"
-        active-color="primary"
-        indicator-color="primary"
-        align="left"
-      >
-        <q-tab name="general" :label="t('statisticsUi.tabGeneral')" />
-        <q-tab name="category" :label="t('statisticsUi.tabByCategory')" />
-        <q-tab name="advanced" :label="t('statisticsUi.tabAdvanced')" />
-      </q-tabs>
+      <div class="row items-center justify-between">
+        <q-tabs
+          v-model="state.activeTab"
+          dense
+          class="text-grey-7"
+          active-color="primary"
+          indicator-color="primary"
+          align="left"
+        >
+          <q-tab name="general" :label="t('statisticsUi.tabGeneral')" />
+          <q-tab name="category" :label="t('statisticsUi.tabByCategory')" />
+          <q-tab name="advanced" :label="t('statisticsUi.tabAdvanced')" />
+        </q-tabs>
+
+        <q-btn
+          flat
+          round
+          dense
+          icon="mdi-file-excel-outline"
+          color="grey-8"
+          class="q-mr-sm"
+          @click="methods.exportStatistics"
+        >
+          <q-tooltip>{{ t('statisticsUi.tooltipExportStats') }}</q-tooltip>
+        </q-btn>
+      </div>
 
       <q-separator />
 
@@ -59,11 +73,13 @@
 <script lang="ts">
 import { defineComponent, reactive, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useQuasar } from 'quasar';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useObservation } from 'src/composables/use-observation';
 import { useLicense } from 'src/composables/use-license';
 import { emitChartsRefresh } from 'src/composables/use-app-resume';
 import { DPage } from '@lib-improba/components';
+import { exportDataWithDialog, IWorksheet } from '@lib-improba/utils/export.utils';
 import GeneralStatisticsView from './_components/GeneralStatisticsView.vue';
 import CategoryStatisticsView from './_components/CategoryStatisticsView.vue';
 import ConditionalStatisticsView from './_components/ConditionalStatisticsView.vue';
@@ -77,6 +93,7 @@ export default defineComponent({
   },
   setup() {
     const { t } = useI18n();
+    const $q = useQuasar();
     const statistics = useStatistics();
     const observation = useObservation();
     const { isStudentAccess } = useLicense();
@@ -84,6 +101,130 @@ export default defineComponent({
     const state = reactive({
       activeTab: 'general',
     });
+
+    const methods = {
+      exportStatistics: async () => {
+        const worksheets = methods.buildWorksheets();
+        if (!worksheets || worksheets.length === 0) {
+          $q.notify({ type: 'warning', message: t('statisticsUi.exportNoData') });
+          return;
+        }
+        await exportDataWithDialog({ worksheets });
+      },
+
+      buildWorksheets: (): IWorksheet[] | null => {
+        if (state.activeTab === 'general') {
+          const stats = statistics.sharedState.generalStatistics;
+          if (!stats) return null;
+
+          const worksheets: IWorksheet[] = [
+            {
+              name: t('statisticsUi.exportSheetGeneral'),
+              columns: [
+                { header: t('statisticsUi.colMetric'), key: 'label', width: 40 },
+                { header: t('statisticsUi.colValue'), key: 'value', width: 20 },
+              ],
+              rows: [
+                {
+                  label: t('statisticsUi.metricTotalObservationDuration'),
+                  value: statistics.methods.formatDuration(stats.totalDuration),
+                },
+                {
+                  label: t('statisticsUi.metricObservationDurationExclPauses'),
+                  value: statistics.methods.formatDuration(stats.observationDuration),
+                },
+                {
+                  label: t('statisticsUi.metricTotalReadings'),
+                  value: stats.totalReadings,
+                },
+                {
+                  label: t('statisticsUi.metricPauseCount'),
+                  value: stats.pauseCount,
+                },
+                {
+                  label: t('statisticsUi.metricTotalPauseDuration'),
+                  value: statistics.methods.formatDuration(stats.pauseDuration),
+                },
+              ],
+            },
+          ];
+
+          if (stats.categories.length > 0) {
+            worksheets.push({
+              name: t('statisticsUi.exportSheetGeneralByCategory'),
+              columns: [
+                { header: t('statisticsUi.colCategory'), key: 'categoryName', width: 30 },
+                { header: t('statisticsUi.colActiveObservables'), key: 'activeObservablesCount', width: 20 },
+                { header: t('statisticsUi.colTotalDuration'), key: 'totalDuration', width: 20 },
+              ],
+              rows: stats.categories.map((cat) => ({
+                categoryName: cat.categoryName,
+                activeObservablesCount: cat.activeObservablesCount,
+                totalDuration: statistics.methods.formatDuration(cat.totalDuration),
+              })),
+            });
+          }
+
+          return worksheets;
+        }
+
+        if (state.activeTab === 'category') {
+          const stats = statistics.sharedState.categoryStatistics;
+          if (!stats || !stats.observables || stats.observables.length === 0) return null;
+
+          return [
+            {
+              name: `${t('statisticsUi.exportSheetCategory')} - ${stats.categoryName}`.slice(0, 31),
+              columns: [
+                { header: t('statisticsUi.colObservable'), key: 'observableName', width: 30 },
+                { header: t('statisticsUi.colOnDuration'), key: 'onDuration', width: 20 },
+                { header: t('statisticsUi.colOnPercentage'), key: 'onPercentage', width: 20 },
+                { header: t('statisticsUi.colOccurrences'), key: 'onCount', width: 15 },
+              ],
+              rows: stats.observables.map((obs) => ({
+                observableName: obs.observableName,
+                onDuration: statistics.methods.formatDuration(obs.onDuration),
+                onPercentage: `${(obs.onPercentage || 0).toFixed(1)}%`,
+                onCount: obs.onCount,
+              })),
+            },
+          ];
+        }
+
+        if (state.activeTab === 'advanced') {
+          const stats = statistics.sharedState.conditionalStatistics;
+          if (!stats || !stats.targetCategory || !stats.targetCategory.observables) return null;
+
+          return [
+            {
+              name: t('statisticsUi.exportSheetConditional').slice(0, 31),
+              columns: [
+                { header: t('statisticsUi.colObservable'), key: 'observableName', width: 30 },
+                { header: t('statisticsUi.colOnDuration'), key: 'onDuration', width: 20 },
+                { header: t('statisticsUi.colOnPercentage'), key: 'onPercentage', width: 20 },
+                { header: t('statisticsUi.colOccurrences'), key: 'onCount', width: 15 },
+              ],
+              rows: [
+                {
+                  observableName: `${t('statisticsUi.colFilteredDuration')} (${stats.targetCategory.categoryName})`,
+                  onDuration: statistics.methods.formatDuration(stats.filteredDuration),
+                  onPercentage: '',
+                  onCount: '',
+                },
+                ...stats.targetCategory.observables.map((obs) => ({
+                  observableName: obs.observableName,
+                  onDuration: statistics.methods.formatDuration(obs.onDuration),
+                  onPercentage: `${(obs.onPercentage || 0).toFixed(1)}%`,
+                  onCount: obs.onCount,
+                })),
+              ],
+            },
+          ];
+        }
+
+        return null;
+      },
+    };
 
     onMounted(async () => {
       // Load general statistics on mount
@@ -110,6 +251,7 @@ export default defineComponent({
       statistics,
       observation,
       state,
+      methods,
       isStudentAccess,
     };
   },
