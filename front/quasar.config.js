@@ -112,9 +112,11 @@ module.exports = configure(function (/* ctx */) {
             // if you want to use Vue I18n Legacy API, you need to set `compositionOnly: false`
             // compositionOnly: false,
 
-            // if you want to use named tokens in your Vue I18n messages, such as 'Hello {name}',
-            // you need to set `runtimeOnly: false`
-            // runtimeOnly: false,
+            // Locale messages live in .ts files (src/i18n/**), which this plugin
+            // does not pre-compile (only .json/.yaml/.json5 are). Without the
+            // message compiler bundled, named tokens like 'Statistiques : {name}'
+            // are shown literally in production builds. Keep the full compiler.
+            runtimeOnly: false,
 
             // you need to set i18n resource including paths !
             include: path.resolve(__dirname, './src/i18n/**'),
