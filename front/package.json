@@ -11,6 +11,7 @@
     "format": "prettier --write \"**/*.{js,ts,vue,scss,html,md,json}\" --ignore-path .gitignore",
     "test": "jest",
     "test:watch": "jest --watch",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.vue-tsc.json",
     "dev": "quasar dev",
     "build": "quasar build",
     "docker:dev": "sh docker/compose.sh console"

@@ -16,7 +16,7 @@
           :placeholder="$t('dialogs.createObservation.namePlaceholder')"
           outlined
           dense
-          :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.createObservation.nameRequired')]"
+          :rules="[validateName]"
         />
         <q-input
           v-model="state.description"
@@ -38,7 +38,7 @@
           dense
           :label="$t('dialogs.createObservation.observationTypeLabel')"
           :hint="$t('dialogs.createObservation.observationTypeHint')"
-          :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.createObservation.observationTypeRequired')]"
+          :rules="[validateObservationType]"
         >
           <template v-slot:option="scope">
             <q-item v-bind="scope.itemProps">
@@ -109,7 +109,7 @@
           dense
           :label="$t('dialogs.createObservation.modeLabel')"
           :hint="$t('dialogs.createObservation.modeHint')"
-          :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.createObservation.modeRequired')]"
+          :rules="[validateMode]"
         >
           <template v-slot:option="scope">
             <q-item v-bind="scope.itemProps">
@@ -209,6 +209,15 @@ export default defineComponent({
       ];
     });
 
+    const validateName = (val: string | null | undefined): boolean | string =>
+      Boolean(val && val.trim().length > 0) || t('dialogs.createObservation.nameRequired');
+
+    const validateObservationType = (val: string | null | undefined): boolean | string =>
+      (val !== null && val !== undefined) || t('dialogs.createObservation.observationTypeRequired');
+
+    const validateMode = (val: ObservationModeEnum | null | undefined): boolean | string =>
+      (val !== null && val !== undefined) || t('dialogs.createObservation.modeRequired');
+
     const handleDialogHide = async () => {
       if (!isMounted.value) return;
       try {
@@ -290,6 +299,9 @@ export default defineComponent({
       handleDialogHide,
       onOKClick: methods.onOKClick,
       onCancelClick: onDialogCancel,
+      validateName,
+      validateObservationType,
+      validateMode,
     };
   },
 });

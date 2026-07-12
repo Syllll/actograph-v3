@@ -26,7 +26,7 @@
           maxlength="80"
           counter
           class="save-as-input"
-          :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.saveAs.nameRequired')]"
+          :rules="[validateName]"
           @keyup.enter="onOKClick"
         />
       </div>
@@ -79,6 +79,9 @@ export default defineComponent({
       return state.newName && state.newName.trim().length > 0;
     });
 
+    const validateName = (val: string | null | undefined): boolean | string =>
+      Boolean(val && val.trim().length > 0) || t('dialogs.saveAs.nameRequired');
+
     const onOKClick = () => {
       if (isValid.value) {
         onDialogOK(state.newName.trim());
@@ -93,6 +96,7 @@ export default defineComponent({
       isValid,
       onOKClick,
       onCancelClick: onDialogCancel,
+      validateName,
     };
   },
 });

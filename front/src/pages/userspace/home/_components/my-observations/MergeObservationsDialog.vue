@@ -24,7 +24,7 @@
           :placeholder="$t('dialogs.mergeObservation.firstPlaceholder')"
           :loading="state.observationsLoading"
           :disable="state.observationsLoading"
-          :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.mergeObservation.firstRequired')]"
+          :rules="[validateObservationId]"
         />
         <q-select
           v-model="state.sourceObservationId2"
@@ -38,14 +38,14 @@
           :placeholder="$t('dialogs.mergeObservation.secondPlaceholder')"
           :loading="state.observationsLoading"
           :disable="state.observationsLoading"
-          :rules="[(val) => (val !== null && val !== undefined) || $t('dialogs.mergeObservation.secondRequired')]"
+          :rules="[validateObservationId]"
         />
         <q-input
           v-model="state.name"
           :placeholder="$t('dialogs.mergeObservation.mergedNamePlaceholder')"
           outlined
           dense
-          :rules="[(val) => (val && val.trim().length > 0) || $t('dialogs.mergeObservation.nameRequired')]"
+          :rules="[validateName]"
         />
         <q-input
           v-model="state.description"
@@ -121,6 +121,12 @@ export default defineComponent({
       }))
     );
 
+    const validateObservationId = (val: number | null | undefined): boolean | string =>
+      (val !== null && val !== undefined) || t('dialogs.mergeObservation.firstRequired');
+
+    const validateName = (val: string | null | undefined): boolean | string =>
+      Boolean(val && val.trim().length > 0) || t('dialogs.mergeObservation.nameRequired');
+
     const handleDialogHide = async () => {
       if (!isMounted.value) return;
       try {
@@ -183,6 +189,8 @@ export default defineComponent({
       handleDialogHide,
       onOKClick: methods.onOKClick,
       onCancelClick: onDialogCancel,
+      validateObservationId,
+      validateName,
     };
   },
 });

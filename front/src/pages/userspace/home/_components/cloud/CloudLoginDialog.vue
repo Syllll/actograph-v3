@@ -24,10 +24,7 @@
           outlined
           dense
           autofocus
-          :rules="[
-            (val) => !!val || $t('cloud.emailRequired'),
-            (val) => isValidEmail(val) || $t('cloud.emailInvalid'),
-          ]"
+          :rules="[validateRequired, validateEmailFormat]"
           :disable="state.isLoading"
         >
           <template v-slot:prepend>
@@ -41,7 +38,7 @@
           :type="state.showPassword ? 'text' : 'password'"
           outlined
           dense
-          :rules="[(val) => !!val || $t('cloud.passwordRequired')]"
+          :rules="[validatePasswordRequired]"
           :disable="state.isLoading"
           @keyup.enter="methods.submit"
         >
@@ -97,6 +94,15 @@ export default defineComponent({
       return emailRegex.test(email);
     };
 
+    const validateRequired = (val: string | null | undefined): boolean | string =>
+      Boolean(val) || t('cloud.emailRequired');
+
+    const validateEmailFormat = (val: string | null | undefined): boolean | string =>
+      isValidEmail(val || '') || t('cloud.emailInvalid');
+
+    const validatePasswordRequired = (val: string | null | undefined): boolean | string =>
+      Boolean(val) || t('cloud.passwordRequired');
+
     const methods = {
       async submit() {
         if (!state.email || !state.password) return;
@@ -124,6 +130,9 @@ export default defineComponent({
       state,
       methods,
       isValidEmail,
+      validateRequired,
+      validateEmailFormat,
+      validatePasswordRequired,
     };
   },
 });

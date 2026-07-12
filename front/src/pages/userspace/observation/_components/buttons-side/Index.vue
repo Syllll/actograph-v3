@@ -196,17 +196,19 @@ export default defineComponent({
     };
 
     // Computed
+    const isRecordingStarted = computed(() => {
+      const startStopReadings = readings.sharedState.currentReadings.filter(
+        (reading: IReading) => reading.type === ReadingTypeEnum.START || reading.type === ReadingTypeEnum.STOP
+      );
+      if (startStopReadings.length === 0) {
+        return false;
+      }
+      return startStopReadings[startStopReadings.length - 1].type === ReadingTypeEnum.START;
+    });
+
     const computedState = {
-      isRecordingStarted: computed(() => {
-        const startStopReadings = readings.sharedState.currentReadings.filter(
-          (reading: IReading) => reading.type === ReadingTypeEnum.START || reading.type === ReadingTypeEnum.STOP
-        );
-        if (startStopReadings.length === 0) {
-          return false;
-        }
-        return startStopReadings[startStopReadings.length - 1].type === ReadingTypeEnum.START;
-      }),
-      isPaused: computed(() => computedState.isRecordingStarted.value && !observation.sharedState.isPlaying),
+      isRecordingStarted,
+      isPaused: computed(() => isRecordingStarted.value && !observation.sharedState.isPlaying),
       // Bug 2.3 / 2.4: les boutons doivent rester utilisables
       // même sans START explicite et en pause.
       isContinuousDisabled: computed(() => false),
@@ -508,7 +510,7 @@ export default defineComponent({
         const position = state.categoryPositions[categoryId];
         if (!position) return;
 
-        const category = computedState.categories.value.find(c => c.id === categoryId);
+        const category = computedState.categories.value.find((c: ProtocolItem) => c.id === categoryId);
         if (!category || !sharedState.currentProtocol) return;
 
         try {
@@ -563,7 +565,7 @@ export default defineComponent({
         const size = state.categorySizes[categoryId];
         if (!size) return;
 
-        const category = computedState.categories.value.find(c => c.id === categoryId);
+        const category = computedState.categories.value.find((c: ProtocolItem) => c.id === categoryId);
         if (!category || !sharedState.currentProtocol) return;
 
         try {
@@ -721,7 +723,7 @@ export default defineComponent({
         });
         
         // Reset positions in backend for all categories
-        const promises = computedState.categories.value.map(async (category) => {
+        const promises = computedState.categories.value.map(async (category: ProtocolItem) => {
           if (category.meta && category.meta.position) {
             const newMeta = { ...category.meta };
             delete newMeta.position;

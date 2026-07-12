@@ -63,7 +63,7 @@
                   emit-value
                   map-options
                   :disable="category.action === ProtocolItemActionEnum.Discrete"
-                  @update:model-value="(val) => methods.updateCategoryPreference(category.id, { displayMode: val })"
+                  @update:model-value="methods.makeCategoryDisplayModeHandler(category.id)"
                 >
                   <q-tooltip v-if="category.action === ProtocolItemActionEnum.Discrete">
                     {{ $t('graphUi.discreteCategoryNormalOnly') }}
@@ -101,7 +101,7 @@
                   :step="1"
                   dense
                   :label-value="`${category.graphPreferences?.strokeWidth ?? 2}px`"
-                  @update:model-value="(val) => methods.updateCategoryPreference(category.id, { strokeWidth: val ?? undefined })"
+                  @update:model-value="methods.makeCategoryStrokeWidthHandler(category.id)"
                 />
               </div>
 
@@ -120,7 +120,7 @@
                   emit-value
                   map-options
                   :disable="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Normal"
-                  @update:model-value="(val) => methods.updateCategoryPreference(category.id, { backgroundPattern: val })"
+                  @update:model-value="methods.makeCategoryPatternHandler(category.id)"
                 />
               </div>
 
@@ -140,7 +140,7 @@
                   emit-value
                   map-options
                   :placeholder="$t('graphUi.placeholderBgCategory')"
-                  @update:model-value="(val) => methods.updateCategoryPreference(category.id, { supportCategoryId: val === '' ? null : val })"
+                  @update:model-value="methods.makeCategorySupportHandler(category.id)"
                 />
               </div>
             </div>
@@ -204,7 +204,7 @@
                     :step="1"
                     dense
                     :label-value="`${methods.getObservableStrokeWidth(observable.id, category.id) ?? 2}px`"
-                    @update:model-value="(val) => methods.updateObservablePreference(observable.id, { strokeWidth: val ?? undefined })"
+                    @update:model-value="methods.makeObservableStrokeWidthHandler(observable.id)"
                   />
                 </div>
 
@@ -223,7 +223,7 @@
                     emit-value
                     map-options
                     :disable="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Normal"
-                    @update:model-value="(val) => methods.updateObservablePreference(observable.id, { backgroundPattern: val })"
+                    @update:model-value="methods.makeObservablePatternHandler(observable.id)"
                   />
                 </div>
 
@@ -486,6 +486,32 @@ export default defineComponent({
           return DisplayModeEnum.Normal;
         }
         return category.graphPreferences?.displayMode || DisplayModeEnum.Normal;
+      },
+
+      makeCategoryDisplayModeHandler: (categoryId: string) => (val: DisplayModeEnum) => {
+        methods.updateCategoryPreference(categoryId, { displayMode: val });
+      },
+
+      makeCategoryStrokeWidthHandler: (categoryId: string) => (val: number | null) => {
+        methods.updateCategoryPreference(categoryId, { strokeWidth: val ?? undefined });
+      },
+
+      makeCategoryPatternHandler: (categoryId: string) => (val: BackgroundPatternEnum) => {
+        methods.updateCategoryPreference(categoryId, { backgroundPattern: val });
+      },
+
+      makeCategorySupportHandler: (categoryId: string) => (val: string | null) => {
+        methods.updateCategoryPreference(categoryId, {
+          supportCategoryId: val === '' ? null : val,
+        });
+      },
+
+      makeObservableStrokeWidthHandler: (observableId: string) => (val: number | null) => {
+        methods.updateObservablePreference(observableId, { strokeWidth: val ?? undefined });
+      },
+
+      makeObservablePatternHandler: (observableId: string) => (val: BackgroundPatternEnum) => {
+        methods.updateObservablePreference(observableId, { backgroundPattern: val });
       },
 
       /**

@@ -1,11 +1,11 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "skipLibCheck": true
   },
   "exclude": [
-    "lib-improba/components/**",
-    "src-electron/**"
+    "src-electron/**",
+    "**/__tests__/**"
   ]
 }

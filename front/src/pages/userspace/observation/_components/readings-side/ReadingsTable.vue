@@ -40,7 +40,7 @@
                 v-model="props.row.type" 
                 :title="t('readingsUi.editTypeTitle')" 
                 buttons
-                @save="(val, initialVal) => handleTypeSave(props.row, val, initialVal)"
+                @save="createTypeSaveHandler(props.row)"
                 v-slot="scope"
               >
                 <q-select
@@ -70,7 +70,7 @@
                 buttons
                 @before-show="() => openDateTimeEditor(props.row)"
                 @hide="clearDateTimeEditTarget"
-                @save="(val, initialVal) => handleDateTimeSave(props.row, val, initialVal)"
+                @save="createDateTimeSaveHandler(props.row)"
                 v-slot="scope"
               >
                 <!-- Duration editor (chronometer mode) -->
@@ -150,7 +150,7 @@
                         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
                           <q-date
                             :model-value="getDatePart(scope.value)"
-                            @update:model-value="(val) => updateDatePart(scope, val)"
+                            @update:model-value="createDatePartUpdater(scope)"
                             mask="DD/MM/YYYY"
                           >
                             <div class="row items-center justify-end">
@@ -163,7 +163,7 @@
                         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
                           <q-time
                             :model-value="getTimePartWithoutMs(scope.value)"
-                            @update:model-value="(val) => updateTimePartFromPicker(scope, val)"
+                            @update:model-value="createTimePartUpdater(scope)"
                             mask="HH:mm:ss"
                             format24h
                           >
@@ -194,7 +194,7 @@
                 v-model="props.row.name" 
                 :title="t('readingsUi.editLabelTitle')" 
                 buttons
-                @save="(val, initialVal) => handleNameSave(props.row, val, initialVal)"
+                @save="createNameSaveHandler(props.row)"
                 v-slot="scope"
               >
                 <q-select
@@ -203,7 +203,7 @@
                   :options="filteredObservableOptions"
                   option-label="label"
                   option-value="value"
-                  :option-disable="(opt) => opt.disable === true"
+                  :option-disable="isObservableOptionDisabled"
                   use-input
                   fill-input
                   hide-selected
@@ -214,7 +214,7 @@
                   autofocus
                   new-value-mode="add-unique"
                   @filter="filterObservables"
-                  :rules="[val => val && val.length > 0 || t('readingsUi.labelRequired')]"
+                  :rules="[labelRequiredRule]"
                   class="observable-autocomplete"
                 >
                   <template v-slot:option="optScope">
@@ -239,7 +239,7 @@
                   v-model="scope.value"
                   dense
                   autofocus
-                  :rules="[val => val && val.length > 0 || t('readingsUi.labelRequired')]"
+                  :rules="[labelRequiredRule]"
                 />
               </q-popup-edit>
             </div>
@@ -251,7 +251,7 @@
                 v-model="props.row.description" 
                 :title="t('readingsUi.editDescriptionTitle')" 
                 buttons
-                @save="(val, initialVal) => handleDescriptionSave(props.row, val, initialVal)"
+                @save="createDescriptionSaveHandler(props.row)"
                 v-slot="scope"
               >
                 <q-input 
@@ -775,7 +775,11 @@ export default defineComponent({
     };
 
     // Handle date/time save with proper conversion
-    const handleDateTimeSave = (row: IReading, val: any, initialVal: any) => {
+    const handleDateTimeSave = (
+      row: IReading,
+      val: Date | string | null | undefined,
+      initialVal: Date | string | null | undefined
+    ) => {
       if (!val && !isChronometerMode.value) return;
       
       let dateValue: Date;
@@ -804,6 +808,7 @@ export default defineComponent({
             return;
           }
         } else {
+          if (val == null) return;
           dateValue = new Date(val);
         }
 
@@ -848,6 +853,33 @@ export default defineComponent({
     const getRowKey = (row: IReading) => {
       return row.id ? `id-${row.id}` : `tempId-${row.tempId || 'unknown'}`;
     };
+
+    const labelRequiredRule = (val: string | null | undefined): boolean | string =>
+      Boolean(val && val.length > 0) || t('readingsUi.labelRequired');
+
+    const isObservableOptionDisabled = (opt: ProtocolObservableOption): boolean =>
+      opt.disable === true;
+
+    const createTypeSaveHandler = (row: IReading) =>
+      (val: ReadingTypeEnum, initialVal: ReadingTypeEnum) =>
+        handleTypeSave(row, val, initialVal);
+
+    const createDateTimeSaveHandler = (row: IReading) =>
+      (val: Date | string | null | undefined, initialVal: Date | string | null | undefined) =>
+        handleDateTimeSave(row, val, initialVal);
+
+    const createNameSaveHandler = (row: IReading) =>
+      (val: string, initialVal: string) => handleNameSave(row, val, initialVal);
+
+    const createDescriptionSaveHandler = (row: IReading) =>
+      (val: string | undefined, initialVal: string | undefined) =>
+        handleDescriptionSave(row, val, initialVal);
+
+    const createDatePartUpdater = (scope: { value: string }) => (dateVal: string) =>
+      updateDatePart(scope, dateVal);
+
+    const createTimePartUpdater = (scope: { value: string }) => (timeVal: string | null) =>
+      updateTimePartFromPicker(scope, timeVal);
     
     return {
       t,
@@ -884,6 +916,14 @@ export default defineComponent({
       protocolObservableOptions,
       filteredObservableOptions,
       filterObservables,
+      labelRequiredRule,
+      isObservableOptionDisabled,
+      createTypeSaveHandler,
+      createDateTimeSaveHandler,
+      createNameSaveHandler,
+      createDescriptionSaveHandler,
+      createDatePartUpdater,
+      createTimePartUpdater,
     };
   },
 });
