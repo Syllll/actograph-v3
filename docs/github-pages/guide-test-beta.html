@@ -380,7 +380,7 @@ const CHAPTERS = [
       "Faites un Enregistrer sous un autre nom, puis vérifiez l'apparition du nouveau nom dans l'historique."]},
     {num:"2", titre:"Création d'une catégorie et de ses observables", type:"scenario", duree:"15 mn", desc:[
       "Créez une nouvelle catégorie (1er niveau : remplir le nom, caractériser, ajouter, effacer), puis ajoutez-y 2 ou 3 observables (2e niveau : nom, caractérisation, ajout, suppression).",
-      "Essayez les deux types de catégorie : état continu (un seul observable actif à la fois dans la catégorie, clics ON/OFF) et événement (clic ON puis retour automatique à OFF)."]},
+      "Essayez les deux types de catégorie : état continu (un seul observable actif à la fois dans la catégorie ; cliquer sur un observable remplace celui qui était actif, qui passe alors en OFF) et événement (clic ON puis retour automatique à OFF)."]},
     {num:"3", titre:"Types d'action des observables : continu vs discret", type:"guide", duree:"8 mn", desc:[
       "Pour un observable, vérifiez que vous pouvez choisir son type d'action : « continu » (maintien dans le temps) ou « discret » (événement ponctuel).",
       "Vérifiez que ce paramètre est bien conservé après sauvegarde et rechargement de la chronique."]},
@@ -407,7 +407,7 @@ const CHAPTERS = [
   tests:[
     {num:"1", titre:"Prise en main des boutons Observables", type:"guide", duree:"10 mn", desc:[
       "Basculez entre mode « édition du protocole » et mode « observation in situ ».",
-      "Sans lancer l'enregistrement : cliquez sur des boutons des deux types : continu (1 clic ON / 1 clic OFF, avec exclusivité entre observables d'une même catégorie) et événement (1 clic ON, retour automatique à OFF, comme un poussoir)."]},
+      "Sans lancer l'enregistrement : cliquez sur des boutons des deux types : continu (un seul observable actif à la fois dans la catégorie ; cliquer sur un observable remplace celui qui était actif, qui passe alors en OFF) et événement (1 clic ON, retour automatique à OFF, comme un poussoir)."]},
     {num:"2", titre:"Enregistrement complet d'une séance", type:"scenario", duree:"15-20 mn", desc:[
       "Réalisez un enregistrement de bout en bout : START, plusieurs clics sur des observables (continus et événements), un commentaire (bulle, texte horodaté), une PAUSE (ou barre espace) puis reprise, et enfin STOP.",
       "Testez aussi la réorganisation et la réinitialisation des boutons sur la page.",
