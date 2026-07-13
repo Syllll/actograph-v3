@@ -607,11 +607,36 @@ export const useReadings = (options: {
     
     /**
      * Sets the selected reading
-     * 
+     *
      * @param reading - The reading to select, or null to clear selection
      */
     selectReading: (reading: IReading | null) => {
       sharedState.selectedReading = reading;
+    },
+
+    /**
+     * Propage le renommage d'un observable du protocole vers les relevés existants.
+     *
+     * Les relevés (IReading) stockent le nom de l'observable sous forme de chaîne
+     * (pas de référence par id), donc renommer un observable dans le protocole ne
+     * met pas à jour les relevés déjà enregistrés avec l'ancien nom. Sans ça,
+     * l'onglet Observations continue d'afficher l'ancien nom en rouge (non reconnu).
+     *
+     * Seuls les relevés de type DATA sont concernés (START/STOP/PAUSE utilisent
+     * des libellés fixes, pas le nom d'un observable).
+     *
+     * @param oldName - Ancien nom de l'observable
+     * @param newName - Nouveau nom de l'observable
+     */
+    renameObservableReadings: (oldName: string, newName: string) => {
+      if (!oldName || !newName || oldName === newName) return;
+
+      sharedState.currentReadings.forEach((reading) => {
+        if (reading.type === ReadingTypeEnum.DATA && reading.name === oldName) {
+          reading.name = newName;
+          reading.updatedAt = new Date();
+        }
+      });
     },
 
     addStartReading: async () => {

@@ -321,6 +321,8 @@ export default {
       'Cannot edit the category: missing category id',
     errEditCategoryFailed: 'Could not update the category',
     errObservableNameRequired: 'Observable name is required',
+    errObservableNameAlreadyUsed:
+      'The name "{name}" is already used by another observable in this protocol. Please choose a different name.',
     errCannotAddObservableNoProtocolId:
       'Cannot add an observable: missing protocol id',
     errCannotAddObservableNoParent:

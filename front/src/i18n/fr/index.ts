@@ -325,6 +325,8 @@ export default {
       'Impossible de modifier la catégorie : identifiant de catégorie manquant',
     errEditCategoryFailed: 'Échec de la modification de la catégorie',
     errObservableNameRequired: 'Le nom de l\'observable est obligatoire',
+    errObservableNameAlreadyUsed:
+      'Le nom « {name} » est déjà utilisé par un autre observable de ce protocole. Choisissez un nom différent.',
     errCannotAddObservableNoProtocolId:
       'Impossible d\'ajouter un observable : identifiant de protocole manquant',
     errCannotAddObservableNoParent:

@@ -59,6 +59,7 @@ import { useQuasar } from 'quasar';
 import {
   ProtocolItem,
   ProtocolItemTypeEnum,
+  isObservableNameInUse,
 } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
@@ -132,6 +133,18 @@ export default defineComponent({
 
       if (!observation.protocol.sharedState.currentProtocol?.id) {
         state.error = t('protocolUi.errCannotAddObservableNoProtocolId');
+        return;
+      }
+
+      if (
+        isObservableNameInUse(
+          observation.protocol.sharedState.currentProtocol._items,
+          state.form.name
+        )
+      ) {
+        state.error = t('protocolUi.errObservableNameAlreadyUsed', {
+          name: state.form.name.trim(),
+        });
         return;
       }
 
