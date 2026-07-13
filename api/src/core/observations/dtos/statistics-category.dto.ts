@@ -15,6 +15,9 @@ export class CategoryStatisticsDto {
 
   @Expose()
   totalCategoryDuration?: number; // Total duration of all observables in this category (milliseconds)
+
+  @Expose()
+  observationDuration?: number; // Full observation window (first START to last STOP) used as the percentage basis (milliseconds)
 }
 
 export class ObservableStatisticsDto {

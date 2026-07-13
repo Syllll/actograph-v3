@@ -69,6 +69,7 @@ import {
 import {
   buildCategoryPieChartColors,
   buildCategoryPieChartData,
+  calculateUnaccountedPieDuration,
 } from 'src/composables/use-statistics/category-pie-chart.utils';
 import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
@@ -139,6 +140,19 @@ export default defineComponent({
       { immediate: true },
     );
 
+    // Shared by pieChartData (to decide whether to push the segment) and
+    // pieChartColors (to decide whether to append its color), so the two
+    // arrays can't drift out of sync by recomputing this independently.
+    const unaccountedPieDuration = computed(() => {
+      const stats = statistics.sharedState.categoryStatistics;
+      return stats
+        ? calculateUnaccountedPieDuration(
+            stats,
+            statistics.sharedState.treatPausesAsSeparateState,
+          )
+        : 0;
+    });
+
     const pieChartData = computed(() => {
       const stats = statistics.sharedState.categoryStatistics;
       if (!stats) {
@@ -148,6 +162,7 @@ export default defineComponent({
       return buildCategoryPieChartData(stats, {
         treatPausesAsSeparateState: statistics.sharedState.treatPausesAsSeparateState,
         pauseSegmentLabel: t('statisticsUi.pauseSegmentLabel'),
+        unaccountedSegmentLabel: t('statisticsUi.unaccountedSegmentLabel'),
       });
     });
 
@@ -157,6 +172,8 @@ export default defineComponent({
       return buildCategoryPieChartColors(
         statistics.sharedState.treatPausesAsSeparateState,
         stats?.pauseDuration || 0,
+        undefined,
+        unaccountedPieDuration.value > 0,
       );
     });
 

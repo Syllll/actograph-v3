@@ -18,8 +18,20 @@ export const buildStatisticsExportFileName = (observationName?: string | null): 
 };
 
 export const resolveTotalCategoryDuration = (
-  category: Pick<ICategoryStatistics, 'totalCategoryDuration' | 'observables'>,
+  category: Pick<
+    ICategoryStatistics,
+    'totalCategoryDuration' | 'observables' | 'observationDuration'
+  >,
 ): number => {
+  // Prefer the real observation window (first START to last STOP): it's the
+  // only basis that accounts for time not covered by any observable (e.g. a
+  // gap before the first observable of the category was recorded). Falling
+  // back to the sum of on-durations silently absorbs that gap into the other
+  // percentages instead of exposing it.
+  if (category.observationDuration && category.observationDuration > 0) {
+    return category.observationDuration;
+  }
+
   let totalCategoryDuration = category.totalCategoryDuration || 0;
   if (totalCategoryDuration === 0) {
     totalCategoryDuration = category.observables.reduce(
