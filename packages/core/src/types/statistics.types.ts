@@ -38,6 +38,14 @@ export interface ICategoryStatistics {
   observables: IObservableStatistics[];
   pauseDuration?: number; // Total pause duration in milliseconds for this observation
   totalCategoryDuration?: number; // Total duration of all observables in this category (milliseconds)
+  // The window used as the percentage basis (milliseconds): for
+  // calculateCategoryStatistics, the observation span (first START to last
+  // STOP), pause-excluded unless the caller passes includePauses=true; for
+  // calculateCategoryStatisticsForPeriods (conditional statistics), the total
+  // duration of the filtered periods instead. Optional for backward
+  // compatibility with producers that don't set it, in which case consumers
+  // fall back to totalCategoryDuration (sum of observable on-durations).
+  observationDuration?: number;
 }
 
 /**

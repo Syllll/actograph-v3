@@ -77,6 +77,26 @@ describe('category-statistics', () => {
       // Total duration = 10 min - 1 min pause = 9 min
       expect(obsA?.onPercentage).toBeCloseTo((3 / 9) * 100, 5);
       expect(stats.pauseDuration).toBe(1 * 60 * 1000);
+      expect(stats.observationDuration).toBe(9 * 60 * 1000);
+    });
+
+    it('exposes an observationDuration larger than the sum of observable durations when the first observable starts after START', () => {
+      // obsA starts 1 min after START, so that 1 min isn't covered by any observable.
+      const stats = calculateCategoryStatistics(
+        continuousCategory,
+        baseReadings,
+        observationStart,
+        observationEnd,
+      );
+
+      const totalObservableDuration = stats.observables.reduce(
+        (sum, obs) => sum + obs.onDuration,
+        0,
+      );
+
+      expect(stats.observationDuration).toBe(9 * 60 * 1000);
+      expect(totalObservableDuration).toBeLessThan(stats.observationDuration!);
+      expect(stats.observationDuration! - totalObservableDuration).toBe(1 * 60 * 1000);
     });
 
     it('should include pauses in total duration and on durations when includePauses is true', () => {
