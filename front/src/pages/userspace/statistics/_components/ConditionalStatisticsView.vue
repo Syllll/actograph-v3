@@ -110,7 +110,7 @@
           <!-- Pie Chart -->
           <div class="q-mb-lg">
             <div class="text-subtitle2 q-mb-sm">
-              {{ t('statisticsUi.pieShareTitle') }}
+              {{ pieShareTitleText }}
             </div>
             <AmChartsPieChart
               :data="pieChartData"
@@ -312,6 +312,22 @@ export default defineComponent({
       },
     };
 
+    const pieShareTitleText = computed(() => {
+      const stats = statistics.sharedState.conditionalStatistics;
+      const categoryName = stats?.targetCategory?.categoryName || '';
+      const observableName = state.conditions
+        .map((condition) => condition.observableName)
+        .filter(Boolean)
+        .join(', ');
+
+      return observableName
+        ? t('statisticsUi.pieShareTitle', {
+            observable: observableName,
+            category: categoryName,
+          })
+        : t('statisticsUi.pieShareTitleNoObservable', { category: categoryName });
+    });
+
     const pieChartData = computed(() => {
       const stats = statistics.sharedState.conditionalStatistics;
       if (!stats || !stats.targetCategory || !stats.targetCategory.observables) {
@@ -434,6 +450,7 @@ export default defineComponent({
       observableOptions,
       categoryOptions,
       methods,
+      pieShareTitleText,
       pieChartData,
       pieChartColors,
       barChartData,
