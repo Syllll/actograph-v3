@@ -146,10 +146,13 @@ import {
   IConditionGroup,
   IObservableCondition,
 } from '@services/observations/statistics.interface';
+import { getObservableGraphPreferences } from '@services/observations/protocol-graph-preferences.utils';
+import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
 import {
   buildCategoryPieChartColors,
   buildCategoryPieChartData,
   calculateUnaccountedPieDuration,
+  CATEGORY_PIE_CHART_BASE_COLORS,
 } from 'src/composables/use-statistics/category-pie-chart.utils';
 import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
@@ -341,11 +344,40 @@ export default defineComponent({
       });
     });
 
+    const resolveObservableColor = (observableId: string, index: number): string => {
+      const protocol = observation.protocol?.sharedState?.currentProtocol;
+      const preferences = protocol
+        ? getObservableGraphPreferences(observableId, protocol)
+        : null;
+      return (
+        preferences?.color ||
+        CATEGORY_PIE_CHART_BASE_COLORS[index % CATEGORY_PIE_CHART_BASE_COLORS.length]
+      );
+    };
+
+    const resolveCategoryColor = (categoryId: string | null): string => {
+      const protocol = observation.protocol?.sharedState?.currentProtocol;
+      const category = protocol?._items?.find(
+        (item: { type?: string; id?: string }) =>
+          item.type === 'category' && item.id === categoryId,
+      ) as { graphPreferences?: { color?: string } } | undefined;
+      return category?.graphPreferences?.color || DEFAULT_GRAPH_COLOR;
+    };
+
     const pieChartColors = computed(() => {
+      const stats = statistics.sharedState.conditionalStatistics;
+      const observables =
+        stats?.targetCategory?.observables?.filter(
+          (obs) => obs.onDuration > 0 || obs.onCount > 0,
+        ) || [];
+      const resolvedColors = observables.map((obs, index) =>
+        resolveObservableColor(obs.observableId, index),
+      );
+
       return buildCategoryPieChartColors(
         false,
         0,
-        undefined,
+        resolvedColors,
         unaccountedPieDuration.value > 0,
       );
     });
@@ -369,7 +401,7 @@ export default defineComponent({
     });
 
     const barChartColors = computed(() => {
-      return '#1976D2';
+      return resolveCategoryColor(state.targetCategoryId);
     });
 
     return {
