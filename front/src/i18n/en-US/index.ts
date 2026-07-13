@@ -351,6 +351,8 @@ export default {
   statisticsUi: {
     emptyTitle: 'No readings yet',
     emptyHint: 'Add readings on the Observation page to see statistics.',
+    missingStartWarning:
+      'The chronicle has no START marker: the statistics below are computed from the existing readings and may be incomplete or misleading. Start the observation on the Observation page for reliable statistics.',
     tabGeneral: 'Overview',
     tabByCategory: 'By category',
     tabAdvanced: 'Advanced',
