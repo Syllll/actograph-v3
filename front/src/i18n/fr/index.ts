@@ -399,6 +399,7 @@ export default {
     categoryOccurrencesChartTitle: 'Nombre d\'occurrences',
     chartNoData: 'Aucune donnée',
     pauseSegmentLabel: 'Pause',
+    unaccountedSegmentLabel: 'Non renseigné',
     occurrenceCountOne: '{count} occurrence',
     occurrenceCountOther: '{count} occurrences',
     chartSeriesOccurrences: 'Occurrences',

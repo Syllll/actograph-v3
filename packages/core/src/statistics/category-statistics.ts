@@ -239,6 +239,7 @@ export function calculateCategoryStatistics(
     observables: observableStats,
     pauseDuration,
     totalCategoryDuration,
+    observationDuration: totalDuration,
   };
 }
 
