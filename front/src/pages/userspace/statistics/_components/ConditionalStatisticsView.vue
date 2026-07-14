@@ -252,7 +252,9 @@ export default defineComponent({
 
       const observables: Array<{ label: string; value: string }> = [];
       for (const item of protocol._items) {
-        if (item.type === 'category' && item.children) {
+        const isContinuous =
+          !item.action || item.action === ProtocolItemActionEnum.Continuous;
+        if (item.type === 'category' && item.children && isContinuous) {
           for (const child of item.children) {
             if (
               child.type === 'observable' &&
