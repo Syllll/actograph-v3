@@ -175,7 +175,6 @@ import {
   IObservableCondition,
 } from '@services/observations/statistics.interface';
 import {
-  ProtocolItemActionEnum,
   protocolService,
 } from '@services/observations/protocol.service';
 import {
@@ -189,6 +188,10 @@ import {
 } from 'src/composables/use-statistics/category-pie-chart.utils';
 import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
+import {
+  buildConditionalObservableOptions,
+  isContinuousCategoryAction,
+} from 'src/composables/use-statistics/conditional-observable-options.utils';
 
 function formatOccurrenceCount(
   t: (key: string, values?: Record<string, unknown>) => string,
@@ -235,49 +238,20 @@ export default defineComponent({
         return [];
       }
 
-      const targetCategoryObservableNames = new Set<string>();
-      if (state.targetCategoryId) {
-        const targetCategory = protocol._items.find(
-          (item: any) =>
-            item.type === 'category' && item.id === state.targetCategoryId,
-        );
-        if (targetCategory?.children) {
-          for (const child of targetCategory.children) {
-            if (child.type === 'observable' && child.name) {
-              targetCategoryObservableNames.add(child.name);
-            }
-          }
-        }
-      }
-
-      const observables: Array<{ label: string; value: string }> = [];
-      for (const item of protocol._items) {
-        const isContinuous =
-          !item.action || item.action === ProtocolItemActionEnum.Continuous;
-        if (item.type === 'category' && item.children && isContinuous) {
-          for (const child of item.children) {
-            if (
-              child.type === 'observable' &&
-              child.name &&
-              !targetCategoryObservableNames.has(child.name)
-            ) {
-              observables.push({
-                label: child.name,
-                value: child.name,
-              });
-            }
-          }
-        }
-      }
-
-      return observables;
+      return buildConditionalObservableOptions(
+        protocol._items,
+        state.targetCategoryId,
+      );
     });
 
     watch(
-      () => state.targetCategoryId,
+      () => [
+        state.targetCategoryId,
+        observableOptions.value.map((option) => option.value).join('\0'),
+      ],
       () => {
         const validNames = new Set(
-          observableOptions.value.map((opt) => opt.value),
+          observableOptions.value.map((option) => option.value),
         );
         for (const condition of state.conditions) {
           if (
@@ -334,7 +308,7 @@ export default defineComponent({
         return true;
       }
 
-      return !category.action || category.action === ProtocolItemActionEnum.Continuous;
+      return isContinuousCategoryAction(category.action);
     });
 
     const hasNoMatchingConditions = computed(() => {
