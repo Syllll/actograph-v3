@@ -222,10 +222,10 @@ export class Items {
     const filteredUpdates = Object.fromEntries(
       Object.entries(categoryUpdates).filter(([_, value]) => value !== undefined)
     );
-    if (filteredUpdates.meta !== undefined) {
+    if (options.meta !== undefined) {
       filteredUpdates.meta = {
         ...(categories[categoryIndex].meta || {}),
-        ...filteredUpdates.meta,
+        ...options.meta,
       };
     }
     const updatedCategory = {
