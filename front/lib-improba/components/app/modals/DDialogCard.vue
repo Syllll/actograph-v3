@@ -13,11 +13,11 @@
       <slot name="inner-header-actions" />
     </template>
 
-    <DCardSection>
+    <div class="d-dialog-card__body">
       <slot />
-    </DCardSection>
+    </div>
 
-    <DCardSection v-if="hasFooter">
+    <div v-if="hasFooter" class="d-dialog-card__footer">
       <div class="row items-center justify-end full-width q-gutter-md">
         <slot name="actions">
           <DCancelBtn
@@ -35,14 +35,13 @@
           />
         </slot>
       </div>
-    </DCardSection>
+    </div>
   </DCard>
 </template>
 
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
 import DCard from '../cards/DCard.vue';
-import DCardSection from '../cards/DCardSection.vue';
 import DCancelBtn from '../buttons/DCancelBtn.vue';
 import DSubmitBtn from '../buttons/DSubmitBtn.vue';
 
@@ -52,7 +51,6 @@ export default defineComponent({
   name: 'DDialogCard',
   components: {
     DCard,
-    DCardSection,
     DCancelBtn,
     DSubmitBtn,
   },
@@ -95,6 +93,15 @@ export default defineComponent({
     border-radius: 12px;
     box-shadow: 0 16px 36px var(--neutral-high-20);
     overflow: hidden;
+  }
+
+  &__body,
+  &__footer {
+    flex: 0 0 auto;
+  }
+
+  &__footer {
+    padding-top: 16px;
   }
 
   &--sm {

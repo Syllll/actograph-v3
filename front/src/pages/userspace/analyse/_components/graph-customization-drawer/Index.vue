@@ -229,14 +229,13 @@
         @cancel="methods.cancelColor"
         @submit="methods.confirmColor"
       >
-        <div style="min-height: 400px; display: flex; flex-direction: column;">
-          <q-color
-            v-model="state.selectedColor"
-            format-model="hex"
-            no-header-tabs
-            style="flex: 1;"
-          />
-        </div>
+        <q-color
+          v-model="state.selectedColor"
+          format-model="hex"
+          no-header-tabs
+          flat
+          class="color-picker-widget"
+        />
       </DDialogCard>
     </q-dialog>
   </div>
@@ -1141,5 +1140,12 @@ export default defineComponent({
     font-size: 0.7rem !important;
     padding: 2px 4px !important;
   }
+}
+
+.color-picker-widget {
+  display: block;
+  width: 320px;
+  max-width: 100%;
+  margin: 0 auto;
 }
 </style>
