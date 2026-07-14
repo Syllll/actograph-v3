@@ -59,6 +59,7 @@ import { useQuasar } from 'quasar';
 import {
   ProtocolItem,
   ProtocolItemTypeEnum,
+  isObservableNameInUse,
 } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
@@ -166,9 +167,37 @@ export default defineComponent({
         return;
       }
 
+      // Interdit de renommer vers un nom déjà porté par un AUTRE observable
+      // du protocole (les relevés référencent un observable par son nom, pas
+      // par son id : un doublon rendrait impossible de savoir à qui
+      // appartient un relevé historique).
+      if (
+        isObservableNameInUse(
+          observation.protocol.sharedState.currentProtocol._items,
+          state.form.name,
+          state.form.id
+        )
+      ) {
+        state.error = t('protocolUi.errObservableNameAlreadyUsed', {
+          name: state.form.name.trim(),
+        });
+        return;
+      }
+
       try {
         state.loading = true;
         state.error = '';
+
+        const previousName = props.observable?.name || '';
+        // Filet de sécurité pour les protocoles créés avant l'ajout de la
+        // contrainte d'unicité ci-dessus : si l'ancien nom était déjà partagé
+        // par un autre observable (legacy), on ne sait pas sans risque à qui
+        // rattacher chaque relevé historique -> pas de cascade-rename.
+        const previousNameIsAmbiguous = isObservableNameInUse(
+          observation.protocol.sharedState.currentProtocol._items,
+          previousName,
+          state.form.id
+        );
 
         await protocol.methods.editProtocolItem({
           id: state.form.id,
@@ -178,6 +207,18 @@ export default defineComponent({
           order: state.form.order,
           type: ProtocolItemTypeEnum.Observable,
         });
+
+        // Répercute le renommage sur les relevés déjà enregistrés (onglet
+        // Observations), sinon ils continuent de référencer l'ancien nom.
+        // Ignoré si l'ancien nom était ambigu (partagé par un autre observable
+        // encore présent dans le protocole) : impossible de savoir sans risque
+        // quels relevés historiques appartiennent à l'un ou à l'autre.
+        if (previousName && previousName !== state.form.name && !previousNameIsAmbiguous) {
+          observation.readings.methods.renameObservableReadings(
+            previousName,
+            state.form.name
+          );
+        }
 
         $q.notify({
           type: 'positive',

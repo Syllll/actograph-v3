@@ -62,6 +62,43 @@ export interface EditItemDto {
   meta?: Record<string, any>;
 }
 
+/**
+ * Vérifie si un nom d'observable est déjà utilisé dans le protocole (tous
+ * comptes confondus, toutes catégories confondues).
+ *
+ * Les relevés (IReading) référencent un observable par son nom (chaîne),
+ * pas par son id : deux observables homonymes rendraient impossible de
+ * savoir, pour un relevé historique, auquel des deux il appartient (ex. lors
+ * d'un renommage). On interdit donc les doublons dès la création/l'édition.
+ *
+ * @param items - Items du protocole (protocol._items)
+ * @param name - Nom à vérifier
+ * @param excludeObservableId - Id d'observable à ignorer (soi-même, en édition)
+ */
+export const isObservableNameInUse = (
+  items: ProtocolItem[] | undefined | null,
+  name: string,
+  excludeObservableId?: string
+): boolean => {
+  const target = name.trim();
+  if (!items || !target) return false;
+
+  for (const item of items) {
+    if (item.type !== ProtocolItemTypeEnum.Category || !item.children) continue;
+    for (const child of item.children) {
+      if (
+        child.type === ProtocolItemTypeEnum.Observable &&
+        child.id !== excludeObservableId &&
+        child.name.trim() === target
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+};
+
 export const protocolService = {
   /**
    * Get protocols with pagination
