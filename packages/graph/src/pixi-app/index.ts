@@ -76,6 +76,8 @@ export class PixiApp {
   private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
   private exportInProgress = false;
   private exportQueue: Promise<unknown> = Promise.resolve();
+  private drawRafId: number | null = null;
+  private drawResolvers: Array<() => void> = [];
 
   /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
   public events = new EventEmitter();
@@ -174,16 +176,16 @@ export class PixiApp {
   /**
    * Resize the renderer to match the current CSS size of the canvas element.
    */
-  public resizeFromCanvas(): void {
+  public resizeFromCanvas(): boolean {
     // Le renderer n'existe pas tant que init() n'a pas abouti (ou après destroy).
     // Accéder à app.canvas/renderer avant cela lèverait une exception.
     if (!this.isInitialized || !this.app.renderer || this.exportInProgress) {
-      return;
+      return false;
     }
 
     const canvas = this.app.canvas as HTMLCanvasElement | null;
     if (!canvas) {
-      return;
+      return false;
     }
 
     const rect = canvas.getBoundingClientRect();
@@ -194,7 +196,7 @@ export class PixiApp {
     // pas re-déclencher un resize + render (qui pourrait relancer un cycle de
     // mesure/layout et faire « vibrer » le canvas et le watermark).
     if (width === this.app.screen.width && height === this.app.screen.height) {
-      return;
+      return false;
     }
 
     // Garde de sécurité : rejeter toute dimension manifestement absurde. Si la
@@ -212,7 +214,7 @@ export class PixiApp {
       width > maxWidth ||
       height > maxHeight
     ) {
-      return;
+      return false;
     }
 
     this.app.renderer.resize(width, height);
@@ -232,6 +234,7 @@ export class PixiApp {
     } else {
       this.app.render();
     }
+    return true;
   }
 
   /**
@@ -366,7 +369,11 @@ export class PixiApp {
     return getObservableGraphPreferences(observableId, this.protocol);
   }
 
-  public updateObservablePreference(observableId: string, preference: Partial<IGraphPreferences>) {
+  public updateObservablePreference(
+    observableId: string,
+    preference: Partial<IGraphPreferences>,
+    options?: { redraw?: boolean },
+  ) {
     if (!this.protocol) {
       return;
     }
@@ -382,14 +389,47 @@ export class PixiApp {
             observable.graphPreferences = {};
           }
           Object.assign(observable.graphPreferences, preference);
-          this.draw();
+          if (options?.redraw !== false) {
+            void this.draw();
+          }
           break;
         }
       }
     }
   }
 
-  public async draw() {
+  public redrawCategory(categoryId: string): void {
+    this.dataArea.redrawCategory(categoryId);
+    if (this.isInitialized && this.app.renderer) {
+      this.app.render();
+    }
+  }
+
+  public redrawObservable(observableId: string): void {
+    this.dataArea.redrawObservable(observableId);
+    if (this.isInitialized && this.app.renderer) {
+      this.app.render();
+    }
+  }
+
+  public draw(): Promise<void> {
+    return new Promise((resolve) => {
+      this.drawResolvers.push(resolve);
+      if (this.drawRafId !== null) {
+        return;
+      }
+      this.drawRafId = requestAnimationFrame(() => {
+        this.drawRafId = null;
+        const resolvers = this.drawResolvers;
+        this.drawResolvers = [];
+        void this.executeDraw().then(() => {
+          resolvers.forEach((r) => r());
+        });
+      });
+    });
+  }
+
+  private async executeDraw() {
     this.plot.x = 0;
     this.plot.y = 0;
     this.plot.scale.set(1);

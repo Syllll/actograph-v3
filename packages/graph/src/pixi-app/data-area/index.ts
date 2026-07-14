@@ -69,7 +69,7 @@ export class DataArea extends BaseGroup {
     sprites: TilingSprite[];
   }[] = [];
 
-  private graphicForBackground: BaseGraphic;
+  private pointerHitArea: BaseGraphic;
   private pauseOverlayGraphic: BaseGraphic;
   private pointerDashedLines: BaseGraphic;
   private timeLabelContainer: Container | null = null;
@@ -99,8 +99,8 @@ export class DataArea extends BaseGroup {
     this.xAxis = xAxis;
     this.graphInteractionEnabled = options?.interactive ?? true;
 
-    this.graphicForBackground = new BaseGraphic(app);
-    this.addChild(this.graphicForBackground);
+    this.pointerHitArea = new BaseGraphic(app);
+    this.addChild(this.pointerHitArea);
 
     this.pauseOverlayGraphic = new BaseGraphic(app);
     this.addChild(this.pauseOverlayGraphic);
@@ -178,7 +178,7 @@ export class DataArea extends BaseGroup {
 
     if (!this.graphInteractionEnabled) {
       this.eventMode = 'none';
-      this.graphicForBackground.eventMode = 'none';
+      this.pointerHitArea.eventMode = 'none';
       if (this.timeLabelContainer) {
         this.timeLabelContainer.visible = false;
       }
@@ -187,9 +187,9 @@ export class DataArea extends BaseGroup {
 
     this.configureHoverOverlayPassthrough();
     this.eventMode = 'passive';
-    this.graphicForBackground.eventMode = 'static';
+    this.pointerHitArea.eventMode = 'static';
 
-    this.graphicForBackground.on('pointermove', (evt: FederatedPointerEvent) => {
+    this.pointerHitArea.on('pointermove', (evt: FederatedPointerEvent) => {
       // Coalesce to one update per displayed frame instead of once per raw
       // pointer event: a high-poll-rate mouse can fire far more pointermove
       // events than the screen can render, and each update redraws the
@@ -207,9 +207,11 @@ export class DataArea extends BaseGroup {
       }
     });
 
-    this.graphicForBackground.on('pointerleave', () => {
+    this.pointerHitArea.on('pointerleave', () => {
       this.clearHoverOverlay();
     });
+
+    this.ensurePointerHitAreaOnTop();
   }
 
   private processPointerMove(evt: FederatedPointerEvent): void {
@@ -314,6 +316,8 @@ export class DataArea extends BaseGroup {
         }
       }
     }
+
+    this.app.render();
   }
 
   public setPausePeriods(periods: IPeriod[]): void {
@@ -410,7 +414,7 @@ export class DataArea extends BaseGroup {
   public clear() {
     super.clear();
 
-    this.graphicForBackground.clear();
+    this.pointerHitArea.clear();
     this.pauseOverlayGraphic.clear();
     this.clearHoverOverlay();
 
@@ -502,6 +506,7 @@ export class DataArea extends BaseGroup {
 
     this.drawPauseOverlay(bottomLeft, topRight);
     this.ensureCursorUiOnTop();
+    this.ensurePointerHitAreaOnTop();
   }
 
   private drawPauseOverlay(
@@ -536,14 +541,23 @@ export class DataArea extends BaseGroup {
     bottomLeft: { x: number; y: number },
     topRight: { x: number; y: number },
   ): void {
-    this.graphicForBackground.clear();
-    this.graphicForBackground.rect(
+    this.pointerHitArea.clear();
+    this.pointerHitArea.rect(
       bottomLeft.x,
       topRight.y,
       topRight.x - bottomLeft.x,
       Math.abs(topRight.y - bottomLeft.y),
     );
-    this.graphicForBackground.fill({ color: 'transparent' });
+    this.pointerHitArea.fill({ color: 'transparent', alpha: 0 });
+  }
+
+  /** Keep the transparent hit area above all plot graphics for reliable hover capture. */
+  private ensurePointerHitAreaOnTop(): void {
+    const count = this.children.length;
+    if (count < 1) {
+      return;
+    }
+    this.setChildIndex(this.pointerHitArea, count - 1);
   }
 
   /** Plot bounds in the crosshair layer local space (correct axis conversion). */
@@ -581,18 +595,19 @@ export class DataArea extends BaseGroup {
   /** Keep crosshair and time label above segments and pause overlays. */
   private ensureCursorUiOnTop(): void {
     const count = this.children.length;
-    if (count < 3) {
+    if (count < 4) {
       return;
     }
-    this.setChildIndex(this.timeLabelContainer!, count - 1);
-    this.setChildIndex(this.pointerDashedLines, count - 2);
-    this.setChildIndex(this.pauseOverlayGraphic, count - 3);
+    this.setChildIndex(this.pauseOverlayGraphic, count - 4);
+    this.setChildIndex(this.pointerDashedLines, count - 3);
+    this.setChildIndex(this.timeLabelContainer!, count - 2);
   }
 
   private getOrCreateGraphicForCategory(category: ProtocolItem): BaseGraphic {
     let graphicEntry = this.graphicPerCategory.find((g) => g.category.id === category.id);
     if (!graphicEntry) {
       const graphic = new BaseGraphic(this.app);
+      graphic.eventMode = 'none';
       this.addChild(graphic);
       this.graphicPerCategory.push({
         category,
@@ -610,11 +625,11 @@ export class DataArea extends BaseGroup {
     const category = categoryEntry.category;
     const readings = categoryEntry.readings;
     const graphic = this.getOrCreateGraphicForCategory(category);
-    graphic.clear();
 
     const isDiscrete = category.action === ProtocolItemActionEnum.Discrete;
 
     if (isDiscrete) {
+      graphic.clear();
       for (const reading of readings) {
         if (reading.type === ReadingTypeEnum.DATA) {
           const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
@@ -656,6 +671,8 @@ export class DataArea extends BaseGroup {
       const newSegmentIndices = new Set(
         getContinuousSegmentStartIndices(readings).filter((idx) => idx > 0),
       );
+
+      graphic.clear();
 
       for (let i = 1; i < readings.length; i++) {
         const reading = readings[i];
@@ -743,9 +760,6 @@ export class DataArea extends BaseGroup {
     const category = categoryEntry.category;
     const readings = categoryEntry.readings;
     const graphic = this.getOrCreateGraphicForCategory(category);
-    graphic.clear();
-
-    this.clearTilingSpritesForCategory(category);
 
     if (category.action === ProtocolItemActionEnum.Discrete) {
       return;
@@ -780,6 +794,9 @@ export class DataArea extends BaseGroup {
     if (zoneHeight <= 0) {
       return;
     }
+
+    graphic.clear();
+    this.clearTilingSpritesForCategory(category);
 
     for (const { from, to } of iterContinuousDataPairs(readings)) {
       const startX = this.xAxis.getPosFromDateTime(from.dateTime);
@@ -914,6 +931,7 @@ export class DataArea extends BaseGroup {
       spriteEntry = { category, sprites: [] };
       this.tilingSpritesPerCategory.push(spriteEntry);
     }
+    sprite.eventMode = 'none';
     spriteEntry.sprites.push(sprite);
   }
 
@@ -921,13 +939,12 @@ export class DataArea extends BaseGroup {
     const category = categoryEntry.category;
     const readings = categoryEntry.readings;
     const graphic = this.getOrCreateGraphicForCategory(category);
-    graphic.clear();
-
-    this.clearTilingSpritesForCategory(category);
 
     if (category.action === ProtocolItemActionEnum.Discrete) {
       const friezeInfo = this.yAxis.getFriezeInfo(category.id);
       if (!friezeInfo) return;
+
+      graphic.clear();
 
       for (const reading of readings) {
         if (reading.type === ReadingTypeEnum.DATA) {
@@ -953,6 +970,9 @@ export class DataArea extends BaseGroup {
       console.warn(`Frieze info not found for category ${category.id}`);
       return;
     }
+
+    graphic.clear();
+    this.clearTilingSpritesForCategory(category);
 
     const friezeTopY = friezeInfo.endY;
     const friezeHeight = friezeInfo.height;
@@ -1016,6 +1036,27 @@ export class DataArea extends BaseGroup {
     }
 
     return mergeGraphPreferences(category.graphPreferences, observable.graphPreferences);
+  }
+
+  public redrawCategory(categoryId: string): void {
+    const categoryEntry = this.readingsPerCategory.find((r) => r.category.id === categoryId);
+    if (!categoryEntry) {
+      return;
+    }
+
+    const displayMode = this.getEffectiveDisplayMode(categoryEntry.category);
+
+    switch (displayMode) {
+      case DisplayModeEnum.Background:
+        this.drawCategoryBackground(categoryEntry);
+        break;
+      case DisplayModeEnum.Frieze:
+        this.drawCategoryFrieze(categoryEntry);
+        break;
+      default:
+        this.drawCategoryNormal(categoryEntry);
+        break;
+    }
   }
 
   public redrawObservable(observableId: string) {

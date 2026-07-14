@@ -12,7 +12,7 @@ export declare class DataArea extends BaseGroup {
     private readingsPerCategory;
     private graphicPerCategory;
     private tilingSpritesPerCategory;
-    private graphicForBackground;
+    private pointerHitArea;
     private pauseOverlayGraphic;
     private pointerDashedLines;
     private timeLabelContainer;
@@ -51,6 +51,8 @@ export declare class DataArea extends BaseGroup {
     draw(): void;
     private drawPauseOverlay;
     private drawPointerHitArea;
+    /** Keep the transparent hit area above all plot graphics for reliable hover capture. */
+    private ensurePointerHitAreaOnTop;
     /** Plot bounds in the crosshair layer local space (correct axis conversion). */
     private getPlotBoundsLocal;
     /** Keep crosshair and time label above segments and pause overlays. */
@@ -65,6 +67,7 @@ export declare class DataArea extends BaseGroup {
     private addTilingSpriteForCategory;
     private drawCategoryFrieze;
     private getObservablePreferencesForReading;
+    redrawCategory(categoryId: string): void;
     redrawObservable(observableId: string): void;
     private getEffectiveDisplayMode;
 }

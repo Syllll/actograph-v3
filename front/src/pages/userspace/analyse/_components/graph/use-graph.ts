@@ -113,8 +113,10 @@ export const useGraph = (options?: {
     if (!sharedState.ready || !sharedState.pixiApp) {
       return;
     }
-    sharedState.pixiApp.resizeFromCanvas();
-    void redrawFromObservation(sharedState.pixiApp);
+    const didResize = sharedState.pixiApp.resizeFromCanvas();
+    if (didResize) {
+      void redrawFromObservation(sharedState.pixiApp);
+    }
   };
 
   // Si des options d'initialisation sont fournies, créer et initialiser PixiApp

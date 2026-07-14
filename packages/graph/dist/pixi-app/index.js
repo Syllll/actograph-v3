@@ -55,6 +55,8 @@ export class PixiApp {
         this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
         this.exportInProgress = false;
         this.exportQueue = Promise.resolve();
+        this.drawRafId = null;
+        this.drawResolvers = [];
         /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
         this.events = new EventEmitter();
         this.zoomState = {
@@ -140,11 +142,11 @@ export class PixiApp {
         // Le renderer n'existe pas tant que init() n'a pas abouti (ou après destroy).
         // Accéder à app.canvas/renderer avant cela lèverait une exception.
         if (!this.isInitialized || !this.app.renderer || this.exportInProgress) {
-            return;
+            return false;
         }
         const canvas = this.app.canvas;
         if (!canvas) {
-            return;
+            return false;
         }
         const rect = canvas.getBoundingClientRect();
         const width = Math.max(1, Math.floor(rect.width));
@@ -153,7 +155,7 @@ export class PixiApp {
         // pas re-déclencher un resize + render (qui pourrait relancer un cycle de
         // mesure/layout et faire « vibrer » le canvas et le watermark).
         if (width === this.app.screen.width && height === this.app.screen.height) {
-            return;
+            return false;
         }
         // Garde de sécurité : rejeter toute dimension manifestement absurde. Si la
         // chaîne de hauteur du conteneur passe transitoirement en 'auto' lors d'un
@@ -168,7 +170,7 @@ export class PixiApp {
             !Number.isFinite(height) ||
             width > maxWidth ||
             height > maxHeight) {
-            return;
+            return false;
         }
         this.app.renderer.resize(width, height);
         if (this.isInteractive) {
@@ -184,6 +186,7 @@ export class PixiApp {
         else {
             this.app.render();
         }
+        return true;
     }
     /**
      * Refresh rendering after window resize, visibility resume, or WebGL context restore.
@@ -294,7 +297,7 @@ export class PixiApp {
         }
         return getObservableGraphPreferences(observableId, this.protocol);
     }
-    updateObservablePreference(observableId, preference) {
+    updateObservablePreference(observableId, preference, options) {
         if (!this.protocol) {
             return;
         }
@@ -309,13 +312,43 @@ export class PixiApp {
                         observable.graphPreferences = {};
                     }
                     Object.assign(observable.graphPreferences, preference);
-                    this.draw();
+                    if (options?.redraw !== false) {
+                        void this.draw();
+                    }
                     break;
                 }
             }
         }
     }
-    async draw() {
+    redrawCategory(categoryId) {
+        this.dataArea.redrawCategory(categoryId);
+        if (this.isInitialized && this.app.renderer) {
+            this.app.render();
+        }
+    }
+    redrawObservable(observableId) {
+        this.dataArea.redrawObservable(observableId);
+        if (this.isInitialized && this.app.renderer) {
+            this.app.render();
+        }
+    }
+    draw() {
+        return new Promise((resolve) => {
+            this.drawResolvers.push(resolve);
+            if (this.drawRafId !== null) {
+                return;
+            }
+            this.drawRafId = requestAnimationFrame(() => {
+                this.drawRafId = null;
+                const resolvers = this.drawResolvers;
+                this.drawResolvers = [];
+                void this.executeDraw().then(() => {
+                    resolvers.forEach((r) => r());
+                });
+            });
+        });
+    }
+    async executeDraw() {
         this.plot.x = 0;
         this.plot.y = 0;
         this.plot.scale.set(1);

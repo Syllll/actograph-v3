@@ -64,7 +64,7 @@
                     emit-value
                     map-options
                     :disable="methods.isDiscreteCategory(category)"
-                    @update:model-value="methods.makeCategoryDisplayModeHandler(category.id)"
+                    @update:model-value="methods.onCategoryDisplayModeChange(category.id, $event)"
                   />
                   <q-tooltip v-if="methods.isDiscreteCategory(category)">
                     {{ $t('graphUi.discreteCategoryNormalOnly') }}
@@ -99,7 +99,7 @@
                   :step="1"
                   dense
                   :label-value="`${category.graphPreferences?.strokeWidth ?? 2}px`"
-                  @update:model-value="methods.makeCategoryStrokeWidthHandler(category.id)"
+                  @update:model-value="methods.onCategoryStrokeWidthChange(category.id, $event)"
                 />
               </div>
 
@@ -115,7 +115,7 @@
                   emit-value
                   map-options
                   :disable="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Normal"
-                  @update:model-value="methods.makeCategoryPatternHandler(category.id)"
+                  @update:model-value="methods.onCategoryPatternChange(category.id, $event)"
                 />
               </div>
 
@@ -132,7 +132,7 @@
                   emit-value
                   map-options
                   :placeholder="$t('graphUi.placeholderBgCategory')"
-                  @update:model-value="methods.makeCategorySupportHandler(category.id)"
+                  @update:model-value="methods.onCategorySupportChange(category.id, $event)"
                 />
               </div>
             </div>
@@ -182,7 +182,7 @@
                     :step="1"
                     dense
                     :label-value="`${methods.getObservableStrokeWidth(observable.id, category.id) ?? 2}px`"
-                    @update:model-value="methods.makeObservableStrokeWidthHandler(observable.id)"
+                    @update:model-value="methods.onObservableStrokeWidthChange(observable.id, $event)"
                   />
                 </div>
 
@@ -198,7 +198,7 @@
                     emit-value
                     map-options
                     :disable="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Normal"
-                    @update:model-value="methods.makeObservablePatternHandler(observable.id)"
+                    @update:model-value="methods.onObservablePatternChange(observable.id, $event)"
                   />
                 </div>
 
@@ -543,29 +543,29 @@ export default defineComponent({
         methods.updateCategoryPreference(categoryId, { displayMode: val });
       },
 
-      makeCategoryDisplayModeHandler: (categoryId: string) => (val: DisplayModeEnum | null) => {
+      onCategoryDisplayModeChange: (categoryId: string, val: DisplayModeEnum | null) => {
         methods.updateCategoryDisplayMode(categoryId, val);
       },
 
-      makeCategoryStrokeWidthHandler: (categoryId: string) => (val: number | null) => {
+      onCategoryStrokeWidthChange: (categoryId: string, val: number | null) => {
         methods.updateCategoryPreference(categoryId, { strokeWidth: val ?? undefined });
       },
 
-      makeCategoryPatternHandler: (categoryId: string) => (val: BackgroundPatternEnum) => {
+      onCategoryPatternChange: (categoryId: string, val: BackgroundPatternEnum) => {
         methods.updateCategoryPreference(categoryId, { backgroundPattern: val });
       },
 
-      makeCategorySupportHandler: (categoryId: string) => (val: string | null) => {
+      onCategorySupportChange: (categoryId: string, val: string | null) => {
         methods.updateCategoryPreference(categoryId, {
           supportCategoryId: val === '' ? null : val,
         });
       },
 
-      makeObservableStrokeWidthHandler: (observableId: string) => (val: number | null) => {
+      onObservableStrokeWidthChange: (observableId: string, val: number | null) => {
         methods.updateObservablePreference(observableId, { strokeWidth: val ?? undefined });
       },
 
-      makeObservablePatternHandler: (observableId: string) => (val: BackgroundPatternEnum) => {
+      onObservablePatternChange: (observableId: string, val: BackgroundPatternEnum) => {
         methods.updateObservablePreference(observableId, { backgroundPattern: val });
       },
 
@@ -652,29 +652,21 @@ export default defineComponent({
           // Mettre à jour le protocole dans le pixiApp APRÈS nextTick
           // Cela garantit que les données sont à jour avant le redessinage
           if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
-            // Type assertion: le frontend utilise items?: string et _items?: IProtocolItem[]
-            // mais setProtocol gère les deux formats en interne
             graph.sharedState.pixiApp.setProtocol(protocol.sharedState.currentProtocol as any);
           }
 
-          // Si on change le mode d'affichage ou le support, redessiner tout
-          // car la structure de l'axe Y change (nombre de ticks, positions, etc.)
-          if (
-            graph.sharedState.pixiApp &&
-            (sanitizedPreference.displayMode !== undefined ||
-              sanitizedPreference.supportCategoryId !== undefined)
-          ) {
-            // Attendre encore un tick pour s'assurer que setProtocol a bien propagé les changements
-            // dans yAxis avant de redessiner (évite que les labels se placent sur l'origine)
-            await nextTick();
-            graph.sharedState.pixiApp.draw();
-          } else if (graph.sharedState.pixiApp && category?.children) {
-            // Sinon, redessiner uniquement les observables de cette catégorie
-            for (const observable of category.children) {
-              graph.sharedState.pixiApp.updateObservablePreference(
-                observable.id,
-                sanitizedPreference
-              );
+          const isStructuralCategoryChange =
+            sanitizedPreference.displayMode !== undefined ||
+            sanitizedPreference.supportCategoryId !== undefined;
+
+          if (graph.sharedState.pixiApp) {
+            if (isStructuralCategoryChange) {
+              // displayMode / supportCategoryId affectent l'axe Y : redraw complet
+              await nextTick();
+              await graph.sharedState.pixiApp.draw();
+            } else {
+              // Préférences visuelles : un seul redraw de la catégorie
+              graph.sharedState.pixiApp.redrawCategory(categoryId);
             }
           }
 
@@ -709,8 +701,8 @@ export default defineComponent({
             );
             protocol.sharedState.currentProtocol = reloaded;
             if (graph.sharedState.pixiApp) {
+              // Rendu optimiste déjà effectué : synchroniser le protocole sans redraw.
               graph.sharedState.pixiApp.setProtocol(reloaded as any);
-              graph.sharedState.pixiApp.draw();
             }
             await repairStaleCategoryPreferences();
           }
@@ -788,6 +780,18 @@ export default defineComponent({
             };
           }
 
+          await nextTick();
+
+          if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
+            graph.sharedState.pixiApp.setProtocol(protocol.sharedState.currentProtocol as any);
+            graph.sharedState.pixiApp.updateObservablePreference(
+              observableId,
+              sanitizedPreference,
+              { redraw: false },
+            );
+            graph.sharedState.pixiApp.redrawObservable(observableId);
+          }
+
           // Mettre à jour via l'API
           await protocolService.updateItemGraphPreferences(
             currentProtocol.id,
@@ -803,7 +807,6 @@ export default defineComponent({
             protocol.sharedState.currentProtocol = reloaded;
             if (graph.sharedState.pixiApp) {
               graph.sharedState.pixiApp.setProtocol(reloaded as any);
-              graph.sharedState.pixiApp.draw();
             }
           }
 

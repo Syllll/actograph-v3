@@ -56,6 +56,8 @@ export declare class PixiApp {
     private graphRenderOptions;
     private exportInProgress;
     private exportQueue;
+    private drawRafId;
+    private drawResolvers;
     /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
     events: EventEmitter<string | symbol, any>;
     private zoomState;
@@ -73,7 +75,7 @@ export declare class PixiApp {
     /**
      * Resize the renderer to match the current CSS size of the canvas element.
      */
-    resizeFromCanvas(): void;
+    resizeFromCanvas(): boolean;
     /**
      * Refresh rendering after window resize, visibility resume, or WebGL context restore.
      */
@@ -87,8 +89,13 @@ export declare class PixiApp {
     }): void;
     setProtocol(protocol: IProtocol): void;
     getObservablePreferences(observableId: string): IGraphPreferences | null;
-    updateObservablePreference(observableId: string, preference: Partial<IGraphPreferences>): void;
+    updateObservablePreference(observableId: string, preference: Partial<IGraphPreferences>, options?: {
+        redraw?: boolean;
+    }): void;
+    redrawCategory(categoryId: string): void;
+    redrawObservable(observableId: string): void;
     draw(): Promise<void>;
+    private executeDraw;
     clear(): Promise<void>;
     private getCanvasSize;
     private updateWorldBounds;
