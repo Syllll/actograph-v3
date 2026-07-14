@@ -24,23 +24,6 @@
         </q-tabs>
 
         <div class="row items-center q-gutter-sm">
-          <div class="row items-center no-wrap q-gutter-xs">
-            <q-toggle
-              :model-value="statistics.sharedState.treatPausesAsSeparateState"
-              :label="t('statisticsUi.toggleTreatPausesAsSeparateState')"
-              dense
-              :disable="statistics.sharedState.loading"
-              @update:model-value="onTreatPausesAsSeparateStateChange"
-            />
-            <q-icon
-              v-if="statistics.sharedState.treatPausesAsSeparateState"
-              name="info_outline"
-              size="16px"
-              color="grey-6"
-            >
-              <q-tooltip>{{ t('statisticsUi.toggleTreatPausesAsSeparateStateHint') }}</q-tooltip>
-            </q-icon>
-          </div>
           <q-btn
           flat
           dense
@@ -185,14 +168,6 @@ export default defineComponent({
       }
     };
 
-    const onTreatPausesAsSeparateStateChange = async (value: boolean) => {
-      try {
-        await statistics.methods.setTreatPausesAsSeparateState(value);
-      } catch (error) {
-        console.error('Failed to reload statistics with treatPausesAsSeparateState:', error);
-      }
-    };
-
     onMounted(loadGeneralStatisticsIfPossible);
 
     watch(
@@ -230,7 +205,6 @@ export default defineComponent({
       exportSelection,
       exportFormatOptions,
       runExport,
-      onTreatPausesAsSeparateStateChange,
       state,
       isStudentAccess,
       hasReadingsAfterLastStop,

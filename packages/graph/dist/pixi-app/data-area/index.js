@@ -9,6 +9,8 @@ import { createTilingPatternSprite } from '../../lib/pattern-textures';
 import { extractSessionBoundaryReadings, getContinuousSegmentStartIndices, iterContinuousDataPairs, mergeContinuousCategoryReadings, shouldSkipInContinuousDraw, } from '../../utils/continuous-segments.utils';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 import { computePauseOverlayRects, DEFAULT_PAUSE_OVERLAY_STYLE, } from '../../utils/pause-overlay.utils';
+import { computeCrosshairSegments, } from '../../utils/crosshair.utils';
+import { shouldRenderHoverOverlay } from '../../utils/hover-overlay.utils';
 export class DataArea extends BaseGroup {
     constructor(app, yAxis, xAxis, options) {
         super(app);
@@ -23,6 +25,7 @@ export class DataArea extends BaseGroup {
         this.observation = null;
         this.pausePeriods = [];
         this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
+        this.hoverOverlaySuppressed = false;
         this.yAxis = yAxis;
         this.xAxis = xAxis;
         this.graphInteractionEnabled = options?.interactive ?? true;
@@ -33,6 +36,7 @@ export class DataArea extends BaseGroup {
         this.pointerDashedLines = new BaseGraphic(app);
         this.addChild(this.pointerDashedLines);
         this.timeLabelContainer = new Container();
+        this.timeLabelContainer.visible = false;
         this.addChild(this.timeLabelContainer);
         this.timeLabelBackground = new Graphics();
         this.timeLabelContainer.addChild(this.timeLabelBackground);
@@ -49,6 +53,22 @@ export class DataArea extends BaseGroup {
     setPlotContainer(plotContainer) {
         this.plotContainer = plotContainer;
     }
+    /** Hides crosshair and dynamic time label (used before image export). */
+    clearHoverOverlay() {
+        this.pointerDashedLines.clear();
+        if (this.timeLabelContainer) {
+            this.timeLabelContainer.visible = false;
+        }
+    }
+    /**
+     * Suppresses hover UI while true so exports never capture crosshair or labels.
+     */
+    setHoverOverlaySuppressed(suppressed) {
+        this.hoverOverlaySuppressed = suppressed;
+        if (suppressed) {
+            this.clearHoverOverlay();
+        }
+    }
     init() {
         super.init();
         if (!this.graphInteractionEnabled) {
@@ -62,29 +82,37 @@ export class DataArea extends BaseGroup {
         this.eventMode = 'passive';
         this.graphicForBackground.eventMode = 'static';
         this.graphicForBackground.on('pointermove', (evt) => {
-            const origin = this.yAxis.getAxisStart();
-            if (!origin) {
-                throw new Error('No origin');
+            if (!shouldRenderHoverOverlay({
+                interactive: this.graphInteractionEnabled,
+                suppressed: this.hoverOverlaySuppressed,
+            })) {
+                return;
+            }
+            const plotBounds = this.getPlotBoundsLocal();
+            if (!plotBounds) {
+                this.clearHoverOverlay();
+                return;
+            }
+            const plotParent = this.parent;
+            if (!plotParent || plotParent !== this.plotContainer) {
+                this.clearHoverOverlay();
+                return;
             }
             const p = evt.getLocalPosition(this.pointerDashedLines);
-            const originLocal = this.pointerDashedLines.toLocal(origin);
+            const { vertical, horizontal } = computeCrosshairSegments(p.x, p.y, plotBounds);
             this.pointerDashedLines.clear();
             this.pointerDashedLines
                 .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-                .moveTo(p.x, p.y)
-                .dashedLineTo(p.x, originLocal.y)
+                .moveTo(vertical.x1, vertical.y1)
+                .dashedLineTo(vertical.x2, vertical.y2)
                 .stroke();
             this.pointerDashedLines
                 .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-                .moveTo(p.x, p.y)
-                .dashedLineTo(originLocal.x, p.y)
+                .moveTo(horizontal.x1, horizontal.y1)
+                .dashedLineTo(horizontal.x2, horizontal.y2)
                 .stroke();
             if (this.timeLabel) {
                 try {
-                    const plotParent = this.parent;
-                    if (!plotParent || plotParent !== this.plotContainer) {
-                        return;
-                    }
                     const plotPos = evt.getLocalPosition(plotParent);
                     const dateTime = this.xAxis.getDateTimeFromPos(plotPos.x);
                     let timeString;
@@ -119,7 +147,7 @@ export class DataArea extends BaseGroup {
                     this.timeLabel.x = padding;
                     this.timeLabel.y = padding;
                     this.timeLabelContainer.x = p.x - backgroundWidth / 2;
-                    this.timeLabelContainer.y = originLocal.y + 15;
+                    this.timeLabelContainer.y = plotBounds.bottomY + 15;
                     this.timeLabelContainer.visible = true;
                 }
                 catch (error) {
@@ -130,10 +158,7 @@ export class DataArea extends BaseGroup {
             }
         });
         this.graphicForBackground.on('pointerleave', () => {
-            this.pointerDashedLines.clear();
-            if (this.timeLabelContainer) {
-                this.timeLabelContainer.visible = false;
-            }
+            this.clearHoverOverlay();
         });
     }
     setPausePeriods(periods) {
@@ -205,10 +230,7 @@ export class DataArea extends BaseGroup {
         super.clear();
         this.graphicForBackground.clear();
         this.pauseOverlayGraphic.clear();
-        this.pointerDashedLines.clear();
-        if (this.timeLabelContainer) {
-            this.timeLabelContainer.visible = false;
-        }
+        this.clearHoverOverlay();
         this.readingsPerCategory = [];
         for (const graphicEntry of this.graphicPerCategory) {
             graphicEntry.graphic.clear();
@@ -224,6 +246,9 @@ export class DataArea extends BaseGroup {
         this.tilingSpritesPerCategory = [];
     }
     draw() {
+        if (this.hoverOverlaySuppressed) {
+            this.clearHoverOverlay();
+        }
         this.graphicForBackground.clear();
         const yAxisStart = this.yAxis.getAxisStart();
         const yAxisEnd = this.yAxis.getAxisEnd();
@@ -306,6 +331,30 @@ export class DataArea extends BaseGroup {
                 alpha: DEFAULT_PAUSE_OVERLAY_STYLE.alpha,
             });
         }
+    }
+    /** Plot bounds in the crosshair layer local space (correct axis conversion). */
+    getPlotBoundsLocal() {
+        const yAxisStart = this.yAxis.getAxisStart();
+        const yAxisEnd = this.yAxis.getAxisEnd();
+        const xAxisEnd = this.xAxis.getAxisEnd();
+        if (!yAxisStart ||
+            !yAxisEnd ||
+            !xAxisEnd ||
+            typeof xAxisEnd.x !== 'number' ||
+            typeof xAxisEnd.y !== 'number') {
+            return null;
+        }
+        const toLocalFromYAxis = (point) => this.pointerDashedLines.toLocal(this.yAxis.toGlobal(point));
+        const toLocalFromXAxis = (point) => this.pointerDashedLines.toLocal(this.xAxis.toGlobal(point));
+        const bottomLeft = toLocalFromYAxis(yAxisStart);
+        const topLeft = toLocalFromYAxis(yAxisEnd);
+        const bottomRight = toLocalFromXAxis(xAxisEnd);
+        return {
+            leftX: bottomLeft.x,
+            rightX: bottomRight.x,
+            topY: topLeft.y,
+            bottomY: bottomLeft.y,
+        };
     }
     /** Keep crosshair and time label above segments and pause overlays. */
     ensureCursorUiOnTop() {

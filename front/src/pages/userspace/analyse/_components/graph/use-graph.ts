@@ -209,15 +209,5 @@ export const useGraph = (options?: {
   return {
     sharedState,
     onCanvasResize,
-    setMaskPauses: (maskPauses: boolean) => {
-      sharedState.graphRenderOptions = {
-        ...sharedState.graphRenderOptions,
-        maskPauses,
-      };
-      if (!sharedState.ready || !sharedState.pixiApp) {
-        return;
-      }
-      sharedState.pixiApp.setGraphRenderOptions({ maskPauses });
-    },
   };
 }

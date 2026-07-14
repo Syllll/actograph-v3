@@ -4,6 +4,7 @@ import {
   intersectPeriods,
   unionPeriods,
   filterByTimeRange,
+  subtractPausesFromPeriods,
 } from '../../statistics/period-calculator';
 import { ReadingTypeEnum } from '../../enums';
 import { IReading } from '../../types';
@@ -154,6 +155,35 @@ describe('period-calculator', () => {
 
       const result = unionPeriods([periods1, periods2]);
       expect(result).toHaveLength(2);
+    });
+  });
+
+  describe('subtractPausesFromPeriods', () => {
+    it('should split a period around a pause interval', () => {
+      const periods: IPeriod[] = [
+        {
+          start: new Date('2024-01-01T10:01:00.000Z'),
+          end: new Date('2024-01-01T10:05:00.000Z'),
+        },
+      ];
+      const pausePeriods: IPeriod[] = [
+        {
+          start: new Date('2024-01-01T10:02:00.000Z'),
+          end: new Date('2024-01-01T10:03:00.000Z'),
+        },
+      ];
+
+      const result = subtractPausesFromPeriods(periods, pausePeriods);
+      expect(result).toEqual([
+        {
+          start: new Date('2024-01-01T10:01:00.000Z'),
+          end: new Date('2024-01-01T10:02:00.000Z'),
+        },
+        {
+          start: new Date('2024-01-01T10:03:00.000Z'),
+          end: new Date('2024-01-01T10:05:00.000Z'),
+        },
+      ]);
     });
   });
 

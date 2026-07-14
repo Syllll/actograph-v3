@@ -1,4 +1,5 @@
 import { Application, Graphics } from 'pixi.js';
+import { computeDashedLineOps } from '../utils/dashed-line.utils';
 
 /**
  * Classe de base étendant Graphics de PixiJS pour ajouter des fonctionnalités personnalisées.
@@ -46,33 +47,12 @@ export class BaseGraphic extends Graphics {
     const x1 = this._pen.x;
     const y1 = this._pen.y;
 
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.hypot(dx, dy);
-
-    if (len === 0) return this;
-    
-    const angle = Math.atan2(dy, dx);
-    
-    let dist = 0;
-    let draw = true;
-    let i = 0;
-    
-    while (dist < len) {
-      const step = Math.min(dash[i % dash.length], len - dist);
-      
-      const nx = x1 + Math.cos(angle) * (dist + step);
-      const ny = y1 + Math.sin(angle) * (dist + step);
-      
-      if (draw) {
-        this.lineTo(nx, ny);
+    for (const op of computeDashedLineOps(x1, y1, x2, y2, dash)) {
+      if (op.type === 'move') {
+        this.moveTo(op.x, op.y);
       } else {
-        this.moveTo(nx, ny);
+        this.lineTo(op.x, op.y);
       }
-      
-      dist += step;
-      draw = !draw;
-      i++;
     }
 
     this._pen.x = x2;

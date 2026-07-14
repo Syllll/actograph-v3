@@ -1,4 +1,10 @@
-import { ReadingTypeEnum, ProtocolItemTypeEnum, ObservableStateEnum, ConditionOperatorEnum } from '../enums';
+import {
+  ReadingTypeEnum,
+  ProtocolItemTypeEnum,
+  ProtocolItemActionEnum,
+  ObservableStateEnum,
+  ConditionOperatorEnum,
+} from '../enums';
 import {
   IReading,
   IProtocolItem,
@@ -14,38 +20,58 @@ import {
   intersectPeriods,
   unionPeriods,
   filterByTimeRange,
+  subtractPausesFromPeriods,
 } from './period-calculator';
-import { findObservablePeriods } from './category-statistics';
+import {
+  findObservablePeriods,
+  countObservableActivationsInPeriods,
+} from './category-statistics';
 import { scopeReadingsForStatistics } from './reading-scope';
 
-/**
- * Apply conditions to filter readings periods
- */
-export function applyConditions(
-  readings: IReading[],
-  conditionGroups: IConditionGroup[],
-  groupOperator: ConditionOperatorEnum,
-): IPeriod[] {
-  // For each group, find periods where conditions are met
-  const groupPeriods = conditionGroups.map((group) => {
-    return applyConditionGroup(readings, group);
-  });
-
-  // Combine groups based on operator
-  if (groupOperator === ConditionOperatorEnum.AND) {
-    return intersectPeriods(groupPeriods);
-  } else {
-    return unionPeriods(groupPeriods);
-  }
+export interface IConditionalStatisticsOptions {
+  includePauses?: boolean;
 }
 
 /**
- * Apply a single condition group
+ * Resolve the sibling observable names for a condition observable.
+ * Continuous "on" periods end when another observable of the same category
+ * appears; scoping must not use readings from unrelated categories.
+ *
+ * Falls back to [observableName] when the name is absent from protocolItems
+ * (degenerate singleton: the period ends at STOP or on a re-occurrence).
  */
-export function applyConditionGroup(
+function resolveCategoryObservableNames(
+  protocolItems: IProtocolItem[],
+  observableName: string,
+): string[] {
+  for (const item of protocolItems) {
+    if (item.type !== ProtocolItemTypeEnum.Category || !item.children) {
+      continue;
+    }
+    const belongsToCategory = item.children.some(
+      (child) =>
+        child.type === ProtocolItemTypeEnum.Observable &&
+        child.name === observableName,
+    );
+    if (belongsToCategory) {
+      return item.children
+        .filter((child) => child.type === ProtocolItemTypeEnum.Observable)
+        .map((child) => child.name || '')
+        .filter(Boolean);
+    }
+  }
+  return [observableName];
+}
+
+function resolveObservationBounds(
   readings: IReading[],
-  group: IConditionGroup,
-): IPeriod[] {
+  observationStart?: Date | null,
+  observationEnd?: Date | null,
+): { start: Date; end: Date } | null {
+  if (observationStart && observationEnd) {
+    return { start: observationStart, end: observationEnd };
+  }
+
   const sortedReadings = [...readings].sort(
     (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
   );
@@ -54,50 +80,136 @@ export function applyConditionGroup(
     .reverse()
     .find((r) => r.type === ReadingTypeEnum.STOP);
 
-  // Find periods for each observable condition.
-  // We still do not know the category at this stage, so periods are computed
-  // globally by observable name, but OFF conditions are now represented as the
-  // complement of the observable ON periods within the observation boundaries.
+  if (!startReading || !stopReading) {
+    return null;
+  }
+
+  return {
+    start: startReading.dateTime,
+    end: stopReading.dateTime,
+  };
+}
+
+function resolveOnPeriodsForCondition(
+  readings: IReading[],
+  observableName: string,
+  protocolItems: IProtocolItem[],
+  pausePeriods: IPeriod[],
+  includePauses: boolean,
+): IPeriod[] {
+  const categoryObservableNames = resolveCategoryObservableNames(
+    protocolItems,
+    observableName,
+  );
+  const onPeriods = findObservablePeriods(
+    readings,
+    observableName,
+    categoryObservableNames,
+  );
+
+  if (includePauses || pausePeriods.length === 0) {
+    return onPeriods;
+  }
+
+  return subtractPausesFromPeriods(onPeriods, pausePeriods);
+}
+
+function deriveOffPeriods(
+  onPeriods: IPeriod[],
+  observationBounds: { start: Date; end: Date },
+): IPeriod[] {
+  const offPeriods: IPeriod[] = [];
+  let cursor = observationBounds.start;
+
+  for (const period of onPeriods) {
+    if (cursor < period.start) {
+      offPeriods.push({
+        start: cursor,
+        end: period.start,
+      });
+    }
+    if (cursor < period.end) {
+      cursor = period.end;
+    }
+  }
+
+  if (cursor < observationBounds.end) {
+    offPeriods.push({
+      start: cursor,
+      end: observationBounds.end,
+    });
+  }
+
+  return offPeriods;
+}
+
+/**
+ * Apply conditions to filter readings periods
+ */
+export function applyConditions(
+  readings: IReading[],
+  conditionGroups: IConditionGroup[],
+  groupOperator: ConditionOperatorEnum,
+  protocolItems: IProtocolItem[],
+  options: IConditionalStatisticsOptions & {
+    observationStart?: Date | null;
+    observationEnd?: Date | null;
+  } = {},
+): IPeriod[] {
+  const groupPeriods = conditionGroups.map((group) => {
+    return applyConditionGroup(readings, group, protocolItems, options);
+  });
+
+  if (groupOperator === ConditionOperatorEnum.AND) {
+    return intersectPeriods(groupPeriods);
+  }
+
+  return unionPeriods(groupPeriods);
+}
+
+/**
+ * Apply a single condition group
+ */
+export function applyConditionGroup(
+  readings: IReading[],
+  group: IConditionGroup,
+  protocolItems: IProtocolItem[],
+  options: IConditionalStatisticsOptions & {
+    observationStart?: Date | null;
+    observationEnd?: Date | null;
+  } = {},
+): IPeriod[] {
+  const sortedReadings = [...readings].sort(
+    (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
+  );
+  const includePauses = options.includePauses ?? false;
+  const pausePeriods = calculatePausePeriods(sortedReadings);
+  const observationBounds = resolveObservationBounds(
+    sortedReadings,
+    options.observationStart,
+    options.observationEnd,
+  );
+
   const observablePeriods = group.observables.map((condition) => {
-    const onPeriods = findObservablePeriods(
+    const onPeriods = resolveOnPeriodsForCondition(
       sortedReadings,
       condition.observableName,
-      [],
+      protocolItems,
+      pausePeriods,
+      includePauses,
     );
 
     if (condition.state === ObservableStateEnum.ON) {
       return onPeriods;
     }
 
-    if (!startReading || !stopReading) {
+    if (!observationBounds) {
       return [];
     }
 
-    const offPeriods: IPeriod[] = [];
-    let cursor = startReading.dateTime;
-    for (const period of onPeriods) {
-      if (cursor < period.start) {
-        offPeriods.push({
-          start: cursor,
-          end: period.start,
-        });
-      }
-      if (cursor < period.end) {
-        cursor = period.end;
-      }
-    }
-
-    if (cursor < stopReading.dateTime) {
-      offPeriods.push({
-        start: cursor,
-        end: stopReading.dateTime,
-      });
-    }
-
-    return offPeriods;
+    return deriveOffPeriods(onPeriods, observationBounds);
   });
 
-  // Combine observable periods based on group operator
   let combinedPeriods: IPeriod[] = [];
   if (group.operator === ConditionOperatorEnum.AND) {
     combinedPeriods = intersectPeriods(observablePeriods);
@@ -105,7 +217,6 @@ export function applyConditionGroup(
     combinedPeriods = unionPeriods(observablePeriods);
   }
 
-  // Apply time range filter if specified
   if (group.timeRange) {
     combinedPeriods = filterByTimeRange(
       combinedPeriods,
@@ -125,6 +236,7 @@ export function calculateCategoryStatisticsForPeriods(
   categoryId: string,
   readings: IReading[],
   periods: IPeriod[],
+  includePauses = false,
 ): ICategoryStatistics {
   const category = protocolItems.find(
     (item) => item.id === categoryId && item.type === ProtocolItemTypeEnum.Category,
@@ -136,97 +248,109 @@ export function calculateCategoryStatisticsForPeriods(
 
   const observables = category.children || [];
   const pausePeriods = calculatePausePeriods(readings);
+  const categoryObservableNames = observables
+    .map((obs) => obs.name || '')
+    .filter(Boolean);
+  const isContinuous =
+    !category.action || category.action === ProtocolItemActionEnum.Continuous;
 
-  // Get all observable names in this category for filtering
-  const categoryObservableNames = observables.map((obs) => obs.name || '').filter(Boolean);
-
-  // Calculate statistics for each observable within filtered periods
   const observableStats: IObservableStatistics[] = observables.map(
     (observable) => {
-      // Find observable periods within filtered periods
-      // Pass categoryObservableNames so we only consider readings from this category
+      const observableName = observable.name || '';
+
+      if (!isContinuous) {
+        const onCount = countObservableActivationsInPeriods(
+          readings,
+          observableName,
+          periods,
+        );
+
+        return {
+          observableId: observable.id,
+          observableName,
+          onDuration: 0,
+          onPercentage: 0,
+          onCount,
+        };
+      }
+
       const observablePeriods = findObservablePeriods(
         readings,
-        observable.name || '',
+        observableName,
         categoryObservableNames,
       );
-
-      // Intersect with filtered periods
       const filteredObservablePeriods = intersectPeriods([
         observablePeriods,
         periods,
       ]);
 
-      // Calculate duration (minus pauses)
       const onDuration = filteredObservablePeriods.reduce((sum, period) => {
+        const rawDuration = period.end.getTime() - period.start.getTime();
+        if (includePauses) {
+          return sum + rawDuration;
+        }
+
         const pauseOverlap = calculatePauseOverlap(
           period.start,
           period.end,
           pausePeriods,
         );
-        return (
-          sum +
-          (period.end.getTime() - period.start.getTime()) -
-          pauseOverlap
-        );
+        return sum + Math.max(0, rawDuration - pauseOverlap);
       }, 0);
+
+      const onCount = countObservableActivationsInPeriods(
+        readings,
+        observableName,
+        filteredObservablePeriods,
+      );
 
       return {
         observableId: observable.id,
-        observableName: observable.name || '',
+        observableName,
         onDuration,
-        onPercentage: 0, // Will be recalculated below relative to totalCategoryDuration
-        onCount: filteredObservablePeriods.length,
+        onPercentage: 0,
+        onCount,
       };
     },
   );
 
-  // Total duration of all observables (kept as a secondary "active time" metric)
   const totalCategoryDuration = observableStats.reduce(
     (sum, obs) => sum + (obs.onDuration || 0),
     0,
   );
 
-  // Real window under analysis: the total duration of the filtered periods
-  // themselves, not just the sum of on-durations. Using the periods' own
-  // duration as the percentage basis (instead of self-normalizing against
-  // totalCategoryDuration) means any time within those periods not covered
-  // by an observable shows up as a gap rather than being silently absorbed
-  // into the other observables' percentages.
   const periodsDuration = periods.reduce(
     (sum, period) => sum + (period.end.getTime() - period.start.getTime()),
     0,
   );
-  const percentageBasis = periodsDuration > 0 ? periodsDuration : totalCategoryDuration;
+  const percentageBasis =
+    periodsDuration > 0 ? periodsDuration : totalCategoryDuration;
 
-  // Pause time scoped to the filtered periods only (not the whole observation).
-  // onDuration already excludes pauses; observationDuration must do the same so
-  // the pie-chart denominator (observationDuration + pauseDuration) equals
-  // periodsDuration without double-counting pauses.
   const pauseDurationInPeriods = intersectPeriods([pausePeriods, periods]).reduce(
     (sum, pause) => sum + (pause.end.getTime() - pause.start.getTime()),
     0,
   );
 
-  // Recalculate percentages within the filtered window
   const observableStatsWithCategoryPercentage = observableStats.map((obs) => ({
     ...obs,
     onPercentage:
-      percentageBasis > 0
-        ? (obs.onDuration / percentageBasis) * 100
-        : 0,
+      percentageBasis > 0 ? (obs.onDuration / percentageBasis) * 100 : 0,
   }));
 
-  const pauseDuration = pauseDurationInPeriods;
+  const effectiveObservationDuration = includePauses
+    ? periodsDuration
+    : periodsDuration > 0
+      ? periodsDuration - pauseDurationInPeriods
+      : undefined;
 
   return {
     categoryId: category.id,
     categoryName: category.name || '',
     observables: observableStatsWithCategoryPercentage,
-    pauseDuration,
+    pauseDuration: pauseDurationInPeriods,
     totalCategoryDuration,
     observationDuration:
-      periodsDuration > 0 ? periodsDuration - pauseDurationInPeriods : undefined,
+      periodsDuration > 0 ? effectiveObservationDuration : undefined,
     windowDuration: periodsDuration > 0 ? periodsDuration : undefined,
   };
 }
@@ -239,6 +363,7 @@ export function calculateConditionalStatistics(
   readings: IReading[],
   protocolItems: IProtocolItem[],
   request: IConditionalStatisticsRequest,
+  includePauses = false,
 ): { categoryStatistics: ICategoryStatistics; filteredPeriods: IPeriod[] } {
   const { scopedReadings, observationStart, observationEnd } =
     scopeReadingsForStatistics(readings);
@@ -247,8 +372,6 @@ export function calculateConditionalStatistics(
     (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
   );
 
-  // Filter readings based on conditions
-  // If no conditions, use the graph-aligned observation period
   let filteredPeriods: IPeriod[] = [];
   if (request.conditionGroups.length === 0) {
     if (observationStart && observationEnd) {
@@ -264,15 +387,21 @@ export function calculateConditionalStatistics(
       sortedReadings,
       request.conditionGroups,
       request.groupOperator,
+      protocolItems,
+      {
+        includePauses,
+        observationStart,
+        observationEnd,
+      },
     );
   }
 
-  // Calculate statistics for target category within filtered periods
   const targetCategoryStats = calculateCategoryStatisticsForPeriods(
     protocolItems,
     request.targetCategoryId,
     sortedReadings,
     filteredPeriods,
+    includePauses,
   );
 
   return {
@@ -280,4 +409,3 @@ export function calculateConditionalStatistics(
     filteredPeriods,
   };
 }
-

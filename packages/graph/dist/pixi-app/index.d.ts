@@ -54,6 +54,8 @@ export declare class PixiApp {
     private needsInitialFit;
     private pausePeriods;
     private graphRenderOptions;
+    private exportInProgress;
+    private exportQueue;
     /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
     events: EventEmitter<string | symbol, any>;
     private zoomState;
@@ -115,6 +117,7 @@ export declare class PixiApp {
      * boucle ResizeObserver.
      */
     exportAsImage(format?: 'png' | 'jpeg', quality?: number): Promise<string | null>;
+    private runExportAsImage;
     destroy(): void;
 }
 export {};

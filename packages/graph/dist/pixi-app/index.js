@@ -8,6 +8,7 @@ import { getObservableGraphPreferences, hydrateProtocolItemsFromStringIfNeeded }
 import { clearPatternTextureCache } from '../lib/pattern-textures';
 import { clampViewport, computeFitViewport, preserveViewportOnResize, } from '../utils/viewport.utils';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../types/graph-render-options';
+import { GRAPH_CANVAS_CURSOR_IDLE, GRAPH_CANVAS_CURSOR_PANNING, } from '../utils/graph-cursor.constants';
 /**
  * Classe principale gérant l'application PixiJS pour le graphique d'activité.
  *
@@ -52,6 +53,8 @@ export class PixiApp {
         this.needsInitialFit = false;
         this.pausePeriods = [];
         this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
+        this.exportInProgress = false;
+        this.exportQueue = Promise.resolve();
         /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
         this.events = new EventEmitter();
         this.zoomState = {
@@ -136,7 +139,7 @@ export class PixiApp {
     resizeFromCanvas() {
         // Le renderer n'existe pas tant que init() n'a pas abouti (ou après destroy).
         // Accéder à app.canvas/renderer avant cela lèverait une exception.
-        if (!this.isInitialized || !this.app.renderer) {
+        if (!this.isInitialized || !this.app.renderer || this.exportInProgress) {
             return;
         }
         const canvas = this.app.canvas;
@@ -393,7 +396,7 @@ export class PixiApp {
         }
     }
     setupZoomAndPan() {
-        this.app.canvas.style.cursor = 'default';
+        this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
         if (!this.isInteractive) {
             this.app.canvas.style.touchAction = 'auto';
             return;
@@ -428,7 +431,7 @@ export class PixiApp {
                 this.zoomState.isPanning = true;
                 this.zoomState.panStartX = evt.clientX - this.zoomState.x;
                 this.zoomState.panStartY = evt.clientY - this.zoomState.y;
-                this.app.canvas.style.cursor = 'grabbing';
+                this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_PANNING;
             }
         };
         const mouseMoveHandler = (evt) => {
@@ -436,7 +439,7 @@ export class PixiApp {
             if (target && target.closest('.q-splitter__separator, .q-avatar')) {
                 if (this.zoomState.isPanning) {
                     this.zoomState.isPanning = false;
-                    this.app.canvas.style.cursor = 'default';
+                    this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
                 }
                 return;
             }
@@ -447,14 +450,13 @@ export class PixiApp {
                 }, { emitZoom: false });
             }
             else {
-                // Changer le curseur au survol si on peut panner
-                this.app.canvas.style.cursor = 'grab';
+                this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
             }
         };
         const mouseUpHandler = (evt) => {
             if (evt.button === 0) {
                 this.zoomState.isPanning = false;
-                this.app.canvas.style.cursor = 'default';
+                this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
             }
         };
         const mouseLeaveHandler = () => {
@@ -467,11 +469,18 @@ export class PixiApp {
             if (target && target.closest('.q-splitter__separator, .q-avatar')) {
                 return;
             }
-            if (evt.pointerType === 'touch' || evt.pointerType === 'mouse') {
+            if (evt.pointerType === 'touch') {
                 this.zoomState.isPanning = true;
                 this.zoomState.panStartX = evt.clientX - this.zoomState.x;
                 this.zoomState.panStartY = evt.clientY - this.zoomState.y;
-                this.app.canvas.style.cursor = 'grabbing';
+                this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_PANNING;
+                evt.preventDefault();
+            }
+            else if (evt.pointerType === 'mouse' && evt.button === 0) {
+                this.zoomState.isPanning = true;
+                this.zoomState.panStartX = evt.clientX - this.zoomState.x;
+                this.zoomState.panStartY = evt.clientY - this.zoomState.y;
+                this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_PANNING;
                 evt.preventDefault();
             }
         };
@@ -480,7 +489,7 @@ export class PixiApp {
             if (target && target.closest('.q-splitter__separator, .q-avatar')) {
                 if (this.zoomState.isPanning) {
                     this.zoomState.isPanning = false;
-                    this.app.canvas.style.cursor = 'default';
+                    this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
                 }
                 return;
             }
@@ -491,11 +500,14 @@ export class PixiApp {
                 }, { emitZoom: false });
                 evt.preventDefault();
             }
+            else if (evt.pointerType === 'mouse') {
+                this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
+            }
         };
         const pointerUpHandler = (evt) => {
             if (evt.pointerType === 'touch' || evt.pointerType === 'mouse') {
                 this.zoomState.isPanning = false;
-                this.app.canvas.style.cursor = 'default';
+                this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
                 evt.preventDefault();
             }
         };
@@ -686,9 +698,16 @@ export class PixiApp {
      * boucle ResizeObserver.
      */
     async exportAsImage(format = 'png', quality = 0.92) {
+        const task = this.exportQueue.then(() => this.runExportAsImage(format, quality));
+        this.exportQueue = task.then(() => undefined, () => undefined);
+        return task;
+    }
+    async runExportAsImage(format, quality) {
         if (!this.app.canvas || !this.isInitialized || !this.app.renderer) {
             return null;
         }
+        this.exportInProgress = true;
+        this.dataArea.setHoverOverlaySuppressed(true);
         const originalWidth = this.app.screen.width;
         const originalHeight = this.app.screen.height;
         const requiredHeight = this.yAxis.getRequiredHeight();
@@ -699,33 +718,42 @@ export class PixiApp {
             y: this.zoomState.y,
         };
         let resizedForExport = false;
-        if (this.isInteractive) {
-            if (exportHeight !== originalHeight) {
-                this.app.renderer.resize(originalWidth, exportHeight);
-                resizedForExport = true;
-            }
-            this.updateWorldBounds();
-            const exportCanvasSize = {
-                width: originalWidth,
-                height: exportHeight,
-            };
-            const fitViewport = computeFitViewport(this.worldBounds, exportCanvasSize, this.zoomState.minScale, this.zoomState.maxScale);
-            this.setViewportTransform(fitViewport, { emitZoom: false, skipRender: true });
-        }
-        await this.draw();
-        this.app.render();
-        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-        const dataUrl = this.app.canvas.toDataURL(mimeType, quality);
-        if (this.isInteractive) {
-            if (resizedForExport) {
-                this.app.renderer.resize(originalWidth, originalHeight);
+        try {
+            if (this.isInteractive) {
+                if (exportHeight !== originalHeight) {
+                    this.app.renderer.resize(originalWidth, exportHeight);
+                    resizedForExport = true;
+                }
                 this.updateWorldBounds();
-                this.recalculateFitViewport();
+                const exportCanvasSize = {
+                    width: originalWidth,
+                    height: exportHeight,
+                };
+                const fitViewport = computeFitViewport(this.worldBounds, exportCanvasSize, this.zoomState.minScale, this.zoomState.maxScale);
+                this.setViewportTransform(fitViewport, { emitZoom: false, skipRender: true });
             }
-            this.setViewportTransform(savedViewport, { emitZoom: false, skipRender: true });
             await this.draw();
+            this.app.render();
+            const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
+            return this.app.canvas.toDataURL(mimeType, quality);
         }
-        return dataUrl;
+        finally {
+            try {
+                if (this.isInteractive) {
+                    if (resizedForExport) {
+                        this.app.renderer.resize(originalWidth, originalHeight);
+                        this.updateWorldBounds();
+                        this.recalculateFitViewport();
+                    }
+                    this.setViewportTransform(savedViewport, { emitZoom: false, skipRender: true });
+                    await this.draw();
+                }
+            }
+            finally {
+                this.exportInProgress = false;
+                this.dataArea.setHoverOverlaySuppressed(false);
+            }
+        }
     }
     destroy() {
         this.isInitialized = false;

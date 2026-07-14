@@ -18,17 +18,6 @@
 
     <q-separator v-if="!isMinimized" class="q-mb-xs" />
 
-    <div v-if="!isMinimized" class="row items-center q-px-sm q-pb-sm">
-      <q-toggle
-        :model-value="graph.sharedState.graphRenderOptions.maskPauses !== false"
-        :label="$t('graphUi.maskPauses')"
-        dense
-        @update:model-value="methods.onMaskPausesChange"
-      />
-    </div>
-
-    <q-separator v-if="!isMinimized" class="q-mb-xs" />
-
     <!-- Content -->
     <DScrollArea 
       v-if="!isMinimized"
@@ -40,7 +29,7 @@
         v-if="protocol?.sharedState?.currentProtocol?._items && Array.isArray(protocol.sharedState.currentProtocol._items)" 
         class="drawer-content-inner"
         :class="{ 'compact-layout': isCompactMode }"
-        :style="{ minWidth: `${MIN_CONTENT_WIDTH}px` }"
+        :style="drawerContentStyle"
       >
         <template v-for="(category, index) in protocol.sharedState.currentProtocol._items" :key="category.id">
           <!-- Séparateur avant la catégorie (sauf pour la première) -->
@@ -49,41 +38,42 @@
           <!-- Conteneur de catégorie avec ses observables -->
           <div class="category-container">
             <!-- Ligne Catégorie -->
-            <div class="category-row row items-center q-col-gutter-sm q-py-sm q-px-xs">
+            <div class="category-row customization-row">
               <!-- Nom de la catégorie -->
-              <div 
-                class="col-auto category-name text-weight-medium"
-                :class="isCompactMode ? 'text-caption' : 'text-body2'"
-                :style="isCompactMode ? { minWidth: '80px', maxWidth: '120px' } : { minWidth: '120px' }"
-              >
-                {{ category.name }}
-              </div>
+              <DrawerLabelCell
+                :text="category.name ?? ''"
+                :text-class="[
+                  'category-name text-weight-medium',
+                  isCompactMode ? 'text-caption' : 'text-body2',
+                ]"
+              />
 
               <!-- Mode d'affichage (désactivé pour les catégories discrètes) -->
-              <div 
-                class="col-auto"
-                :style="isCompactMode ? { minWidth: '100px' } : { minWidth: '120px' }"
-              >
-                <q-select
-                  :model-value="methods.getCategoryDisplayMode(category)"
-                  :options="methods.getDisplayModeOptionsForCategory(category)"
-                  option-label="label"
-                  option-value="value"
-                  dense
-                  outlined
-                  emit-value
-                  map-options
-                  :disable="category.action === ProtocolItemActionEnum.Discrete"
-                  @update:model-value="methods.makeCategoryDisplayModeHandler(category.id)"
+              <div class="cell-select">
+                <div
+                  class="display-mode-select-host"
+                  :class="{ 'is-disabled': methods.isDiscreteCategory(category) }"
                 >
-                  <q-tooltip v-if="category.action === ProtocolItemActionEnum.Discrete">
+                  <q-select
+                    :model-value="methods.getCategoryDisplayMode(category)"
+                    :options="methods.getDisplayModeOptionsForCategory(category)"
+                    option-label="label"
+                    option-value="value"
+                    dense
+                    outlined
+                    emit-value
+                    map-options
+                    :disable="methods.isDiscreteCategory(category)"
+                    @update:model-value="methods.makeCategoryDisplayModeHandler(category.id)"
+                  />
+                  <q-tooltip v-if="methods.isDiscreteCategory(category)">
                     {{ $t('graphUi.discreteCategoryNormalOnly') }}
                   </q-tooltip>
-                </q-select>
+                </div>
               </div>
 
               <!-- Couleur -->
-              <div class="col-auto" style="min-width: 32px;">
+              <div class="cell-color">
                 <div
                   class="color-preview-compact"
                   :style="{
@@ -101,10 +91,7 @@
               </div>
 
               <!-- Épaisseur -->
-              <div 
-                class="col-auto"
-                :style="isCompactMode ? { minWidth: '80px' } : { minWidth: '90px' }"
-              >
+              <div class="cell-stroke">
                 <q-slider
                   :model-value="category.graphPreferences?.strokeWidth ?? 2"
                   :min="1"
@@ -117,10 +104,7 @@
               </div>
 
               <!-- Motif (disponible pour Background et Frieze) -->
-              <div 
-                class="col-auto"
-                :style="isCompactMode ? { minWidth: '120px' } : { minWidth: '140px' }"
-              >
+              <div class="cell-select">
                 <q-select
                   :model-value="category.graphPreferences?.backgroundPattern || 'solid'"
                   :options="patternOptions"
@@ -136,13 +120,10 @@
               </div>
 
               <!-- Support (uniquement pour Background) - bug 3.5 : sélecteur "arrière-plan de quelle catégorie ?" -->
-              <div 
-                v-if="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Background"
-                class="col-auto"
-                :style="isCompactMode ? { minWidth: '120px' } : { minWidth: '140px' }"
-              >
+              <div class="cell-select">
                 <q-select
-                  :model-value="category.graphPreferences?.supportCategoryId ?? null"
+                  v-if="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Background"
+                  :model-value="methods.getCategorySupportCategoryId(category)"
                   :options="methods.getSupportOptions(category.id)"
                   option-label="label"
                   option-value="value"
@@ -160,33 +141,22 @@
             <div class="observables-container">
               <!-- Lignes Observables -->
               <div
-                v-for="observable in category.children"
+                v-for="observable in category.children ?? []"
                 :key="observable.id"
-                class="observable-row row items-center q-col-gutter-sm q-py-sm q-px-xs"
+                class="observable-row customization-row"
               >
-                <!-- Nom de l'observable avec indicateur visuel -->
-                <div 
-                  class="col-auto row items-center q-gutter-xs"
-                  :style="isCompactMode ? { minWidth: '80px', maxWidth: '100px' } : { minWidth: '100px' }"
-                >
-                  <div 
-                    class="text-caption"
-                    :class="isCompactMode ? 'text-caption' : 'text-body2'"
-                  >
-                    {{ observable.name }}
-                  </div>
-                </div>
+                <!-- Nom de l'observable -->
+                <DrawerLabelCell
+                  :text="observable.name ?? ''"
+                  :text-class="isCompactMode ? 'text-caption' : 'text-body2'"
+                  class="observable-label-cell"
+                />
 
                 <!-- Mode d'affichage (espace réservé) -->
-                <div 
-                  class="col-auto"
-                  :style="isCompactMode ? { minWidth: '100px' } : { minWidth: '120px' }"
-                >
-                  <!-- Les observables héritent du mode de leur catégorie -->
-                </div>
+                <div class="cell-select" aria-hidden="true" />
 
                 <!-- Couleur -->
-                <div class="col-auto" style="min-width: 32px;">
+                <div class="cell-color">
                   <div
                     class="color-preview-compact"
                     :style="{
@@ -204,10 +174,7 @@
                 </div>
 
                 <!-- Épaisseur -->
-                <div 
-                  class="col-auto"
-                  :style="isCompactMode ? { minWidth: '80px' } : { minWidth: '90px' }"
-                >
+                <div class="cell-stroke">
                   <q-slider
                     :model-value="methods.getObservableStrokeWidth(observable.id, category.id) ?? 2"
                     :min="1"
@@ -220,10 +187,7 @@
                 </div>
 
                 <!-- Motif (disponible pour Background et Frieze) -->
-                <div 
-                  class="col-auto"
-                  :style="isCompactMode ? { minWidth: '120px' } : { minWidth: '140px' }"
-                >
+                <div class="cell-select">
                   <q-select
                     :model-value="methods.getObservablePattern(observable.id, category.id) || 'solid'"
                     :options="patternOptions"
@@ -238,14 +202,8 @@
                   />
                 </div>
 
-                <!-- Support (espace réservé pour Background uniquement) -->
-                <div 
-                  v-if="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Background"
-                  class="col-auto"
-                  :style="isCompactMode ? { minWidth: '120px' } : { minWidth: '140px' }"
-                >
-                  <!-- Les observables n'ont pas de support -->
-                </div>
+                <!-- Support (espace réservé) -->
+                <div class="cell-select" aria-hidden="true" />
               </div>
             </div>
           </div>
@@ -297,9 +255,55 @@ import { useI18n } from 'vue-i18n';
 import { useGraph } from '../graph/use-graph';
 import { DScrollArea, DDialogCard } from '@lib-improba/components';
 import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
+import DrawerLabelCell from './DrawerLabelCell.vue';
+import {
+  collectCategoryPreferenceRepairs,
+  getObservablePropagationPatch,
+  isDiscreteCategory,
+  resolveCategoryDisplayMode,
+  resolveSupportCategoryId,
+  sanitizeGraphPreferencePatch,
+  shouldApplyDisplayModeUpdate,
+} from './graph-preferences.utils';
 
 const COMPACT_MODE_THRESHOLD = 400; // Largeur en pixels pour activer le mode compact
-const MIN_CONTENT_WIDTH = 700; // Largeur minimale du contenu pour le scroll horizontal
+const GRID_COLUMN_WIDTHS = [140, 120, 36, 90, 140, 140];
+const GRID_COLUMN_WIDTHS_COMPACT = [100, 100, 36, 80, 120, 120];
+const GRID_GAP = 8;
+const GRID_GAP_COMPACT = 4;
+const ROW_PADDING_X = 16; // padding-left 12px + padding-right 4px
+const INNER_PADDING_X = 16; // padding 8px de chaque côté dans drawer-content-inner
+
+const computeMinContentWidth = (compact: boolean): number => {
+  const columns = compact ? GRID_COLUMN_WIDTHS_COMPACT : GRID_COLUMN_WIDTHS;
+  const gap = compact ? GRID_GAP_COMPACT : GRID_GAP;
+  const innerPaddingX = compact ? 8 : INNER_PADDING_X;
+  const columnsWidth = columns.reduce((sum, width) => sum + width, 0);
+  return columnsWidth + gap * (columns.length - 1) + ROW_PADDING_X + innerPaddingX;
+};
+
+const GRID_LAYOUT_KEYS = [
+  'name',
+  'display',
+  'color',
+  'stroke',
+  'pattern',
+  'support',
+] as const;
+
+const buildDrawerContentStyle = (compact: boolean): Record<string, string> => {
+  const columns = compact ? GRID_COLUMN_WIDTHS_COMPACT : GRID_COLUMN_WIDTHS;
+  const style: Record<string, string> = {
+    minWidth: `${computeMinContentWidth(compact)}px`,
+  };
+
+  GRID_LAYOUT_KEYS.forEach((key, index) => {
+    style[`--gc-col-${key}`] = `${columns[index]}px`;
+  });
+
+  return style;
+};
+
 const DRAWER_MIN_WIDTH_PX = 100; // Largeur minimale du drawer en pixels (bloque le drag à cette taille)
 
 export default defineComponent({
@@ -307,6 +311,7 @@ export default defineComponent({
   components: {
     DScrollArea,
     DDialogCard,
+    DrawerLabelCell,
   },
   props: {
     drawerWidth: {
@@ -360,6 +365,8 @@ export default defineComponent({
       return props.drawerWidth < COMPACT_MODE_THRESHOLD;
     });
 
+    const drawerContentStyle = computed(() => buildDrawerContentStyle(isCompactMode.value));
+
     // Mode minimisé : drawer réduit à 100px minimum
     const isMinimized = computed(() => {
       return !customization.sharedState.showDrawer || props.drawerWidth <= DRAWER_MIN_WIDTH_PX + 5; // +5 pour la tolérance
@@ -389,62 +396,65 @@ export default defineComponent({
     };
 
     // Charger au montage
-    onMounted(() => {
-      loadProtocolIfNeeded();
+    onMounted(async () => {
+      await loadProtocolIfNeeded();
+      await repairStaleCategoryPreferences();
     });
 
     // Charger si l'observation change
     watch(
       () => observation.sharedState.currentObservation,
-      () => {
-        loadProtocolIfNeeded();
+      async () => {
+        await loadProtocolIfNeeded();
+        await repairStaleCategoryPreferences();
       },
       { immediate: false }
     );
 
-    const sanitizeGraphPreferencePatch = (
-      preference: Partial<IGraphPreferences>
-    ): Partial<IGraphPreferences> => {
-      const patch: Partial<IGraphPreferences> = {};
+    const syncGraphProtocol = (protocolToSync: typeof protocol.sharedState.currentProtocol) => {
+      if (!graph.sharedState.pixiApp || !protocolToSync) {
+        return;
+      }
+      graph.sharedState.pixiApp.setProtocol(protocolToSync as any);
+      graph.sharedState.pixiApp.draw();
+    };
 
-      if (typeof preference.color === 'string' && preference.color.trim() !== '') {
-        patch.color = preference.color;
-      }
-      if (typeof preference.strokeWidth === 'number' && Number.isFinite(preference.strokeWidth)) {
-        patch.strokeWidth = preference.strokeWidth;
-      }
-      if (
-        preference.backgroundPattern !== undefined &&
-        Object.values(BackgroundPatternEnum).includes(preference.backgroundPattern)
-      ) {
-        patch.backgroundPattern = preference.backgroundPattern;
-      }
-      if (
-        preference.displayMode !== undefined &&
-        Object.values(DisplayModeEnum).includes(preference.displayMode)
-      ) {
-        patch.displayMode = preference.displayMode;
+    let isRepairingPreferences = false;
+
+    const repairStaleCategoryPreferences = async () => {
+      const currentProtocol = protocol.sharedState.currentProtocol;
+      if (!currentProtocol?.id || !currentProtocol._items || isRepairingPreferences) {
+        return;
       }
 
-      if (preference.supportCategoryId === '' || preference.supportCategoryId === null) {
-        patch.supportCategoryId = null;
-      } else if (typeof preference.supportCategoryId === 'string') {
-        patch.supportCategoryId = preference.supportCategoryId;
+      const repairs = collectCategoryPreferenceRepairs(currentProtocol._items);
+      if (repairs.length === 0) {
+        return;
       }
 
-      // Cohérence: hors mode Background, le support n'a pas de sens.
-      if (patch.displayMode !== undefined && patch.displayMode !== DisplayModeEnum.Background) {
-        patch.supportCategoryId = null;
-      }
+      isRepairingPreferences = true;
+      try {
+        await Promise.all(
+          repairs.map(({ categoryId, patch }) =>
+            protocolService.updateItemGraphPreferences(currentProtocol.id, categoryId, patch)
+          )
+        );
 
-      return patch;
+        if (observation.sharedState.currentObservation) {
+          const reloaded = await protocolService.findOneFromObservationId(
+            observation.sharedState.currentObservation.id
+          );
+          protocol.sharedState.currentProtocol = reloaded;
+          syncGraphProtocol(reloaded);
+        }
+      } catch (error) {
+        console.error('Failed to repair stale category graph preferences:', error);
+      } finally {
+        isRepairingPreferences = false;
+      }
     };
 
     const methods = {
-      onMaskPausesChange: (enabled: boolean) => {
-        graph.setMaskPauses(enabled);
-      },
-
       /**
        * Vérifie si un observable hérite des préférences de sa catégorie
        */
@@ -496,15 +506,46 @@ export default defineComponent({
         return prefs?.backgroundPattern;
       },
 
+      isDiscreteCategory,
+
       getCategoryDisplayMode: (category: ProtocolItem): DisplayModeEnum => {
-        if (category.action === ProtocolItemActionEnum.Discrete) {
-          return DisplayModeEnum.Normal;
-        }
-        return category.graphPreferences?.displayMode || DisplayModeEnum.Normal;
+        return resolveCategoryDisplayMode(category);
       },
 
-      makeCategoryDisplayModeHandler: (categoryId: string) => (val: DisplayModeEnum) => {
+      getCategorySupportCategoryId: (category: ProtocolItem): string | null => {
+        const currentProtocol = protocol.sharedState.currentProtocol;
+        if (!currentProtocol?._items) {
+          return null;
+        }
+
+        return resolveSupportCategoryId(
+          category.id,
+          category.graphPreferences?.supportCategoryId,
+          currentProtocol._items as ProtocolItem[],
+          resolveCategoryDisplayMode
+        );
+      },
+
+      updateCategoryDisplayMode: (categoryId: string, val: DisplayModeEnum | null) => {
+        if (val === null || val === undefined) {
+          return;
+        }
+
+        const currentProtocol = protocol.sharedState.currentProtocol;
+        const category = currentProtocol?._items?.find((item) => item.id === categoryId);
+        if (!category) {
+          return;
+        }
+
+        if (!shouldApplyDisplayModeUpdate(category as ProtocolItem, val)) {
+          return;
+        }
+
         methods.updateCategoryPreference(categoryId, { displayMode: val });
+      },
+
+      makeCategoryDisplayModeHandler: (categoryId: string) => (val: DisplayModeEnum | null) => {
+        methods.updateCategoryDisplayMode(categoryId, val);
       },
 
       makeCategoryStrokeWidthHandler: (categoryId: string) => (val: number | null) => {
@@ -645,9 +686,10 @@ export default defineComponent({
             sanitizedPreference
           );
 
-          // Propager les préférences à tous les observables de la catégorie
-          // pour que les changements catégorie s'appliquent même après des modifs individuelles
-          if (category?.children) {
+          // Propager les préférences visuelles aux observables (couleur, épaisseur, motif).
+          // displayMode et supportCategoryId restent au niveau catégorie uniquement.
+          const observablePatch = getObservablePropagationPatch(sanitizedPreference);
+          if (category?.children && Object.keys(observablePatch).length > 0) {
             await Promise.all(
               category.children
                 .filter((o) => o.type === 'observable')
@@ -655,7 +697,7 @@ export default defineComponent({
                   protocolService.updateItemGraphPreferences(
                     currentProtocol.id,
                     observable.id,
-                    sanitizedPreference
+                    observablePatch
                   )
                 )
             );
@@ -671,13 +713,14 @@ export default defineComponent({
               graph.sharedState.pixiApp.setProtocol(reloaded as any);
               graph.sharedState.pixiApp.draw();
             }
+            await repairStaleCategoryPreferences();
           }
 
           // Sauvegarder avec debounce
           methods.debouncedSave();
         } catch (error: any) {
-          // Rollback en cas d'erreur API
           protocol.sharedState.currentProtocol = originalProtocol;
+          syncGraphProtocol(originalProtocol);
           
           const apiMessage = error?.response?.data?.message;
           const validationErrors = error?.response?.data?.errors;
@@ -768,8 +811,8 @@ export default defineComponent({
           // Sauvegarder avec debounce
           methods.debouncedSave();
         } catch (error: any) {
-          // Rollback en cas d'erreur API
           protocol.sharedState.currentProtocol = originalProtocol;
+          syncGraphProtocol(originalProtocol);
           
           const apiMessage = error?.response?.data?.message;
           const validationErrors = error?.response?.data?.errors;
@@ -831,7 +874,6 @@ export default defineComponent({
        * Les catégories discrètes ne peuvent être qu'en mode Normal.
        */
       getDisplayModeOptionsForCategory: (category: ProtocolItem) => {
-        // Les catégories discrètes ne peuvent être qu'en mode Normal
         if (category.action === ProtocolItemActionEnum.Discrete) {
           return [{ label: t('graphUi.displayNormal'), value: DisplayModeEnum.Normal }];
         }
@@ -851,7 +893,7 @@ export default defineComponent({
       DEFAULT_GRAPH_COLOR,
       isCompactMode,
       isMinimized,
-      MIN_CONTENT_WIDTH,
+      drawerContentStyle,
       methods,
     };
   },
@@ -895,14 +937,97 @@ export default defineComponent({
 
 .drawer-content-inner {
   padding: 8px;
-  // Largeur minimale ABSOLUE pour forcer le scroll horizontal quand le drawer est réduit
-  min-width: 700px !important;
-  width: max-content; // S'adapter au contenu plutôt que 100%
-  flex-shrink: 0; // Empêcher toute compression
-  
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+
   &.compact-layout {
     padding: 4px;
   }
+}
+
+.customization-row {
+  display: grid;
+  grid-template-columns:
+    var(--gc-col-name)
+    var(--gc-col-display)
+    var(--gc-col-color)
+    var(--gc-col-stroke)
+    var(--gc-col-pattern)
+    var(--gc-col-support);
+  column-gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 4px 8px 12px;
+}
+
+.drawer-content-inner.compact-layout .customization-row {
+  column-gap: 4px;
+  padding: 6px 4px 6px 12px;
+}
+
+:deep(.label-cell) {
+  min-width: 0;
+  overflow: hidden;
+
+  .label-text {
+    display: block;
+    min-width: 0;
+  }
+}
+
+:deep(.observable-label-cell) {
+  padding-left: 16px;
+}
+
+.display-mode-select-host {
+  width: 100%;
+
+  &.is-disabled {
+    cursor: help;
+  }
+}
+
+.cell-select {
+  position: relative;
+  min-width: 0;
+  overflow: visible;
+
+  :deep(.q-field) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  :deep(.q-field__control-container),
+  :deep(.q-field__control) {
+    min-width: 0;
+  }
+
+  :deep(.q-field__input) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  :deep(.q-field__native) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+}
+
+.cell-color {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.cell-stroke {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .color-preview-compact {
@@ -924,14 +1049,21 @@ export default defineComponent({
 }
 
 .category-row {
-  border-left: 3px solid var(--q-primary);
-  padding-left: 12px;
-  padding-right: 4px;
-  // `--q-primary` est un hex (ex: #1976d2) : `rgba(var(--q-primary), 0.05)`
-  // serait invalide. `color-mix` produit un mélange transparent valide.
+  position: relative;
   background-color: color-mix(in srgb, var(--q-primary) 5%, transparent);
   border-radius: 4px 4px 0 0;
   transition: background-color 0.2s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 4px 0 0 0;
+    background-color: var(--q-primary);
+  }
 
   &:hover {
     background-color: color-mix(in srgb, var(--q-primary) 8%, transparent);
@@ -939,13 +1071,22 @@ export default defineComponent({
 }
 
 .observables-container {
-  border-left: 3px solid rgba(0, 0, 0, 0.1);
-  margin-left: 12px;
-  padding-left: 16px;
-  background-color: rgba(0, 0, 0, 0.01);
+  position: relative;
   border-radius: 0 0 4px 4px;
   padding-top: 4px;
   padding-bottom: 4px;
+  background-color: rgba(0, 0, 0, 0.01);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 12px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 0 0 0 2px;
+    background-color: rgba(0, 0, 0, 0.1);
+  }
 }
 
 .observable-row {

@@ -4,6 +4,7 @@ import {
   calculateContinuousObservableDurations,
   calculateCategoryStatistics,
   calculateDiscreteObservableCount,
+  countObservableActivationsInPeriods,
 } from '../../statistics/category-statistics';
 import { calculatePausePeriods } from '../../statistics/period-calculator';
 
@@ -139,6 +140,28 @@ describe('category-statistics', () => {
       expect(statsDefault.observables[0].onCount).toBe(1);
       expect(statsWithPauses.observables[0].onCount).toBe(1);
       expect(calculateDiscreteObservableCount('obsA', baseReadings)).toBe(1);
+    });
+  });
+
+  describe('countObservableActivationsInPeriods', () => {
+    it('should count activations whose timestamps fall inside the given periods', () => {
+      const periods = [
+        {
+          start: new Date('2024-01-01T10:01:00'),
+          end: new Date('2024-01-01T10:03:00'),
+        },
+        {
+          start: new Date('2024-01-01T10:06:00'),
+          end: new Date('2024-01-01T10:07:00'),
+        },
+      ];
+
+      expect(
+        countObservableActivationsInPeriods(baseReadings, 'obsA', periods),
+      ).toBe(1);
+      expect(
+        countObservableActivationsInPeriods(baseReadings, 'obsB', periods),
+      ).toBe(0);
     });
   });
 });

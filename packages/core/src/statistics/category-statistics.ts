@@ -91,6 +91,31 @@ export function calculateContinuousObservableDurations(
 }
 
 /**
+ * Count DATA activations for an observable that fall inside the given periods.
+ */
+export function countObservableActivationsInPeriods(
+  readings: IReading[],
+  observableName: string,
+  periods: IPeriod[],
+): number {
+  if (periods.length === 0) {
+    return 0;
+  }
+
+  return filterOutComments(readings).filter((reading) => {
+    if (reading.type !== ReadingTypeEnum.DATA || reading.name !== observableName) {
+      return false;
+    }
+
+    const timestamp = reading.dateTime.getTime();
+    return periods.some(
+      (period) =>
+        timestamp >= period.start.getTime() && timestamp < period.end.getTime(),
+    );
+  }).length;
+}
+
+/**
  * Calculate count of occurrences for DISCRETE (one-shot) categories
  * Rule: Only count occurrences, no duration calculation
  */

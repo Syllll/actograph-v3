@@ -22,10 +22,17 @@ export declare class DataArea extends BaseGroup {
     protected observation: IObservation | null;
     private pausePeriods;
     private graphRenderOptions;
+    private hoverOverlaySuppressed;
     constructor(app: Application, yAxis: YAxis, xAxis: xAxis, options?: {
         interactive?: boolean;
     });
     setPlotContainer(plotContainer: Container): void;
+    /** Hides crosshair and dynamic time label (used before image export). */
+    clearHoverOverlay(): void;
+    /**
+     * Suppresses hover UI while true so exports never capture crosshair or labels.
+     */
+    setHoverOverlaySuppressed(suppressed: boolean): void;
     init(): void;
     setPausePeriods(periods: IPeriod[]): void;
     setGraphRenderOptions(options: IGraphRenderOptions): void;
@@ -34,6 +41,8 @@ export declare class DataArea extends BaseGroup {
     clear(): void;
     draw(): void;
     private drawPauseOverlay;
+    /** Plot bounds in the crosshair layer local space (correct axis conversion). */
+    private getPlotBoundsLocal;
     /** Keep crosshair and time label above segments and pause overlays. */
     private ensureCursorUiOnTop;
     private getOrCreateGraphicForCategory;

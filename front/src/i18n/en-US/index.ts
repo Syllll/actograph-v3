@@ -363,7 +363,10 @@ export default {
     selectCategoryPlaceholder: 'Select a category',
     step2Title: '2. Add conditions (optional)',
     step2Hint:
-      'Statistics are computed only when all conditions are satisfied',
+      'Statistics are computed only when the conditions are met. Combine conditions with AND (intersection) or OR (union).',
+    conditionOperatorLabel: 'Combine conditions with',
+    conditionalNoMatchWarning:
+      'No time window matches the selected conditions. The results below are empty.',
     observablePlaceholder: 'Observable',
     conditionIs: 'is',
     addCondition: 'Add a condition',
@@ -393,8 +396,6 @@ export default {
     categoryPickerTitle: 'Select a category',
     categoryStatsHeading: 'Statistics: {name}',
     categoryOnTimePieTitle: 'On-time share within the category',
-    toggleTreatPausesAsSeparateState: 'Treat pauses as a separate state',
-    toggleTreatPausesAsSeparateStateHint: 'Pie chart percentages include pause time in their calculation base.',
     categoryOccurrencesChartTitle: 'Number of occurrences',
     chartNoData: 'No data',
     pauseSegmentLabel: 'Pause',
@@ -456,7 +457,6 @@ export default {
     discreteCategoryNormalOnly: 'Discrete categories can only be in Normal mode',
     readingsAfterLastStopWarning:
       'Some readings are ignored by the chart (orphans between sessions or after the last stop).',
-    maskPauses: 'Hide pauses',
   },
   appRoot: {
     updateAvailableTitle: 'Update available',

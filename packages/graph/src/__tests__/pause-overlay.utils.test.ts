@@ -57,9 +57,9 @@ describe('pause-overlay.utils', () => {
     expect(resolveMaskPausesOption({ maskPauses: true })).toBe(false);
   });
 
-  it('defaults maskPauses to enabled (hidden) when option is omitted', () => {
-    expect(shouldDrawPauseOverlay(undefined)).toBe(false);
-    expect(resolveMaskPausesOption({})).toBe(false);
+  it('defaults maskPauses to disabled (visible) when option is omitted', () => {
+    expect(shouldDrawPauseOverlay(undefined)).toBe(true);
+    expect(resolveMaskPausesOption({})).toBe(true);
   });
 
   it('clips rectangles to the data area horizontal bounds', () => {

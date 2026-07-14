@@ -368,7 +368,10 @@ export default {
     selectCategoryPlaceholder: 'Sélectionner une catégorie',
     step2Title: '2. Ajouter des conditions (optionnel)',
     step2Hint:
-      'Les statistiques seront calculées uniquement lorsque les conditions sont valides',
+      'Les statistiques seront calculées uniquement lorsque les conditions sont valides. Combinez les conditions avec ET (intersection) ou OU (union).',
+    conditionOperatorLabel: 'Combiner les conditions avec',
+    conditionalNoMatchWarning:
+      'Aucune période ne satisfait les conditions sélectionnées. Les résultats affichés sont vides.',
     observablePlaceholder: 'Observable',
     conditionIs: 'est',
     addCondition: 'Ajouter une condition',
@@ -398,8 +401,6 @@ export default {
     categoryPickerTitle: 'Sélectionner une catégorie',
     categoryStatsHeading: 'Statistiques : {name}',
     categoryOnTimePieTitle: 'Pourcentage de temps « on » au sein de la catégorie',
-    toggleTreatPausesAsSeparateState: 'Traiter les pauses comme un état séparé',
-    toggleTreatPausesAsSeparateStateHint: 'Les pourcentages du camembert incluent le temps de pause dans leur base de calcul.',
     categoryOccurrencesChartTitle: 'Nombre d\'occurrences',
     chartNoData: 'Aucune donnée',
     pauseSegmentLabel: 'Pause',
@@ -461,7 +462,6 @@ export default {
     discreteCategoryNormalOnly: 'Les catégories discrètes ne peuvent être qu\'en mode Normal',
     readingsAfterLastStopWarning:
       'Certains relevés sont ignorés par le graphique (orphelins entre deux sessions ou après le dernier arrêt).',
-    maskPauses: 'Masquer les pauses',
   },
   appRoot: {
     updateAvailableTitle: 'Mise à jour disponible',

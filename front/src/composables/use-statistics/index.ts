@@ -16,11 +16,16 @@ import {
 import {
   calculateGeneralStatistics,
   calculateCategoryStatistics,
+  calculateConditionalStatistics,
   scopeReadingsForStatistics,
   ReadingTypeEnum,
   type IReading as ICoreReading,
   type IProtocolItem,
 } from '@actograph/core';
+import {
+  mapConditionalStatisticsResult,
+  shouldUseLocalConditionalStatistics,
+} from './conditional-statistics.utils';
 
 const sharedState = reactive({
   generalStatistics: null as IGeneralStatistics | null,
@@ -30,6 +35,7 @@ const sharedState = reactive({
   error: null as string | null,
   treatPausesAsSeparateState: true,
   lastCategoryId: null as string | null,
+  lastConditionalRequest: null as IConditionalStatisticsRequest | null,
 });
 
 let statisticsObservationWatchRegistered = false;
@@ -40,6 +46,7 @@ const resetStatisticsCache = () => {
   sharedState.conditionalStatistics = null;
   sharedState.error = null;
   sharedState.lastCategoryId = null;
+  sharedState.lastConditionalRequest = null;
 };
 
 function normalizeReadingsForStatistics(readings: ICoreReading[]): {
@@ -224,34 +231,6 @@ export const useStatistics = () => {
     },
 
     /**
-     * Toggle whether pauses are treated as a separate state (ON) or transparent (OFF).
-     * ON: pauses excluded from observable durations, pause segment shown in pie chart.
-     * OFF: pauses included in durations, no separate pause segment.
-     */
-    setTreatPausesAsSeparateState: async (treatPausesAsSeparateState: boolean) => {
-      if (sharedState.treatPausesAsSeparateState === treatPausesAsSeparateState) {
-        return;
-      }
-
-      const categoryIdToReload = sharedState.lastCategoryId;
-      sharedState.treatPausesAsSeparateState = treatPausesAsSeparateState;
-      sharedState.generalStatistics = null;
-      sharedState.categoryStatistics = null;
-      sharedState.conditionalStatistics = null;
-      sharedState.error = null;
-
-      const reloadTasks: Promise<void>[] = [
-        methods.loadGeneralStatistics(),
-      ];
-      if (categoryIdToReload) {
-        reloadTasks.push(
-          methods.loadCategoryStatistics(categoryIdToReload),
-        );
-      }
-      await Promise.all(reloadTasks);
-    },
-
-    /**
      * Load conditional statistics
      */
     loadConditionalStatistics: async (
@@ -265,11 +244,35 @@ export const useStatistics = () => {
       try {
         sharedState.loading = true;
         sharedState.error = null;
-        sharedState.conditionalStatistics =
-          await statisticsService.getConditionalStatistics(
-            currentObservation.id,
+        sharedState.lastConditionalRequest = request;
+
+        const includePauses = shouldUseLocalConditionalStatistics(
+          sharedState.treatPausesAsSeparateState,
+        );
+        if (includePauses) {
+          const inputs = getLocalStatisticsInputs(observation);
+          if (!inputs) {
+            sharedState.conditionalStatistics = null;
+            return;
+          }
+
+          const result = calculateConditionalStatistics(
+            inputs.normalizedReadings,
+            inputs.protocolItems,
             request,
+            true,
           );
+          sharedState.conditionalStatistics = mapConditionalStatisticsResult(
+            request,
+            result,
+          );
+        } else {
+          sharedState.conditionalStatistics =
+            await statisticsService.getConditionalStatistics(
+              currentObservation.id,
+              request,
+            );
+        }
       } catch (error) {
         sharedState.error =
           error instanceof Error ? error.message : 'Unknown error';

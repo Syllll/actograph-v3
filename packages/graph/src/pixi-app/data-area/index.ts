@@ -39,6 +39,11 @@ import {
   computePauseOverlayRects,
   DEFAULT_PAUSE_OVERLAY_STYLE,
 } from '../../utils/pause-overlay.utils';
+import {
+  computeCrosshairSegments,
+  type IPlotBounds,
+} from '../../utils/crosshair.utils';
+import { shouldRenderHoverOverlay } from '../../utils/hover-overlay.utils';
 
 export class DataArea extends BaseGroup {
   private yAxis: YAxis;
@@ -72,6 +77,7 @@ export class DataArea extends BaseGroup {
   protected observation: IObservation | null = null;
   private pausePeriods: IPeriod[] = [];
   private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
+  private hoverOverlaySuppressed = false;
 
   constructor(
     app: Application,
@@ -95,6 +101,7 @@ export class DataArea extends BaseGroup {
     this.addChild(this.pointerDashedLines);
 
     this.timeLabelContainer = new Container();
+    this.timeLabelContainer.visible = false;
     this.addChild(this.timeLabelContainer);
 
     this.timeLabelBackground = new Graphics();
@@ -115,6 +122,24 @@ export class DataArea extends BaseGroup {
     this.plotContainer = plotContainer;
   }
 
+  /** Hides crosshair and dynamic time label (used before image export). */
+  public clearHoverOverlay(): void {
+    this.pointerDashedLines.clear();
+    if (this.timeLabelContainer) {
+      this.timeLabelContainer.visible = false;
+    }
+  }
+
+  /**
+   * Suppresses hover UI while true so exports never capture crosshair or labels.
+   */
+  public setHoverOverlaySuppressed(suppressed: boolean): void {
+    this.hoverOverlaySuppressed = suppressed;
+    if (suppressed) {
+      this.clearHoverOverlay();
+    }
+  }
+
   public init() {
     super.init();
 
@@ -131,35 +156,46 @@ export class DataArea extends BaseGroup {
     this.graphicForBackground.eventMode = 'static';
 
     this.graphicForBackground.on('pointermove', (evt: FederatedPointerEvent) => {
-      const origin = this.yAxis.getAxisStart();
-      if (!origin) {
-        throw new Error('No origin');
+      if (
+        !shouldRenderHoverOverlay({
+          interactive: this.graphInteractionEnabled,
+          suppressed: this.hoverOverlaySuppressed,
+        })
+      ) {
+        return;
+      }
+
+      const plotBounds = this.getPlotBoundsLocal();
+      if (!plotBounds) {
+        this.clearHoverOverlay();
+        return;
+      }
+
+      const plotParent = this.parent;
+      if (!plotParent || plotParent !== this.plotContainer) {
+        this.clearHoverOverlay();
+        return;
       }
 
       const p = evt.getLocalPosition(this.pointerDashedLines);
-      const originLocal = this.pointerDashedLines.toLocal(origin as any);
+      const { vertical, horizontal } = computeCrosshairSegments(p.x, p.y, plotBounds);
 
       this.pointerDashedLines.clear();
 
       this.pointerDashedLines
         .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-        .moveTo(p.x, p.y)
-        .dashedLineTo(p.x, originLocal.y)
+        .moveTo(vertical.x1, vertical.y1)
+        .dashedLineTo(vertical.x2, vertical.y2)
         .stroke();
 
       this.pointerDashedLines
         .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-        .moveTo(p.x, p.y)
-        .dashedLineTo(originLocal.x, p.y)
+        .moveTo(horizontal.x1, horizontal.y1)
+        .dashedLineTo(horizontal.x2, horizontal.y2)
         .stroke();
 
       if (this.timeLabel) {
         try {
-          const plotParent = this.parent;
-          if (!plotParent || plotParent !== this.plotContainer) {
-            return;
-          }
-
           const plotPos = evt.getLocalPosition(plotParent);
           const dateTime = this.xAxis.getDateTimeFromPos(plotPos.x);
 
@@ -200,7 +236,7 @@ export class DataArea extends BaseGroup {
           this.timeLabel.y = padding;
 
           this.timeLabelContainer.x = p.x - backgroundWidth / 2;
-          this.timeLabelContainer.y = originLocal.y + 15;
+          this.timeLabelContainer.y = plotBounds.bottomY + 15;
           this.timeLabelContainer.visible = true;
         } catch (error) {
           if (this.timeLabelContainer) {
@@ -211,10 +247,7 @@ export class DataArea extends BaseGroup {
     });
 
     this.graphicForBackground.on('pointerleave', () => {
-      this.pointerDashedLines.clear();
-      if (this.timeLabelContainer) {
-        this.timeLabelContainer.visible = false;
-      }
+      this.clearHoverOverlay();
     });
   }
 
@@ -314,11 +347,7 @@ export class DataArea extends BaseGroup {
 
     this.graphicForBackground.clear();
     this.pauseOverlayGraphic.clear();
-    this.pointerDashedLines.clear();
-
-    if (this.timeLabelContainer) {
-      this.timeLabelContainer.visible = false;
-    }
+    this.clearHoverOverlay();
 
     this.readingsPerCategory = [];
 
@@ -338,6 +367,10 @@ export class DataArea extends BaseGroup {
   }
 
   public draw(): void {
+    if (this.hoverOverlaySuppressed) {
+      this.clearHoverOverlay();
+    }
+
     this.graphicForBackground.clear();
 
     const yAxisStart = this.yAxis.getAxisStart();
@@ -440,6 +473,38 @@ export class DataArea extends BaseGroup {
           alpha: DEFAULT_PAUSE_OVERLAY_STYLE.alpha,
         });
     }
+  }
+
+  /** Plot bounds in the crosshair layer local space (correct axis conversion). */
+  private getPlotBoundsLocal(): IPlotBounds | null {
+    const yAxisStart = this.yAxis.getAxisStart();
+    const yAxisEnd = this.yAxis.getAxisEnd();
+    const xAxisEnd = this.xAxis.getAxisEnd();
+    if (
+      !yAxisStart ||
+      !yAxisEnd ||
+      !xAxisEnd ||
+      typeof xAxisEnd.x !== 'number' ||
+      typeof xAxisEnd.y !== 'number'
+    ) {
+      return null;
+    }
+
+    const toLocalFromYAxis = (point: { x: number; y: number }) =>
+      this.pointerDashedLines.toLocal(this.yAxis.toGlobal(point));
+    const toLocalFromXAxis = (point: { x: number; y: number }) =>
+      this.pointerDashedLines.toLocal(this.xAxis.toGlobal(point));
+
+    const bottomLeft = toLocalFromYAxis(yAxisStart as { x: number; y: number });
+    const topLeft = toLocalFromYAxis(yAxisEnd as { x: number; y: number });
+    const bottomRight = toLocalFromXAxis(xAxisEnd as { x: number; y: number });
+
+    return {
+      leftX: bottomLeft.x,
+      rightX: bottomRight.x,
+      topY: topLeft.y,
+      bottomY: bottomLeft.y,
+    };
   }
 
   /** Keep crosshair and time label above segments and pause overlays. */

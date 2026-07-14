@@ -25,6 +25,24 @@
             <div class="text-body2 text-grey-7 q-mb-sm">
               {{ t('statisticsUi.step2Hint') }}
             </div>
+
+            <div
+              v-if="state.conditions.length > 1"
+              class="row items-center q-gutter-sm"
+            >
+              <div class="text-body2">{{ t('statisticsUi.conditionOperatorLabel') }}</div>
+              <q-select
+                v-model="state.conditionOperator"
+                :options="operatorOptions"
+                option-label="label"
+                option-value="value"
+                emit-value
+                map-options
+                outlined
+                dense
+                style="min-width: 120px;"
+              />
+            </div>
             
             <div
               v-for="(condition, condIndex) in state.conditions"
@@ -94,6 +112,18 @@
     </div>
 
     <div v-else-if="statistics.sharedState.conditionalStatistics" class="column q-gutter-md">
+      <q-banner
+        v-if="hasNoMatchingConditions"
+        dense
+        rounded
+        class="readings-scope-warning"
+      >
+        <template #avatar>
+          <q-icon name="warning" color="warning" />
+        </template>
+        {{ t('statisticsUi.conditionalNoMatchWarning') }}
+      </q-banner>
+
       <DCard bgColor="background">
         <DCardSection>
           <div class="text-h6 q-mb-md">
@@ -107,8 +137,7 @@
             </div>
           </div>
 
-          <!-- Pie Chart -->
-          <div class="q-mb-lg">
+          <div v-if="isContinuousCategory" class="q-mb-lg">
             <div class="text-subtitle2 q-mb-sm">
               {{ pieShareTitleText }}
             </div>
@@ -119,9 +148,8 @@
             />
           </div>
 
-          <!-- Bar Chart -->
           <div>
-            <div class="text-subtitle2 q-mb-sm">{{ t('statisticsUi.barOnDurationTitle') }}</div>
+            <div class="text-subtitle2 q-mb-sm">{{ barChartTitleText }}</div>
             <AmChartsBarChart
               :data="barChartData"
               :colors="barChartColors"
@@ -146,6 +174,10 @@ import {
   IConditionGroup,
   IObservableCondition,
 } from '@services/observations/statistics.interface';
+import {
+  ProtocolItemActionEnum,
+  protocolService,
+} from '@services/observations/protocol.service';
 import { getObservableGraphPreferences } from '@services/observations/protocol-graph-preferences.utils';
 import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
 import {
@@ -156,6 +188,15 @@ import {
 } from 'src/composables/use-statistics/category-pie-chart.utils';
 import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
+
+function formatOccurrenceCount(
+  t: (key: string, values?: Record<string, unknown>) => string,
+  n: number,
+) {
+  return n === 1
+    ? t('statisticsUi.occurrenceCountOne', { count: n })
+    : t('statisticsUi.occurrenceCountOther', { count: n });
+}
 
 export default defineComponent({
   name: 'ConditionalStatisticsView',
@@ -171,6 +212,7 @@ export default defineComponent({
     const state = reactive({
       targetCategoryId: null as string | null,
       conditions: [] as IObservableCondition[],
+      conditionOperator: ConditionOperatorEnum.AND as ConditionOperatorEnum,
     });
 
     const operatorOptions = computed(() => [
@@ -183,8 +225,6 @@ export default defineComponent({
       { label: t('statisticsUi.stateOff'), value: ObservableStateEnum.OFF },
     ]);
 
-    // Observables filtrés : exclure ceux de la catégorie à étudier pour éviter
-    // de combiner une catégorie avec elle-même dans les conditions
     const observableOptions = computed(() => {
       if (!observation.protocol || !observation.protocol.sharedState) {
         return [];
@@ -194,7 +234,6 @@ export default defineComponent({
         return [];
       }
 
-      // Collecter les noms des observables de la catégorie sélectionnée
       const targetCategoryObservableNames = new Set<string>();
       if (state.targetCategoryId) {
         const targetCategory = protocol._items.find(
@@ -231,7 +270,6 @@ export default defineComponent({
       return observables;
     });
 
-    // Réinitialiser les conditions avec des observables invalides quand la catégorie change
     watch(
       () => state.targetCategoryId,
       () => {
@@ -266,6 +304,44 @@ export default defineComponent({
         }));
     });
 
+    const isContinuousCategory = computed(() => {
+      if (!state.targetCategoryId || !observation.protocol?.sharedState?.currentProtocol) {
+        return true;
+      }
+
+      const protocol = observation.protocol.sharedState.currentProtocol;
+      const items = protocolService.parseProtocolItems(protocol);
+
+      const findCategory = (nodes: unknown[]): unknown => {
+        for (const item of nodes) {
+          const node = item as { type?: string; id?: string; children?: unknown[] };
+          if (node.type === 'category' && node.id === state.targetCategoryId) {
+            return item;
+          }
+          if (node.children) {
+            const found = findCategory(node.children);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const category = findCategory(items) as { action?: string } | null;
+      if (!category) {
+        return true;
+      }
+
+      return !category.action || category.action === ProtocolItemActionEnum.Continuous;
+    });
+
+    const hasNoMatchingConditions = computed(() => {
+      if (state.conditions.length === 0) {
+        return false;
+      }
+
+      return (statistics.sharedState.conditionalStatistics?.filteredDuration || 0) === 0;
+    });
+
     const methods = {
       addCondition: () => {
         state.conditions.push({
@@ -283,7 +359,6 @@ export default defineComponent({
           return false;
         }
 
-        // Vérifier que toutes les conditions ont un observable sélectionné
         for (const condition of state.conditions) {
           if (!condition.observableName) {
             return false;
@@ -299,12 +374,11 @@ export default defineComponent({
         }
 
         try {
-          // Construire les groupes de conditions (un seul groupe avec toutes les conditions)
           const conditionGroups: IConditionGroup[] = state.conditions.length > 0
             ? [
                 {
                   observables: state.conditions,
-                  operator: ConditionOperatorEnum.AND,
+                  operator: state.conditionOperator,
                 },
               ]
             : [];
@@ -342,8 +416,12 @@ export default defineComponent({
         : t('statisticsUi.pieShareTitleNoObservable', { category: categoryName });
     });
 
-    // The conditional tab reuses the global pause toggle so its pie chart stays
-    // consistent with the category tab (pause segment + denominator).
+    const barChartTitleText = computed(() =>
+      isContinuousCategory.value
+        ? t('statisticsUi.barOnDurationTitle')
+        : t('statisticsUi.categoryOccurrencesChartTitle'),
+    );
+
     const unaccountedPieDuration = computed(() => {
       const stats = statistics.sharedState.conditionalStatistics;
       return stats?.targetCategory
@@ -412,7 +490,18 @@ export default defineComponent({
         return [];
       }
 
-      // Same filtering logic as CategoryStatisticsView
+      if (!isContinuousCategory.value) {
+        const data = stats.targetCategory.observables
+          .filter((obs) => obs.onCount > 0)
+          .map((obs) => ({
+            label: obs.observableName,
+            value: obs.onCount || 0,
+            formattedValue: formatOccurrenceCount(t, obs.onCount || 0),
+          }));
+
+        return data.length > 0 ? data : [];
+      }
+
       const data = stats.targetCategory.observables
         .filter((obs) => obs.onDuration > 0 || obs.onCount > 0)
         .map((obs) => ({
@@ -439,12 +528,21 @@ export default defineComponent({
       categoryOptions,
       methods,
       pieShareTitleText,
+      barChartTitleText,
       pieChartData,
       pieChartColors,
       barChartData,
       barChartColors,
+      isContinuousCategory,
+      hasNoMatchingConditions,
     };
   },
 });
 </script>
 
+<style scoped lang="scss">
+.readings-scope-warning {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+</style>

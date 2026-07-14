@@ -141,6 +141,68 @@ export function unionPeriods(
 }
 
 /**
+ * Remove pause intervals from periods, splitting into active sub-periods.
+ */
+export function subtractPausesFromPeriods(
+  periods: IPeriod[],
+  pausePeriods: IPeriod[],
+): IPeriod[] {
+  if (periods.length === 0) {
+    return [];
+  }
+
+  if (pausePeriods.length === 0) {
+    return periods.map((period) => ({
+      start: new Date(period.start.getTime()),
+      end: new Date(period.end.getTime()),
+    }));
+  }
+
+  const result: IPeriod[] = [];
+
+  for (const period of periods) {
+    let segments: IPeriod[] = [
+      {
+        start: new Date(period.start.getTime()),
+        end: new Date(period.end.getTime()),
+      },
+    ];
+
+    for (const pause of pausePeriods) {
+      const nextSegments: IPeriod[] = [];
+
+      for (const segment of segments) {
+        const overlap = intersectTwoPeriods(segment, pause);
+        if (!overlap) {
+          nextSegments.push(segment);
+          continue;
+        }
+
+        if (segment.start < overlap.start) {
+          nextSegments.push({
+            start: new Date(segment.start.getTime()),
+            end: new Date(overlap.start.getTime()),
+          });
+        }
+
+        if (overlap.end < segment.end) {
+          nextSegments.push({
+            start: new Date(overlap.end.getTime()),
+            end: new Date(segment.end.getTime()),
+          });
+        }
+      }
+
+      segments = nextSegments;
+    }
+
+    result.push(...segments);
+  }
+
+  return result.filter((period) => period.start < period.end);
+}
+
+/**
  * Filter periods by time range
  */
 export function filterByTimeRange(
