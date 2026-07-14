@@ -57,7 +57,7 @@ export default defineComponent({
   name: 'AmChartsPieChart',
   props: {
     data: {
-      type: Array as PropType<Array<{ label: string; value: number }>>,
+      type: Array as PropType<Array<{ label: string; value: number; durationLabel: string }>>,
       required: true,
     },
     colors: {
@@ -76,7 +76,7 @@ export default defineComponent({
     let chart: am5percent.PieChart | null = null;
     let exporting: am5exporting.Exporting | null = null;
 
-    const emptySlice = () => ({ label: '', value: 1 });
+    const emptySlice = () => ({ label: '', value: 1, durationLabel: '' });
 
     const createChart = () => {
       if (!chartContainer.value) {
@@ -133,7 +133,7 @@ export default defineComponent({
 
       // Add tooltip
       series.slices.template.setAll({
-        tooltipText: '{category}: {valuePercentTotal.formatNumber(\'#.0\')}% ({value})',
+        tooltipText: '{category}: {valuePercentTotal.formatNumber(\'#.0\')}% ({durationLabel})',
         stroke: am5.color('#fff'),
         strokeWidth: 2,
       });

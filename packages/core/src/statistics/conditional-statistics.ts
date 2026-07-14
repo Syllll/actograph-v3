@@ -199,6 +199,15 @@ export function calculateCategoryStatisticsForPeriods(
   );
   const percentageBasis = periodsDuration > 0 ? periodsDuration : totalCategoryDuration;
 
+  // Pause time scoped to the filtered periods only (not the whole observation).
+  // onDuration already excludes pauses; observationDuration must do the same so
+  // the pie-chart denominator (observationDuration + pauseDuration) equals
+  // periodsDuration without double-counting pauses.
+  const pauseDurationInPeriods = intersectPeriods([pausePeriods, periods]).reduce(
+    (sum, pause) => sum + (pause.end.getTime() - pause.start.getTime()),
+    0,
+  );
+
   // Recalculate percentages within the filtered window
   const observableStatsWithCategoryPercentage = observableStats.map((obs) => ({
     ...obs,
@@ -208,10 +217,7 @@ export function calculateCategoryStatisticsForPeriods(
         : 0,
   }));
 
-  const pauseDuration = pausePeriods.reduce(
-    (sum, pause) => sum + (pause.end.getTime() - pause.start.getTime()),
-    0,
-  );
+  const pauseDuration = pauseDurationInPeriods;
 
   return {
     categoryId: category.id,
@@ -219,7 +225,9 @@ export function calculateCategoryStatisticsForPeriods(
     observables: observableStatsWithCategoryPercentage,
     pauseDuration,
     totalCategoryDuration,
-    observationDuration: periodsDuration > 0 ? periodsDuration : undefined,
+    observationDuration:
+      periodsDuration > 0 ? periodsDuration - pauseDurationInPeriods : undefined,
+    windowDuration: periodsDuration > 0 ? periodsDuration : undefined,
   };
 }
 

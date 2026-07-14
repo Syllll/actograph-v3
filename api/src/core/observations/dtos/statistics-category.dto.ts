@@ -18,6 +18,9 @@ export class CategoryStatisticsDto {
 
   @Expose()
   observationDuration?: number; // Full observation window (first START to last STOP) used as the percentage basis (milliseconds)
+
+  @Expose()
+  windowDuration?: number; // Full filtered wall-clock window for conditional statistics (milliseconds)
 }
 
 export class ObservableStatisticsDto {

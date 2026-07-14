@@ -628,15 +628,21 @@ export const useReadings = (options: {
      * @param oldName - Ancien nom de l'observable
      * @param newName - Nouveau nom de l'observable
      */
-    renameObservableReadings: (oldName: string, newName: string) => {
+    renameObservableReadings: async (oldName: string, newName: string) => {
       if (!oldName || !newName || oldName === newName) return;
 
+      let renamed = false;
       sharedState.currentReadings.forEach((reading) => {
         if (reading.type === ReadingTypeEnum.DATA && reading.name === oldName) {
           reading.name = newName;
           reading.updatedAt = new Date();
+          renamed = true;
         }
       });
+
+      if (renamed) {
+        await methods.synchronizeReadings();
+      }
     },
 
     addStartReading: async () => {

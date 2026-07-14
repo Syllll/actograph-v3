@@ -214,7 +214,7 @@ export default defineComponent({
         // encore présent dans le protocole) : impossible de savoir sans risque
         // quels relevés historiques appartiennent à l'un ou à l'autre.
         if (previousName && previousName !== state.form.name && !previousNameIsAmbiguous) {
-          observation.readings.methods.renameObservableReadings(
+          await observation.readings.methods.renameObservableReadings(
             previousName,
             state.form.name
           );

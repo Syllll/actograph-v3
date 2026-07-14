@@ -166,6 +166,7 @@ export default defineComponent({
         treatPausesAsSeparateState: statistics.sharedState.treatPausesAsSeparateState,
         pauseSegmentLabel: t('statisticsUi.pauseSegmentLabel'),
         unaccountedSegmentLabel: t('statisticsUi.unaccountedSegmentLabel'),
+        formatDuration: statistics.methods.formatDuration,
       });
     });
 

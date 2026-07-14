@@ -323,27 +323,34 @@ export default defineComponent({
     const pieShareTitleText = computed(() => {
       const stats = statistics.sharedState.conditionalStatistics;
       const categoryName = stats?.targetCategory?.categoryName || '';
-      const observableName = state.conditions
-        .map((condition) => condition.observableName)
-        .filter(Boolean)
+      const conditionSummary = state.conditions
+        .filter((condition) => condition.observableName)
+        .map((condition) => {
+          const stateLabel =
+            condition.state === ObservableStateEnum.ON
+              ? t('statisticsUi.stateOn')
+              : t('statisticsUi.stateOff');
+          return `${condition.observableName} ${t('statisticsUi.conditionIs')} ${stateLabel}`;
+        })
         .join(', ');
 
-      return observableName
+      return conditionSummary
         ? t('statisticsUi.pieShareTitle', {
-            observable: observableName,
+            conditions: conditionSummary,
             category: categoryName,
           })
         : t('statisticsUi.pieShareTitleNoObservable', { category: categoryName });
     });
 
-    // The conditional tab doesn't expose a pause-as-separate-state toggle, so
-    // its pie never shows a pause segment; it only needs the "unaccounted"
-    // gap segment for consistency with the category tab (see
-    // category-pie-chart.utils.ts / calculateUnaccountedPieDuration).
+    // The conditional tab reuses the global pause toggle so its pie chart stays
+    // consistent with the category tab (pause segment + denominator).
     const unaccountedPieDuration = computed(() => {
       const stats = statistics.sharedState.conditionalStatistics;
       return stats?.targetCategory
-        ? calculateUnaccountedPieDuration(stats.targetCategory, false)
+        ? calculateUnaccountedPieDuration(
+            stats.targetCategory,
+            statistics.sharedState.treatPausesAsSeparateState,
+          )
         : 0;
     });
 
@@ -354,9 +361,10 @@ export default defineComponent({
       }
 
       return buildCategoryPieChartData(stats.targetCategory, {
-        treatPausesAsSeparateState: false,
+        treatPausesAsSeparateState: statistics.sharedState.treatPausesAsSeparateState,
         pauseSegmentLabel: t('statisticsUi.pauseSegmentLabel'),
         unaccountedSegmentLabel: t('statisticsUi.unaccountedSegmentLabel'),
+        formatDuration: statistics.methods.formatDuration,
       });
     });
 
@@ -391,8 +399,8 @@ export default defineComponent({
       );
 
       return buildCategoryPieChartColors(
-        false,
-        0,
+        statistics.sharedState.treatPausesAsSeparateState,
+        stats?.targetCategory?.pauseDuration || 0,
         resolvedColors,
         unaccountedPieDuration.value > 0,
       );

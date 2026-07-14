@@ -26,6 +26,7 @@ export interface ICategoryStatistics {
   // fall back to totalCategoryDuration (sum of observable on-durations) when
   // it's absent.
   observationDuration?: number;
+  windowDuration?: number;
 }
 
 export interface IObservableStatistics {

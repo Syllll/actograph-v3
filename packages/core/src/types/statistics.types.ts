@@ -46,6 +46,10 @@ export interface ICategoryStatistics {
   // compatibility with producers that don't set it, in which case consumers
   // fall back to totalCategoryDuration (sum of observable on-durations).
   observationDuration?: number;
+  // Full filtered wall-clock window for conditional statistics (milliseconds).
+  // observationDuration is stored ex-pause; windowDuration is the OFF-mode
+  // pie-chart denominator.
+  windowDuration?: number;
 }
 
 /**

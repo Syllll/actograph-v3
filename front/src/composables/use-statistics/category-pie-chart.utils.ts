@@ -4,12 +4,14 @@ import { resolveTotalCategoryDuration } from './statistics-export.utils';
 export interface PieChartSegment {
   label: string;
   value: number;
+  durationLabel: string;
 }
 
 export interface BuildCategoryPieChartDataOptions {
   treatPausesAsSeparateState: boolean;
   pauseSegmentLabel: string;
   unaccountedSegmentLabel: string;
+  formatDuration: (ms: number) => string;
 }
 
 export const CATEGORY_PIE_CHART_BASE_COLORS = [
@@ -42,7 +44,11 @@ export function shouldIncludePauseSegment(
 
 type PieStatsInput = Pick<
   ICategoryStatistics,
-  'observables' | 'totalCategoryDuration' | 'pauseDuration' | 'observationDuration'
+  | 'observables'
+  | 'totalCategoryDuration'
+  | 'pauseDuration'
+  | 'observationDuration'
+  | 'windowDuration'
 >;
 
 function resolvePieDenominator(
@@ -51,7 +57,18 @@ function resolvePieDenominator(
 ): number {
   const totalWindow = resolveTotalCategoryDuration(stats);
   const pauseDuration = stats.pauseDuration || 0;
-  return includePauseSegment ? totalWindow + pauseDuration : totalWindow;
+
+  if (includePauseSegment) {
+    return totalWindow + pauseDuration;
+  }
+
+  // OFF mode: full wall-clock window. Conditional stats expose it explicitly
+  // because observationDuration is stored ex-pause for the ON-mode base.
+  if (stats.windowDuration && stats.windowDuration > 0) {
+    return stats.windowDuration;
+  }
+
+  return totalWindow;
 }
 
 /**
@@ -112,6 +129,7 @@ export function buildCategoryPieChartData(
       return {
         label: obs.observableName,
         value,
+        durationLabel: options.formatDuration(obs.onDuration || 0),
       };
     });
 
@@ -119,6 +137,7 @@ export function buildCategoryPieChartData(
     data.push({
       label: options.pauseSegmentLabel,
       value: (pauseDuration / pieDenominator) * 100,
+      durationLabel: options.formatDuration(pauseDuration),
     });
   }
 
@@ -131,6 +150,7 @@ export function buildCategoryPieChartData(
       data.push({
         label: options.unaccountedSegmentLabel,
         value: (unaccountedDuration / pieDenominator) * 100,
+        durationLabel: options.formatDuration(unaccountedDuration),
       });
     }
   }

@@ -152,4 +152,61 @@ describe('conditional-statistics', () => {
     expect(obsB?.onPercentage).toBeCloseTo((2 / 3) * 100, 5);
     expect(obsB?.onPercentage).not.toBeCloseTo(100, 5);
   });
+
+  it('scopes pauseDuration to filtered periods and excludes pauses from observationDuration', () => {
+    const readingsWithPause: IReading[] = [
+      {
+        type: ReadingTypeEnum.START,
+        dateTime: new Date('2024-01-01T10:00:00.000Z'),
+      },
+      {
+        type: ReadingTypeEnum.DATA,
+        dateTime: new Date('2024-01-01T10:01:00.000Z'),
+        name: 'A',
+      },
+      {
+        type: ReadingTypeEnum.PAUSE_START,
+        dateTime: new Date('2024-01-01T10:02:00.000Z'),
+      },
+      {
+        type: ReadingTypeEnum.PAUSE_END,
+        dateTime: new Date('2024-01-01T10:03:00.000Z'),
+      },
+      {
+        type: ReadingTypeEnum.DATA,
+        dateTime: new Date('2024-01-01T10:03:00.000Z'),
+        name: 'B',
+      },
+      {
+        type: ReadingTypeEnum.STOP,
+        dateTime: new Date('2024-01-01T10:05:00.000Z'),
+      },
+    ];
+
+    const result = calculateConditionalStatistics(readingsWithPause, protocolItems, {
+      targetCategoryId: 'category-1',
+      groupOperator: ConditionOperatorEnum.OR,
+      conditionGroups: [
+        {
+          operator: ConditionOperatorEnum.OR,
+          observables: [
+            {
+              observableName: 'A',
+              state: ObservableStateEnum.ON,
+            },
+          ],
+        },
+      ],
+    });
+
+    // A is ON from 10:01 to 10:03 (2 min wall clock); 1 min pause falls inside.
+    expect(result.categoryStatistics.observationDuration).toBe(1 * 60 * 1000);
+    expect(result.categoryStatistics.pauseDuration).toBe(1 * 60 * 1000);
+    expect(result.categoryStatistics.windowDuration).toBe(2 * 60 * 1000);
+
+    const pieDenominator =
+      (result.categoryStatistics.observationDuration || 0) +
+      (result.categoryStatistics.pauseDuration || 0);
+    expect(pieDenominator).toBe(2 * 60 * 1000);
+  });
 });

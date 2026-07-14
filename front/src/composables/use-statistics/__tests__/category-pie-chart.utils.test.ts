@@ -38,18 +38,22 @@ describe('shouldIncludePauseSegment', () => {
   });
 });
 
+const formatDuration = (ms: number) => `${ms}ms`;
+
 describe('buildCategoryPieChartData', () => {
   it('adds a pause segment when treatPausesAsSeparateState is on', () => {
     const data = buildCategoryPieChartData(baseStats, {
       treatPausesAsSeparateState: true,
       pauseSegmentLabel: 'Pause',
       unaccountedSegmentLabel: 'Unaccounted',
+      formatDuration,
     });
 
     expect(data).toHaveLength(3);
     expect(data[2]).toEqual({
       label: 'Pause',
       value: 10,
+      durationLabel: '60000ms',
     });
   });
 
@@ -58,6 +62,7 @@ describe('buildCategoryPieChartData', () => {
       treatPausesAsSeparateState: true,
       pauseSegmentLabel: 'Pause',
       unaccountedSegmentLabel: 'Unaccounted',
+      formatDuration,
     });
 
     const total = data.reduce((sum, segment) => sum + segment.value, 0);
@@ -92,6 +97,7 @@ describe('buildCategoryPieChartData', () => {
       treatPausesAsSeparateState: false,
       pauseSegmentLabel: 'Pause',
       unaccountedSegmentLabel: 'Unaccounted',
+      formatDuration,
     });
 
     expect(data).toHaveLength(2);
@@ -127,6 +133,7 @@ describe('buildCategoryPieChartData', () => {
       treatPausesAsSeparateState: true,
       pauseSegmentLabel: 'Pause',
       unaccountedSegmentLabel: 'Unaccounted',
+      formatDuration,
     });
 
     expect(data).toHaveLength(4);
@@ -134,6 +141,7 @@ describe('buildCategoryPieChartData', () => {
       label: 'Unaccounted',
       // 1 min gap out of the full 10 min window (9 min + 1 min pause)
       value: 10,
+      durationLabel: '60000ms',
     });
 
     const total = data.reduce((sum, segment) => sum + segment.value, 0);
@@ -145,9 +153,37 @@ describe('buildCategoryPieChartData', () => {
       treatPausesAsSeparateState: true,
       pauseSegmentLabel: 'Pause',
       unaccountedSegmentLabel: 'Unaccounted',
+      formatDuration,
     });
 
     expect(data.some((segment) => segment.label === 'Unaccounted')).toBe(false);
+  });
+
+  it('uses the full filtered window as denominator when pause toggle is off (conditional ex-pause base)', () => {
+    const conditionalStats = {
+      observationDuration: 1 * 60 * 1000,
+      windowDuration: 2 * 60 * 1000,
+      pauseDuration: 1 * 60 * 1000,
+      observables: [
+        {
+          observableName: 'obsA',
+          onDuration: 1 * 60 * 1000,
+          onPercentage: 50,
+          onCount: 1,
+        },
+      ],
+    };
+
+    const data = buildCategoryPieChartData(conditionalStats, {
+      treatPausesAsSeparateState: false,
+      pauseSegmentLabel: 'Pause',
+      unaccountedSegmentLabel: 'Unaccounted',
+      formatDuration,
+    });
+
+    expect(data[0].value).toBeCloseTo(50, 5);
+    const total = data.reduce((sum, segment) => sum + segment.value, 0);
+    expect(total).toBeCloseTo(100, 5);
   });
 });
 

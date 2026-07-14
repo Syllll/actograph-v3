@@ -4,7 +4,10 @@ export const DEFAULT_PAUSE_OVERLAY_STYLE = {
     alpha: 0.45,
 };
 export function shouldDrawPauseOverlay(maskPauses = DEFAULT_GRAPH_RENDER_OPTIONS.maskPauses) {
-    return maskPauses !== false;
+    // maskPauses === true means "hide pauses": no overlay is drawn, segments
+    // stay seamless. The overlay is only drawn when masking is turned off,
+    // to reveal where the pauses are.
+    return maskPauses === false;
 }
 export function resolveMaskPausesOption(options) {
     return shouldDrawPauseOverlay(options?.maskPauses ?? DEFAULT_GRAPH_RENDER_OPTIONS.maskPauses);
