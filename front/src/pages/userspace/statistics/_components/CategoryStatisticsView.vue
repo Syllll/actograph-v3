@@ -69,7 +69,11 @@ import {
 import {
   buildCategoryPieChartColors,
   buildCategoryPieChartData,
+  calculateUnaccountedPieDuration,
+  CATEGORY_PIE_CHART_BASE_COLORS,
 } from 'src/composables/use-statistics/category-pie-chart.utils';
+import { getObservableGraphPreferences } from '@services/observations/protocol-graph-preferences.utils';
+import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
 import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
 
@@ -139,6 +143,19 @@ export default defineComponent({
       { immediate: true },
     );
 
+    // Shared by pieChartData (to decide whether to push the segment) and
+    // pieChartColors (to decide whether to append its color), so the two
+    // arrays can't drift out of sync by recomputing this independently.
+    const unaccountedPieDuration = computed(() => {
+      const stats = statistics.sharedState.categoryStatistics;
+      return stats
+        ? calculateUnaccountedPieDuration(
+            stats,
+            statistics.sharedState.treatPausesAsSeparateState,
+          )
+        : 0;
+    });
+
     const pieChartData = computed(() => {
       const stats = statistics.sharedState.categoryStatistics;
       if (!stats) {
@@ -148,15 +165,45 @@ export default defineComponent({
       return buildCategoryPieChartData(stats, {
         treatPausesAsSeparateState: statistics.sharedState.treatPausesAsSeparateState,
         pauseSegmentLabel: t('statisticsUi.pauseSegmentLabel'),
+        unaccountedSegmentLabel: t('statisticsUi.unaccountedSegmentLabel'),
       });
     });
 
+    const resolveObservableColor = (observableId: string, index: number): string => {
+      const protocol = observation.protocol?.sharedState?.currentProtocol;
+      const preferences = protocol
+        ? getObservableGraphPreferences(observableId, protocol)
+        : null;
+      return (
+        preferences?.color ||
+        CATEGORY_PIE_CHART_BASE_COLORS[index % CATEGORY_PIE_CHART_BASE_COLORS.length]
+      );
+    };
+
+    const resolveCategoryColor = (categoryId: string | null): string => {
+      const protocol = observation.protocol?.sharedState?.currentProtocol;
+      const category = protocol?._items?.find(
+        (item: { type?: string; id?: string }) =>
+          item.type === 'category' && item.id === categoryId,
+      ) as { graphPreferences?: { color?: string } } | undefined;
+      return category?.graphPreferences?.color || DEFAULT_GRAPH_COLOR;
+    };
+
     const pieChartColors = computed(() => {
       const stats = statistics.sharedState.categoryStatistics;
+      const observables =
+        stats?.observables?.filter(
+          (obs) => obs.onDuration > 0 || obs.onCount > 0,
+        ) || [];
+      const resolvedColors = observables.map((obs, index) =>
+        resolveObservableColor(obs.observableId, index),
+      );
 
       return buildCategoryPieChartColors(
         statistics.sharedState.treatPausesAsSeparateState,
         stats?.pauseDuration || 0,
+        resolvedColors,
+        unaccountedPieDuration.value > 0,
       );
     });
 
@@ -211,7 +258,7 @@ export default defineComponent({
     });
 
     const barChartColors = computed(() => {
-      return '#1976D2';
+      return resolveCategoryColor(state.selectedCategoryId);
     });
 
     return {

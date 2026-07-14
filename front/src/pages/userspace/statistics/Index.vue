@@ -76,6 +76,18 @@
       <q-separator />
 
       <q-banner
+        v-if="!hasStarted"
+        dense
+        rounded
+        class="readings-scope-warning q-ma-sm"
+      >
+        <template #avatar>
+          <q-icon name="warning" color="warning" />
+        </template>
+        {{ t('statisticsUi.missingStartWarning') }}
+      </q-banner>
+
+      <q-banner
         v-if="hasReadingsAfterLastStop"
         dense
         rounded
@@ -122,7 +134,7 @@
 <script lang="ts">
 import { defineComponent, reactive, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
+import { hasReadingsAfterLastStop as detectReadingsAfterLastStop, ReadingTypeEnum } from '@actograph/core';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useStatisticsExport } from 'src/composables/use-statistics/use-statistics-export';
 import { StatisticsExportTab } from 'src/composables/use-statistics/statistics-export.utils';
@@ -193,6 +205,15 @@ export default defineComponent({
       detectReadingsAfterLastStop(observation.readings.sharedState.currentReadings)
     );
 
+    // La chronique n'a jamais été démarrée (pas de repère START) : les statistiques
+    // affichées se basent alors sur l'étendue des relevés bruts et peuvent être
+    // trompeuses (durée quasi nulle, catégories vides), d'où cet avertissement explicite.
+    const hasStarted = computed(() =>
+      (observation.readings.sharedState.currentReadings || []).some(
+        (r) => r.type === ReadingTypeEnum.START,
+      )
+    );
+
     return {
       t,
       statistics,
@@ -203,6 +224,7 @@ export default defineComponent({
       state,
       isStudentAccess,
       hasReadingsAfterLastStop,
+      hasStarted,
     };
   },
 });

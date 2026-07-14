@@ -146,6 +146,14 @@ import {
   IConditionGroup,
   IObservableCondition,
 } from '@services/observations/statistics.interface';
+import { getObservableGraphPreferences } from '@services/observations/protocol-graph-preferences.utils';
+import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
+import {
+  buildCategoryPieChartColors,
+  buildCategoryPieChartData,
+  calculateUnaccountedPieDuration,
+  CATEGORY_PIE_CHART_BASE_COLORS,
+} from 'src/composables/use-statistics/category-pie-chart.utils';
 import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
 
@@ -312,94 +320,66 @@ export default defineComponent({
       },
     };
 
+    // The conditional tab doesn't expose a pause-as-separate-state toggle, so
+    // its pie never shows a pause segment; it only needs the "unaccounted"
+    // gap segment for consistency with the category tab (see
+    // category-pie-chart.utils.ts / calculateUnaccountedPieDuration).
+    const unaccountedPieDuration = computed(() => {
+      const stats = statistics.sharedState.conditionalStatistics;
+      return stats?.targetCategory
+        ? calculateUnaccountedPieDuration(stats.targetCategory, false)
+        : 0;
+    });
+
     const pieChartData = computed(() => {
       const stats = statistics.sharedState.conditionalStatistics;
       if (!stats || !stats.targetCategory || !stats.targetCategory.observables) {
-        console.debug('[ConditionalStatisticsView] No statistics data available');
         return [];
       }
 
-      console.debug('[ConditionalStatisticsView] Statistics data:', {
-        observables: stats.targetCategory.observables,
-        totalCategoryDuration: stats.targetCategory.totalCategoryDuration,
-        pauseDuration: stats.targetCategory.pauseDuration,
+      return buildCategoryPieChartData(stats.targetCategory, {
+        treatPausesAsSeparateState: false,
+        pauseSegmentLabel: t('statisticsUi.pauseSegmentLabel'),
+        unaccountedSegmentLabel: t('statisticsUi.unaccountedSegmentLabel'),
       });
-
-      // Calculate total duration from observables (same logic as CategoryStatisticsView)
-      let totalCategoryDuration = stats.targetCategory.totalCategoryDuration || 0;
-      if (totalCategoryDuration === 0) {
-        // Fallback: calculate from observables if backend returned 0
-        totalCategoryDuration = stats.targetCategory.observables.reduce(
-          (sum, obs) => sum + (obs.onDuration || 0),
-          0,
-        );
-        console.debug(
-          '[ConditionalStatisticsView] Calculated totalCategoryDuration from observables:',
-          totalCategoryDuration,
-        );
-      }
-
-      console.debug('[ConditionalStatisticsView] Durations:', {
-        totalCategoryDuration,
-      });
-
-      // Build data array with observables
-      // Include all observables that have either duration or count > 0 (same as CategoryStatisticsView)
-      const data = stats.targetCategory.observables
-        .filter((obs) => {
-          const hasDuration = obs.onDuration > 0;
-          const hasCount = obs.onCount > 0;
-          const included = hasDuration || hasCount;
-          
-          console.debug(`[ConditionalStatisticsView] Observable ${obs.observableName}:`, {
-            onDuration: obs.onDuration,
-            onPercentage: obs.onPercentage,
-            onCount: obs.onCount,
-            hasDuration,
-            hasCount,
-            included,
-          });
-          
-          return included;
-        })
-        .map((obs) => {
-          let percentage = obs.onPercentage || 0;
-          
-          // Recalculate percentage if needed (same logic as CategoryStatisticsView)
-          if (totalCategoryDuration > 0 && percentage === 0 && obs.onDuration > 0) {
-            percentage = (obs.onDuration / totalCategoryDuration) * 100;
-          }
-          
-          console.debug(`[ConditionalStatisticsView] Mapped observable ${obs.observableName}:`, {
-            originalPercentage: obs.onPercentage,
-            calculatedPercentage: totalCategoryDuration > 0 ? (obs.onDuration / totalCategoryDuration) * 100 : 0,
-            finalPercentage: percentage,
-            onDuration: obs.onDuration,
-            totalCategoryDuration,
-          });
-          
-          return {
-            label: obs.observableName,
-            value: Math.max(0, percentage), // Ensure non-negative (same as CategoryStatisticsView)
-          };
-        });
-
-      console.debug('[ConditionalStatisticsView] Final pie chart data:', data);
-      return data.length > 0 ? data : [];
     });
 
+    const resolveObservableColor = (observableId: string, index: number): string => {
+      const protocol = observation.protocol?.sharedState?.currentProtocol;
+      const preferences = protocol
+        ? getObservableGraphPreferences(observableId, protocol)
+        : null;
+      return (
+        preferences?.color ||
+        CATEGORY_PIE_CHART_BASE_COLORS[index % CATEGORY_PIE_CHART_BASE_COLORS.length]
+      );
+    };
+
+    const resolveCategoryColor = (categoryId: string | null): string => {
+      const protocol = observation.protocol?.sharedState?.currentProtocol;
+      const category = protocol?._items?.find(
+        (item: { type?: string; id?: string }) =>
+          item.type === 'category' && item.id === categoryId,
+      ) as { graphPreferences?: { color?: string } } | undefined;
+      return category?.graphPreferences?.color || DEFAULT_GRAPH_COLOR;
+    };
+
     const pieChartColors = computed(() => {
-      const colors = [
-        '#1976D2',
-        '#388E3C',
-        '#F57C00',
-        '#7B1FA2',
-        '#C2185B',
-        '#00796B',
-        '#0288D1',
-        '#5D4037',
-      ];
-      return colors;
+      const stats = statistics.sharedState.conditionalStatistics;
+      const observables =
+        stats?.targetCategory?.observables?.filter(
+          (obs) => obs.onDuration > 0 || obs.onCount > 0,
+        ) || [];
+      const resolvedColors = observables.map((obs, index) =>
+        resolveObservableColor(obs.observableId, index),
+      );
+
+      return buildCategoryPieChartColors(
+        false,
+        0,
+        resolvedColors,
+        unaccountedPieDuration.value > 0,
+      );
     });
 
     const barChartData = computed(() => {
@@ -421,7 +401,7 @@ export default defineComponent({
     });
 
     const barChartColors = computed(() => {
-      return '#1976D2';
+      return resolveCategoryColor(state.targetCategoryId);
     });
 
     return {

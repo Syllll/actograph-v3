@@ -356,6 +356,8 @@ export default {
     emptyTitle: 'Aucun relevé disponible',
     emptyHint:
       'Créez des relevés dans la page Observation pour voir les statistiques.',
+    missingStartWarning:
+      'La chronique n\'a pas de repère de départ (START) : les statistiques ci-dessous sont calculées à partir des relevés existants et peuvent être incomplètes ou trompeuses. Démarrez l\'observation dans la page Observation pour des statistiques fiables.',
     tabGeneral: 'Vue globale',
     tabByCategory: 'Par catégorie',
     tabAdvanced: 'Mode avancé',
@@ -397,6 +399,7 @@ export default {
     categoryOccurrencesChartTitle: 'Nombre d\'occurrences',
     chartNoData: 'Aucune donnée',
     pauseSegmentLabel: 'Pause',
+    unaccountedSegmentLabel: 'Non renseigné',
     occurrenceCountOne: '{count} occurrence',
     occurrenceCountOther: '{count} occurrences',
     chartSeriesOccurrences: 'Occurrences',

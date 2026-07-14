@@ -181,18 +181,30 @@ export function calculateCategoryStatisticsForPeriods(
     },
   );
 
-  // Calculate total category duration (sum of all observable durations)
+  // Total duration of all observables (kept as a secondary "active time" metric)
   const totalCategoryDuration = observableStats.reduce(
     (sum, obs) => sum + (obs.onDuration || 0),
     0,
   );
 
-  // Recalculate percentages within the category (not relative to total filtered duration)
+  // Real window under analysis: the total duration of the filtered periods
+  // themselves, not just the sum of on-durations. Using the periods' own
+  // duration as the percentage basis (instead of self-normalizing against
+  // totalCategoryDuration) means any time within those periods not covered
+  // by an observable shows up as a gap rather than being silently absorbed
+  // into the other observables' percentages.
+  const periodsDuration = periods.reduce(
+    (sum, period) => sum + (period.end.getTime() - period.start.getTime()),
+    0,
+  );
+  const percentageBasis = periodsDuration > 0 ? periodsDuration : totalCategoryDuration;
+
+  // Recalculate percentages within the filtered window
   const observableStatsWithCategoryPercentage = observableStats.map((obs) => ({
     ...obs,
     onPercentage:
-      totalCategoryDuration > 0
-        ? (obs.onDuration / totalCategoryDuration) * 100
+      percentageBasis > 0
+        ? (obs.onDuration / percentageBasis) * 100
         : 0,
   }));
 
@@ -207,6 +219,7 @@ export function calculateCategoryStatisticsForPeriods(
     observables: observableStatsWithCategoryPercentage,
     pauseDuration,
     totalCategoryDuration,
+    observationDuration: periodsDuration > 0 ? periodsDuration : undefined,
   };
 }
 

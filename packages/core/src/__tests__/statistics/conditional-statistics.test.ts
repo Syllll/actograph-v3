@@ -123,4 +123,33 @@ describe('conditional-statistics', () => {
     ]);
     expect(result.categoryStatistics.totalCategoryDuration).toBe(2 * 60 * 1000);
   });
+
+  it('exposes observationDuration as the filtered-periods window and scopes percentages to it, not to the sum of on-durations', () => {
+    const result = calculateConditionalStatistics(readings, protocolItems, {
+      targetCategoryId: 'category-1',
+      groupOperator: ConditionOperatorEnum.OR,
+      conditionGroups: [
+        {
+          operator: ConditionOperatorEnum.OR,
+          observables: [
+            {
+              observableName: 'A',
+              state: ObservableStateEnum.OFF,
+            },
+          ],
+        },
+      ],
+    });
+
+    // Filtered window is 1 min + 2 min = 3 min, but only 2 min are covered by
+    // observable B: the remaining 1 min (10:00-10:01) isn't attributable to any
+    // observable and must not be silently absorbed into B's percentage.
+    expect(result.categoryStatistics.observationDuration).toBe(3 * 60 * 1000);
+
+    const obsB = result.categoryStatistics.observables.find(
+      (o) => o.observableName === 'B',
+    );
+    expect(obsB?.onPercentage).toBeCloseTo((2 / 3) * 100, 5);
+    expect(obsB?.onPercentage).not.toBeCloseTo(100, 5);
+  });
 });

@@ -41,6 +41,21 @@ describe('resolveTotalCategoryDuration', () => {
       }),
     ).toBe(1000);
   });
+
+  it('prefers observationDuration over the sum of observable durations, so an unattributed gap is not silently absorbed', () => {
+    // First observable starts after the observation window's true start: the
+    // sum of on-durations (1000) is less than the real window (1200).
+    expect(
+      resolveTotalCategoryDuration({
+        totalCategoryDuration: 1000,
+        observationDuration: 1200,
+        observables: [
+          { onDuration: 250 } as any,
+          { onDuration: 750 } as any,
+        ],
+      }),
+    ).toBe(1200);
+  });
 });
 
 describe('formatObservableOnPercentage', () => {
