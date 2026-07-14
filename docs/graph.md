@@ -452,12 +452,12 @@ Pour les catégories **discrètes** (Évènements, observables one-shot) :
 
 L'option de rendu `maskPauses` (défaut `true`) contrôle l'affichage visuel des pauses sur le graphe.
 
-Quand `maskPauses` est activé :
-- Un **overlay semi-transparent** (rectangle gris, pleine hauteur de la zone de données) est dessiné sur chaque intervalle de pause, **au-dessus** des segments.
-- Les segments continus restent visibles en dessous : l'overlay se superpose, il ne coupe pas les lignes.
+Quand `maskPauses` est activé (défaut) :
+- Les pauses sont **masquées** : aucun overlay n'est dessiné, seuls les segments et marqueurs habituels sont visibles. Les lignes restent continues à travers les pauses, sans indication visuelle qu'une pause a eu lieu.
 
 Quand `maskPauses` est désactivé (`false`) :
-- Aucun overlay n'est dessiné ; seuls les segments et marqueurs habituels sont visibles.
+- Un **overlay semi-transparent** (rectangle gris, pleine hauteur de la zone de données) est dessiné sur chaque intervalle de pause, **au-dessus** des segments, pour révéler où se situent les pauses.
+- Les segments continus restent visibles en dessous : l'overlay se superpose, il ne coupe pas les lignes.
 
 L'option est exposée via `IGraphRenderOptions.maskPauses` (défaut dans `DEFAULT_GRAPH_RENDER_OPTIONS`). Dans l'interface, le toggle **« Masquer les pauses »** du drawer de personnalisation du graphe (`graph-customization-drawer`) pilote cette option.
 
@@ -764,10 +764,10 @@ Les styles peuvent être personnalisés :
 ```typescript
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '@actograph/graph';
 
-// maskPauses : true par défaut — overlay semi-transparent sur les intervalles de pause
+// maskPauses : true par défaut — pauses masquées (pas d'overlay, segments continus)
 const renderOptions = {
   ...DEFAULT_GRAPH_RENDER_OPTIONS,
-  maskPauses: true, // false pour désactiver l'overlay (segments toujours continus, visibles à travers)
+  maskPauses: false, // false pour révéler les pauses via un overlay semi-transparent
 };
 
 pixiApp.setGraphRenderOptions(renderOptions);

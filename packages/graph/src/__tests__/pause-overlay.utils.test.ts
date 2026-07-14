@@ -31,7 +31,7 @@ describe('pause-overlay.utils', () => {
       },
     ];
 
-    const rects = computePauseOverlayRects(periods, bounds, getX, { maskPauses: true });
+    const rects = computePauseOverlayRects(periods, bounds, getX, { maskPauses: false });
 
     expect(rects).toHaveLength(2);
     expect(rects[0]).toEqual({
@@ -43,7 +43,7 @@ describe('pause-overlay.utils', () => {
     expect(rects[1]?.width).toBeGreaterThan(0);
   });
 
-  it('returns no rectangles when maskPauses is disabled', () => {
+  it('returns no rectangles when maskPauses is enabled (pauses hidden)', () => {
     const getX = linearXScale(new Date('2024-01-01T10:00:00Z').getTime(), 0.01);
     const periods: IPeriod[] = [
       {
@@ -52,14 +52,14 @@ describe('pause-overlay.utils', () => {
       },
     ];
 
-    expect(computePauseOverlayRects(periods, bounds, getX, { maskPauses: false })).toEqual([]);
-    expect(shouldDrawPauseOverlay(false)).toBe(false);
-    expect(resolveMaskPausesOption({ maskPauses: false })).toBe(false);
+    expect(computePauseOverlayRects(periods, bounds, getX, { maskPauses: true })).toEqual([]);
+    expect(shouldDrawPauseOverlay(true)).toBe(false);
+    expect(resolveMaskPausesOption({ maskPauses: true })).toBe(false);
   });
 
-  it('defaults maskPauses to enabled when option is omitted', () => {
-    expect(shouldDrawPauseOverlay(undefined)).toBe(true);
-    expect(resolveMaskPausesOption({})).toBe(true);
+  it('defaults maskPauses to enabled (hidden) when option is omitted', () => {
+    expect(shouldDrawPauseOverlay(undefined)).toBe(false);
+    expect(resolveMaskPausesOption({})).toBe(false);
   });
 
   it('clips rectangles to the data area horizontal bounds', () => {
@@ -72,7 +72,7 @@ describe('pause-overlay.utils', () => {
       },
     ];
 
-    const rects = computePauseOverlayRects(periods, bounds, getX, { maskPauses: true });
+    const rects = computePauseOverlayRects(periods, bounds, getX, { maskPauses: false });
 
     expect(rects).toHaveLength(1);
     expect(rects[0]?.x).toBe(bounds.leftX);
@@ -87,10 +87,10 @@ describe('pause-overlay.utils', () => {
     };
 
     const zoomedOut = computePauseOverlayRects([period], bounds, linearXScale(origin, 0.0002), {
-      maskPauses: true,
+      maskPauses: false,
     });
     const zoomedIn = computePauseOverlayRects([period], bounds, linearXScale(origin, 0.0004), {
-      maskPauses: true,
+      maskPauses: false,
     });
 
     expect(zoomedOut).toHaveLength(1);
@@ -108,6 +108,6 @@ describe('pause-overlay.utils', () => {
       },
     ];
 
-    expect(computePauseOverlayRects(periods, bounds, getX, { maskPauses: true })).toEqual([]);
+    expect(computePauseOverlayRects(periods, bounds, getX, { maskPauses: false })).toEqual([]);
   });
 });
