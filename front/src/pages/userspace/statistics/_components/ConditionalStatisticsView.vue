@@ -110,7 +110,7 @@
           <!-- Pie Chart -->
           <div class="q-mb-lg">
             <div class="text-subtitle2 q-mb-sm">
-              {{ t('statisticsUi.pieShareTitle') }}
+              {{ pieShareTitleText }}
             </div>
             <AmChartsPieChart
               :data="pieChartData"
@@ -320,6 +320,22 @@ export default defineComponent({
       },
     };
 
+    const pieShareTitleText = computed(() => {
+      const stats = statistics.sharedState.conditionalStatistics;
+      const categoryName = stats?.targetCategory?.categoryName || '';
+      const observableName = state.conditions
+        .map((condition) => condition.observableName)
+        .filter(Boolean)
+        .join(', ');
+
+      return observableName
+        ? t('statisticsUi.pieShareTitle', {
+            observable: observableName,
+            category: categoryName,
+          })
+        : t('statisticsUi.pieShareTitleNoObservable', { category: categoryName });
+    });
+
     // The conditional tab doesn't expose a pause-as-separate-state toggle, so
     // its pie never shows a pause segment; it only needs the "unaccounted"
     // gap segment for consistency with the category tab (see
@@ -414,6 +430,7 @@ export default defineComponent({
       observableOptions,
       categoryOptions,
       methods,
+      pieShareTitleText,
       pieChartData,
       pieChartColors,
       barChartData,
