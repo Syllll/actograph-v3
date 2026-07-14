@@ -31,7 +31,7 @@ const INHERITABLE_GRAPH_PREFERENCE_KEYS = [
   'color',
   'strokeWidth',
   'backgroundPattern',
-] as const satisfies ReadonlyArray<keyof IGraphPreferences>;
+] as const;
 
 type InheritableGraphPreferenceKey = (typeof INHERITABLE_GRAPH_PREFERENCE_KEYS)[number];
 
