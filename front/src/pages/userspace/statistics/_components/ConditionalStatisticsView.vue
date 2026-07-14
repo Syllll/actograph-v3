@@ -432,11 +432,10 @@ export default defineComponent({
         : t('statisticsUi.pieShareTitleNoObservable', { category: categoryName });
     });
 
-    const barChartTitleText = computed(() =>
-      isContinuousCategory.value
-        ? t('statisticsUi.barOnDurationTitle')
-        : t('statisticsUi.categoryOccurrencesChartTitle'),
-    );
+    // L'histogramme compte des évènements (occurrences), pas des durées :
+    // il garde ce sens quel que soit le type de la catégorie cible. La
+    // répartition en durée reste du ressort du camembert (catégories continues).
+    const barChartTitleText = computed(() => t('statisticsUi.categoryOccurrencesChartTitle'));
 
     const unaccountedPieDuration = computed(() => {
       const stats = statistics.sharedState.conditionalStatistics;
@@ -488,24 +487,12 @@ export default defineComponent({
         return [];
       }
 
-      if (!isContinuousCategory.value) {
-        const data = stats.targetCategory.observables
-          .filter((obs) => obs.onCount > 0)
-          .map((obs) => ({
-            label: obs.observableName,
-            value: obs.onCount || 0,
-            formattedValue: formatOccurrenceCount(t, obs.onCount || 0),
-          }));
-
-        return data.length > 0 ? data : [];
-      }
-
       const data = stats.targetCategory.observables
-        .filter((obs) => obs.onDuration > 0 || obs.onCount > 0)
+        .filter((obs) => obs.onCount > 0)
         .map((obs) => ({
           label: obs.observableName,
-          value: obs.onDuration || 0,
-          formattedValue: statistics.methods.formatDuration(obs.onDuration || 0),
+          value: obs.onCount || 0,
+          formattedValue: formatOccurrenceCount(t, obs.onCount || 0),
         }));
 
       return data.length > 0 ? data : [];
