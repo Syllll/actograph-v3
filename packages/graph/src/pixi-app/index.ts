@@ -533,58 +533,11 @@ export class PixiApp {
       });
     };
 
-    // CORRECTION : mouseDownHandler doit activer le panning
-    const mouseDownHandler = (evt: MouseEvent) => {
-      const target = evt.target as HTMLElement;
-      if (target && target.closest('.q-splitter__separator, .q-avatar')) {
-        return;
-      }
-
-      // Activer le panning sur clic gauche
-      if (evt.button === 0) {
-        this.zoomState.isPanning = true;
-        this.zoomState.panStartX = evt.clientX - this.zoomState.x;
-        this.zoomState.panStartY = evt.clientY - this.zoomState.y;
-        this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_PANNING;
-      }
-    };
-
-    const mouseMoveHandler = (evt: MouseEvent) => {
-      const target = evt.target as HTMLElement;
-      if (target && target.closest('.q-splitter__separator, .q-avatar')) {
-        if (this.zoomState.isPanning) {
-          this.zoomState.isPanning = false;
-          this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
-        }
-        return;
-      }
-
-      if (this.zoomState.isPanning) {
-        this.setViewportTransform(
-          {
-            x: evt.clientX - this.zoomState.panStartX,
-            y: evt.clientY - this.zoomState.panStartY,
-          },
-          { emitZoom: false },
-        );
-      } else {
-        this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
-      }
-    };
-
-    const mouseUpHandler = (evt: MouseEvent) => {
-      if (evt.button === 0) {
-        this.zoomState.isPanning = false;
-        this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
-      }
-    };
-
-    const mouseLeaveHandler = () => {
-      this.zoomState.isPanning = false;
-      this.app.canvas.style.cursor = 'default';
-    };
-
-    // Support touch/pointer events pour mobile
+    // Support souris (desktop), touch et stylet pour mobile.
+    // Un seul jeu d'écouteurs (Pointer Events) gère la souris ET le tactile :
+    // ajouter aussi les écouteurs "mouse*" en parallèle faisait traiter deux
+    // fois chaque mouvement pendant un glissé (double transform, double
+    // rendu), d'où la sensation de saccade au clic-glissé.
     const pointerDownHandler = (evt: PointerEvent) => {
       const target = evt.target as HTMLElement;
       if (target && target.closest('.q-splitter__separator, .q-avatar')) {
@@ -636,6 +589,11 @@ export class PixiApp {
         this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
         evt.preventDefault();
       }
+    };
+
+    const pointerLeaveHandler = () => {
+      this.zoomState.isPanning = false;
+      this.app.canvas.style.cursor = 'default';
     };
 
     // =========================================================================
@@ -753,20 +711,16 @@ export class PixiApp {
       }
     };
 
-    // Mouse events (desktop)
     this.app.canvas.addEventListener('wheel', wheelHandler, { passive: false });
-    this.app.canvas.addEventListener('mousedown', mouseDownHandler);
-    this.app.canvas.addEventListener('mousemove', mouseMoveHandler);
-    this.app.canvas.addEventListener('mouseup', mouseUpHandler);
-    this.app.canvas.addEventListener('mouseleave', mouseLeaveHandler);
 
-    // Pointer events (mobile + desktop)
+    // Pointer events (couvrent souris, tactile et stylet en un seul chemin)
     this.app.canvas.addEventListener('pointerdown', pointerDownHandler);
     this.app.canvas.addEventListener('pointermove', pointerMoveHandler);
     this.app.canvas.addEventListener('pointerup', pointerUpHandler);
     this.app.canvas.addEventListener('pointercancel', pointerUpHandler);
+    this.app.canvas.addEventListener('pointerleave', pointerLeaveHandler);
 
-    // Touch events (mobile)
+    // Touch events (mobile) — pour le pinch-to-zoom, non couvert par Pointer Events
     this.app.canvas.addEventListener('touchstart', touchStartHandler, { passive: false });
     this.app.canvas.addEventListener('touchmove', touchMoveHandler, { passive: false });
     this.app.canvas.addEventListener('touchend', touchEndHandler, { passive: false });
@@ -774,14 +728,11 @@ export class PixiApp {
 
     (this.app.canvas as any)._zoomPanHandlers = {
       wheel: wheelHandler,
-      mousedown: mouseDownHandler,
-      mousemove: mouseMoveHandler,
-      mouseup: mouseUpHandler,
-      mouseleave: mouseLeaveHandler,
       pointerdown: pointerDownHandler,
       pointermove: pointerMoveHandler,
       pointerup: pointerUpHandler,
       pointercancel: pointerUpHandler,
+      pointerleave: pointerLeaveHandler,
       touchstart: touchStartHandler,
       touchmove: touchMoveHandler,
       touchend: touchEndHandler,
@@ -940,14 +891,11 @@ export class PixiApp {
     if (this.app.canvas && (this.app.canvas as any)._zoomPanHandlers) {
       const handlers = (this.app.canvas as any)._zoomPanHandlers;
       this.app.canvas.removeEventListener('wheel', handlers.wheel);
-      this.app.canvas.removeEventListener('mousedown', handlers.mousedown);
-      this.app.canvas.removeEventListener('mousemove', handlers.mousemove);
-      this.app.canvas.removeEventListener('mouseup', handlers.mouseup);
-      this.app.canvas.removeEventListener('mouseleave', handlers.mouseleave);
       this.app.canvas.removeEventListener('pointerdown', handlers.pointerdown);
       this.app.canvas.removeEventListener('pointermove', handlers.pointermove);
       this.app.canvas.removeEventListener('pointerup', handlers.pointerup);
       this.app.canvas.removeEventListener('pointercancel', handlers.pointercancel);
+      this.app.canvas.removeEventListener('pointerleave', handlers.pointerleave);
       this.app.canvas.removeEventListener('touchstart', handlers.touchstart);
       this.app.canvas.removeEventListener('touchmove', handlers.touchmove);
       this.app.canvas.removeEventListener('touchend', handlers.touchend);

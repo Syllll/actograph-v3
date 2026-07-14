@@ -23,6 +23,10 @@ export declare class DataArea extends BaseGroup {
     private pausePeriods;
     private graphRenderOptions;
     private hoverOverlaySuppressed;
+    /** Latest raw pointermove event awaiting the next animation frame. */
+    private pendingHoverEvent;
+    private hoverRafId;
+    private lastTimeLabelText;
     constructor(app: Application, yAxis: YAxis, xAxis: xAxis, options?: {
         interactive?: boolean;
     });
@@ -31,11 +35,14 @@ export declare class DataArea extends BaseGroup {
     setPlotContainer(plotContainer: Container): void;
     /** Hides crosshair and dynamic time label (used before image export). */
     clearHoverOverlay(): void;
+    /** Drops any pointermove update queued for the next animation frame. */
+    private cancelPendingHoverUpdate;
     /**
      * Suppresses hover UI while true so exports never capture crosshair or labels.
      */
     setHoverOverlaySuppressed(suppressed: boolean): void;
     init(): void;
+    private processPointerMove;
     setPausePeriods(periods: IPeriod[]): void;
     setGraphRenderOptions(options: IGraphRenderOptions): void;
     setProtocol(protocol: IProtocol): void;

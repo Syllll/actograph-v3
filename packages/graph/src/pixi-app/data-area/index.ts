@@ -82,6 +82,11 @@ export class DataArea extends BaseGroup {
   private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
   private hoverOverlaySuppressed = false;
 
+  /** Latest raw pointermove event awaiting the next animation frame. */
+  private pendingHoverEvent: FederatedPointerEvent | null = null;
+  private hoverRafId: number | null = null;
+  private lastTimeLabelText: string | null = null;
+
   constructor(
     app: Application,
     yAxis: YAxis,
@@ -142,10 +147,20 @@ export class DataArea extends BaseGroup {
 
   /** Hides crosshair and dynamic time label (used before image export). */
   public clearHoverOverlay(): void {
+    this.cancelPendingHoverUpdate();
     this.pointerDashedLines.clear();
     if (this.timeLabelContainer) {
       this.timeLabelContainer.visible = false;
     }
+  }
+
+  /** Drops any pointermove update queued for the next animation frame. */
+  private cancelPendingHoverUpdate(): void {
+    if (this.hoverRafId !== null) {
+      cancelAnimationFrame(this.hoverRafId);
+      this.hoverRafId = null;
+    }
+    this.pendingHoverEvent = null;
   }
 
   /**
@@ -175,106 +190,130 @@ export class DataArea extends BaseGroup {
     this.graphicForBackground.eventMode = 'static';
 
     this.graphicForBackground.on('pointermove', (evt: FederatedPointerEvent) => {
-      if (
-        !shouldRenderHoverOverlay({
-          interactive: this.graphInteractionEnabled,
-          suppressed: this.hoverOverlaySuppressed,
-        })
-      ) {
-        return;
-      }
-
-      const plotBounds = this.getPlotBoundsLocal();
-      if (!plotBounds) {
-        this.clearHoverOverlay();
-        return;
-      }
-
-      const plotParent = this.parent;
-      if (!plotParent || plotParent !== this.plotContainer) {
-        this.clearHoverOverlay();
-        return;
-      }
-
-      const p = evt.getLocalPosition(this.pointerDashedLines);
-      const { vertical, horizontal } = computeCrosshairSegments(p.x, p.y, plotBounds);
-
-      this.pointerDashedLines.clear();
-
-      this.pointerDashedLines
-        .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-        .moveTo(vertical.x1, vertical.y1)
-        .dashedLineTo(vertical.x2, vertical.y2)
-        .stroke();
-
-      this.pointerDashedLines
-        .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-        .moveTo(horizontal.x1, horizontal.y1)
-        .dashedLineTo(horizontal.x2, horizontal.y2)
-        .stroke();
-
-      if (this.timeLabel) {
-        try {
-          const plotPos = evt.getLocalPosition(plotParent);
-          const dateTime = this.xAxis.getDateTimeFromPos(plotPos.x);
-
-          let timeString: string;
-          if (this.observation?.mode === ObservationModeEnum.Chronometer) {
-            timeString = formatFromDate(dateTime, CHRONOMETER_T0);
-          } else {
-            timeString = dateTime
-              .toLocaleDateString('fr-FR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                fractionalSecondDigits: 3,
-              })
-              .replace(/\//g, '-');
+      // Coalesce to one update per displayed frame instead of once per raw
+      // pointer event: a high-poll-rate mouse can fire far more pointermove
+      // events than the screen can render, and each update redraws the
+      // crosshair and regenerates the time label's text texture.
+      this.pendingHoverEvent = evt;
+      if (this.hoverRafId === null) {
+        this.hoverRafId = requestAnimationFrame(() => {
+          this.hoverRafId = null;
+          const pendingEvent = this.pendingHoverEvent;
+          this.pendingHoverEvent = null;
+          if (pendingEvent) {
+            this.processPointerMove(pendingEvent);
           }
-
-          if (!this.timeLabel || !this.timeLabelContainer || !this.timeLabelBackground) {
-            return;
-          }
-
-          this.timeLabel.text = timeString;
-
-          const padding = 4;
-          const textWidth = this.timeLabel.width;
-          const textHeight = this.timeLabel.height;
-          const backgroundWidth = textWidth + padding * 2;
-          const backgroundHeight = textHeight + padding * 2;
-
-          this.timeLabelBackground.clear();
-          this.timeLabelBackground.rect(0, 0, backgroundWidth, backgroundHeight);
-          this.timeLabelBackground.fill({ color: 'white' });
-
-          this.timeLabel.x = padding;
-          this.timeLabel.y = padding;
-
-          const labelPos = computeHoverTimeLabelPosition(
-            p.x,
-            p.y,
-            backgroundWidth,
-            backgroundHeight,
-            plotBounds,
-          );
-          this.timeLabelContainer.x = labelPos.x;
-          this.timeLabelContainer.y = labelPos.y;
-          this.timeLabelContainer.visible = true;
-        } catch (error) {
-          if (this.timeLabelContainer) {
-            this.timeLabelContainer.visible = false;
-          }
-        }
+        });
       }
     });
 
     this.graphicForBackground.on('pointerleave', () => {
       this.clearHoverOverlay();
     });
+  }
+
+  private processPointerMove(evt: FederatedPointerEvent): void {
+    if (
+      !shouldRenderHoverOverlay({
+        interactive: this.graphInteractionEnabled,
+        suppressed: this.hoverOverlaySuppressed,
+      })
+    ) {
+      return;
+    }
+
+    const plotBounds = this.getPlotBoundsLocal();
+    if (!plotBounds) {
+      this.clearHoverOverlay();
+      return;
+    }
+
+    const plotParent = this.parent;
+    if (!plotParent || plotParent !== this.plotContainer) {
+      this.clearHoverOverlay();
+      return;
+    }
+
+    const p = evt.getLocalPosition(this.pointerDashedLines);
+    const { vertical, horizontal } = computeCrosshairSegments(p.x, p.y, plotBounds);
+
+    this.pointerDashedLines.clear();
+
+    this.pointerDashedLines
+      .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
+      .moveTo(vertical.x1, vertical.y1)
+      .dashedLineTo(vertical.x2, vertical.y2)
+      .stroke();
+
+    this.pointerDashedLines
+      .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
+      .moveTo(horizontal.x1, horizontal.y1)
+      .dashedLineTo(horizontal.x2, horizontal.y2)
+      .stroke();
+
+    if (this.timeLabel) {
+      try {
+        const plotPos = evt.getLocalPosition(plotParent);
+        const dateTime = this.xAxis.getDateTimeFromPos(plotPos.x);
+
+        let timeString: string;
+        if (this.observation?.mode === ObservationModeEnum.Chronometer) {
+          timeString = formatFromDate(dateTime, CHRONOMETER_T0);
+        } else {
+          timeString = dateTime
+            .toLocaleDateString('fr-FR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              fractionalSecondDigits: 3,
+            })
+            .replace(/\//g, '-');
+        }
+
+        if (!this.timeLabel || !this.timeLabelContainer || !this.timeLabelBackground) {
+          return;
+        }
+
+        // Regenerating the text texture is the costliest part of this handler;
+        // skip it when the displayed string hasn't actually changed (e.g. the
+        // pointer moved only vertically, same x-axis position).
+        if (this.lastTimeLabelText !== timeString) {
+          this.timeLabel.text = timeString;
+          this.lastTimeLabelText = timeString;
+        }
+
+        const padding = 4;
+        const textWidth = this.timeLabel.width;
+        const textHeight = this.timeLabel.height;
+        const backgroundWidth = textWidth + padding * 2;
+        const backgroundHeight = textHeight + padding * 2;
+
+        this.timeLabelBackground.clear();
+        this.timeLabelBackground.rect(0, 0, backgroundWidth, backgroundHeight);
+        this.timeLabelBackground.fill({ color: 'white' });
+
+        this.timeLabel.x = padding;
+        this.timeLabel.y = padding;
+
+        const labelPos = computeHoverTimeLabelPosition(
+          p.x,
+          p.y,
+          backgroundWidth,
+          backgroundHeight,
+          plotBounds,
+        );
+        this.timeLabelContainer.x = labelPos.x;
+        this.timeLabelContainer.y = labelPos.y;
+        this.timeLabelContainer.visible = true;
+      } catch (error) {
+        if (this.timeLabelContainer) {
+          this.timeLabelContainer.visible = false;
+        }
+      }
+    }
   }
 
   public setPausePeriods(periods: IPeriod[]): void {
