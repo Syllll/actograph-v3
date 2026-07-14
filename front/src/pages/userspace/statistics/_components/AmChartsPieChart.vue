@@ -1,14 +1,56 @@
 <template>
-  <div ref="chartContainer" :style="{ width: '100%', height: height + 'px' }"></div>
+  <div class="relative-position" :style="{ width: '100%', height: height + 'px' }">
+    <div ref="chartContainer" class="fit"></div>
+    <q-btn
+      flat
+      round
+      dense
+      color="grey-8"
+      icon="mdi-download"
+      class="absolute chart-export-btn"
+    >
+      <q-tooltip>{{ t('graphUi.exportMenuLabel') }}</q-tooltip>
+      <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
+        <div class="q-pa-md" style="min-width: 220px">
+          <div class="text-weight-medium q-mb-sm">{{ t('graphUi.exportSectionFormat') }}</div>
+          <div class="row q-gutter-sm q-mb-md">
+            <q-btn
+              v-for="opt in exportFormatOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :color="exportSelection.format === opt.value ? 'primary' : 'grey-3'"
+              :text-color="exportSelection.format === opt.value ? 'white' : 'grey-9'"
+              no-caps
+              unelevated
+              class="col"
+              @click="exportSelection.format = opt.value"
+            />
+          </div>
+          <q-btn
+            color="primary"
+            no-caps
+            unelevated
+            icon="mdi-download"
+            :label="t('graphUi.exportAction')"
+            class="full-width"
+            v-close-popup
+            @click="runExport"
+          />
+        </div>
+      </q-menu>
+    </q-btn>
+  </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, watch, PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAppResume, onChartsRefresh } from 'src/composables/use-app-resume';
+import { useChartImageExport } from 'src/composables/use-chart-image-export';
 import { isElementVisible } from 'src/utils/dom.utils';
 import * as am5 from '@amcharts/amcharts5';
 import * as am5percent from '@amcharts/amcharts5/percent';
+import * as am5exporting from '@amcharts/amcharts5/plugins/exporting';
 import am5themes_Animated from '@amcharts/amcharts5/themes/Animated';
 
 export default defineComponent({
@@ -28,10 +70,11 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const { locale } = useI18n();
+    const { t, locale } = useI18n();
     const chartContainer = ref<HTMLElement | null>(null);
     let root: am5.Root | null = null;
     let chart: am5percent.PieChart | null = null;
+    let exporting: am5exporting.Exporting | null = null;
 
     const emptySlice = () => ({ label: '', value: 1 });
 
@@ -106,6 +149,10 @@ export default defineComponent({
       );
 
       legend.data.setAll(series.dataItems);
+
+      exporting = am5exporting.Exporting.new(root, {
+        filePrefix: 'graphique-statistiques',
+      });
     };
 
     const updateChart = () => {
@@ -137,6 +184,10 @@ export default defineComponent({
       createChart();
     };
 
+    const { exportSelection, exportFormatOptions, runExport } = useChartImageExport(
+      () => exporting,
+    );
+
     let unsubscribeChartsRefresh: (() => void) | null = null;
 
     onMounted(() => {
@@ -152,6 +203,7 @@ export default defineComponent({
         root.dispose();
         root = null;
         chart = null;
+        exporting = null;
       }
     });
 
@@ -184,9 +236,21 @@ export default defineComponent({
     });
 
     return {
+      t,
       chartContainer,
+      exportSelection,
+      exportFormatOptions,
+      runExport,
     };
   },
 });
 </script>
+
+<style scoped lang="scss">
+.chart-export-btn {
+  top: 0;
+  right: 0;
+  z-index: 5;
+}
+</style>
 
