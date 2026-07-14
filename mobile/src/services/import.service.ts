@@ -4,6 +4,9 @@ import {
   ObservationModeEnum,
   ReadingTypeEnum,
   type INormalizedImport,
+  type INormalizedCategory,
+  type INormalizedObservable,
+  type IGraphPreferences,
 } from '@actograph/core';
 import {
   ChronicV1Parser,
@@ -13,10 +16,13 @@ import { Buffer } from 'buffer';
 import { observationRepository } from '@database/repositories/observation.repository';
 import { protocolRepository } from '@database/repositories/protocol.repository';
 import { readingRepository, type ReadingType } from '@database/repositories/reading.repository';
+import {
+  buildProtocolItemMetaWithGraphExtras,
+  buildProtocolItemUpdatesFromGraphPreferences,
+  normalizeImportedCategoryAction,
+  resolveImportedSupportCategoryForMobile,
+} from '@utils/protocol-graph-preferences-mobile';
 
-/**
- * Map ReadingTypeEnum from @actograph/core to ReadingType for mobile repository
- */
 function mapReadingType(type: ReadingTypeEnum | string): ReadingType {
   const normalizedType = type.toLowerCase();
   const mapping: Record<string, ReadingType> = {
@@ -50,6 +56,91 @@ function mapObservationMode(type: ObservationModeEnum | string | undefined): str
     : 'Calendar';
 }
 
+function stripPortableSupportFields(
+  graphPreferences?: IGraphPreferences,
+): IGraphPreferences | undefined {
+  if (!graphPreferences) {
+    return undefined;
+  }
+
+  const stripped: IGraphPreferences = { ...graphPreferences };
+  delete stripped.supportCategoryId;
+  delete stripped.supportCategoryName;
+
+  return Object.keys(stripped).length > 0 ? stripped : undefined;
+}
+
+async function persistCategoryFromImport(
+  protocolId: number,
+  category: INormalizedCategory,
+  sortOrder: number,
+): Promise<{
+  id: number;
+  sourceGraphPreferences?: IGraphPreferences;
+  persistedMeta?: Record<string, unknown> | null;
+}> {
+  const sourceGraphPreferences = category.graphPreferences
+    ? { ...category.graphPreferences }
+    : undefined;
+
+  const categoryItem = await protocolRepository.addCategory(
+    protocolId,
+    category.name,
+    sortOrder,
+    normalizeImportedCategoryAction(category.action),
+    category.meta ?? null,
+  );
+
+  const preferenceUpdates = buildProtocolItemUpdatesFromGraphPreferences(
+    stripPortableSupportFields(sourceGraphPreferences),
+  );
+  const meta = buildProtocolItemMetaWithGraphExtras(category.meta, sourceGraphPreferences);
+  if (meta) {
+    preferenceUpdates.meta = meta;
+  }
+
+  if (Object.keys(preferenceUpdates).length > 0) {
+    await protocolRepository.updateItem(categoryItem.id, preferenceUpdates);
+  }
+
+  return {
+    id: categoryItem.id,
+    sourceGraphPreferences,
+    persistedMeta: meta ?? category.meta ?? null,
+  };
+}
+
+async function persistObservableFromImport(
+  protocolId: number,
+  categoryId: number,
+  observable: INormalizedObservable,
+  sortOrder: number,
+): Promise<void> {
+  const newObservable = await protocolRepository.addObservable(
+    protocolId,
+    categoryId,
+    observable.name,
+    observable.graphPreferences?.color,
+    sortOrder,
+    observable.action ? normalizeImportedCategoryAction(observable.action) : undefined,
+  );
+
+  const preferenceUpdates = buildProtocolItemUpdatesFromGraphPreferences(
+    observable.graphPreferences,
+  );
+  const observableMeta = buildProtocolItemMetaWithGraphExtras(
+    observable.meta,
+    observable.graphPreferences,
+  );
+  if (observableMeta) {
+    preferenceUpdates.meta = observableMeta;
+  }
+
+  if (Object.keys(preferenceUpdates).length > 0) {
+    await protocolRepository.updateItem(newObservable.id, preferenceUpdates);
+  }
+}
+
 export interface IImportResult {
   success: boolean;
   observationId?: number;
@@ -60,21 +151,13 @@ export interface IImportResult {
   error?: string;
 }
 
-/**
- * Service for importing observation files
- */
 class ImportService {
   private chronicV1Parser = new ChronicV1Parser();
 
-  /**
-   * Import a .jchronic file (JSON format)
-   */
   async importJchronic(content: string, fileName: string): Promise<IImportResult> {
     try {
-      // Parse the JSON content
       const parsed = parseJchronicFile(content);
       const normalized = normalizeJchronicData(parsed);
-
       return this.saveNormalizedImport(normalized, fileName);
     } catch (error) {
       console.error('Error importing jchronic file:', error);
@@ -85,9 +168,6 @@ class ImportService {
     }
   }
 
-  /**
-   * Import a legacy .chronic file and convert it to the normalized format on the fly.
-   */
   async importChronic(
     content: ArrayBuffer | Uint8Array | string,
     fileName: string
@@ -96,7 +176,6 @@ class ImportService {
       const buffer = this.toBuffer(content);
       const parsed = this.chronicV1Parser.parse(buffer);
       const normalized = normalizeChronicV1Data(parsed);
-
       return this.saveNormalizedImport(normalized, fileName);
     } catch (error) {
       console.error('Error importing chronic file:', error);
@@ -107,15 +186,11 @@ class ImportService {
     }
   }
 
-  /**
-   * Save normalized import data to SQLite
-   */
   private async saveNormalizedImport(
     data: INormalizedImport,
     fileName: string
   ): Promise<IImportResult> {
     try {
-      // Create observation
       const observationName = data.observation?.name || fileName.replace(/\.(j)?chronic$/, '');
       const observation = await observationRepository.createWithProtocol({
         name: observationName,
@@ -126,7 +201,6 @@ class ImportService {
       });
 
       try {
-        // Get the protocol
         const protocol = await protocolRepository.findByObservationId(observation.id);
         if (!protocol) {
           throw new Error('Failed to create protocol');
@@ -134,38 +208,62 @@ class ImportService {
 
         let categoriesCount = 0;
         let observablesCount = 0;
+        const createdCategories: Array<{
+          id: number;
+          sourceGraphPreferences?: IGraphPreferences;
+          persistedMeta?: Record<string, unknown> | null;
+        }> = [];
 
-        // Add categories and observables
         if (data.protocol?.categories) {
           for (let i = 0; i < data.protocol.categories.length; i++) {
             const category = data.protocol.categories[i];
-            const categoryItem = await protocolRepository.addCategory(
+            const categoryItem = await persistCategoryFromImport(
               protocol.id,
-              category.name,
-              i,
-              'continuous',
-              category.meta
+              category,
+              category.order ?? i,
             );
+            createdCategories.push(categoryItem);
             categoriesCount++;
 
-            // Add observables to category
             if (category.observables) {
               for (let j = 0; j < category.observables.length; j++) {
                 const observable = category.observables[j];
-                await protocolRepository.addObservable(
+                await persistObservableFromImport(
                   protocol.id,
                   categoryItem.id,
-                  observable.name,
-                  undefined, // color is not available in normalized data
-                  j
+                  observable,
+                  observable.order ?? j,
                 );
                 observablesCount++;
               }
             }
           }
+
+          const categoryNameToId = new Map(
+            data.protocol.categories.flatMap((category, index) => {
+              const id = createdCategories[index]?.id;
+              return id !== undefined ? [[category.name, id] as const] : [];
+            }),
+          );
+
+          for (const created of createdCategories) {
+            const resolved = resolveImportedSupportCategoryForMobile(
+              created.sourceGraphPreferences,
+              categoryNameToId,
+            );
+
+            if (resolved?.supportCategoryId) {
+              const meta = buildProtocolItemMetaWithGraphExtras(
+                created.persistedMeta,
+                resolved,
+              );
+              if (meta) {
+                await protocolRepository.updateItem(created.id, { meta });
+              }
+            }
+          }
         }
 
-        // Add readings
         let readingsCount = 0;
         if (data.readings) {
           for (const reading of data.readings) {
@@ -189,7 +287,6 @@ class ImportService {
           readingsCount,
         };
       } catch (error) {
-        // Rollback: delete the observation (cascades to protocol, protocol_items, readings)
         try {
           await observationRepository.hardDelete(observation.id);
         } catch (rollbackError) {
@@ -206,9 +303,6 @@ class ImportService {
     }
   }
 
-  /**
-   * Import a file (auto-detect format)
-   */
   async importFile(file: File): Promise<IImportResult> {
     const fileName = file.name.toLowerCase();
 
@@ -218,12 +312,12 @@ class ImportService {
     } else if (fileName.endsWith('.chronic')) {
       const content = await this.readFileAsArrayBuffer(file);
       return this.importChronic(content, file.name);
-    } else {
-      return {
-        success: false,
-        error: 'Format de fichier non supporté. Utilisez des fichiers .jchronic ou .chronic.',
-      };
     }
+
+    return {
+      success: false,
+      error: 'Format de fichier non supporté. Utilisez des fichiers .jchronic ou .chronic.',
+    };
   }
 
   private toBuffer(content: ArrayBuffer | Uint8Array | string): Buffer {
@@ -237,11 +331,6 @@ class ImportService {
       return Buffer.from(content);
     }
 
-    // CapacitorHttp renvoie les réponses binaires (responseType 'arraybuffer')
-    // sous forme de chaîne base64. Sur Android, Base64.DEFAULT insère des CRLF
-    // tous les 76 caractères : on strippe tout whitespace avant la détection
-    // et le décodage, sinon la regex échoue et on retombe sur 'binary'
-    // (corruption silencieuse du binaire).
     const base64Candidate = content.replace(/\s+/g, '');
     if (
       base64Candidate.length > 0 &&
@@ -254,9 +343,6 @@ class ImportService {
     return Buffer.from(content, 'binary');
   }
 
-  /**
-   * Read file as text
-   */
   private readFileAsText(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -276,6 +362,4 @@ class ImportService {
   }
 }
 
-// Singleton instance
 export const importService = new ImportService();
-

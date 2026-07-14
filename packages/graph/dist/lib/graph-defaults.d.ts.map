@@ -1,1 +1,1 @@
-{"version":3,"file":"graph-defaults.d.ts","sourceRoot":"","sources":["../../src/lib/graph-defaults.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH;;;;;GAKG;AACH,eAAO,MAAM,mBAAmB,YAAY,CAAC"}
+{"version":3,"file":"graph-defaults.d.ts","sourceRoot":"","sources":["../../src/lib/graph-defaults.ts"],"names":[],"mappings":"AAAA;;GAEG;AACH,OAAO,EAAE,mBAAmB,EAAE,MAAM,iBAAiB,CAAC"}

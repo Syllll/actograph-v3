@@ -29,6 +29,12 @@ describe('ChronicV1Parser - import .chronic v1', () => {
       expect(normalized.protocol).toBeDefined();
       expect(normalized.protocol?.categories?.length ?? 0).toBe(4);
       expect(normalized.readings).toHaveLength(0);
+
+      const categories = normalized.protocol?.categories ?? [];
+      expect(categories.find((category) => category.name === 'Evénement')?.action).toBe('discrete');
+      expect(categories.find((category) => category.name === 'Lieu')?.graphPreferences?.displayMode).toBe(
+        'background',
+      );
     });
 
     it('expose un graphManager réinitialisé mais structurellement valide', () => {

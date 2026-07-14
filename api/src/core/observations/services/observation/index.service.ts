@@ -23,6 +23,8 @@ import {
   ProtocolItemActionEnum,
   ReadingTypeEnum,
   type IReading,
+  type IGraphPreferences,
+  resolvePortableGraphPreferencesOnImport,
 } from '@actograph/core';
 import { ObservationRepository } from '../../repositories/obsavation.repository';
 import {
@@ -208,12 +210,14 @@ export class ObservationService extends BaseService<
         description?: string;
         action?: string;
         meta?: Record<string, any>;
+        graphPreferences?: IGraphPreferences;
         observables?: {
           name: string;
           description?: string;
           action?: string;
           meta?: Record<string, any>;
           order?: number;
+          graphPreferences?: IGraphPreferences;
         }[];
       }[];
     };
@@ -249,20 +253,47 @@ export class ObservationService extends BaseService<
       // Create the categories
       if (options.protocol.categories) {
         let categoryOrder = 0;
+        const createdCategories: Array<{
+          id: string;
+          sourceGraphPreferences?: IGraphPreferences;
+        }> = [];
+
         for (const category of options.protocol.categories) {
+          const sourceGraphPreferences = category.graphPreferences
+            ? { ...category.graphPreferences }
+            : undefined;
+          const graphPreferencesForCreate = sourceGraphPreferences
+            ? {
+                ...sourceGraphPreferences,
+                supportCategoryId: undefined,
+                supportCategoryName: undefined,
+              }
+            : undefined;
+          const hasGraphPreferencesForCreate =
+            graphPreferencesForCreate &&
+            Object.values(graphPreferencesForCreate).some(
+              (value) => value !== undefined && value !== null,
+            );
+
           const savedCategory = await this.protocolService.items.addCategory({
             protocolId: protocol.id,
             name: category.name,
             description: category.description,
             action: category.action as ProtocolItemActionEnum | undefined,
             meta: category.meta,
+            graphPreferences: hasGraphPreferencesForCreate
+              ? graphPreferencesForCreate
+              : undefined,
             order: categoryOrder,
           });
 
-          // Increase the order
+          createdCategories.push({
+            id: savedCategory.id,
+            sourceGraphPreferences,
+          });
+
           categoryOrder++;
 
-          // Create the observables
           if (category.observables) {
             let observableOrder = 0;
             for (const observable of category.observables) {
@@ -273,10 +304,35 @@ export class ObservationService extends BaseService<
                 description: observable.description,
                 action: observable.action as ProtocolItemActionEnum | undefined,
                 meta: observable.meta,
+                graphPreferences: observable.graphPreferences,
                 order: observable.order ?? observableOrder,
               });
               observableOrder++;
             }
+          }
+        }
+
+        const categoryNameToId = new Map(
+          options.protocol.categories.flatMap((category, index) => {
+            const id = createdCategories[index]?.id;
+            return id ? [[category.name, id] as const] : [];
+          }),
+        );
+
+        for (const created of createdCategories) {
+          const resolved = resolvePortableGraphPreferencesOnImport(
+            created.sourceGraphPreferences,
+            categoryNameToId,
+          );
+
+          if (resolved?.supportCategoryId) {
+            await this.protocolService.items.updateItemGraphPreferences({
+              protocolId: protocol.id,
+              itemId: created.id,
+              preferences: {
+                supportCategoryId: resolved.supportCategoryId,
+              },
+            });
           }
         }
       }
@@ -431,12 +487,14 @@ export class ObservationService extends BaseService<
       description?: string;
       action?: string;
       meta?: Record<string, any>;
+      graphPreferences?: IGraphPreferences;
       observables?: {
         name: string;
         description?: string;
         action?: string;
         meta?: Record<string, any>;
         order?: number;
+        graphPreferences?: IGraphPreferences;
       }[];
     }[];
   } {
@@ -464,19 +522,25 @@ export class ObservationService extends BaseService<
       }
     }
 
+    const portableCategories = this.portableizeMergedCategoryGraphPreferences(
+      mergedCategories,
+    );
+
     // Convert to the format expected by create()
     return {
-      categories: mergedCategories.map((cat) => ({
+      categories: portableCategories.map((cat) => ({
         name: cat.name,
         description: cat.description ?? undefined,
         action: cat.action,
         meta: cat.meta ?? undefined,
+        graphPreferences: cat.graphPreferences ?? undefined,
         observables: (cat.children ?? []).map((o) => ({
           name: o.name,
           description: o.description ?? undefined,
           action: o.action,
           meta: o.meta ?? undefined,
           order: o.order,
+          graphPreferences: o.graphPreferences ?? undefined,
         })),
       })),
     };
@@ -525,5 +589,47 @@ export class ObservationService extends BaseService<
         id: randomUUID(),
       })),
     };
+  }
+
+  /**
+   * Après clone avec nouveaux UUID, les supportCategoryId internes sont invalides.
+   * On les convertit en supportCategoryName pour que create() les résolve correctement.
+   */
+  private portableizeMergedCategoryGraphPreferences(
+    categories: ProtocolItem[],
+  ): ProtocolItem[] {
+    const categoryIdToName = new Map(
+      categories.map((category) => [category.id, category.name]),
+    );
+
+    const portableize = (
+      graphPreferences?: IGraphPreferences,
+    ): IGraphPreferences | undefined => {
+      if (!graphPreferences?.supportCategoryId) {
+        return graphPreferences;
+      }
+
+      const supportCategoryName = categoryIdToName.get(
+        graphPreferences.supportCategoryId,
+      );
+      if (!supportCategoryName) {
+        return graphPreferences;
+      }
+
+      const { supportCategoryId: _removed, ...rest } = graphPreferences;
+      return {
+        ...rest,
+        supportCategoryName,
+      };
+    };
+
+    return categories.map((category) => ({
+      ...category,
+      graphPreferences: portableize(category.graphPreferences),
+      children: (category.children ?? []).map((observable) => ({
+        ...observable,
+        graphPreferences: portableize(observable.graphPreferences),
+      })),
+    }));
   }
 }

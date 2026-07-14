@@ -3,7 +3,7 @@ import { ObservationRepository } from '../../repositories/obsavation.repository'
 import { ProtocolService } from '../protocol/index.service';
 import { ReadingService } from '../reading.service';
 import { NotFoundException } from '@nestjs/common';
-import { ObservationModeEnum } from '@actograph/core';
+import { ObservationModeEnum, portableizeGraphPreferencesForExport } from '@actograph/core';
 
 /**
  * Format d'export d'une observation pour le fichier .jchronic
@@ -189,6 +189,13 @@ export class Export {
    * @returns Items du protocole sans IDs, structure hiérarchique préservée
    */
   private removeIdsFromProtocolItems(items: any[]): any[] {
+    const categoryIdToName = new Map<string, string>();
+    for (const item of items) {
+      if (item?.type === 'category' && item.id && item.name) {
+        categoryIdToName.set(String(item.id), String(item.name));
+      }
+    }
+
     return items.map((item) => {
       // Créer un nouvel objet avec les champs obligatoires (sans ID)
       const itemWithoutId: any = {
@@ -215,6 +222,14 @@ export class Export {
       // Meta : métadonnées additionnelles (objet libre)
       if (item.meta) {
         itemWithoutId.meta = item.meta;
+      }
+
+      // Préférences graphiques (couleurs, modes d'affichage, etc.)
+      if (item.graphPreferences) {
+        itemWithoutId.graphPreferences = portableizeGraphPreferencesForExport(
+          item.graphPreferences,
+          categoryIdToName,
+        );
       }
 
       // TRAITEMENT RÉCURSIF : Si l'item est une catégorie avec des enfants (observables)

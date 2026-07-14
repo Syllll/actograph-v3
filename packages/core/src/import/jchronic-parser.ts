@@ -13,7 +13,9 @@ import {
   INormalizedCategory,
   INormalizedObservable,
   IObservationMeta,
+  IJchronicProtocolItem,
 } from './types';
+import type { IGraphPreferences } from '../types/protocol.types';
 
 /**
  * Parse a .jchronic file content (JSON format)
@@ -43,6 +45,36 @@ export function parseJchronicFile(content: string): IJchronicImport {
   }
 
   return data;
+}
+
+function getJchronicItemOrder(item: { order?: number; sortOrder?: number }): number | undefined {
+  return item.order ?? item.sortOrder;
+}
+
+function resolveJchronicItemGraphPreferences(
+  item: IJchronicProtocolItem,
+): IGraphPreferences | undefined {
+  const legacy: IGraphPreferences = {};
+
+  if (item.color && item.color.trim() !== '') {
+    legacy.color = item.color;
+  }
+  if (item.displayMode) {
+    legacy.displayMode = item.displayMode as IGraphPreferences['displayMode'];
+  }
+  if (item.backgroundPattern) {
+    legacy.backgroundPattern = item.backgroundPattern as IGraphPreferences['backgroundPattern'];
+  }
+  if (typeof item.strokeWidth === 'number' && Number.isFinite(item.strokeWidth)) {
+    legacy.strokeWidth = item.strokeWidth;
+  }
+
+  const merged = {
+    ...legacy,
+    ...(item.graphPreferences ?? {}),
+  };
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 function normalizeObservationMode(
@@ -136,8 +168,8 @@ export function normalizeJchronicData(data: IJchronicImport): INormalizedImport 
   if (data.protocol?.items) {
     // Sort items by order if present
     const sortedItems = [...data.protocol.items].sort((a, b) => {
-      const orderA = a.order !== undefined ? a.order : Infinity;
-      const orderB = b.order !== undefined ? b.order : Infinity;
+      const orderA = getJchronicItemOrder(a) ?? Infinity;
+      const orderB = getJchronicItemOrder(b) ?? Infinity;
       return orderA - orderB;
     });
 
@@ -149,30 +181,34 @@ export function normalizeJchronicData(data: IJchronicImport): INormalizedImport 
         if (item.children && Array.isArray(item.children)) {
           // Sort observables by order if present
           const sortedChildren = [...item.children].sort((a, b) => {
-            const orderA = a.order !== undefined ? a.order : Infinity;
-            const orderB = b.order !== undefined ? b.order : Infinity;
+            const orderA = getJchronicItemOrder(a) ?? Infinity;
+            const orderB = getJchronicItemOrder(b) ?? Infinity;
             return orderA - orderB;
           });
 
           for (const child of sortedChildren) {
             if (child.type === ProtocolItemTypeEnum.Observable) {
+              const graphPreferences = resolveJchronicItemGraphPreferences(child);
               observables.push({
                 name: child.name,
                 description: child.description,
                 action: child.action,
                 meta: child.meta,
-                order: child.order,
+                order: getJchronicItemOrder(child),
+                ...(graphPreferences ? { graphPreferences } : {}),
               });
             }
           }
         }
 
+        const categoryGraphPreferences = resolveJchronicItemGraphPreferences(item);
         protocolCategories.push({
           name: item.name,
           description: item.description,
           action: item.action,
-          order: item.order,
+          order: getJchronicItemOrder(item),
           meta: item.meta,
+          ...(categoryGraphPreferences ? { graphPreferences: categoryGraphPreferences } : {}),
           observables: observables.length > 0 ? observables : undefined,
         });
       }

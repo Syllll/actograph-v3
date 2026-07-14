@@ -1,3 +1,4 @@
+import { mergeGraphPreferences } from '@actograph/core';
 export { ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@actograph/core';
 /**
  * When `protocol.items` is a JSON string (API / DB shape), graph code expects `protocol._items` as an array.
@@ -65,13 +66,7 @@ export function getObservableGraphPreferences(observableId, protocol) {
         }
         const observable = category.children.find((obs) => obs.id === observableId && obs.type === 'observable');
         if (observable) {
-            if (observable.graphPreferences) {
-                return observable.graphPreferences;
-            }
-            if (category.graphPreferences) {
-                return category.graphPreferences;
-            }
-            return null;
+            return mergeGraphPreferences(category.graphPreferences, observable.graphPreferences);
         }
     }
     return null;

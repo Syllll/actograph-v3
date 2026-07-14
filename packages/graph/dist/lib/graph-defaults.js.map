@@ -1,1 +1,1 @@
-{"version":3,"file":"graph-defaults.js","sourceRoot":"","sources":["../../src/lib/graph-defaults.ts"],"names":[],"mappings":"AAAA;;;;;GAKG;AAEH;;;;;GAKG;AACH,MAAM,CAAC,MAAM,mBAAmB,GAAG,SAAS,CAAC"}
+{"version":3,"file":"graph-defaults.js","sourceRoot":"","sources":["../../src/lib/graph-defaults.ts"],"names":[],"mappings":"AAAA;;GAEG;AACH,OAAO,EAAE,mBAAmB,EAAE,MAAM,iBAAiB,CAAC"}

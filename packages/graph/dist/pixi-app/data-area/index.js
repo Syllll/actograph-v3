@@ -1,7 +1,7 @@
 import { Text, Container, Graphics } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
-import { ReadingTypeEnum, ObservationModeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, } from '@actograph/core';
+import { ReadingTypeEnum, ObservationModeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, mergeGraphPreferences, resolveGraphColor, } from '@actograph/core';
 import { parseProtocolItems, hydrateProtocolItemsFromStringIfNeeded, } from '../../utils/protocol.utils';
 import { formatFromDate } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
@@ -9,7 +9,7 @@ import { createTilingPatternSprite } from '../../lib/pattern-textures';
 import { extractSessionBoundaryReadings, getContinuousSegmentStartIndices, iterContinuousDataPairs, mergeContinuousCategoryReadings, shouldSkipInContinuousDraw, } from '../../utils/continuous-segments.utils';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 import { computePauseOverlayRects, DEFAULT_PAUSE_OVERLAY_STYLE, } from '../../utils/pause-overlay.utils';
-import { computeCrosshairSegments, } from '../../utils/crosshair.utils';
+import { computeCrosshairSegments, computeHoverTimeLabelPosition, } from '../../utils/crosshair.utils';
 import { shouldRenderHoverOverlay } from '../../utils/hover-overlay.utils';
 export class DataArea extends BaseGroup {
     constructor(app, yAxis, xAxis, options) {
@@ -49,6 +49,20 @@ export class DataArea extends BaseGroup {
             },
         });
         this.timeLabelContainer.addChild(this.timeLabel);
+        this.configureHoverOverlayPassthrough();
+    }
+    /** Hover visuals must not steal pointer events from the plot hit area. */
+    configureHoverOverlayPassthrough() {
+        this.pointerDashedLines.eventMode = 'none';
+        if (this.timeLabelContainer) {
+            this.timeLabelContainer.eventMode = 'none';
+        }
+        if (this.timeLabelBackground) {
+            this.timeLabelBackground.eventMode = 'none';
+        }
+        if (this.timeLabel) {
+            this.timeLabel.eventMode = 'none';
+        }
     }
     setPlotContainer(plotContainer) {
         this.plotContainer = plotContainer;
@@ -79,6 +93,7 @@ export class DataArea extends BaseGroup {
             }
             return;
         }
+        this.configureHoverOverlayPassthrough();
         this.eventMode = 'passive';
         this.graphicForBackground.eventMode = 'static';
         this.graphicForBackground.on('pointermove', (evt) => {
@@ -146,8 +161,9 @@ export class DataArea extends BaseGroup {
                     this.timeLabelBackground.fill({ color: 'white' });
                     this.timeLabel.x = padding;
                     this.timeLabel.y = padding;
-                    this.timeLabelContainer.x = p.x - backgroundWidth / 2;
-                    this.timeLabelContainer.y = plotBounds.bottomY + 15;
+                    const labelPos = computeHoverTimeLabelPosition(p.x, p.y, backgroundWidth, backgroundHeight, plotBounds);
+                    this.timeLabelContainer.x = labelPos.x;
+                    this.timeLabelContainer.y = labelPos.y;
                     this.timeLabelContainer.visible = true;
                 }
                 catch (error) {
@@ -249,7 +265,6 @@ export class DataArea extends BaseGroup {
         if (this.hoverOverlaySuppressed) {
             this.clearHoverOverlay();
         }
-        this.graphicForBackground.clear();
         const yAxisStart = this.yAxis.getAxisStart();
         const yAxisEnd = this.yAxis.getAxisEnd();
         if (!yAxisStart || !yAxisEnd) {
@@ -264,10 +279,9 @@ export class DataArea extends BaseGroup {
             x: xAxisEnd.x,
             y: yAxisEnd.y,
         };
-        this.graphicForBackground.rect(bottomLeft.x, topRight.y, topRight.x - bottomLeft.x, Math.abs(topRight.y - bottomLeft.y));
-        this.graphicForBackground.fill({
-            color: 'transparent',
-        });
+        // Restore the pointer hit area before redrawing segments so hover does not
+        // drop with pointerleave/pointermove oscillation mid-draw.
+        this.drawPointerHitArea(bottomLeft, topRight);
         const backgroundCategories = [];
         const friezeCategories = [];
         const normalCategories = [];
@@ -332,6 +346,11 @@ export class DataArea extends BaseGroup {
             });
         }
     }
+    drawPointerHitArea(bottomLeft, topRight) {
+        this.graphicForBackground.clear();
+        this.graphicForBackground.rect(bottomLeft.x, topRight.y, topRight.x - bottomLeft.x, Math.abs(topRight.y - bottomLeft.y));
+        this.graphicForBackground.fill({ color: 'transparent' });
+    }
     /** Plot bounds in the crosshair layer local space (correct axis conversion). */
     getPlotBoundsLocal() {
         const yAxisStart = this.yAxis.getAxisStart();
@@ -395,8 +414,8 @@ export class DataArea extends BaseGroup {
                     const yPos = this.getYPosForReading(category, reading.name || '');
                     if (yPos < 0)
                         continue;
-                    const prefs = this.getObservablePreferencesForReading(reading.name || '');
-                    const color = prefs?.color ?? 'green';
+                    const prefs = this.getObservablePreferencesForReading(category, reading.name || '');
+                    const color = resolveGraphColor(prefs);
                     const strokeWidth = prefs?.strokeWidth ?? 4;
                     graphic.circle(xPos, yPos, strokeWidth / 2);
                     graphic.setFillStyle({ color });
@@ -466,8 +485,8 @@ export class DataArea extends BaseGroup {
                 const previousDataName = previousReading?.type === ReadingTypeEnum.DATA
                     ? previousReading.name
                     : firstDataReading.name || '';
-                const horizontalPrefs = this.getObservablePreferencesForReading(previousDataName || firstDataReading.name || '');
-                const horizontalColor = horizontalPrefs?.color ?? 'green';
+                const horizontalPrefs = this.getObservablePreferencesForReading(category, previousDataName || firstDataReading.name || '');
+                const horizontalColor = resolveGraphColor(horizontalPrefs);
                 const horizontalStrokeWidth = horizontalPrefs?.strokeWidth ?? 2;
                 graphic.moveTo(last.x, last.y);
                 graphic.lineTo(xPos, last.y);
@@ -531,8 +550,8 @@ export class DataArea extends BaseGroup {
             const zoneWidth = endX - startX;
             if (zoneWidth <= 0)
                 continue;
-            const prefs = this.getObservablePreferencesForReading(from.name || '');
-            const color = prefs?.color ?? category.graphPreferences?.color ?? 'green';
+            const prefs = this.getObservablePreferencesForReading(category, from.name || '');
+            const color = resolveGraphColor(prefs);
             const pattern = prefs?.backgroundPattern ??
                 category.graphPreferences?.backgroundPattern ??
                 BackgroundPatternEnum.Solid;
@@ -652,8 +671,8 @@ export class DataArea extends BaseGroup {
                 if (reading.type === ReadingTypeEnum.DATA) {
                     const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
                     const yPos = friezeInfo.centerY;
-                    const prefs = this.getObservablePreferencesForReading(reading.name || '');
-                    const color = prefs?.color ?? 'green';
+                    const prefs = this.getObservablePreferencesForReading(category, reading.name || '');
+                    const color = resolveGraphColor(prefs);
                     const strokeWidth = prefs?.strokeWidth ?? 4;
                     graphic.circle(xPos, yPos, strokeWidth / 2);
                     graphic.setFillStyle({ color });
@@ -677,8 +696,8 @@ export class DataArea extends BaseGroup {
             const segmentWidth = segmentEndX - segmentStartX;
             if (segmentWidth <= 0)
                 continue;
-            const prefs = this.getObservablePreferencesForReading(from.name || '');
-            const color = prefs?.color ?? category.graphPreferences?.color ?? 'green';
+            const prefs = this.getObservablePreferencesForReading(category, from.name || '');
+            const color = resolveGraphColor(prefs);
             const pattern = prefs?.backgroundPattern ??
                 category.graphPreferences?.backgroundPattern ??
                 BackgroundPatternEnum.Solid;
@@ -702,32 +721,15 @@ export class DataArea extends BaseGroup {
             }
         }
     }
-    getObservablePreferencesForReading(observableName) {
-        if (!this.protocol) {
+    getObservablePreferencesForReading(category, observableName) {
+        if (!this.protocol || !category.children?.length || !observableName) {
             return null;
         }
-        // Utilise _items en priorité (format frontend) ou items (format mobile/core)
-        const prot = this.protocol;
-        const items = prot._items || prot.items || [];
-        if (!items.length) {
+        const observable = category.children.find((obs) => obs.name === observableName && obs.type === 'observable');
+        if (!observable) {
             return null;
         }
-        for (const category of items) {
-            if (category.type !== 'category' || !category.children) {
-                continue;
-            }
-            const observable = category.children.find((obs) => obs.name === observableName && obs.type === 'observable');
-            if (observable) {
-                if (observable.graphPreferences) {
-                    return observable.graphPreferences;
-                }
-                if (category.graphPreferences) {
-                    return category.graphPreferences;
-                }
-                return null;
-            }
-        }
-        return null;
+        return mergeGraphPreferences(category.graphPreferences, observable.graphPreferences);
     }
     redrawObservable(observableId) {
         if (!this.protocol) {

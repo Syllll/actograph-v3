@@ -1,4 +1,5 @@
 import type { IProtocol, IProtocolItem, IGraphPreferences } from '@actograph/core';
+import { mergeGraphPreferences } from '@actograph/core';
 
 export { IProtocolItem as ProtocolItem };
 export { ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@actograph/core';
@@ -80,13 +81,7 @@ export function getObservableGraphPreferences(
     );
 
     if (observable) {
-      if (observable.graphPreferences) {
-        return observable.graphPreferences;
-      }
-      if (category.graphPreferences) {
-        return category.graphPreferences;
-      }
-      return null;
+      return mergeGraphPreferences(category.graphPreferences, observable.graphPreferences);
     }
   }
 

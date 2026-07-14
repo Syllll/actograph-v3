@@ -14,6 +14,8 @@ export interface IGraphPreferences {
   backgroundPattern?: BackgroundPatternEnum;
   displayMode?: DisplayModeEnum;
   supportCategoryId?: string | null;
+  /** Référence portable par nom de catégorie (export/import sans IDs). */
+  supportCategoryName?: string | null;
 }
 
 /**

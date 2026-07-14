@@ -17,6 +17,10 @@ import {
   ObservationType,
 } from '../enums';
 import type { IObservation, IProtocol, IProtocolItem, IReading, IGraphPreferences } from '../types';
+import {
+  MOBILE_GRAPH_STROKE_WIDTH_META_KEY,
+  MOBILE_GRAPH_SUPPORT_CATEGORY_ID_META_KEY,
+} from './graph-preferences';
 
 /**
  * Maps a mobile reading type string to the core enum.
@@ -201,6 +205,7 @@ export interface IMobileProtocolItem {
   display_mode?: string | null;
   background_pattern?: string | null;
   sort_order?: number;
+  meta?: Record<string, unknown> | null;
   children?: IMobileProtocolItem[];
 }
 
@@ -239,12 +244,24 @@ export function convertMobileReadings(readings: IMobileReading[]): IReading[] {
  */
 export function convertMobileProtocolItems(items: IMobileProtocolItem[]): IProtocolItem[] {
   return items.map((item) => {
-    const graphPreferences: IGraphPreferences | undefined = 
-      (item.display_mode || item.background_pattern || item.color)
+    const meta = item.meta ?? undefined;
+    const strokeWidth =
+      typeof meta?.[MOBILE_GRAPH_STROKE_WIDTH_META_KEY] === 'number'
+        ? (meta[MOBILE_GRAPH_STROKE_WIDTH_META_KEY] as number)
+        : undefined;
+    const supportCategoryId =
+      typeof meta?.[MOBILE_GRAPH_SUPPORT_CATEGORY_ID_META_KEY] === 'string'
+        ? (meta[MOBILE_GRAPH_SUPPORT_CATEGORY_ID_META_KEY] as string)
+        : undefined;
+
+    const graphPreferences: IGraphPreferences | undefined =
+      item.display_mode || item.background_pattern || item.color || strokeWidth !== undefined || supportCategoryId
         ? {
             displayMode: mapDisplayMode(item.display_mode),
             backgroundPattern: mapBackgroundPattern(item.background_pattern),
             color: item.color || undefined,
+            strokeWidth,
+            supportCategoryId,
           }
         : undefined;
 

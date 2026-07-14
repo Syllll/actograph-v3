@@ -14,6 +14,7 @@ import {
   DisplayModeEnum,
   ProtocolItemActionEnum,
   ProtocolItemTypeEnum,
+  mergeGraphPreferences,
 } from '@actograph/core';
 import { randomUUID } from 'node:crypto';
 import { UpdateProtocolItemGraphPreferencesDto } from '../../dtos/protocol-item-graph-preferences.dto';
@@ -41,6 +42,7 @@ export class Items {
     description?: string;
     action?: ProtocolItemActionEnum;
     meta?: Record<string, any>;
+    graphPreferences?: IGraphPreferences;
   }) {
     // Find the protocol
     const protocol = await this.protocolService.findOne(options.protocolId, {
@@ -72,6 +74,7 @@ export class Items {
       action: options.action || ProtocolItemActionEnum.Continuous,
       description: options.description,
       meta: options.meta,
+      graphPreferences: options.graphPreferences,
       type: ProtocolItemTypeEnum.Category,
     });
 
@@ -219,6 +222,12 @@ export class Items {
     const filteredUpdates = Object.fromEntries(
       Object.entries(categoryUpdates).filter(([_, value]) => value !== undefined)
     );
+    if (filteredUpdates.meta !== undefined) {
+      filteredUpdates.meta = {
+        ...(categories[categoryIndex].meta || {}),
+        ...filteredUpdates.meta,
+      };
+    }
     const updatedCategory = {
       ...categories[categoryIndex],
       ...filteredUpdates,
@@ -276,6 +285,7 @@ export class Items {
     description?: string;
     action?: ProtocolItemActionEnum;
     meta?: Record<string, any>;
+    graphPreferences?: IGraphPreferences;
     order?: number;
   }) {
     // Find the protocol
@@ -334,6 +344,7 @@ export class Items {
       description: options.description,
       action: options.action,
       meta: options.meta,
+      graphPreferences: options.graphPreferences,
       type: ProtocolItemTypeEnum.Observable,
     });
 
@@ -703,16 +714,7 @@ export class Items {
       throw new NotFoundException('Observable was not found');
     }
 
-    // If observable has preferences, return them
-    if (observable.graphPreferences) {
-      return observable.graphPreferences;
-    }
-
-    // Otherwise, return category preferences (or null if category has none)
-    if (category && category.graphPreferences) {
-      return category.graphPreferences;
-    }
-
-    return null;
+    // Merge category preferences with observable-specific overrides.
+    return mergeGraphPreferences(category?.graphPreferences, observable.graphPreferences);
   }
 }

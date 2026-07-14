@@ -1,7 +1,11 @@
 import { observationRepository } from '@database/repositories/observation.repository';
 import { protocolRepository, type IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
 import { readingRepository, type ReadingType } from '@database/repositories/reading.repository';
-import { ObservationModeEnum, ReadingTypeEnum } from '@actograph/core';
+import { ObservationModeEnum, ReadingTypeEnum, type IGraphPreferences } from '@actograph/core';
+import {
+  buildGraphPreferencesForMobileExport,
+  sanitizeMetaForExport,
+} from '@utils/protocol-graph-preferences-mobile';
 
 /**
  * Format d'export .jchronic
@@ -29,12 +33,14 @@ export interface IJchronicExport {
 export interface IJchronicProtocolItem {
   name: string;
   type: 'category' | 'observable';
-  color?: string;
   action?: string;
+  order?: number;
+  meta?: Record<string, unknown>;
+  graphPreferences?: IGraphPreferences;
+  /** @deprecated Conservé pour compatibilité ascendante */
+  color?: string;
   displayMode?: string;
   backgroundPattern?: string;
-  sortOrder?: number;
-  meta?: Record<string, unknown>;
   children?: IJchronicProtocolItem[];
 }
 
@@ -145,22 +151,52 @@ class ExportService {
     }
   }
 
+  private collectCategoryIdToName(
+    items: IProtocolItemWithChildren[],
+    map = new Map<string, string>(),
+  ): Map<string, string> {
+    for (const item of items) {
+      if (item.type === 'category') {
+        map.set(String(item.id), item.name);
+      }
+      if (item.children?.length) {
+        this.collectCategoryIdToName(item.children, map);
+      }
+    }
+    return map;
+  }
+
   /**
    * Convertit les items du protocole au format d'export (sans IDs)
    */
   private convertProtocolItems(items: IProtocolItemWithChildren[]): IJchronicProtocolItem[] {
+    const categoryIdToName = this.collectCategoryIdToName(items);
+
     return items.map((item) => {
       const exportItem: IJchronicProtocolItem = {
         name: item.name,
         type: item.type,
       };
 
-      if (item.color) exportItem.color = item.color;
+      const graphPreferences = buildGraphPreferencesForMobileExport(item, categoryIdToName);
+      if (graphPreferences) {
+        exportItem.graphPreferences = graphPreferences;
+        if (graphPreferences.color) {
+          exportItem.color = graphPreferences.color;
+        }
+        if (graphPreferences.displayMode) {
+          exportItem.displayMode = graphPreferences.displayMode;
+        }
+        if (graphPreferences.backgroundPattern) {
+          exportItem.backgroundPattern = graphPreferences.backgroundPattern;
+        }
+      }
+
       if (item.action) exportItem.action = item.action;
-      if (item.display_mode) exportItem.displayMode = item.display_mode;
-      if (item.background_pattern) exportItem.backgroundPattern = item.background_pattern;
-      if (item.sort_order !== undefined) exportItem.sortOrder = item.sort_order;
-      if (item.meta) exportItem.meta = item.meta;
+      if (item.sort_order !== undefined) exportItem.order = item.sort_order;
+
+      const exportedMeta = sanitizeMetaForExport(item.meta);
+      if (exportedMeta) exportItem.meta = exportedMeta;
 
       if (item.children && item.children.length > 0) {
         exportItem.children = this.convertProtocolItems(item.children);

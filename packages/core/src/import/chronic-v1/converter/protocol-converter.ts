@@ -1,6 +1,8 @@
 import { IProtocolNodeV1 } from '../types/chronic-v1.types';
 import { ValidationError } from '../../errors';
 import { INormalizedProtocol, INormalizedCategory } from '../../types';
+import type { IGraphPreferences } from '../../../types/protocol.types';
+import { DisplayModeEnum, ProtocolItemActionEnum } from '../../../enums';
 
 /**
  * Convertisseur pour transformer le protocole v1 en format normalisé pour v3
@@ -10,6 +12,56 @@ import { INormalizedProtocol, INormalizedCategory } from '../../types';
  * du format v3 (catégories contenant des observables).
  */
 export class ProtocolV1Converter {
+  private buildGraphPreferencesFromNode(node: IProtocolNodeV1): IGraphPreferences | undefined {
+    const prefs: IGraphPreferences = {};
+
+    if (node.colorName && node.colorName.trim() !== '') {
+      prefs.color = node.colorName;
+    }
+
+    if (node.thickness > 0) {
+      prefs.strokeWidth = node.thickness;
+    }
+
+    return Object.keys(prefs).length > 0 ? prefs : undefined;
+  }
+
+  /**
+   * v1 encode le type via `shape` sur le nœud :
+   * - point  → ponctuel (discrete)
+   * - line   → continu (continuous)
+   * - background → continu + mode arrière-plan
+   */
+  private mapShapeToCategoryFields(node: IProtocolNodeV1): {
+    action: ProtocolItemActionEnum;
+    graphPreferences?: IGraphPreferences;
+  } {
+    const basePrefs = this.buildGraphPreferencesFromNode(node) ?? {};
+    const shape = (node.shape || '').toLowerCase();
+
+    if (shape === 'point') {
+      return {
+        action: ProtocolItemActionEnum.Discrete,
+        graphPreferences: Object.keys(basePrefs).length > 0 ? basePrefs : undefined,
+      };
+    }
+
+    if (shape === 'background' || node.isBackground) {
+      return {
+        action: ProtocolItemActionEnum.Continuous,
+        graphPreferences: {
+          ...basePrefs,
+          displayMode: DisplayModeEnum.Background,
+        },
+      };
+    }
+
+    return {
+      action: ProtocolItemActionEnum.Continuous,
+      graphPreferences: Object.keys(basePrefs).length > 0 ? basePrefs : undefined,
+    };
+  }
+
   /**
    * Convertit un protocole v1 en format normalisé pour création
    */
@@ -32,11 +84,13 @@ export class ProtocolV1Converter {
         const category = this.convertCategoryNode(child, i);
         categories.push(category);
       } else if (child.type === 'observable' || child.type === 'Observable') {
-        // Observable directly under root: create default category
+        const { action, graphPreferences } = this.mapShapeToCategoryFields(child);
         const defaultCategory: INormalizedCategory = {
           name: 'Catégorie par défaut',
           description: undefined,
           order: 0,
+          action,
+          graphPreferences,
           observables: [this.convertObservableNode(child, 0)],
         };
         categories.push(defaultCategory);
@@ -63,10 +117,14 @@ export class ProtocolV1Converter {
       }
     }
 
+    const { action, graphPreferences } = this.mapShapeToCategoryFields(node);
+
     return {
       name: node.name || `Catégorie ${order + 1}`,
       description: undefined,
       order: node.indexInParentContext >= 0 ? node.indexInParentContext : order,
+      action,
+      graphPreferences,
       observables: observables.length > 0 ? observables : undefined,
     };
   }
@@ -79,6 +137,7 @@ export class ProtocolV1Converter {
       name: node.name || `Observable ${order + 1}`,
       description: undefined,
       order: node.indexInParentContext >= 0 ? node.indexInParentContext : order,
+      graphPreferences: this.buildGraphPreferencesFromNode(node),
     };
   }
 }

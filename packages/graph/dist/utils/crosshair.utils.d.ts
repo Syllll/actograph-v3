@@ -18,4 +18,11 @@ export interface ICrosshairSegments {
  * Builds full-span crosshair segments that reach both axes of the plot area.
  */
 export declare function computeCrosshairSegments(cursorX: number, cursorY: number, bounds: IPlotBounds): ICrosshairSegments;
+/**
+ * Positions the hover time label inside the plot so it does not cover X-axis tick labels.
+ */
+export declare function computeHoverTimeLabelPosition(cursorX: number, cursorY: number, labelWidth: number, labelHeight: number, bounds: IPlotBounds, gap?: number): {
+    x: number;
+    y: number;
+};
 //# sourceMappingURL=crosshair.utils.d.ts.map

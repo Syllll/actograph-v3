@@ -15,6 +15,8 @@ import {
   BackgroundPatternEnum,
   DisplayModeEnum,
   ProtocolItemActionEnum,
+  mergeGraphPreferences,
+  resolveGraphColor,
 } from '@actograph/core';
 import { YAxis } from '../axis/y-axis';
 import { xAxis } from '../axis/x-axis';
@@ -41,6 +43,7 @@ import {
 } from '../../utils/pause-overlay.utils';
 import {
   computeCrosshairSegments,
+  computeHoverTimeLabelPosition,
   type IPlotBounds,
 } from '../../utils/crosshair.utils';
 import { shouldRenderHoverOverlay } from '../../utils/hover-overlay.utils';
@@ -116,6 +119,21 @@ export class DataArea extends BaseGroup {
       },
     });
     this.timeLabelContainer.addChild(this.timeLabel);
+    this.configureHoverOverlayPassthrough();
+  }
+
+  /** Hover visuals must not steal pointer events from the plot hit area. */
+  private configureHoverOverlayPassthrough(): void {
+    this.pointerDashedLines.eventMode = 'none';
+    if (this.timeLabelContainer) {
+      this.timeLabelContainer.eventMode = 'none';
+    }
+    if (this.timeLabelBackground) {
+      this.timeLabelBackground.eventMode = 'none';
+    }
+    if (this.timeLabel) {
+      this.timeLabel.eventMode = 'none';
+    }
   }
 
   public setPlotContainer(plotContainer: Container): void {
@@ -152,6 +170,7 @@ export class DataArea extends BaseGroup {
       return;
     }
 
+    this.configureHoverOverlayPassthrough();
     this.eventMode = 'passive';
     this.graphicForBackground.eventMode = 'static';
 
@@ -235,8 +254,15 @@ export class DataArea extends BaseGroup {
           this.timeLabel.x = padding;
           this.timeLabel.y = padding;
 
-          this.timeLabelContainer.x = p.x - backgroundWidth / 2;
-          this.timeLabelContainer.y = plotBounds.bottomY + 15;
+          const labelPos = computeHoverTimeLabelPosition(
+            p.x,
+            p.y,
+            backgroundWidth,
+            backgroundHeight,
+            plotBounds,
+          );
+          this.timeLabelContainer.x = labelPos.x;
+          this.timeLabelContainer.y = labelPos.y;
           this.timeLabelContainer.visible = true;
         } catch (error) {
           if (this.timeLabelContainer) {
@@ -371,8 +397,6 @@ export class DataArea extends BaseGroup {
       this.clearHoverOverlay();
     }
 
-    this.graphicForBackground.clear();
-
     const yAxisStart = this.yAxis.getAxisStart();
     const yAxisEnd = this.yAxis.getAxisEnd();
     if (!yAxisStart || !yAxisEnd) {
@@ -389,15 +413,9 @@ export class DataArea extends BaseGroup {
       y: yAxisEnd.y,
     } as { x: number; y: number };
 
-    this.graphicForBackground.rect(
-      bottomLeft.x,
-      topRight.y,
-      topRight.x - bottomLeft.x,
-      Math.abs(topRight.y - bottomLeft.y)
-    );
-    this.graphicForBackground.fill({
-      color: 'transparent',
-    });
+    // Restore the pointer hit area before redrawing segments so hover does not
+    // drop with pointerleave/pointermove oscillation mid-draw.
+    this.drawPointerHitArea(bottomLeft, topRight);
 
     const backgroundCategories: Array<{ category: ProtocolItem; readings: IReading[] }> = [];
     const friezeCategories: Array<{ category: ProtocolItem; readings: IReading[] }> = [];
@@ -475,6 +493,20 @@ export class DataArea extends BaseGroup {
     }
   }
 
+  private drawPointerHitArea(
+    bottomLeft: { x: number; y: number },
+    topRight: { x: number; y: number },
+  ): void {
+    this.graphicForBackground.clear();
+    this.graphicForBackground.rect(
+      bottomLeft.x,
+      topRight.y,
+      topRight.x - bottomLeft.x,
+      Math.abs(topRight.y - bottomLeft.y),
+    );
+    this.graphicForBackground.fill({ color: 'transparent' });
+  }
+
   /** Plot bounds in the crosshair layer local space (correct axis conversion). */
   private getPlotBoundsLocal(): IPlotBounds | null {
     const yAxisStart = this.yAxis.getAxisStart();
@@ -550,8 +582,8 @@ export class DataArea extends BaseGroup {
           const yPos = this.getYPosForReading(category, reading.name || '');
           if (yPos < 0) continue;
 
-          const prefs = this.getObservablePreferencesForReading(reading.name || '');
-          const color = prefs?.color ?? 'green';
+          const prefs = this.getObservablePreferencesForReading(category, reading.name || '');
+          const color = resolveGraphColor(prefs);
           const strokeWidth = prefs?.strokeWidth ?? 4;
 
           graphic.circle(xPos, yPos, strokeWidth / 2);
@@ -636,9 +668,10 @@ export class DataArea extends BaseGroup {
             ? previousReading.name
             : firstDataReading.name || '';
         const horizontalPrefs = this.getObservablePreferencesForReading(
+          category,
           previousDataName || firstDataReading.name || ''
         );
-        const horizontalColor = horizontalPrefs?.color ?? 'green';
+        const horizontalColor = resolveGraphColor(horizontalPrefs);
         const horizontalStrokeWidth = horizontalPrefs?.strokeWidth ?? 2;
 
         graphic.moveTo(last.x, last.y);
@@ -716,8 +749,8 @@ export class DataArea extends BaseGroup {
 
       if (zoneWidth <= 0) continue;
 
-      const prefs = this.getObservablePreferencesForReading(from.name || '');
-      const color = prefs?.color ?? category.graphPreferences?.color ?? 'green';
+      const prefs = this.getObservablePreferencesForReading(category, from.name || '');
+      const color = resolveGraphColor(prefs);
       const pattern =
         prefs?.backgroundPattern ??
         category.graphPreferences?.backgroundPattern ??
@@ -862,8 +895,8 @@ export class DataArea extends BaseGroup {
           const xPos = this.xAxis.getPosFromDateTime(reading.dateTime);
           const yPos = friezeInfo.centerY;
 
-          const prefs = this.getObservablePreferencesForReading(reading.name || '');
-          const color = prefs?.color ?? 'green';
+          const prefs = this.getObservablePreferencesForReading(category, reading.name || '');
+          const color = resolveGraphColor(prefs);
           const strokeWidth = prefs?.strokeWidth ?? 4;
 
           graphic.circle(xPos, yPos, strokeWidth / 2);
@@ -892,8 +925,8 @@ export class DataArea extends BaseGroup {
 
       if (segmentWidth <= 0) continue;
 
-      const prefs = this.getObservablePreferencesForReading(from.name || '');
-      const color = prefs?.color ?? category.graphPreferences?.color ?? 'green';
+      const prefs = this.getObservablePreferencesForReading(category, from.name || '');
+      const color = resolveGraphColor(prefs);
       const pattern =
         prefs?.backgroundPattern ??
         category.graphPreferences?.backgroundPattern ??
@@ -927,41 +960,23 @@ export class DataArea extends BaseGroup {
     }
   }
 
-  private getObservablePreferencesForReading(observableName: string): IGraphPreferences | null {
-    if (!this.protocol) {
+  private getObservablePreferencesForReading(
+    category: ProtocolItem,
+    observableName: string,
+  ): IGraphPreferences | null {
+    if (!this.protocol || !category.children?.length || !observableName) {
       return null;
     }
 
-    // Utilise _items en priorité (format frontend) ou items (format mobile/core)
-    const prot = this.protocol as any;
-    const items = prot._items || prot.items || [];
-    if (!items.length) {
+    const observable = category.children.find(
+      (obs: IProtocolItem) => obs.name === observableName && obs.type === 'observable',
+    );
+
+    if (!observable) {
       return null;
     }
 
-    for (const category of items) {
-      if (category.type !== 'category' || !category.children) {
-        continue;
-      }
-
-      const observable = category.children.find(
-        (obs: IProtocolItem) => obs.name === observableName && obs.type === 'observable'
-      );
-
-      if (observable) {
-        if (observable.graphPreferences) {
-          return observable.graphPreferences;
-        }
-
-        if (category.graphPreferences) {
-          return category.graphPreferences;
-        }
-
-        return null;
-      }
-    }
-
-    return null;
+    return mergeGraphPreferences(category.graphPreferences, observable.graphPreferences);
   }
 
   public redrawObservable(observableId: string) {

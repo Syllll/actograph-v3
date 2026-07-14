@@ -1,5 +1,5 @@
 import { ObservationModeEnum, ReadingTypeEnum } from '../../enums';
-import { convertMobileObservation } from '../../utils/mobile-compat';
+import { convertMobileObservation, convertMobileProtocolItems } from '../../utils/mobile-compat';
 
 const protocolItems = [
   {
@@ -69,5 +69,31 @@ describe('mobile-compat', () => {
 
     expect(observation.mode).toBe(ObservationModeEnum.Chronometer);
     expect(observation.readings?.[0]?.type).toBe(ReadingTypeEnum.START);
+  });
+
+  it('mappe strokeWidth depuis meta SQLite mobile', () => {
+    const converted = convertMobileProtocolItems([
+      {
+        id: 1,
+        name: 'Catégorie',
+        type: 'category',
+        meta: { graphStrokeWidth: 6 },
+        children: [
+          {
+            id: 2,
+            name: 'Observable',
+            type: 'observable',
+            color: '#123456',
+            meta: { graphStrokeWidth: 3 },
+          },
+        ],
+      },
+    ]);
+
+    expect(converted[0].graphPreferences?.strokeWidth).toBe(6);
+    expect(converted[0].children?.[0].graphPreferences).toEqual({
+      color: '#123456',
+      strokeWidth: 3,
+    });
   });
 });

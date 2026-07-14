@@ -74,7 +74,9 @@
       "<rootDir>/dist/"
     ],
     "moduleNameMapper": {
-      "^@services/(.*)$": "<rootDir>/src/services/$1"
+      "^@services/(.*)$": "<rootDir>/src/services/$1",
+      "^@actograph/core$": "<rootDir>/../packages/core/src/index.ts",
+      "^@actograph/graph$": "<rootDir>/../packages/graph/src/index.ts"
     },
     "moduleFileExtensions": [
       "ts",

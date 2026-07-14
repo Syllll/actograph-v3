@@ -80,6 +80,109 @@ describe('jchronic-parser - normalizeJchronicData', () => {
     expect(normalized.observation.meta?.uiScale).toBe(1.4);
   });
 
+  it('préserve sortOrder legacy comme alias de order', () => {
+    const data: IJchronicImport = {
+      observation: { name: 'Obs test' },
+      protocol: {
+        name: 'Proto',
+        items: [
+          {
+            type: ProtocolItemTypeEnum.Category,
+            name: 'Seconde',
+            sortOrder: 1,
+            children: [],
+          },
+          {
+            type: ProtocolItemTypeEnum.Category,
+            name: 'Première',
+            sortOrder: 0,
+            children: [],
+          },
+        ],
+      },
+    };
+
+    const normalized = normalizeJchronicData(data);
+    const categories = normalized.protocol?.categories ?? [];
+
+    expect(categories.map((category) => category.name)).toEqual(['Première', 'Seconde']);
+  });
+
+  it('préserve les champs graphiques legacy plats à l\'import', () => {
+    const data: IJchronicImport = {
+      observation: { name: 'Obs test' },
+      protocol: {
+        name: 'Proto',
+        items: [
+          {
+            type: ProtocolItemTypeEnum.Category,
+            name: 'Catégorie legacy',
+            color: '#ff0000',
+            displayMode: 'background',
+            children: [
+              {
+                type: ProtocolItemTypeEnum.Observable,
+                name: 'Observable legacy',
+                color: '#00ff00',
+                strokeWidth: 5,
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const normalized = normalizeJchronicData(data);
+    const category = normalized.protocol?.categories?.[0];
+
+    expect(category?.graphPreferences).toEqual({
+      color: '#ff0000',
+      displayMode: 'background',
+    });
+    expect(category?.observables?.[0].graphPreferences).toEqual({
+      color: '#00ff00',
+      strokeWidth: 5,
+    });
+  });
+
+  it('préserve graphPreferences et le champ color legacy à l\'import', () => {
+    const data: IJchronicImport = {
+      observation: { name: 'Obs test' },
+      protocol: {
+        name: 'Proto',
+        items: [
+          {
+            type: ProtocolItemTypeEnum.Category,
+            name: 'Catégorie',
+            graphPreferences: { color: '#ff0000' },
+            children: [
+              {
+                type: ProtocolItemTypeEnum.Observable,
+                name: 'Observable legacy',
+                color: '#00ff00',
+              },
+              {
+                type: ProtocolItemTypeEnum.Observable,
+                name: 'Observable prefs',
+                graphPreferences: { color: '#0000ff', strokeWidth: 3 },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const normalized = normalizeJchronicData(data);
+    const category = normalized.protocol?.categories?.[0];
+
+    expect(category?.graphPreferences?.color).toBe('#ff0000');
+    expect(category?.observables?.[0].graphPreferences?.color).toBe('#00ff00');
+    expect(category?.observables?.[1].graphPreferences).toEqual({
+      color: '#0000ff',
+      strokeWidth: 3,
+    });
+  });
+
   it("ignore un uiScale invalide mais conserve les autres clés du meta", () => {
     const data: IJchronicImport = {
       observation: {

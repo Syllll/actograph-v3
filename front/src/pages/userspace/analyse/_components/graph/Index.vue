@@ -142,6 +142,10 @@ import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
 import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
 import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
+import {
+  getObservableGraphPreferences,
+  resolveGraphColor,
+} from '@services/observations/protocol-graph-preferences.utils';
 import StudentWatermark from '@components/student-watermark/Index.vue';
 
 /**
@@ -264,7 +268,10 @@ export default defineComponent({
             if (String(observable?.type ?? '').toLowerCase() !== 'observable') continue;
             rows.push({
               label: `  ${observable.name}`,
-              color: observable?.graphPreferences?.color || categoryColor,
+              color: resolveGraphColor(
+                getObservableGraphPreferences(observable.id, protocol),
+                categoryColor,
+              ),
             });
           }
         }

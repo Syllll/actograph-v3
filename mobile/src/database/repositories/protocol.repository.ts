@@ -158,16 +158,17 @@ export class ProtocolRepository extends BaseRepository<IProtocolEntity> {
     name: string,
     sortOrder = 0,
     action = 'continuous',
-    meta?: Record<string, unknown> | null
+    meta?: Record<string, unknown> | null,
+    color?: string,
   ): Promise<IProtocolItemEntity> {
     // Sérialiser meta en JSON si présent
     const metaJson = meta ? JSON.stringify(meta) : null;
     
     const sql = `
-      INSERT INTO protocol_items (protocol_id, parent_id, name, type, action, sort_order, meta)
-      VALUES (?, NULL, ?, 'category', ?, ?, ?)
+      INSERT INTO protocol_items (protocol_id, parent_id, name, type, action, color, sort_order, meta)
+      VALUES (?, NULL, ?, 'category', ?, ?, ?, ?)
     `;
-    const result = await sqliteService.run(sql, [protocolId, name, action, sortOrder, metaJson]);
+    const result = await sqliteService.run(sql, [protocolId, name, action, color ?? null, sortOrder, metaJson]);
 
     const created = await sqliteService.query<Record<string, unknown>>(
       'SELECT * FROM protocol_items WHERE id = ?',
@@ -194,19 +195,37 @@ export class ProtocolRepository extends BaseRepository<IProtocolEntity> {
     parentId: number,
     name: string,
     color?: string,
-    sortOrder = 0
+    sortOrder = 0,
+    action?: string,
   ): Promise<IProtocolItemEntity> {
     const sql = `
-      INSERT INTO protocol_items (protocol_id, parent_id, name, type, color, sort_order)
-      VALUES (?, ?, ?, 'observable', ?, ?)
+      INSERT INTO protocol_items (protocol_id, parent_id, name, type, color, action, sort_order)
+      VALUES (?, ?, ?, 'observable', ?, ?, ?)
     `;
-    const result = await sqliteService.run(sql, [protocolId, parentId, name, color, sortOrder]);
+    const result = await sqliteService.run(sql, [
+      protocolId,
+      parentId,
+      name,
+      color ?? null,
+      action ?? null,
+      sortOrder,
+    ]);
 
-    const created = await sqliteService.query<IProtocolItemEntity>(
+    const created = await sqliteService.query<Record<string, unknown>>(
       'SELECT * FROM protocol_items WHERE id = ?',
       [result.lastId]
     );
-    return created[0];
+
+    if (!created[0]) {
+      throw new Error('Failed to retrieve created observable');
+    }
+
+    const mapped = this.mapItem(created[0]);
+    if (!mapped) {
+      throw new Error('Failed to map created observable');
+    }
+
+    return mapped;
   }
 
   /**

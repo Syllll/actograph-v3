@@ -40,3 +40,27 @@ export function computeCrosshairSegments(
     },
   };
 }
+
+/**
+ * Positions the hover time label inside the plot so it does not cover X-axis tick labels.
+ */
+export function computeHoverTimeLabelPosition(
+  cursorX: number,
+  cursorY: number,
+  labelWidth: number,
+  labelHeight: number,
+  bounds: IPlotBounds,
+  gap = 8,
+): { x: number; y: number } {
+  let x = cursorX - labelWidth / 2;
+  let y = cursorY - labelHeight - gap;
+
+  if (y < bounds.topY) {
+    y = cursorY + gap;
+  }
+
+  x = Math.max(bounds.leftX, Math.min(bounds.rightX - labelWidth, x));
+  y = Math.max(bounds.topY, Math.min(bounds.bottomY - labelHeight, y));
+
+  return { x, y };
+}

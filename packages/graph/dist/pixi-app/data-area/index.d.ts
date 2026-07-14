@@ -26,6 +26,8 @@ export declare class DataArea extends BaseGroup {
     constructor(app: Application, yAxis: YAxis, xAxis: xAxis, options?: {
         interactive?: boolean;
     });
+    /** Hover visuals must not steal pointer events from the plot hit area. */
+    private configureHoverOverlayPassthrough;
     setPlotContainer(plotContainer: Container): void;
     /** Hides crosshair and dynamic time label (used before image export). */
     clearHoverOverlay(): void;
@@ -41,6 +43,7 @@ export declare class DataArea extends BaseGroup {
     clear(): void;
     draw(): void;
     private drawPauseOverlay;
+    private drawPointerHitArea;
     /** Plot bounds in the crosshair layer local space (correct axis conversion). */
     private getPlotBoundsLocal;
     /** Keep crosshair and time label above segments and pause overlays. */

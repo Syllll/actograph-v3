@@ -14,8 +14,10 @@
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,
-    // Override paths to use node_modules resolution → @actograph/core/dist
-    "paths": {}
+    "paths": {
+      "@actograph/core": ["../core/dist"],
+      "@actograph/core/*": ["../core/dist/*"]
+    }
   },
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/__tests__"]
 }

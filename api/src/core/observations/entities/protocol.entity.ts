@@ -15,6 +15,7 @@ export interface IGraphPreferences {
   backgroundPattern?: BackgroundPatternEnum;
   displayMode?: DisplayModeEnum;
   supportCategoryId?: string | null;
+  supportCategoryName?: string | null;
 }
 
 export interface ProtocolItem {

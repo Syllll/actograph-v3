@@ -1,4 +1,5 @@
 import { ObservationModeEnum, ReadingTypeEnum } from '../enums';
+import type { IGraphPreferences } from '../types/protocol.types';
 
 /**
  * Format d'import pour les fichiers .jchronic (v3)
@@ -49,7 +50,18 @@ export interface IJchronicProtocolItem {
   description?: string;
   action?: string;
   order?: number;
+  /** @deprecated Alias mobile historique de `order` */
+  sortOrder?: number;
   meta?: Record<string, unknown>;
+  graphPreferences?: IGraphPreferences;
+  /** @deprecated Champ plat mobile, préférer graphPreferences.color */
+  color?: string;
+  /** @deprecated Champ plat mobile, préférer graphPreferences.displayMode */
+  displayMode?: string;
+  /** @deprecated Champ plat mobile, préférer graphPreferences.backgroundPattern */
+  backgroundPattern?: string;
+  /** @deprecated Champ plat mobile, préférer graphPreferences.strokeWidth */
+  strokeWidth?: number;
   children?: IJchronicProtocolItem[];
 }
 
@@ -94,6 +106,7 @@ export interface INormalizedCategory {
   action?: string;
   order?: number;
   meta?: Record<string, unknown>;
+  graphPreferences?: IGraphPreferences;
   observables?: INormalizedObservable[];
 }
 
@@ -103,6 +116,7 @@ export interface INormalizedObservable {
   action?: string;
   meta?: Record<string, unknown>;
   order?: number;
+  graphPreferences?: IGraphPreferences;
 }
 
 export interface INormalizedReading {
