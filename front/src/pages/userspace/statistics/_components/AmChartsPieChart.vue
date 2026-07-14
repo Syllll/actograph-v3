@@ -85,6 +85,9 @@ export default defineComponent({
         fontSize: 12,
       });
 
+      // Match legend value format to slice label format (1 decimal)
+      series.set('legendValueText', '{valuePercentTotal.formatNumber(\'#.0\')}%');
+
       // Add tooltip
       series.slices.template.setAll({
         tooltipText: '{category}: {valuePercentTotal.formatNumber(\'#.0\')}% ({value})',
