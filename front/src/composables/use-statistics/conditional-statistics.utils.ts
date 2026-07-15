@@ -30,3 +30,12 @@ export function shouldUseLocalConditionalStatistics(
 ): boolean {
   return !treatPausesAsSeparateState;
 }
+
+export const sumTargetCategoryOccurrences = (
+  observables: Array<{ onCount?: number }> | undefined,
+): number => {
+  if (!observables) {
+    return 0;
+  }
+  return observables.reduce((sum, obs) => sum + (obs.onCount || 0), 0);
+};

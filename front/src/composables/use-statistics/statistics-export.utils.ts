@@ -5,6 +5,7 @@ import {
   IGeneralStatistics,
   IObservableStatistics,
 } from '@services/observations/statistics.interface';
+import { sumTargetCategoryOccurrences } from './conditional-statistics.utils';
 
 export type StatisticsExportTab = 'general' | 'category' | 'advanced';
 type TranslateFn = (key: string) => string;
@@ -53,14 +54,6 @@ export const formatObservableOnPercentage = (
   return `${percentage.toFixed(1)}%`;
 };
 
-export const sumTargetCategoryOccurrences = (
-  observables: Pick<IObservableStatistics, 'onCount'>[] | undefined,
-): number => {
-  if (!observables) {
-    return 0;
-  }
-  return observables.reduce((sum, obs) => sum + (obs.onCount || 0), 0);
-};
 
 export interface BuildStatisticsWorksheetsInput {
   activeTab: StatisticsExportTab;

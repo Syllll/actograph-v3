@@ -1,6 +1,7 @@
 import {
   mapConditionalStatisticsResult,
   shouldUseLocalConditionalStatistics,
+  sumTargetCategoryOccurrences,
 } from '../conditional-statistics.utils';
 import {
   ConditionOperatorEnum,
@@ -46,5 +47,15 @@ describe('conditional-statistics.utils', () => {
   it('uses local conditional statistics when pauses are transparent', () => {
     expect(shouldUseLocalConditionalStatistics(true)).toBe(false);
     expect(shouldUseLocalConditionalStatistics(false)).toBe(true);
+  });
+
+  it('sums onCount across target category observables', () => {
+    expect(
+      sumTargetCategoryOccurrences([
+        { onCount: 2 },
+        { onCount: 3 },
+        { onCount: 0 },
+      ]),
+    ).toBe(5);
   });
 });

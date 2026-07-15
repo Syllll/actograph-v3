@@ -3,7 +3,6 @@ import {
   buildStatisticsWorksheets,
   formatObservableOnPercentage,
   resolveTotalCategoryDuration,
-  sumTargetCategoryOccurrences,
 } from '../statistics-export.utils';
 
 const t = (key: string) => key;
@@ -70,18 +69,6 @@ describe('formatObservableOnPercentage', () => {
     expect(
       formatObservableOnPercentage({ onDuration: 250, onPercentage: 33.3 }, 1000),
     ).toBe('33.3%');
-  });
-});
-
-describe('sumTargetCategoryOccurrences', () => {
-  it('sums onCount across observables', () => {
-    expect(
-      sumTargetCategoryOccurrences([
-        { onCount: 2 } as any,
-        { onCount: 3 } as any,
-        { onCount: 0 } as any,
-      ]),
-    ).toBe(5);
   });
 });
 

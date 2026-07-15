@@ -192,7 +192,7 @@ import {
   buildConditionalObservableOptions,
   resolveCategoryIsContinuous,
 } from 'src/composables/use-statistics/conditional-observable-options.utils';
-import { sumTargetCategoryOccurrences } from 'src/composables/use-statistics/statistics-export.utils';
+import { sumTargetCategoryOccurrences } from 'src/composables/use-statistics/conditional-statistics.utils';
 
 function formatOccurrenceCount(
   t: (key: string, values?: Record<string, unknown>) => string,
@@ -297,6 +297,8 @@ export default defineComponent({
         return false;
       }
 
+      // Conditions are always drawn from continuous categories, so filteredDuration
+      // reflects whether any matching time window exists.
       return (statistics.sharedState.conditionalStatistics?.filteredDuration || 0) === 0;
     });
 
