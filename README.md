@@ -2,6 +2,16 @@
 
 ActoGraph v3 est une application web et desktop conçue pour l'analyse et la visualisation de données d'observation comportementale. L'application permet de créer des observations, de collecter des données (readings), de définir des protocoles d'observation structurés et de visualiser les données sous forme de graphiques interactifs.
 
+## Aperçu (desktop)
+
+| Accueil | Protocole |
+|---|---|
+| ![Accueil](docs/images/home.jpg) | ![Protocole](docs/images/protocol.jpg) |
+
+| Observation | Graphique d'activité |
+|---|---|
+| ![Observation](docs/images/observation.jpg) | ![Graphique](docs/images/graph.jpg) |
+
 ## Téléchargement
 
 La page de téléchargement officielle détecte votre système (Windows, macOS Apple Silicon/Intel, Linux) et propose le bon installeur directement :
