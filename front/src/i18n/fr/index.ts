@@ -427,6 +427,7 @@ export default {
     colOnPercentage: 'Pourcentage "on"',
     colOccurrences: 'Occurrences',
     colFilteredDuration: 'Durée filtrée',
+    colFilteredOccurrences: 'Occurrences filtrées',
   },
   graphUi: {
     loading: 'Chargement du graphique...',

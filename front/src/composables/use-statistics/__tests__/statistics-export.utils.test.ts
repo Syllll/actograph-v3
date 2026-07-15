@@ -3,6 +3,7 @@ import {
   buildStatisticsWorksheets,
   formatObservableOnPercentage,
   resolveTotalCategoryDuration,
+  sumTargetCategoryOccurrences,
 } from '../statistics-export.utils';
 
 const t = (key: string) => key;
@@ -69,6 +70,18 @@ describe('formatObservableOnPercentage', () => {
     expect(
       formatObservableOnPercentage({ onDuration: 250, onPercentage: 33.3 }, 1000),
     ).toBe('33.3%');
+  });
+});
+
+describe('sumTargetCategoryOccurrences', () => {
+  it('sums onCount across observables', () => {
+    expect(
+      sumTargetCategoryOccurrences([
+        { onCount: 2 } as any,
+        { onCount: 3 } as any,
+        { onCount: 0 } as any,
+      ]),
+    ).toBe(5);
   });
 });
 
@@ -156,6 +169,49 @@ describe('buildStatisticsWorksheets', () => {
     });
 
     expect(worksheets?.[0].rows).toHaveLength(2);
+    expect(worksheets?.[0].rows?.[0].onDuration).toBe('500ms');
     expect(worksheets?.[0].rows?.[1].onPercentage).toBe('100.0%');
+  });
+
+  it('exports discrete advanced stats with filtered occurrence summary', () => {
+    const worksheets = buildStatisticsWorksheets({
+      activeTab: 'advanced',
+      generalStatistics: null,
+      categoryStatistics: null,
+      conditionalStatistics: {
+        filteredDuration: 500,
+        conditions: [],
+        targetCategory: {
+          categoryId: 'cat-events',
+          categoryName: 'Events',
+          totalCategoryDuration: 0,
+          observables: [
+            {
+              observableId: 'obs-1',
+              observableName: 'Click',
+              onDuration: 0,
+              onPercentage: 0,
+              onCount: 2,
+            },
+            {
+              observableId: 'obs-2',
+              observableName: 'Signal',
+              onDuration: 0,
+              onPercentage: 0,
+              onCount: 1,
+            },
+          ],
+        },
+      },
+      targetCategoryIsContinuous: false,
+      t,
+      formatDuration,
+    });
+
+    expect(worksheets?.[0].rows?.[0].observableName).toBe(
+      'statisticsUi.colFilteredOccurrences (Events)',
+    );
+    expect(worksheets?.[0].rows?.[0].onDuration).toBe('');
+    expect(worksheets?.[0].rows?.[0].onCount).toBe(3);
   });
 });

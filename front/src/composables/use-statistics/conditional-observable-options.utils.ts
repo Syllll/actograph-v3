@@ -9,16 +9,42 @@ export interface IConditionalObservableProtocolItem {
   type?: string;
   id?: string;
   action?: string;
-  children?: Array<{
-    type?: string;
-    name?: string;
-  }>;
+  children?: IConditionalObservableProtocolItem[];
 }
 
 export function isContinuousCategoryAction(
   action?: string | ProtocolItemActionEnum,
 ): boolean {
   return !action || action === ProtocolItemActionEnum.Continuous;
+}
+
+export function resolveCategoryIsContinuous(
+  items: IConditionalObservableProtocolItem[],
+  categoryId: string,
+): boolean {
+  const findCategory = (
+    nodes: IConditionalObservableProtocolItem[],
+  ): IConditionalObservableProtocolItem | null => {
+    for (const item of nodes) {
+      if (item.type === 'category' && item.id === categoryId) {
+        return item;
+      }
+      if (item.children?.length) {
+        const found = findCategory(item.children);
+        if (found) {
+          return found;
+        }
+      }
+    }
+    return null;
+  };
+
+  const category = findCategory(items);
+  if (!category) {
+    return true;
+  }
+
+  return isContinuousCategoryAction(category.action);
 }
 
 /**
