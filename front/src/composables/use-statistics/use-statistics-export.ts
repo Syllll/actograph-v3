@@ -3,6 +3,8 @@ import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { exportData } from '@lib-improba/utils/export.utils';
 import { useObservation } from 'src/composables/use-observation';
+import { protocolService } from '@services/observations/protocol.service';
+import { resolveCategoryIsContinuous } from './conditional-observable-options.utils';
 import { useStatistics } from './index';
 import {
   buildStatisticsExportFileName,
@@ -22,12 +24,28 @@ export const useStatisticsExport = (getActiveTab: () => StatisticsExportTab) => 
     format: 'excel',
   });
 
+  const targetCategoryIsContinuous = computed(() => {
+    const stats = statistics.sharedState.conditionalStatistics;
+    if (!stats?.targetCategory?.categoryId) {
+      return true;
+    }
+
+    const protocol = observation.protocol?.sharedState?.currentProtocol;
+    if (!protocol) {
+      return true;
+    }
+
+    const items = protocolService.parseProtocolItems(protocol);
+    return resolveCategoryIsContinuous(items, stats.targetCategory.categoryId);
+  });
+
   const worksheetsForExport = computed(() =>
     buildStatisticsWorksheets({
       activeTab: getActiveTab(),
       generalStatistics: statistics.sharedState.generalStatistics,
       categoryStatistics: statistics.sharedState.categoryStatistics,
       conditionalStatistics: statistics.sharedState.conditionalStatistics,
+      targetCategoryIsContinuous: targetCategoryIsContinuous.value,
       t,
       formatDuration: statistics.methods.formatDuration,
     }),

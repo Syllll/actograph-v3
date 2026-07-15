@@ -8,17 +8,45 @@ export interface IConditionalObservableOption {
 export interface IConditionalObservableProtocolItem {
   type?: string;
   id?: string;
+  name?: string;
   action?: string;
-  children?: Array<{
-    type?: string;
-    name?: string;
-  }>;
+  children?: IConditionalObservableProtocolItem[];
+}
+
+function findProtocolCategory(
+  items: IConditionalObservableProtocolItem[],
+  categoryId: string,
+): IConditionalObservableProtocolItem | null {
+  for (const item of items) {
+    if (item.type === 'category' && item.id === categoryId) {
+      return item;
+    }
+    if (item.children?.length) {
+      const found = findProtocolCategory(item.children, categoryId);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
 }
 
 export function isContinuousCategoryAction(
   action?: string | ProtocolItemActionEnum,
 ): boolean {
   return !action || action === ProtocolItemActionEnum.Continuous;
+}
+
+export function resolveCategoryIsContinuous(
+  items: IConditionalObservableProtocolItem[],
+  categoryId: string,
+): boolean {
+  const category = findProtocolCategory(items, categoryId);
+  if (!category) {
+    return true;
+  }
+
+  return isContinuousCategoryAction(category.action);
 }
 
 /**
@@ -32,9 +60,7 @@ export function buildConditionalObservableOptions(
   const targetCategoryObservableNames = new Set<string>();
 
   if (targetCategoryId) {
-    const targetCategory = items.find(
-      (item) => item.type === 'category' && item.id === targetCategoryId,
-    );
+    const targetCategory = findProtocolCategory(items, targetCategoryId);
     if (targetCategory?.children) {
       for (const child of targetCategory.children) {
         if (child.type === 'observable' && child.name) {

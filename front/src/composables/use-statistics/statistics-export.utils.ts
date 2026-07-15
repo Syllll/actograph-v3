@@ -5,6 +5,7 @@ import {
   IGeneralStatistics,
   IObservableStatistics,
 } from '@services/observations/statistics.interface';
+import { sumTargetCategoryOccurrences } from './conditional-statistics.utils';
 
 export type StatisticsExportTab = 'general' | 'category' | 'advanced';
 type TranslateFn = (key: string) => string;
@@ -53,11 +54,14 @@ export const formatObservableOnPercentage = (
   return `${percentage.toFixed(1)}%`;
 };
 
+
 export interface BuildStatisticsWorksheetsInput {
   activeTab: StatisticsExportTab;
   generalStatistics: IGeneralStatistics | null;
   categoryStatistics: ICategoryStatistics | null;
   conditionalStatistics: IConditionalStatistics | null;
+  /** Required for advanced tab export; defaults to continuous when omitted. */
+  targetCategoryIsContinuous?: boolean;
   t: TranslateFn;
   formatDuration: FormatDurationFn;
 }
@@ -70,6 +74,7 @@ export const buildStatisticsWorksheets = (
     generalStatistics,
     categoryStatistics,
     conditionalStatistics,
+    targetCategoryIsContinuous = true,
     t,
     formatDuration,
   } = input;
@@ -166,6 +171,20 @@ export const buildStatisticsWorksheets = (
         onCount: obs.onCount,
       }));
 
+    const summaryRow = targetCategoryIsContinuous
+      ? {
+          observableName: `${t('statisticsUi.colFilteredDuration')} (${targetCategory.categoryName})`,
+          onDuration: formatDuration(conditionalStatistics.filteredDuration),
+          onPercentage: '',
+          onCount: '',
+        }
+      : {
+          observableName: `${t('statisticsUi.colFilteredOccurrences')} (${targetCategory.categoryName})`,
+          onDuration: '',
+          onPercentage: '',
+          onCount: sumTargetCategoryOccurrences(targetCategory.observables),
+        };
+
     return [
       {
         name: t('statisticsUi.exportSheetConditional'),
@@ -175,15 +194,7 @@ export const buildStatisticsWorksheets = (
           { header: t('statisticsUi.colOnPercentage'), key: 'onPercentage', width: 20 },
           { header: t('statisticsUi.colOccurrences'), key: 'onCount', width: 15 },
         ],
-        rows: [
-          {
-            observableName: `${t('statisticsUi.colFilteredDuration')} (${targetCategory.categoryName})`,
-            onDuration: formatDuration(conditionalStatistics.filteredDuration),
-            onPercentage: '',
-            onCount: '',
-          },
-          ...observableRows,
-        ],
+        rows: [summaryRow, ...observableRows],
       },
     ];
   }

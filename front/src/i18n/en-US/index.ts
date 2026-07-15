@@ -380,7 +380,6 @@ export default {
     filteredOccurrenceIntroMultiple: 'Total number of occurrences while conditions {conditions} are met:',
     pieShareTitle: 'Distribution (%) of "on" time in category {category} (when {conditions})',
     pieShareTitleNoObservable: 'Distribution (%) of "on" time in category {category}',
-    barOnDurationTitle: 'Absolute “on” durations',
     stateOn: 'On',
     stateOff: 'Off',
     operatorAnd: 'AND',
@@ -423,6 +422,7 @@ export default {
     colOnPercentage: 'On percentage',
     colOccurrences: 'Occurrences',
     colFilteredDuration: 'Filtered duration',
+    colFilteredOccurrences: 'Filtered occurrences',
   },
   graphUi: {
     loading: 'Loading chart...',

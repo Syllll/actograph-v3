@@ -190,8 +190,9 @@ import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
 import {
   buildConditionalObservableOptions,
-  isContinuousCategoryAction,
+  resolveCategoryIsContinuous,
 } from 'src/composables/use-statistics/conditional-observable-options.utils';
+import { sumTargetCategoryOccurrences } from 'src/composables/use-statistics/conditional-statistics.utils';
 
 function formatOccurrenceCount(
   t: (key: string, values?: Record<string, unknown>) => string,
@@ -288,27 +289,7 @@ export default defineComponent({
 
       const protocol = observation.protocol.sharedState.currentProtocol;
       const items = protocolService.parseProtocolItems(protocol);
-
-      const findCategory = (nodes: unknown[]): unknown => {
-        for (const item of nodes) {
-          const node = item as { type?: string; id?: string; children?: unknown[] };
-          if (node.type === 'category' && node.id === state.targetCategoryId) {
-            return item;
-          }
-          if (node.children) {
-            const found = findCategory(node.children);
-            if (found) return found;
-          }
-        }
-        return null;
-      };
-
-      const category = findCategory(items) as { action?: string } | null;
-      if (!category) {
-        return true;
-      }
-
-      return isContinuousCategoryAction(category.action);
+      return resolveCategoryIsContinuous(items, state.targetCategoryId);
     });
 
     const hasNoMatchingConditions = computed(() => {
@@ -316,6 +297,8 @@ export default defineComponent({
         return false;
       }
 
+      // Conditions are always drawn from continuous categories, so filteredDuration
+      // reflects whether any matching time window exists.
       return (statistics.sharedState.conditionalStatistics?.filteredDuration || 0) === 0;
     });
 
@@ -393,13 +376,11 @@ export default defineComponent({
       return t(`statisticsUi.${keyPrefix}Multiple`, { conditions: names.join(', ') });
     });
 
-    const totalOccurrenceCount = computed(() => {
-      const observables = statistics.sharedState.conditionalStatistics?.targetCategory?.observables;
-      if (!observables) {
-        return 0;
-      }
-      return observables.reduce((sum, obs) => sum + (obs.onCount || 0), 0);
-    });
+    const totalOccurrenceCount = computed(() =>
+      sumTargetCategoryOccurrences(
+        statistics.sharedState.conditionalStatistics?.targetCategory?.observables,
+      ),
+    );
 
     const filteredResultsValueText = computed(() => {
       if (isContinuousCategory.value) {
@@ -432,11 +413,10 @@ export default defineComponent({
         : t('statisticsUi.pieShareTitleNoObservable', { category: categoryName });
     });
 
-    const barChartTitleText = computed(() =>
-      isContinuousCategory.value
-        ? t('statisticsUi.barOnDurationTitle')
-        : t('statisticsUi.categoryOccurrencesChartTitle'),
-    );
+    // L'histogramme compte des évènements (occurrences), pas des durées :
+    // il garde ce sens quel que soit le type de la catégorie cible. La
+    // répartition en durée reste du ressort du camembert (catégories continues).
+    const barChartTitleText = computed(() => t('statisticsUi.categoryOccurrencesChartTitle'));
 
     const unaccountedPieDuration = computed(() => {
       const stats = statistics.sharedState.conditionalStatistics;
@@ -488,24 +468,12 @@ export default defineComponent({
         return [];
       }
 
-      if (!isContinuousCategory.value) {
-        const data = stats.targetCategory.observables
-          .filter((obs) => obs.onCount > 0)
-          .map((obs) => ({
-            label: obs.observableName,
-            value: obs.onCount || 0,
-            formattedValue: formatOccurrenceCount(t, obs.onCount || 0),
-          }));
-
-        return data.length > 0 ? data : [];
-      }
-
       const data = stats.targetCategory.observables
-        .filter((obs) => obs.onDuration > 0 || obs.onCount > 0)
+        .filter((obs) => obs.onCount > 0)
         .map((obs) => ({
           label: obs.observableName,
-          value: obs.onDuration || 0,
-          formattedValue: statistics.methods.formatDuration(obs.onDuration || 0),
+          value: obs.onCount || 0,
+          formattedValue: formatOccurrenceCount(t, obs.onCount || 0),
         }));
 
       return data.length > 0 ? data : [];

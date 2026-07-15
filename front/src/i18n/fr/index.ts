@@ -385,7 +385,6 @@ export default {
     filteredOccurrenceIntroMultiple: 'Nombre total d\'occurrences lorsque les conditions {conditions} sont valides :',
     pieShareTitle: 'Répartition (%) des temps « on » dans la catégorie {category} (lorsque {conditions})',
     pieShareTitleNoObservable: 'Répartition (%) des temps « on » dans la catégorie {category}',
-    barOnDurationTitle: 'Durées absolues d\'état « on »',
     stateOn: 'On',
     stateOff: 'Off',
     operatorAnd: 'ET',
@@ -428,6 +427,7 @@ export default {
     colOnPercentage: 'Pourcentage "on"',
     colOccurrences: 'Occurrences',
     colFilteredDuration: 'Durée filtrée',
+    colFilteredOccurrences: 'Occurrences filtrées',
   },
   graphUi: {
     loading: 'Chargement du graphique...',
