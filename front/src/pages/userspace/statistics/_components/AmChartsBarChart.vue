@@ -138,8 +138,10 @@ export default defineComponent({
       );
 
       // Create Y axis (values) - pour barres verticales
+      // maxPrecision: 0 force des graduations entières (les valeurs sont des occurrences, jamais des fractions)
       const yAxis = chart.yAxes.push(
         am5xy.ValueAxis.new(root, {
+          maxPrecision: 0,
           renderer: am5xy.AxisRendererY.new(root, {}),
         })
       );
