@@ -72,6 +72,11 @@ export default defineComponent({
       type: Number,
       default: 400,
     },
+    /** When true, Y-axis ticks use whole numbers only (occurrence counts). */
+    integerAxis: {
+      type: Boolean,
+      default: false,
+    },
   },
   setup(props) {
     const { t, locale } = useI18n();
@@ -138,10 +143,9 @@ export default defineComponent({
       );
 
       // Create Y axis (values) - pour barres verticales
-      // maxPrecision: 0 force des graduations entières (les valeurs sont des occurrences, jamais des fractions)
       const yAxis = chart.yAxes.push(
         am5xy.ValueAxis.new(root, {
-          maxPrecision: 0,
+          ...(props.integerAxis ? { maxPrecision: 0 } : {}),
           renderer: am5xy.AxisRendererY.new(root, {}),
         })
       );
@@ -317,6 +321,13 @@ export default defineComponent({
           }
         }
       }
+    );
+
+    watch(
+      () => props.integerAxis,
+      () => {
+        createChart();
+      },
     );
 
     watch(locale, () => {

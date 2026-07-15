@@ -7,7 +7,10 @@ import { IProtocol } from '@services/observations/interface';
 
 const makeProtocol = (): IProtocol =>
   ({
-    id: 'proto-1',
+    id: 1,
+    name: 'Protocole test',
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     _items: [
       {
         id: 'cat-1',

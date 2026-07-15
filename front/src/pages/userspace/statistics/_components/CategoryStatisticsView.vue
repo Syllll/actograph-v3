@@ -48,6 +48,7 @@
               :data="occurrencesBarChartData"
               :colors="barChartColors"
               :height="400"
+              :integer-axis="true"
             />
           </div>
         </DCardSection>

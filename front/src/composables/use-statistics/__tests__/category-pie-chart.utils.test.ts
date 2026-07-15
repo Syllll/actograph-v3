@@ -4,23 +4,30 @@ import {
   calculateUnaccountedPieDuration,
   shouldIncludePauseSegment,
 } from '../category-pie-chart.utils';
+import { IObservableStatistics } from '@services/observations/statistics.interface';
+
+function mockObservable(
+  id: string,
+  name: string,
+  onDuration: number,
+  onPercentage: number,
+  onCount: number,
+): IObservableStatistics {
+  return {
+    observableId: id,
+    observableName: name,
+    onDuration,
+    onPercentage,
+    onCount,
+  };
+}
 
 const baseStats = {
   totalCategoryDuration: 9 * 60 * 1000,
   pauseDuration: 1 * 60 * 1000,
   observables: [
-    {
-      observableName: 'obsA',
-      onDuration: 3 * 60 * 1000,
-      onPercentage: (3 / 9) * 100,
-      onCount: 1,
-    },
-    {
-      observableName: 'obsB',
-      onDuration: 6 * 60 * 1000,
-      onPercentage: (6 / 9) * 100,
-      onCount: 1,
-    },
+    mockObservable('obs-a', 'obsA', 3 * 60 * 1000, (3 / 9) * 100, 1),
+    mockObservable('obs-b', 'obsB', 6 * 60 * 1000, (6 / 9) * 100, 1),
   ],
 };
 
@@ -78,18 +85,8 @@ describe('buildCategoryPieChartData', () => {
       totalCategoryDuration: 10 * 60 * 1000,
       pauseDuration: 1 * 60 * 1000,
       observables: [
-        {
-          observableName: 'obsA',
-          onDuration: 4 * 60 * 1000,
-          onPercentage: 40,
-          onCount: 1,
-        },
-        {
-          observableName: 'obsB',
-          onDuration: 6 * 60 * 1000,
-          onPercentage: 60,
-          onCount: 1,
-        },
+        mockObservable('obs-a', 'obsA', 4 * 60 * 1000, 40, 1),
+        mockObservable('obs-b', 'obsB', 6 * 60 * 1000, 60, 1),
       ],
     };
 
@@ -114,18 +111,8 @@ describe('buildCategoryPieChartData', () => {
       observationDuration: 9 * 60 * 1000, // 10 min window minus 1 min pause
       pauseDuration: 1 * 60 * 1000,
       observables: [
-        {
-          observableName: 'obsA',
-          onDuration: 3 * 60 * 1000,
-          onPercentage: (3 / 9) * 100,
-          onCount: 1,
-        },
-        {
-          observableName: 'obsB',
-          onDuration: 5 * 60 * 1000,
-          onPercentage: (5 / 9) * 100,
-          onCount: 1,
-        },
+        mockObservable('obs-a', 'obsA', 3 * 60 * 1000, (3 / 9) * 100, 1),
+        mockObservable('obs-b', 'obsB', 5 * 60 * 1000, (5 / 9) * 100, 1),
       ],
     };
 
@@ -165,12 +152,7 @@ describe('buildCategoryPieChartData', () => {
       windowDuration: 2 * 60 * 1000,
       pauseDuration: 1 * 60 * 1000,
       observables: [
-        {
-          observableName: 'obsA',
-          onDuration: 1 * 60 * 1000,
-          onPercentage: 50,
-          onCount: 1,
-        },
+        mockObservable('obs-a', 'obsA', 1 * 60 * 1000, 50, 1),
       ],
     };
 
@@ -193,8 +175,8 @@ describe('calculateUnaccountedPieDuration', () => {
       observationDuration: 9 * 60 * 1000,
       pauseDuration: 1 * 60 * 1000,
       observables: [
-        { observableName: 'obsA', onDuration: 3 * 60 * 1000, onPercentage: 0, onCount: 1 },
-        { observableName: 'obsB', onDuration: 5 * 60 * 1000, onPercentage: 0, onCount: 1 },
+        mockObservable('obs-a', 'obsA', 3 * 60 * 1000, 0, 1),
+        mockObservable('obs-b', 'obsB', 5 * 60 * 1000, 0, 1),
       ],
     };
 
