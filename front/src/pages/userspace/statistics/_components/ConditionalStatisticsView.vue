@@ -131,9 +131,9 @@
             {{ statistics.sharedState.conditionalStatistics.targetCategory.categoryName }}
           </div>
           <div v-if="state.conditions.length > 0" class="text-body2 q-mb-md">
-            <div>{{ t('statisticsUi.filteredDurationIntro') }}</div>
+            <div>{{ filteredResultsIntroText }}</div>
             <div class="text-h6 text-primary">
-              {{ statistics.methods.formatDuration(statistics.sharedState.conditionalStatistics.filteredDuration) }}
+              {{ filteredResultsValueText }}
             </div>
           </div>
 
@@ -371,6 +371,45 @@ export default defineComponent({
       },
     };
 
+    const conditionNames = computed(() =>
+      state.conditions.map((condition) => condition.observableName).filter(Boolean),
+    );
+
+    // Un diagramme d'occurrences compte des évènements, il n'a pas de durée :
+    // l'intro doit donc annoncer un nombre d'occurrences (pas "Durée totale ...")
+    // quand la catégorie cible est ponctuelle, comme pour le titre du camembert.
+    const filteredResultsIntroText = computed(() => {
+      const keyPrefix = isContinuousCategory.value ? 'filteredDurationIntro' : 'filteredOccurrenceIntro';
+      const names = conditionNames.value;
+
+      if (names.length === 0) {
+        return t(`statisticsUi.${keyPrefix}`);
+      }
+
+      if (names.length === 1) {
+        return t(`statisticsUi.${keyPrefix}Single`, { condition: names[0] });
+      }
+
+      return t(`statisticsUi.${keyPrefix}Multiple`, { conditions: names.join(', ') });
+    });
+
+    const totalOccurrenceCount = computed(() => {
+      const observables = statistics.sharedState.conditionalStatistics?.targetCategory?.observables;
+      if (!observables) {
+        return 0;
+      }
+      return observables.reduce((sum, obs) => sum + (obs.onCount || 0), 0);
+    });
+
+    const filteredResultsValueText = computed(() => {
+      if (isContinuousCategory.value) {
+        return statistics.methods.formatDuration(
+          statistics.sharedState.conditionalStatistics?.filteredDuration || 0,
+        );
+      }
+      return formatOccurrenceCount(t, totalOccurrenceCount.value);
+    });
+
     const pieShareTitleText = computed(() => {
       const stats = statistics.sharedState.conditionalStatistics;
       const categoryName = stats?.targetCategory?.categoryName || '';
@@ -489,6 +528,8 @@ export default defineComponent({
       observableOptions,
       categoryOptions,
       methods,
+      filteredResultsIntroText,
+      filteredResultsValueText,
       pieShareTitleText,
       barChartTitleText,
       pieChartData,
