@@ -98,6 +98,7 @@
   .badge.type-bonus{background:#fef3c7; color:#92400e;}
   .badge.type-libre{background:#f1f5f9; color:#475569;}
   .badge.duree{background:#f8fafc; color:var(--text-muted); border:1px solid var(--border);}
+  .badge.priorite{background:#fef2f2; color:#b91c1c; border:1px solid #fecaca;}
 
   .test-desc{margin:10px 0 12px; font-size:.92rem;}
   .test-desc ul{margin:6px 0; padding-left:20px;}
@@ -200,7 +201,7 @@
     <h1>Guide de test utilisateur — Actograph V3 (Bêta)</h1>
     <p>Tout d'abord, un grand merci pour votre participation aux tests d'Actograph V3 !</p>
     <p>Le développement est bien avancé, mais à ce stade Actograph a besoin de vous. Quel que soit votre niveau d'expérience dans l'utilisation d'un outil de relevé et en création de chroniques d'activité, votre retour en tant qu'utilisateur·trice nous sera précieux. La plus grande considération sera accordée à chacune de vos contributions.</p>
-    <span class="deadline">📅 De préférence avant le 15 juillet 2026</span>
+    <span class="deadline">📅 De préférence avant le 30 juillet 2026</span>
   </div>
 </header>
 
@@ -213,14 +214,14 @@
       <strong>Comment utiliser ce guide ?</strong>
       <ul>
         <li>Choisissez un ou plusieurs chapitres, selon le temps dont vous disposez.</li>
-        <li>Après le <strong>Préambule</strong>, puis le <strong>Chapitre 0. Page d'accueil</strong>, vous trouverez un chapitre parcourant les étapes de réalisation d'une chronique : <strong>0 bis. Parcours à partir de la chronique « exemple »</strong>. Les autres concernent une étape : <strong>I. Protocole</strong>, <strong>II. Observation in situ</strong>, <strong>II bis. Vidéo</strong>, <strong>III. Graphe</strong>, <strong>IV. Statistiques</strong>.</li>
+        <li>Après le <strong>Préambule</strong>, puis le <strong>Chapitre 0. Page d'accueil</strong>, vous trouverez un chapitre parcourant les étapes de réalisation d'une chronique : <strong>0 bis. Parcours à partir de la chronique « exemple »</strong>. Les autres concernent une étape : <strong>I. Protocole</strong>, <strong>II. Observation in situ</strong>, <strong>II bis. Vidéo</strong>, <strong>III. Graphe</strong>, <strong>IV. Statistiques</strong>. Enfin le <strong>chapitre M</strong> est destiné à tester la version Mobile Android (Apple à venir).</li>
         <li>Il n'est pas obligatoire de répondre dans l'ordre des chapitres, ni des rubriques (seul le préambule est indispensable). Chaque ligne des tableaux est un test souvent indépendant, avec sa propre durée estimée.</li>
         <li>Les tests sur fond jaune correspondent à des fonctions « bonus », pas encore garanties dans cette version bêta : testez-les si vous en avez l'occasion.</li>
         <li>En fin de chaque chapitre, une rubrique permet de faire des retours libres : « Autres tests ».</li>
         <li>Pour joindre une capture d'écran (ça nous aide beaucoup) : cliquez dans la case dédiée puis collez (Ctrl+V), ou utilisez le lien « choisir un fichier ».</li>
         <li>Vous pouvez nous faire plusieurs retours échelonnés : vous pouvez renvoyer ce document plusieurs fois à Actograph‑info, avec différents tests ou différentes réponses.</li>
       </ul>
-      <p style="margin-bottom:0;"><strong>Date limite de retour : 15 juillet 2026</strong>, à adresser à <a href="mailto:actograph-info@symalgo-tech.com">actograph-info@symalgo-tech.com</a>. Après cette date, les retours (ou compléments) seront encore considérés, mais ils feront l'objet d'une vague ultérieure de traitement.</p>
+      <p style="margin-bottom:0;"><strong>Date limite de retour : 30 juillet 2026</strong>, à adresser à <a href="mailto:actograph-info@symalgo-tech.com">actograph-info@symalgo-tech.com</a>. Après cette date, les retours (ou compléments) seront encore considérés, mais ils feront l'objet d'une vague ultérieure de traitement.</p>
     </div>
   </section>
 
@@ -262,7 +263,7 @@
     </div>
   </div>
 
-  <footer class="page-footer">Guide de test Actograph V3 — Bêta V0.2 — à renvoyer à actograph-info@symalgo-tech.com avant le 15 juillet 2026</footer>
+  <footer class="page-footer">Guide de test Actograph V3 — Bêta V0.3 — à renvoyer à actograph-info@symalgo-tech.com avant le 30 juillet 2026</footer>
 </div>
 
 <script>
@@ -491,29 +492,141 @@ const CHAPTERS = [
 },
 {
   id:"ch4", title:"Chapitre IV — Statistiques",
-  objectif:"Générer des statistiques (à partir d'un enregistrement complet START–STOP) et vérifier les exports.",
-  duree:"30 à 40 mn",
+  objectif:"Générer des statistiques (à partir d'un enregistrement complet START–STOP), vérifier le Mode avancé (diagrammes de durées et d'occurrences) et les exports.",
+  duree:"45 à 60 mn",
   tests:[
     {num:"Prérequis", titre:"Condition d'accès aux statistiques", type:"guide", duree:"2 mn", desc:[
       "Vérifiez qu'en l'absence de START ou de STOP dans les relevés, les statistiques ne peuvent pas être générées et qu'un message explicatif est affiché."]},
-    {num:"1", titre:"Tableau général de statistiques", type:"guide", duree:"8-10 mn", desc:[
-      "À partir d'un enregistrement (du 1er START au STOP), consultez le tableau général.",
+    {num:"1", titre:"Tableau général de statistiques (Vue globale)", type:"guide", duree:"8-10 mn", desc:[
+      "À partir d'un enregistrement (du 1er START au STOP), consultez le tableau général (onglet Statistiques > Vue globale).",
       "Vérifiez la présence des colonnes : durées, occurrences, pourcentages, totaux.",
       "Vérifiez la cohérence des chiffres avec les relevés effectués.",
       "Exportez le tableau sous Excel et vérifiez que le fichier s'ouvre correctement avec les bonnes colonnes."]},
     {num:"2", titre:"Statistiques par catégorie", type:"scenario", duree:"8 mn", desc:[
-      "Affichez le diagramme secteur de durée des états pour une catégorie.",
+      "Dans l'onglet Statistiques > Par catégorie, affichez le diagramme secteur (camembert) de durée des états pour une catégorie continue.",
       "Vérifiez le classement (de la plus grande à la plus petite durée, sens horaire).",
+      "Sélectionnez ensuite une catégorie ponctuelle/discrète (événements) : vérifiez qu'aucun camembert de durée n'est proposé (un événement ponctuel n'a pas de durée), mais que l'histogramme d'occurrences, lui, s'affiche bien.",
       "Modifiez les couleurs depuis l'onglet Graph et vérifiez la mise à jour du diagramme."]},
-    {num:"3", titre:"Statistiques combinées", type:"scenario", duree:"8 mn", desc:[
-      "Affichez un diagramme secteur combiné : sélectionnez une catégorie et un observable d'une autre catégorie.",
-      "Vérifiez le classement par durée décroissante en sens horaire."]},
-    {num:"3bis", titre:"Combiné en occurrence (bonus)", type:"bonus", duree:"5 mn", desc:[
-      "Si disponible, testez le diagramme combiné en occurrence d'un observable sur une catégorie."]},
+    {num:"2bis", titre:"Préparer les données — exemple « Faire le café »", type:"guide", duree:"10 mn", desc:[
+      "Depuis l'Accueil, dans le panneau « Centre d'aide », section « Exemples intégrés », cliquez sur <strong>« Exemple Faire le café »</strong> (icône tasse à café) — différent de « Découvrir avec l'exemple intégré ». Faites un « Enregistrer sous » pour travailler sur une copie.",
+      "Ouvrez l'onglet Protocole et repérez les 3 catégories fournies : <strong>Lieu</strong> (continu : Cuisine, Salon, Autre Lieu), <strong>Action</strong> (continu : Préparer le café, Verser le café, Boire le café, Autre Action) et <strong>Evènements</strong> (ponctuel : Téléphone, Sifflement cafetière).",
+      "Dans l'onglet Observations, la chronique fournie ne contient qu'une seule occurrence de « Téléphone » et de « Sifflement cafetière ». Pour que les diagrammes du mode avancé (étapes suivantes) soient parlants, ajoutez plusieurs lignes par duplication d'un relevé existant : dupliquez « Téléphone » et « Sifflement cafetière » 2 ou 3 fois chacun, en changeant à chaque fois l'horodatage, pour obtenir plusieurs occurrences de chaque observable ponctuel.",
+      "Ajoutez de la même façon quelques relevés supplémentaires dans les catégories Lieu et Action (dupliquer un relevé existant, puis changer l'observable et/ou l'horodatage), pour obtenir des durées « on » différenciées entre observables.",
+      "Vérifiez que le graphe (onglet Graph) reflète bien tous les relevés ajoutés avant de passer aux statistiques."]},
+    {num:"3", titre:"Mode avancé — diagramme de durées (catégorie continue)", type:"scenario", duree:"10 mn", desc:[
+      "Dans l'onglet Statistiques > Mode avancé, à l'étape « 1. Choisir la catégorie à étudier », choisissez la catégorie continue <strong>Action</strong>.",
+      "À l'étape « 2. Ajouter des conditions », ajoutez une condition : observable « Cuisine » (catégorie Lieu), état On. Cliquez sur « Calculer les statistiques ».",
+      "Vérifiez que le bandeau au-dessus des diagrammes annonce une <strong>durée</strong> (« Durée totale lorsque la condition Cuisine est valide : ») et affiche bien un temps, pas un nombre.",
+      "Vérifiez que le diagramme secteur (camembert) de répartition des durées s'affiche pour cette catégorie continue.",
+      "Vérifiez que l'histogramme, lui, affiche un <strong>nombre d'occurrences</strong> par observable (pas une durée), même si la catégorie choisie est continue.",
+      "Ajoutez une 2e condition (ex. « Salon » à Off) avec l'opérateur ET, recalculez, et vérifiez que le bandeau nomme bien les deux conditions au pluriel (« lorsque les conditions ... sont valides »)."]},
+    {num:"3bis", titre:"Mode avancé — diagramme d'occurrences (catégorie ponctuelle)", type:"scenario", duree:"8 mn", desc:[
+      "Toujours en Mode avancé, choisissez cette fois la catégorie ponctuelle <strong>Evènements</strong> comme catégorie à étudier, avec une condition (ex. « Préparer le café » à On).",
+      "Vérifiez qu'aucun camembert ne s'affiche (une catégorie d'évènements ponctuels n'a pas de durée à répartir).",
+      "Vérifiez que l'histogramme s'affiche avec le nombre d'occurrences de « Téléphone » et de « Sifflement cafetière » dans la fenêtre filtrée.",
+      "Vérifiez que le bandeau au-dessus annonce cette fois un <strong>nombre total d'occurrences</strong> (« Nombre total d'occurrences lorsque la condition ... est valide : »), et non une durée."]},
+    {num:"3ter", titre:"Mode avancé — conditions restreintes aux catégories continues (bonus)", type:"bonus", duree:"5 mn", desc:[
+      "Dans la liste déroulante des observables proposés comme condition (étape 2), vérifiez que seuls des observables de catégories continues sont proposés (ex. Cuisine, Salon, Préparer le café...) et que « Téléphone » et « Sifflement cafetière » (catégorie ponctuelle) n'y apparaissent pas — un évènement ponctuel n'a pas d'état on/off filtrable.",
+      "Choisissez des conditions qui ne peuvent jamais être valides simultanément (ex. Cuisine à On ET Salon à On) et vérifiez qu'un message signale bien qu'aucune période ne correspond."]},
     {num:"4", titre:"Export des graphiques et légendes", type:"guide", duree:"5 mn", desc:[
       "Exportez un diagramme secteur (JPEG ou PNG) et vérifiez que le fichier s'ouvre correctement.",
       "Exportez la légende et vérifiez que le texte des observables y est modifiable."]},
     {num:"5", titre:"Autres tests", type:"libre", duree:"", desc:[]}
+  ]
+},
+{
+  id:"chmobile", title:"Chapitre M — Application mobile (Android, bêta ; Apple à venir)",
+  objectif:"Objectif : Vérifier les parcours propres à l'application mobile ActoGraph : gestion des chroniques, protocole, observation, relevés, graphe et cloud, réglages divers d'affichage.<br>",
+  duree:"environ 100 à 125 mn au total — chaque rubrique est indépendante, vous pouvez répartir ces tests sur plusieurs sessions",
+  tests:[
+    {num:"0", titre:"Installer l'application mobile (bêta)", type:"guide", duree:"5-10 mn", prereq:true, desc:[
+      "À partir de votre mobile (téléphone ou tablette), téléchargez l'application mobile Actograph sur le Store Android.",
+      "<strong>Indiquez le type de matériel :</strong> <label style=\"margin-right:16px;\"><input type=\"checkbox\" id=\"chmobile_t0_materiel_telephone\"> Téléphone</label><label><input type=\"checkbox\" id=\"chmobile_t0_materiel_tablette\"> Tablette</label>",
+      "<strong>Indiquez son modèle si possible :</strong> <input type=\"text\" id=\"chmobile_t0_materiel_modele\" style=\"margin-left:8px;min-width:220px;\">",
+      "Vérifiez le numéro de version affiché dans l'application, dans Paramètres (icône ⚙️ en haut à droite puis section « Application »).",
+      "<strong>Indiquez ce numéro de version :</strong> <input type=\"text\" id=\"chmobile_t0_version_numero\" style=\"margin-left:8px;min-width:160px;\">"]},
+    {num:"1", titre:"Découverte de l'accueil mobile", type:"guide", duree:"5 mn", desc:[
+      "Ouvrez l'application : vérifiez la présence des 4 onglets principaux en bas d'écran (Accueil, Observer, Relevés, Graphe).",
+      "Vérifiez qu'aucune connexion ni compte n'est demandé pour une utilisation locale (l'app est annoncée 100% gratuite et hors-ligne).",
+      "Sans chronique chargée, essayez d'ouvrir les onglets Observer, Relevés ou Graphe : vérifiez qu'un message explicite s'affiche (« Chargez une chronique depuis l'accueil ») plutôt qu'un écran vide ou une erreur.",
+      "Sur l'accueil, vérifiez l'affichage du nom, de la description, du nombre de relevés et du nombre de catégories de la chronique active."]},
+    {num:"2", titre:"Créer et charger une chronique", type:"scenario", duree:"8 mn", desc:[
+      "Créez une nouvelle chronique depuis l'accueil. Vérifiez qu'elle apparaît bien dans la liste des chroniques enregistrées.",
+      "Rechargez une autre chronique via « Charger une autre chronique » et vérifiez le changement effectif du contenu affiché (nom, relevés, protocole)."]},
+    {num:"2bis", titre:"Créer plusieurs petites chroniques de test (à la main)", type:"guide", duree:"10 mn", desc:[
+      "Créez à la main 2 ou 3 chroniques courtes en répétant l'étape « Créer et charger une chronique » ci-dessus, chacune avec un petit protocole (1 ou 2 catégories, 2 ou 3 observables).",
+      "Donnez-leur des noms distincts pour vous y retrouver facilement, et gardez-les : elles serviront de matériel pour les étapes suivantes (obtenir une chronique avec des relevés, changement de chronique, nouvelle observation)."]},
+    {num:"3", titre:"Obtenir une chronique avec des relevés (avant le test 4)", type:"guide", duree:"5 mn", desc:[
+      "Le test suivant nécessite une chronique contenant déjà des relevés, ce que vous n'avez pas encore à ce stade si vous démarrez de zéro.",
+      "Choisissez l'une des chroniques créées à l'étape 2bis et faites une courte observation : START, cliquez sur 3 ou 4 boutons observables, puis STOP (le déroulé détaillé est décrit au test 6, vous pouvez vous y référer par anticipation).",
+      "Vous disposez maintenant d'au moins une chronique avec des relevés, utilisable pour le test 4."]},
+    {num:"4", titre:"Nouvelle observation — poursuivre ou repartir sur une nouvelle session", type:"scenario", duree:"12 mn", desc:[
+      "Depuis l'accueil, appuyez sur « Faire une observation » avec la chronique préparée à l'étape 3 (ou toute autre chronique contenant déjà des relevés).",
+      "Choisissez de <strong>repartir sur une nouvelle chronique</strong> : vérifiez le message d'explication (« Une nouvelle chronique sera créée avec le même protocole mais sans relevés... »), puis vérifiez que la chronique d'origine garde bien tous ses relevés intacts.",
+      "Vérifiez le nom donné à la nouvelle chronique (suffixe « (1) », puis « (2) » si vous recommencez l'opération sur la même source).",
+      "Vérifiez que le protocole (catégories, observables, couleurs, modes d'affichage) est fidèlement recopié, sans aucun relevé.",
+      "Testez un double-appui rapide sur le bouton de confirmation : l'opération ne doit se déclencher qu'une seule fois (un indicateur de chargement doit s'afficher pendant la création)."],
+      titre_extra:"Priorité"},
+    {num:"5", titre:"Protocole — créer catégories et observables", type:"scenario", duree:"10 mn", desc:[
+      "Depuis l'observation, ouvrez la création/édition de protocole : ajoutez une catégorie puis 2 observables.",
+      "Testez un observable de type continu et un de type discret/événement, et vérifiez leur comportement respectif une fois l'enregistrement démarré."]},
+    {num:"5bis", titre:"Réglage de la taille de l'interface (nouveau — Paramètres > Affichage)", type:"scenario", duree:"6 mn", desc:[
+      "Depuis n'importe quel écran, appuyez sur l'icône ⚙️ en haut à droite pour ouvrir « Paramètres », puis repérez la section « Affichage » > « Taille de l'interface ».",
+      "Déplacez le curseur (de 60% à 180%) et vérifiez que le pourcentage affiché change ; testez aussi les 3 raccourcis « Compact », « Standard », « Grand ».",
+      "Retournez sur l'onglet Observer avec une chronique chargée : vérifiez que les catégories et les boutons observables ont bien changé de taille en conséquence.",
+      "Fermez complètement l'application puis rouvrez-la : vérifiez que le réglage choisi est resté mémorisé (il est propre à cet appareil, pas à la chronique)."],
+      titre_extra:"Priorité"},
+    {num:"5ter", titre:"Redimensionnement individuel d'une catégorie (poignée)", type:"scenario", duree:"6 mn", desc:[
+      "Dans l'onglet Observer, repérez en bas à droite de chaque catégorie une petite poignée de redimensionnement.",
+      "Appuyez dessus et faites glisser pour élargir ou réduire une catégorie ; vérifiez que sa hauteur s'ajuste automatiquement pour garder les boutons observables lisibles (pas de superposition ni de texte coupé).",
+      "Redimensionnez 2 ou 3 catégories différemment, quittez puis revenez sur la chronique : vérifiez que chaque taille individuelle est bien conservée."],
+      titre_extra:"Priorité"},
+    {num:"5quater", titre:"Grille des boutons observables et rendu visuel", type:"guide", duree:"5 mn", desc:[
+      "Observez la disposition des boutons observables dans une catégorie contenant plusieurs éléments : ils doivent former une grille qui se réorganise (retour à la ligne) plutôt que de s'étirer pour remplir toute la largeur de la catégorie.",
+      "Vérifiez l'aspect des boutons : fond gris clair au repos, état actif en orange soutenu, et pour les observables ponctuels (événements) une icône cible + un flash orange bref au moment du clic.",
+      "Si possible, comparez avec la version desktop : l'aspect doit être visuellement cohérent (mêmes codes couleur)."],
+      titre_extra:"Priorité"},
+    {num:"6", titre:"Observation in situ — enregistrement", type:"guide", duree:"10 mn", desc:[
+      "Démarrez un enregistrement, cliquez sur plusieurs boutons observables (continus et événements), faites une pause puis reprenez, puis arrêtez.",
+      "Vérifiez le retour haptique (vibration légère) sur les actions principales (START/PAUSE/STOP, bascule d'un observable), si votre appareil le permet."]},
+    {num:"7", titre:"Ajouter un commentaire sur un relevé existant", type:"scenario", duree:"8 mn", desc:[
+      "Dans l'onglet Relevés, appuyez sur une ligne existante pour ouvrir la boîte de dialogue de commentaire.",
+      "Ajoutez un commentaire, vérifiez son affichage sous le relevé concerné dans le tableau.",
+      "Ajoutez un second commentaire sur le même relevé : vérifiez qu'il s'ajoute à la suite du premier (et ne l'écrase pas)."],
+      titre_extra:"Priorité"},
+    {num:"8", titre:"Consultation et recherche dans les relevés", type:"guide", duree:"5 mn", desc:[
+      "Parcourez la liste complète des relevés de la chronique active, testez la recherche/filtre si disponible."]},
+    {num:"9", titre:"Graphe — changement de chronique", type:"scenario", duree:"8 mn", desc:[
+      "Ouvrez l'onglet Graphe avec une chronique ayant des données, vérifiez l'affichage correct des catégories.",
+      "Sans fermer l'application, chargez une autre chronique depuis l'accueil puis revenez sur l'onglet Graphe : vérifiez que le graphe affiché correspond bien à la nouvelle chronique (et non à un reliquat de l'ancienne).",
+      "Faites pivoter ou redimensionner l'écran pendant que le graphe est affiché : vérifiez qu'il se redimensionne correctement sans rester figé ou déformé."],
+      titre_extra:"Priorité"},
+    {num:"10", titre:"Rotation d'écran (portrait / paysage)", type:"scenario", duree:"8 mn", desc:[
+      "Sur Android, faites pivoter l'appareil (portrait ↔ paysage) sur chacun des 4 onglets (Accueil, Observer, Relevés, Graphe), y compris en cours d'enregistrement.",
+      "Vérifiez qu'aucun relevé n'est perdu, que l'enregistrement en cours n'est pas interrompu, et que l'affichage reste utilisable dans les deux orientations.",
+      "Ce comportement est nouveau depuis le 17 juin 2026 (auparavant l'app était verrouillée en portrait) : merci de signaler toute anomalie même mineure (élément coupé, bouton inaccessible...)."],
+      titre_extra:"Priorité"},
+    {num:"10bis", titre:"Cohérence des contrastes en thème sombre", type:"guide", duree:"4 mn", desc:[
+      "Si votre appareil le permet, activez le thème sombre du système (réglages du téléphone, pas dans Actograph) puis rouvrez l'application.",
+      "Dans l'onglet Observer, vérifiez que le texte des boutons observables reste bien lisible sur leur fond (pas de gris moyen sur gris moyen), et que le fond de la zone de contenu de chaque catégorie n'est plus blanc mais suit bien le thème sombre.",
+      "Repassez en thème clair et vérifiez qu'aucune régression n'apparaît (boutons gris clair, texte noir bien lisible)."],
+      titre_extra:"Priorité"},
+    {num:"11", titre:"Cloud — connexion, envoi et récupération d'une chronique (= le mode d'import / export sur mobile)", type:"scenario", duree:"12 mn", desc:[
+      "Si vous disposez d'un compte Actograph.io, connectez-vous depuis le mobile (bouton « Se connecter » de la carte Cloud sur l'Accueil) puis ouvrez « Voir le cloud ». Si vous n'avez pas de compte, vous pouvez en créer un ici : <a href=\"https://www.actograph.io/web/fr/register/\" target=\"_blank\">https://www.actograph.io/web/fr/register/</a>",
+      "Téléchargez une chronique au format .jchronic depuis le Cloud : vérifiez qu'elle s'importe correctement et apparaît ensuite dans vos chroniques locales.",
+      "Si vous avez dans votre Cloud une ancienne chronique au format .chronic (V1, non convertie), téléchargez-la également : vérifiez qu'elle se télécharge et se convertit automatiquement (la liste doit annoncer « Format ancien .chronic — converti à la volée à l'import »), sans message d'erreur bloquant.",
+      "Depuis la carte Cloud d'une chronique active, utilisez le bouton d'envoi (icône ☁️⬆️) pour envoyer une de vos chroniques locales vers le Cloud, puis vérifiez qu'elle apparaît bien dans la liste du Cloud.",
+      "Le Cloud est limité à 10 fichiers par compte (badge « x/10 » sur la carte Cloud) : si vous avez déjà plusieurs anciennes chroniques stockées, vérifiez qu'au-delà de la limite le bouton d'envoi est bien désactivé et qu'un message clair l'indique (« Limite de 10 fichiers atteinte. Supprimez des fichiers pour en ajouter. »), plutôt qu'un échec silencieux."]},
+    {num:"11bis", titre:"Export puis réimport : les couleurs personnalisées sont-elles conservées ?", type:"scenario", duree:"8 mn", desc:[
+      "Dans le protocole d'une chronique mobile, personnalisez la couleur d'au moins un observable et d'une catégorie (si l'action n'est pas possible directement sur mobile, faites-le depuis la version desktop sur la même chronique puis synchronisez-la vers le mobile via le Cloud).",
+      "Pour vérifier la conservation des couleurs à l'aller-retour, deux options selon votre matériel : (a) si vous avez accès au desktop, exportez la chronique en .jchronic depuis le mobile via « Partager », transférez le fichier sur l'ordinateur puis réimportez-le dans la version desktop ; (b) sinon, envoyez la chronique vers le Cloud depuis le mobile (bouton d'envoi ☁️⬆️), puis retéléchargez-la depuis le Cloud sous un autre nom — c'est le seul aller-retour possible entièrement sur mobile, puisqu'il n'existe pas de réimport de fichier local (voir test 11). Si vous passez par le Cloud, vérifiez au préalable que vous avez de la place (limite de 10 fichiers par compte, voir test 11) ; sinon supprimez une ancienne chronique de test pour libérer un emplacement.",
+      "Vérifiez dans les deux cas que les couleurs personnalisées sont bien conservées, y compris pour un observable qui n'a pas sa propre couleur mais hérite de celle de sa catégorie.",
+      "C'est une fonctionnalité unifiée entre desktop et mobile le 14 juillet 2026 : n'hésitez pas à signaler toute couleur qui reviendrait à une valeur par défaut après l'export/import."],
+      titre_extra:"Priorité"},
+    {num:"12", titre:"Différences connues avec la version desktop", type:"bonus", duree:"3 mn", desc:[
+      "Confirmez l'absence (attendue à ce stade) des statistiques et du mode vidéo sur mobile — ce ne sont pas des bugs, mais si l'un de ces manques vous semble bloquant pour votre usage, dites-le nous.",
+      "Pour les couleurs de graphe : la personnalisation interactive (changer une couleur directement depuis le mobile) n'est pas proposée à ce stade ; en revanche les couleurs définies ailleurs doivent maintenant être conservées lors d'un import (voir test 11bis) — signalez toute différence de comportement constatée."]},
+    {num:"13", titre:"Autres tests", type:"libre", duree:"", desc:[]}
   ]
 }
 ];
@@ -616,6 +729,7 @@ function renderTest(ch, t){
   head.appendChild(el('h3', {text: (t.num ? t.num + '. ' : '') + t.titre}));
   const badges = el('div', {class:'badges'});
   if(t.prereq) badges.appendChild(el('span', {class:'badge badge-obligatoire', text: '⚠️ Obligatoire'}));
+  if(t.titre_extra) badges.appendChild(el('span', {class:'badge priorite', text: t.titre_extra}));
   badges.appendChild(el('span', {class:'badge type-'+t.type, text: TYPE_LABELS[t.type]}));
   if(t.duree) badges.appendChild(el('span', {class:'badge duree', text: '⏱ ' + t.duree}));
   head.appendChild(badges);
