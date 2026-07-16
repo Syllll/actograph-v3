@@ -78,7 +78,7 @@
                   <!-- Champ texte pour copier-coller rapide (Bug 2b.4) -->
                   <q-input
                     :model-value="formatDurationCompact()"
-                    @update:model-value="parseDurationFromText($event)"
+                    @update:model-value="createDurationTextChangeHandler(scope)"
                     :label="t('readingsUi.durationCopyPaste')"
                     dense
                     :placeholder="t('readingsUi.durationPlaceholder')"
@@ -86,7 +86,8 @@
                   />
                   <div class="row q-gutter-sm">
                     <q-input
-                      v-model.number="durationEditState.days"
+                      :model-value="durationEditState.days"
+                      @update:model-value="createDurationPartChangeHandler(scope, 'days')"
                       type="number"
                       :label="t('readingsUi.colDays')"
                       dense
@@ -95,7 +96,8 @@
                       style="width: 100px"
                     />
                     <q-input
-                      v-model.number="durationEditState.hours"
+                      :model-value="durationEditState.hours"
+                      @update:model-value="createDurationPartChangeHandler(scope, 'hours')"
                       type="number"
                       :label="t('readingsUi.colHours')"
                       dense
@@ -104,7 +106,8 @@
                       style="width: 100px"
                     />
                     <q-input
-                      v-model.number="durationEditState.minutes"
+                      :model-value="durationEditState.minutes"
+                      @update:model-value="createDurationPartChangeHandler(scope, 'minutes')"
                       type="number"
                       :label="t('readingsUi.colMinutes')"
                       dense
@@ -115,7 +118,8 @@
                   </div>
                   <div class="row q-gutter-sm">
                     <q-input
-                      v-model.number="durationEditState.seconds"
+                      :model-value="durationEditState.seconds"
+                      @update:model-value="createDurationPartChangeHandler(scope, 'seconds')"
                       type="number"
                       :label="t('readingsUi.colSeconds')"
                       dense
@@ -124,7 +128,8 @@
                       style="width: 100px"
                     />
                     <q-input
-                      v-model.number="durationEditState.milliseconds"
+                      :model-value="durationEditState.milliseconds"
+                      @update:model-value="createDurationPartChangeHandler(scope, 'milliseconds')"
                       type="number"
                       :label="t('readingsUi.colMilliseconds')"
                       dense
@@ -595,6 +600,28 @@ export default defineComponent({
       return parts.join(' ') || '0s';
     };
 
+    // q-popup-edit ne déclenche @save que si scope.value a changé (comparaison deep-equal
+    // avec sa valeur initiale). Les champs de durée ci-dessous modifient uniquement
+    // durationEditState ; on répercute donc systématiquement l'état courant dans scope.value
+    // pour que le popup détecte la modification et émette bien l'événement save.
+    const syncScopeFromDurationState = (scope: { value: any }) => {
+      scope.value = formatDurationCompact();
+    };
+
+    const createDurationTextChangeHandler = (scope: { value: any }) => (text: string) => {
+      parseDurationFromText(text);
+      syncScopeFromDurationState(scope);
+    };
+
+    const createDurationPartChangeHandler = (
+      scope: { value: any },
+      field: 'days' | 'hours' | 'minutes' | 'seconds' | 'milliseconds'
+    ) => (val: string | number | null) => {
+      const num = typeof val === 'number' ? val : Number(val);
+      durationEditState[field] = Number.isFinite(num) ? num : 0;
+      syncScopeFromDurationState(scope);
+    };
+
     // Bug 2b.4 : Parse du format compact (ex: "1j 2h 30m 45s 500ms", "2h30m", "45s")
     const parseDurationFromText = (text: string) => {
       if (!text || typeof text !== 'string') return;
@@ -895,6 +922,8 @@ export default defineComponent({
       clearDateTimeEditTarget,
       formatDurationCompact,
       parseDurationFromText,
+      createDurationTextChangeHandler,
+      createDurationPartChangeHandler,
       formatDateTime,
       formatDateTimeForEdit,
       getDatePart,
