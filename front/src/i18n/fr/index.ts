@@ -144,7 +144,16 @@ export default {
     popupInvalidChronicleId: 'Identifiant de chronique invalide',
     popupChronicleLoadError: 'Impossible de charger la chronique',
     noVideoLoaded: 'Aucune vidéo chargée',
-    noVideoHint: 'En mode chronomètre, vous pouvez analyser une vidéo enregistrée',
+    noVideoHint: 'Vous pouvez attacher une vidéo pour synchroniser le chronomètre sur le média (optionnel)',
+    attachVideo: 'Attacher une vidéo',
+    attachVideoTooltip: 'Optionnel : synchroniser le chronomètre sur une vidéo',
+    attachVideoBlocked: 'Impossible d\'attacher une vidéo',
+    attachVideoBlockedCaption:
+      'Arrêtez le chronomètre (bouton stop) avant d\'attacher une vidéo, pour éviter de perdre le temps écoulé.',
+    attachVideoBlockedTooltip:
+      'Arrêtez le chronomètre avant d\'attacher une vidéo',
+    replaceVideoPauseCaption:
+      'Mettez la lecture en pause avant de remplacer la vidéo.',
     videoBrowserUnsupported: 'Votre navigateur ne supporte pas la lecture de vidéos.',
     videoExpectedFile: 'Fichier attendu :',
     videoLoadingLabel: 'Chargement de la vidéo…',
@@ -715,7 +724,7 @@ export default {
       modeCalendar: 'Calendrier',
       modeCalendarDesc: 'Les dates sont affichées comme des dates calendaires',
       modeChronometer: 'Chronomètre',
-      modeChronometerDesc: 'Les dates sont affichées comme des durées depuis un point de référence (t0)',
+      modeChronometerDesc: 'Les dates sont affichées comme des durées depuis un point de référence (t0). Une vidéo peut être ajoutée plus tard.',
     },
     mergeObservation: {
       title: 'Fusionner deux chroniques',

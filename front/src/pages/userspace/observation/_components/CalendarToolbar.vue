@@ -6,6 +6,7 @@
       :color="observation.sharedState.isPlaying ? 'negative' : 'primary'"
       :icon="observation.sharedState.isPlaying ? 'pause' : 'play_arrow'"
       size="md"
+      :disable="attachInProgress"
       @click="handleTogglePlayPause"
     />
 
@@ -15,8 +16,22 @@
       color="grey-8"
       icon="stop"
       size="sm"
-      :disable="!observation.isActive"
+      :disable="!isObservationActive"
       @click="handleStop"
+    />
+
+    <!-- Attach video (chronometer without video) -->
+    <q-btn
+      v-if="showAttachVideo"
+      flat
+      outline
+      color="primary"
+      icon="videocam"
+      :label="$t('observation.attachVideo')"
+      :title="attachVideoTitle"
+      size="sm"
+      :disable="attachVideoBlocked"
+      @click="handleAttachVideo"
     />
 
     <!-- Spacer -->
@@ -38,7 +53,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed } from 'vue';
+import { defineComponent, computed, ref } from 'vue';
+import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import { useObservation } from 'src/composables/use-observation';
 import { ObservationModeEnum, ReadingTypeEnum } from '@services/observations/interface';
 import ModeToggle from './ModeToggle.vue';
@@ -52,6 +69,9 @@ export default defineComponent({
 
   setup() {
     const observation = useObservation();
+    const $q = useQuasar();
+    const { t } = useI18n();
+    const attachInProgress = ref(false);
 
     /**
      * Récupère le mode actuel de l'observation
@@ -75,23 +95,124 @@ export default defineComponent({
       return !hasStartReading;
     });
 
+    const showAttachVideo = computed(() => {
+      return observation.isChronometerMode.value
+        && !observation.sharedState.currentObservation?.videoPath;
+    });
+
+    // Ref imbriquée dans un objet plain : Vue ne l'unwrap pas dans le template
+    // (`!observation.isActive` restait toujours false). Même pattern que VideoPlayer.
+    const isObservationActive = computed(() => {
+      return observation.sharedState.isPlaying
+        || observation.sharedState.elapsedTime > 0;
+    });
+
+    // Attacher une vidéo alors que le chrono a déjà avancé bascule usesVideoTime
+    // et resynchronise elapsedTime sur video.currentTime (souvent 0) → perte d'horloge.
+    // attachInProgress couvre la fenêtre dialog → updateObservation (Play possible sinon).
+    const attachVideoBlocked = computed(() => {
+      return attachInProgress.value
+        || observation.sharedState.isPlaying
+        || observation.sharedState.elapsedTime > 0;
+    });
+
+    const attachVideoTitle = computed(() => {
+      return attachVideoBlocked.value
+        ? t('observation.attachVideoBlockedTooltip')
+        : t('observation.attachVideoTooltip');
+    });
+
+    const handleAttachVideo = async () => {
+      if (attachVideoBlocked.value) {
+        $q.notify({
+          type: 'warning',
+          message: t('observation.attachVideoBlocked'),
+          caption: t('observation.attachVideoBlockedCaption'),
+        });
+        return;
+      }
+
+      if (!window.api || !window.api.showOpenDialog) {
+        $q.notify({
+          type: 'negative',
+          message: t('dialogs.createObservation.electronUnavailable'),
+        });
+        return;
+      }
+
+      try {
+        const dialogResult = await window.api.showOpenDialog({
+          filters: [
+            { name: t('dialogs.createObservation.videoFiles'), extensions: ['mp4', 'webm', 'ogg', 'mov', 'avi'] },
+            { name: t('dialogs.createObservation.allFiles'), extensions: ['*'] },
+          ],
+        });
+
+        if (dialogResult.canceled || !dialogResult.filePaths || dialogResult.filePaths.length === 0) {
+          return;
+        }
+
+        // Re-vérifier après le dialog (Play possible pendant la sélection).
+        if (
+          observation.sharedState.isPlaying
+          || observation.sharedState.elapsedTime > 0
+        ) {
+          $q.notify({
+            type: 'warning',
+            message: t('observation.attachVideoBlocked'),
+            caption: t('observation.attachVideoBlockedCaption'),
+          });
+          return;
+        }
+
+        const filePath = dialogResult.filePaths[0];
+        const observationId = observation.sharedState.currentObservation?.id;
+        if (!observationId) return;
+
+        attachInProgress.value = true;
+        try {
+          await observation.methods.updateObservation(observationId, {
+            videoPath: filePath,
+          });
+        } finally {
+          attachInProgress.value = false;
+        }
+      } catch (error: any) {
+        attachInProgress.value = false;
+        $q.notify({
+          type: 'negative',
+          message: t('dialogs.createObservation.videoSelectError'),
+          caption: error.message,
+        });
+      }
+    };
+
     const handleTogglePlayPause = () => {
+      if (attachInProgress.value) return;
       observation.timerMethods.togglePlayPause();
     };
 
     const handleStop = () => {
+      if (!isObservationActive.value) return;
       observation.timerMethods.stopTimer();
+      // Aligné sur VideoPlayer : corriger la structure des relevés en fin d'observation.
+      observation.readings.methods.autoCorrectReadings(true);
     };
 
-    const handleModeChange = (mode: ObservationModeEnum) => {
+    const handleModeChange = (_mode: ObservationModeEnum) => {
       // Mode change is handled by ModeToggle component
-      // This handler is here for potential future use
     };
 
     return {
       observation,
       currentMode,
       canChangeMode,
+      isObservationActive,
+      attachInProgress,
+      showAttachVideo,
+      attachVideoBlocked,
+      attachVideoTitle,
+      handleAttachVideo,
       handleTogglePlayPause,
       handleStop,
       handleModeChange,

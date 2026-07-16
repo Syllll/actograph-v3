@@ -2,11 +2,11 @@
   <DPage>
     <div ref="containerRef" class="fit column no-wrap">
       <q-splitter
-        v-show="observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath"
+        v-if="hasVideo"
         :key="`video-splitter-${observation.sharedState.currentObservation?.id || 'new'}`"
         v-model="state.videoSplitterModel"
         horizontal
-        :style="{ height: state.containerHeight + 'px', display: (observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath) ? 'flex' : 'none' }"
+        :style="{ height: state.containerHeight + 'px' }"
         :limits="[10, 75]"
       >
         <template v-slot:before>
@@ -51,11 +51,6 @@
 
         <template v-slot:after>
           <div class="fit column no-wrap">
-            <CalendarToolbar
-              v-if="!observation.isChronometerMode.value"
-              class="col-auto"
-            />
-
             <q-splitter
               v-model="state.splitterModel"
               class="col"
@@ -100,9 +95,8 @@
       </q-splitter>
 
       <div
-        v-show="!(observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath)"
+        v-else
         class="fit column no-wrap"
-        :style="{ display: !(observation.isChronometerMode.value || observation.sharedState.currentObservation?.videoPath) ? 'flex' : 'none' }"
       >
         <CalendarToolbar class="col-auto" />
 
@@ -151,7 +145,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, ref, onMounted, onUnmounted } from 'vue';
+import { defineComponent, reactive, ref, computed, onMounted, onUnmounted } from 'vue';
 import ButtonsSideIndex from './_components/buttons-side/Index.vue';
 import ReadingsSideIndex from './_components/readings-side/Index.vue';
 import CalendarToolbar from './_components/CalendarToolbar.vue';
@@ -171,6 +165,13 @@ export default defineComponent({
     const observation = useObservation();
     const popout = usePopout();
     const containerRef = ref<HTMLElement | null>(null);
+
+    // Panneau vidéo uniquement en chronomètre avec fichier : en calendrier un
+    // videoPath orphelin (import / bascule de mode) ne doit pas ouvrir une zone vide.
+    const hasVideo = computed(() => {
+      return observation.isChronometerMode.value
+        && !!observation.sharedState.currentObservation?.videoPath;
+    });
 
     const state = reactive({
       splitterModel: 40,
@@ -279,6 +280,7 @@ export default defineComponent({
       observation,
       popout,
       containerRef,
+      hasVideo,
       state,
       methods,
     };

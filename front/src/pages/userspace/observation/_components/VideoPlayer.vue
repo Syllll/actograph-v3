@@ -6,7 +6,7 @@
     <div class="text-h6 q-mt-md text-grey-6">{{ $t('observation.noVideoLoaded') }}</div>
     <div class="text-caption q-mt-xs text-grey-6">{{ $t('observation.noVideoHint') }}</div>
     <q-btn
-      :label="$t('dialogs.createObservation.selectVideo')"
+      :label="$t('observation.attachVideo')"
       color="primary"
       icon="videocam"
       @click="methods.selectVideoFile"
@@ -25,6 +25,7 @@
         class="video-element"
         :controls="false"
         @loadedmetadata="methods.handleVideoLoaded"
+        @seeked="methods.handleSeeked"
         @timeupdate="methods.handleTimeUpdate"
         @play="methods.handlePlay"
         @pause="methods.handlePause"
@@ -204,6 +205,13 @@ export default defineComponent({
       currentVideoPath: null as string | null, // Stocke le chemin actuel pour afficher le nom du fichier en cas d'erreur
     });
 
+    // Après remplacement de fichier, seek vers le temps d'observation déjà atteint
+    // avant de resynchroniser (évite qu'un timeupdate à 0 écrase elapsedTime).
+    // Conservé jusqu'à l'événement seeked (pas seulement loadedmetadata).
+    let pendingSeekSeconds: number | null = null;
+    let videoSelectInProgress = false;
+    let loadGeneration = 0;
+
     // Available playback speeds
     const playbackSpeeds = [
       { label: '0.25x', value: 0.25 },
@@ -295,6 +303,18 @@ export default defineComponent({
         return;
       }
 
+      // Déjà chargé pour ce chemin : éviter un second load() qui remet currentTime à 0
+      // et annule un pendingSeek (watchers path + observation peuvent tous deux tirer).
+      if (
+        state.currentVideoPath === videoPath
+        && videoSrc.value
+        && !state.videoError
+      ) {
+        return;
+      }
+
+      const generation = ++loadGeneration;
+
       // Stocker le chemin actuel pour l'afficher en cas d'erreur
       state.currentVideoPath = videoPath;
       const fileName = getFileName(videoPath);
@@ -306,11 +326,13 @@ export default defineComponent({
         // Check file stats if Electron API is available
         if (window.api && window.api.getFileStats) {
           const statsResult = await window.api.getFileStats(videoPath);
-          
+          if (generation !== loadGeneration) return;
+
           if (!statsResult.success || !statsResult.exists) {
             videoSrc.value = '';
             state.videoError = t('observation.videoMissingAtPath', { fileName });
             state.isLoading = false;
+            pendingSeekSeconds = null;
 
             $q.notify({
               type: 'negative',
@@ -333,6 +355,7 @@ export default defineComponent({
             videoSrc.value = '';
             state.videoError = t('observation.videoPathNotFile', { fileName });
             state.isLoading = false;
+            pendingSeekSeconds = null;
             return;
           }
 
@@ -347,15 +370,20 @@ export default defineComponent({
           }
         }
 
+        if (generation !== loadGeneration) return;
+
         // Use file:// protocol directly - allows browser to stream the video
         // This is much more efficient than loading the entire file in memory
+        // (:src change triggers load; do not call video.load() again — it resets seek.)
         videoSrc.value = pathToFileUrl(videoPath);
         state.isLoading = false;
         state.videoError = null; // Réinitialiser l'erreur si le chargement réussit
       } catch (error: any) {
+        if (generation !== loadGeneration) return;
         videoSrc.value = '';
         state.videoError = t('observation.videoLoadFailedState', { fileName });
         state.isLoading = false;
+        pendingSeekSeconds = null;
 
         $q.notify({
           type: 'negative',
@@ -382,6 +410,32 @@ export default defineComponent({
     // Methods
     const methods = {
       selectVideoFile: async () => {
+        if (videoSelectInProgress) return;
+
+        const hasExistingVideo = !!observation.sharedState.currentObservation?.videoPath;
+        const isPlaying = observation.sharedState.isPlaying;
+        const elapsed = observation.sharedState.elapsedTime;
+
+        // Première attache : interdit si le chrono a déjà tourné (bascule usesVideoTime → currentTime 0).
+        if (!hasExistingVideo && (isPlaying || elapsed > 0)) {
+          $q.notify({
+            type: 'warning',
+            message: t('observation.attachVideoBlocked'),
+            caption: t('observation.attachVideoBlockedCaption'),
+          });
+          return;
+        }
+
+        // Remplacement : pause obligatoire ; on restaurera elapsed via seek au chargement.
+        if (hasExistingVideo && isPlaying) {
+          $q.notify({
+            type: 'warning',
+            message: t('observation.attachVideoBlocked'),
+            caption: t('observation.replaceVideoPauseCaption'),
+          });
+          return;
+        }
+
         // Check if Electron API is available
         if (!window.api || !window.api.showOpenDialog) {
           $q.notify({
@@ -403,16 +457,57 @@ export default defineComponent({
             return;
           }
 
-          const filePath = dialogResult.filePaths[0];
+          // Re-vérifier après le dialog (Play possible pendant la sélection).
+          if (!hasExistingVideo && (
+            observation.sharedState.isPlaying
+            || observation.sharedState.elapsedTime > 0
+          )) {
+            $q.notify({
+              type: 'warning',
+              message: t('observation.attachVideoBlocked'),
+              caption: t('observation.attachVideoBlockedCaption'),
+            });
+            return;
+          }
+          if (hasExistingVideo && observation.sharedState.isPlaying) {
+            $q.notify({
+              type: 'warning',
+              message: t('observation.attachVideoBlocked'),
+              caption: t('observation.replaceVideoPauseCaption'),
+            });
+            return;
+          }
 
-          // Update observation with video path
-          if (observation.sharedState.currentObservation?.id) {
-            await observation.methods.updateObservation(
-              observation.sharedState.currentObservation.id,
-              { videoPath: filePath }
-            );
+          const filePath = dialogResult.filePaths[0];
+          const observationId = observation.sharedState.currentObservation?.id;
+          if (!observationId) return;
+
+          const previousPath = observation.sharedState.currentObservation?.videoPath;
+          const elapsedAfterDialog = observation.sharedState.elapsedTime;
+          if (hasExistingVideo && elapsedAfterDialog > 0) {
+            pendingSeekSeconds = elapsedAfterDialog;
+          } else {
+            pendingSeekSeconds = null;
+          }
+
+          videoSelectInProgress = true;
+          try {
+            if (previousPath === filePath) {
+              // Même chemin : forcer un rechargement (fichier corrigé sur disque).
+              state.currentVideoPath = null;
+              videoSrc.value = '';
+              await loadVideoFile(filePath);
+            } else {
+              await observation.methods.updateObservation(observationId, {
+                videoPath: filePath,
+              });
+            }
+          } finally {
+            videoSelectInProgress = false;
           }
         } catch (error: any) {
+          videoSelectInProgress = false;
+          pendingSeekSeconds = null;
           $q.notify({
             type: 'negative',
             message: t('dialogs.createObservation.videoSelectError'),
@@ -428,10 +523,45 @@ export default defineComponent({
           state.isLoading = false;
           // Set initial playback rate
           videoRef.value.playbackRate = state.playbackRate;
+
+          if (pendingSeekSeconds != null) {
+            const seekTo = Math.min(
+              pendingSeekSeconds,
+              Number.isFinite(state.duration) && state.duration > 0
+                ? state.duration
+                : pendingSeekSeconds,
+            );
+            // Ne pas clear pendingSeekSeconds ici : attendre seeked pour
+            // continuer à ignorer les timeupdate à 0.
+            videoRef.value.currentTime = seekTo;
+            state.currentTime = seekTo;
+            if (state.duration > 0) {
+              state.progressPercent = (seekTo / state.duration) * 100;
+            }
+            // Certains navigateurs ne émettent pas seeked si déjà à la cible.
+            if (Math.abs(videoRef.value.currentTime - seekTo) < 0.05) {
+              methods.handleSeeked();
+            }
+          }
+        }
+      },
+
+      handleSeeked: () => {
+        if (pendingSeekSeconds == null || !videoRef.value) return;
+
+        const seekTo = videoRef.value.currentTime;
+        pendingSeekSeconds = null;
+        state.currentTime = seekTo;
+        if (state.duration > 0) {
+          state.progressPercent = (seekTo / state.duration) * 100;
+        }
+        if (observation.isChronometerMode.value) {
+          observation.updateTimeFromSource(seekTo);
         }
       },
 
       handleVideoError: () => {
+        pendingSeekSeconds = null;
         const fileName = state.currentVideoPath
           ? getFileName(state.currentVideoPath)
           : t('observation.videoGenericFile');
@@ -470,6 +600,12 @@ export default defineComponent({
           state.currentTime = videoRef.value.currentTime;
           if (state.duration > 0) {
             state.progressPercent = (state.currentTime / state.duration) * 100;
+          }
+
+          // Tant qu'un seek post-remplacement n'est pas appliqué, ne pas
+          // écraser elapsedTime avec un currentTime encore à 0.
+          if (pendingSeekSeconds != null) {
+            return;
           }
           
           // Synchroniser avec elapsedTime de l'observation en mode chronomètre
@@ -598,6 +734,7 @@ export default defineComponent({
       },
 
       togglePlayPause: () => {
+        if (videoSelectInProgress) return;
         if (videoRef.value) {
           if (state.isPlaying) {
             videoRef.value.pause();
@@ -805,10 +942,6 @@ export default defineComponent({
           
           if (shouldLoad) {
             await loadVideoFile(newPath);
-            // Wait a bit for the URL to be set, then load the video
-            if (videoRef.value) {
-              videoRef.value.load();
-            }
           }
         } else {
           // Si videoPath est supprimé, vider la source
@@ -841,21 +974,8 @@ export default defineComponent({
         // 3. Le videoPath change entre deux observations
         // 4. La vidéo n'est pas encore chargée (videoSrc vide ou différent du videoPath actuel)
         if (newObservation?.videoPath) {
-          const currentVideoPath = state.currentVideoPath;
-          const videoPathChanged = !oldObservation || 
-            oldObservation.videoPath !== newObservation.videoPath ||
-            !videoSrc.value ||
-            videoSrc.value === '' ||
-            currentVideoPath !== newObservation.videoPath;
-          
-          if (videoPathChanged) {
-            // L'observation vient d'être chargée et contient un videoPath
-            // ou le videoPath a changé
-            await loadVideoFile(newObservation.videoPath);
-            if (videoRef.value) {
-              videoRef.value.load();
-            }
-          }
+          // loadVideoFile déduplique si déjà chargé pour ce chemin.
+          await loadVideoFile(newObservation.videoPath);
         } else if (oldObservation?.videoPath && !newObservation?.videoPath) {
           // Si l'observation n'a plus de videoPath, vider la source
           videoSrc.value = '';
@@ -938,9 +1058,6 @@ export default defineComponent({
            currentVideoPath !== currentObs.videoPath)) {
         // Observation is already loaded with videoPath but video hasn't been loaded yet
         await loadVideoFile(currentObs.videoPath);
-        if (videoRef.value) {
-          videoRef.value.load();
-        }
       }
     });
 
