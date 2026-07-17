@@ -140,6 +140,31 @@ export const useGraph = (options?: {
     const pixiApp = new PixiApp();
     sharedState.pixiApp = pixiApp;
 
+    // Le protocole et les relevés sont deux sources réactives distinctes,
+    // mises à jour de façon asynchrone et indépendante (chargement réseau,
+    // édition du protocole, etc.). Avec deux `watch` séparés déclenchant
+    // chacun un redessin immédiat, une mise à jour de l'une pouvait
+    // déclencher un rendu avec l'autre encore "en retard" (protocole neuf +
+    // relevés obsolètes, ou l'inverse) : le graphe affichait alors un état
+    // transitoire incohérent (catégories/étiquettes ne correspondant pas aux
+    // données, tracés absents) qui ne se corrigeait que si un second
+    // changement survenait juste après. On regroupe donc les deux
+    // déclencheurs derrière un court debounce : les changements rapprochés
+    // de protocole et de relevés sont coalescés en un seul redessin qui lit
+    // toujours l'état le plus récent des deux.
+    let scheduledRedrawId: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRedraw = (): void => {
+      if (!sharedState.ready || !sharedState.pixiApp) return;
+      if (scheduledRedrawId !== null) {
+        clearTimeout(scheduledRedrawId);
+      }
+      scheduledRedrawId = setTimeout(() => {
+        scheduledRedrawId = null;
+        if (!sharedState.ready || !sharedState.pixiApp) return;
+        void redrawFromObservation(sharedState.pixiApp);
+      }, 50);
+    };
+
     /**
      * Hook appelé lorsque le composant est monté dans le DOM.
      * À ce moment, le canvas est disponible et on peut initialiser PixiJS.
@@ -194,19 +219,13 @@ export const useGraph = (options?: {
      */
     watch(
       () => observation.readings?.sharedState?.currentReadings ?? [],
-      () => {
-        if (!sharedState.ready || !sharedState.pixiApp) return;
-        void redrawFromObservation(sharedState.pixiApp);
-      },
+      scheduleRedraw,
       { deep: true }
     );
 
     watch(
       () => observation.protocol?.sharedState?.currentProtocol,
-      () => {
-        if (!sharedState.ready || !sharedState.pixiApp) return;
-        void redrawFromObservation(sharedState.pixiApp);
-      },
+      scheduleRedraw,
       { deep: true }
     );
 
@@ -215,6 +234,10 @@ export const useGraph = (options?: {
      * On nettoie les ressources PixiJS pour éviter les fuites mémoire.
      */
     onUnmounted(() => {
+      if (scheduledRedrawId !== null) {
+        clearTimeout(scheduledRedrawId);
+        scheduledRedrawId = null;
+      }
       // Destruction de l'application PixiJS et libération des ressources
       pixiApp.destroy();
       sharedState.pixiApp = null;
