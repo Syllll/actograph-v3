@@ -1147,7 +1147,10 @@ export default defineComponent({
 
 .color-picker-widget {
   display: block;
-  width: 320px;
+  // Quasar plafonne lui-même .q-color-picker a 350px (QColor.sass) ; en dessous,
+  // la rangee d'icones du pied (spectre/saisie/palette, alignees en "justify"
+  // sans padding) se retrouve trop serree.
+  width: 350px;
   max-width: 100%;
   margin: 0 auto;
 }
