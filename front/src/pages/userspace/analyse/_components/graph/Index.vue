@@ -41,6 +41,23 @@
           <q-tooltip>{{ $t('graphUi.tooltipResetView') }}</q-tooltip>
         </q-btn>
         <q-separator v-if="showSeparatorBeforeReset" vertical />
+        <q-select
+          dense
+          outlined
+          emit-value
+          map-options
+          options-dense
+          :model-value="timeDisplayFormat"
+          :options="timeFormatOptions"
+          :label="$t('graphUi.timeFormatLabel')"
+          style="min-width: 190px"
+          @update:model-value="methods.setTimeDisplayFormat"
+        >
+          <template #prepend>
+            <q-icon name="mdi-clock-outline" size="xs" />
+          </template>
+        </q-select>
+        <q-separator v-if="showSeparatorBeforeReset" vertical />
         <q-btn
           flat
           dense
@@ -140,7 +157,7 @@ import { useGraph } from './use-graph';
 import { useGraphCustomization } from '../graph-customization-drawer/use-graph-customization';
 import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
-import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
+import { DEFAULT_GRAPH_COLOR, TimeDisplayFormatEnum } from '@actograph/graph';
 import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
 import {
   getObservableGraphPreferences,
@@ -176,7 +193,7 @@ export default defineComponent({
   },
   setup(props) {
     const $q = useQuasar();
-    const { t } = useI18n();
+    const { t, locale } = useI18n();
 
     // Référence au canvas HTML qui sera utilisé par PixiJS pour le rendu WebGL
     const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -201,6 +218,29 @@ export default defineComponent({
       { label: 'PNG', value: 'png' },
       { label: 'JPEG', value: 'jpeg' },
     ];
+
+    // Format d'affichage du temps sur l'axe X / le survol du graphe.
+    // Réglage de session (non persisté), voir spec-pr-format-temps-graphe.md.
+    const timeDisplayFormat = ref<TimeDisplayFormatEnum>(TimeDisplayFormatEnum.Auto);
+
+    const timeFormatOptions = computed(() => {
+      void locale.value;
+      return [
+        { label: t('graphUi.timeFormatAuto'), value: TimeDisplayFormatEnum.Auto },
+        { label: t('graphUi.timeFormatFull'), value: TimeDisplayFormatEnum.Full },
+        { label: t('graphUi.timeFormatDateOnly'), value: TimeDisplayFormatEnum.DateOnly },
+        { label: t('graphUi.timeFormatHourMinute'), value: TimeDisplayFormatEnum.HourMinute },
+        {
+          label: t('graphUi.timeFormatHourMinuteSecond'),
+          value: TimeDisplayFormatEnum.HourMinuteSecond,
+        },
+        { label: t('graphUi.timeFormatMinuteSecond'), value: TimeDisplayFormatEnum.MinuteSecond },
+        {
+          label: t('graphUi.timeFormatMinuteSecondMs'),
+          value: TimeDisplayFormatEnum.MinuteSecondMs,
+        },
+      ];
+    });
 
     // Composable pour accéder au nom de l'observation courante (pour le nom du fichier exporté)
     const observation = useObservation();
@@ -236,6 +276,10 @@ export default defineComponent({
           await graph.sharedState.pixiApp.resetView();
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
+      },
+      setTimeDisplayFormat: (format: TimeDisplayFormatEnum) => {
+        timeDisplayFormat.value = format;
+        graph.setTimeDisplayFormat(format);
       },
       // Construit le canvas de légende (noms de catégories/observables + pastilles
       // de couleur). Partagé par tous les exports impliquant la légende (légende
@@ -484,6 +528,8 @@ export default defineComponent({
       state,
       exportSelection,
       exportFormatOptions,
+      timeDisplayFormat,
+      timeFormatOptions,
       methods,
       customization,
       props,

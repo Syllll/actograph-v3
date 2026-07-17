@@ -1,9 +1,10 @@
 import { Container, Text } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
-import { getGraphDisplayTimeBounds, ObservationModeEnum, ReadingTypeEnum } from '@actograph/core';
-import { formatAxisLabel, formatChronoAxisLabel, } from '../../utils/duration.utils';
+import { getGraphDisplayTimeBounds, ObservationModeEnum, ReadingTypeEnum, TimeDisplayFormatEnum, } from '@actograph/core';
+import { formatAxisLabel, formatChronoAxisLabel, formatCalendarFixed, formatChronometerFixed, } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
+import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 const timeSteps = {
     '10ms': 10,
     '100ms': 100,
@@ -61,6 +62,7 @@ export class xAxis extends BaseGroup {
         this.maxTimeInMsec = 0;
         /** Total duration in ms for adaptive label formatting (Bug 3.9) */
         this.totalDurationMs = 0;
+        this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
         this.styleOptions = {
             axis: { color: 'black', width: 2 },
             tick: { color: 'black', width: 1 },
@@ -114,6 +116,33 @@ export class xAxis extends BaseGroup {
         this.maxTimeInMsec = 0;
         this.totalDurationMs = 0;
         super.clear();
+    }
+    /**
+     * Met à jour le format d'affichage du temps. Ne touche ni aux bornes ni au
+     * pas de temps de l'axe (calculés dans setData) : recalcule uniquement le
+     * texte des labels déjà présents, pour permettre un changement de format à
+     * chaud sans recharger l'observation.
+     */
+    setGraphRenderOptions(options) {
+        this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS, ...options };
+        if (this.ticks.length > 0) {
+            this.ticks = this.ticks.map((tick) => ({
+                ...tick,
+                label: this.computeLabelForTick(tick.dateTime),
+            }));
+        }
+    }
+    computeLabelForTick(dateTime) {
+        const format = this.graphRenderOptions.timeDisplayFormat ?? TimeDisplayFormatEnum.Auto;
+        const isChronometer = this.observation?.mode === ObservationModeEnum.Chronometer;
+        if (format !== TimeDisplayFormatEnum.Auto) {
+            return isChronometer
+                ? formatChronometerFixed(dateTime, CHRONOMETER_T0, format)
+                : formatCalendarFixed(dateTime, format);
+        }
+        return isChronometer
+            ? formatChronoAxisLabel(dateTime, CHRONOMETER_T0, this.totalDurationMs)
+            : formatAxisLabel(dateTime, this.totalDurationMs);
     }
     setData(observation) {
         super.setData(observation);
@@ -197,14 +226,7 @@ export class xAxis extends BaseGroup {
         }
         for (const tickTimeInMsec of tickTimesInMsec) {
             const dateTime = new Date(tickTimeInMsec);
-            let label;
-            if (this.observation?.mode === ObservationModeEnum.Chronometer) {
-                label = formatChronoAxisLabel(dateTime, CHRONOMETER_T0, this.totalDurationMs);
-            }
-            else {
-                label = formatAxisLabel(dateTime, this.totalDurationMs);
-            }
-            ticks.push({ dateTime, label });
+            ticks.push({ dateTime, label: this.computeLabelForTick(dateTime) });
         }
         this.ticks = ticks;
     }

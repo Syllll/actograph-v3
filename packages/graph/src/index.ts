@@ -46,5 +46,6 @@ export {
   DisplayModeEnum,
   ProtocolItemActionEnum,
   ProtocolItemTypeEnum,
+  TimeDisplayFormatEnum,
 } from '@actograph/core';
 

@@ -14,5 +14,5 @@ export { formatCompact, formatFromDate, millisecondsToParts } from './utils/dura
 export { CHRONOMETER_T0 } from './utils/chronometer.constants';
 export { getGraphPausePeriods } from './utils/pause-periods.utils';
 export { DEFAULT_GRAPH_COLOR } from './lib/graph-defaults';
-export { ObservationModeEnum, ReadingTypeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, ProtocolItemTypeEnum, } from '@actograph/core';
+export { ObservationModeEnum, ReadingTypeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, ProtocolItemTypeEnum, TimeDisplayFormatEnum, } from '@actograph/core';
 //# sourceMappingURL=index.js.map

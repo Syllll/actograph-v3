@@ -476,6 +476,14 @@ export default {
     discreteCategoryNormalOnly: 'Les catégories discrètes ne peuvent être qu\'en mode Normal',
     readingsAfterLastStopWarning:
       'Certains relevés sont ignorés par le graphique (orphelins entre deux sessions ou après le dernier arrêt).',
+    timeFormatLabel: 'Format d\'affichage du temps',
+    timeFormatAuto: 'Automatique',
+    timeFormatFull: 'Complet (JJ.MM.AAAA hh:mn:sec:ms)',
+    timeFormatDateOnly: 'Date (JJ.MM.AAAA)',
+    timeFormatHourMinute: 'hh:mn',
+    timeFormatHourMinuteSecond: 'hh:mn:sec',
+    timeFormatMinuteSecond: 'mn:sec',
+    timeFormatMinuteSecondMs: 'mn:sec:ms',
   },
   appRoot: {
     updateAvailableTitle: 'Mise à jour disponible',

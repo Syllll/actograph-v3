@@ -2,6 +2,7 @@ import { Application } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import type { IObservation } from '@actograph/core';
 import { YAxis } from './y-axis';
+import type { IGraphRenderOptions } from '../../types/graph-render-options';
 export declare class xAxis extends BaseGroup {
     private graphic;
     private readings;
@@ -15,6 +16,7 @@ export declare class xAxis extends BaseGroup {
     private maxTimeInMsec;
     /** Total duration in ms for adaptive label formatting (Bug 3.9) */
     private totalDurationMs;
+    private graphRenderOptions;
     private styleOptions;
     private ticks;
     private axisStart;
@@ -32,6 +34,14 @@ export declare class xAxis extends BaseGroup {
     getPosFromDateTime(dateTime: Date | string): number;
     getDateTimeFromPos(xPos: number): Date;
     clear(): void;
+    /**
+     * Met à jour le format d'affichage du temps. Ne touche ni aux bornes ni au
+     * pas de temps de l'axe (calculés dans setData) : recalcule uniquement le
+     * texte des labels déjà présents, pour permettre un changement de format à
+     * chaud sans recharger l'observation.
+     */
+    setGraphRenderOptions(options: IGraphRenderOptions): void;
+    private computeLabelForTick;
     setData(observation: IObservation): void;
     draw(): void;
 }

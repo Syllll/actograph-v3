@@ -2,13 +2,22 @@ import { Application, Container, Text } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
 import type { IReading, IObservation } from '@actograph/core';
-import { getGraphDisplayTimeBounds, ObservationModeEnum, ReadingTypeEnum } from '@actograph/core';
+import {
+  getGraphDisplayTimeBounds,
+  ObservationModeEnum,
+  ReadingTypeEnum,
+  TimeDisplayFormatEnum,
+} from '@actograph/core';
 import { YAxis } from './y-axis';
 import {
   formatAxisLabel,
   formatChronoAxisLabel,
+  formatCalendarFixed,
+  formatChronometerFixed,
 } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
+import type { IGraphRenderOptions } from '../../types/graph-render-options';
+import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 
 const timeSteps = {
   '10ms': 10,
@@ -63,6 +72,7 @@ export class xAxis extends BaseGroup {
   private maxTimeInMsec = 0;
   /** Total duration in ms for adaptive label formatting (Bug 3.9) */
   private totalDurationMs = 0;
+  private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
 
   private styleOptions = {
     axis: { color: 'black', width: 2 },
@@ -133,6 +143,37 @@ export class xAxis extends BaseGroup {
     this.maxTimeInMsec = 0;
     this.totalDurationMs = 0;
     super.clear();
+  }
+
+  /**
+   * Met à jour le format d'affichage du temps. Ne touche ni aux bornes ni au
+   * pas de temps de l'axe (calculés dans setData) : recalcule uniquement le
+   * texte des labels déjà présents, pour permettre un changement de format à
+   * chaud sans recharger l'observation.
+   */
+  public setGraphRenderOptions(options: IGraphRenderOptions): void {
+    this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS, ...options };
+    if (this.ticks.length > 0) {
+      this.ticks = this.ticks.map((tick) => ({
+        ...tick,
+        label: this.computeLabelForTick(tick.dateTime),
+      }));
+    }
+  }
+
+  private computeLabelForTick(dateTime: Date): string {
+    const format = this.graphRenderOptions.timeDisplayFormat ?? TimeDisplayFormatEnum.Auto;
+    const isChronometer = this.observation?.mode === ObservationModeEnum.Chronometer;
+
+    if (format !== TimeDisplayFormatEnum.Auto) {
+      return isChronometer
+        ? formatChronometerFixed(dateTime, CHRONOMETER_T0, format)
+        : formatCalendarFixed(dateTime, format);
+    }
+
+    return isChronometer
+      ? formatChronoAxisLabel(dateTime, CHRONOMETER_T0, this.totalDurationMs)
+      : formatAxisLabel(dateTime, this.totalDurationMs);
   }
 
   public setData(observation: IObservation) {
@@ -232,19 +273,7 @@ export class xAxis extends BaseGroup {
 
     for (const tickTimeInMsec of tickTimesInMsec) {
       const dateTime = new Date(tickTimeInMsec);
-
-      let label: string;
-      if (this.observation?.mode === ObservationModeEnum.Chronometer) {
-        label = formatChronoAxisLabel(
-          dateTime,
-          CHRONOMETER_T0,
-          this.totalDurationMs
-        );
-      } else {
-        label = formatAxisLabel(dateTime, this.totalDurationMs);
-      }
-
-      ticks.push({ dateTime, label });
+      ticks.push({ dateTime, label: this.computeLabelForTick(dateTime) });
     }
 
     this.ticks = ticks;
