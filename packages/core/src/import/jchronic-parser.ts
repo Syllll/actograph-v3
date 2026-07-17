@@ -2,6 +2,7 @@ import {
   ReadingTypeEnum,
   ProtocolItemTypeEnum,
   ObservationModeEnum,
+  TimeDisplayFormatEnum,
 } from '../enums';
 import {
   ParseError,
@@ -144,8 +145,16 @@ function normalizeObservationMeta(
     result.uiScale = Math.round(uiScale * 100) / 100;
   }
 
+  const timeDisplayFormat = source.timeDisplayFormat;
+  if (
+    typeof timeDisplayFormat === 'string' &&
+    (Object.values(TimeDisplayFormatEnum) as string[]).includes(timeDisplayFormat)
+  ) {
+    result.timeDisplayFormat = timeDisplayFormat as TimeDisplayFormatEnum;
+  }
+
   for (const key of Object.keys(source)) {
-    if (key === 'uiScale') continue;
+    if (key === 'uiScale' || key === 'timeDisplayFormat') continue;
     result[key] = source[key];
   }
 

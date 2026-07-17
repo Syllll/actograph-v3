@@ -156,6 +156,7 @@ import { useQuasar } from 'quasar';
 import { useGraph } from './use-graph';
 import { useGraphCustomization } from '../graph-customization-drawer/use-graph-customization';
 import { useObservation } from 'src/composables/use-observation';
+import { observationService } from '@services/observations/index.service';
 import { useI18n } from 'vue-i18n';
 import { DEFAULT_GRAPH_COLOR, TimeDisplayFormatEnum } from '@actograph/graph';
 import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
@@ -220,7 +221,9 @@ export default defineComponent({
     ];
 
     // Format d'affichage du temps sur l'axe X / le survol du graphe.
-    // Réglage de session (non persisté), voir spec-pr-format-temps-graphe.md.
+    // Persisté par chronique dans observation.meta.timeDisplayFormat (voir
+    // spec-pr-format-affichage-temps-graphe.md) : restauré à l'ouverture de
+    // la chronique, sauvegardé à chaque changement de sélection.
     const timeDisplayFormat = ref<TimeDisplayFormatEnum>(TimeDisplayFormatEnum.Auto);
 
     const timeFormatOptions = computed(() => {
@@ -280,6 +283,34 @@ export default defineComponent({
       setTimeDisplayFormat: (format: TimeDisplayFormatEnum) => {
         timeDisplayFormat.value = format;
         graph.setTimeDisplayFormat(format);
+        void methods.persistTimeDisplayFormat(format);
+      },
+      // Persiste le format choisi dans observation.meta pour le retenir par
+      // chronique (export jchronic + réouverture) — même pattern que
+      // persistUiScaleToObservation (buttons-side/Index.vue). Échec non
+      // bloquant : l'affichage local a déjà changé quoi qu'il arrive.
+      persistTimeDisplayFormat: async (format: TimeDisplayFormatEnum) => {
+        const current = observation.sharedState.currentObservation;
+        if (!current?.id) return;
+
+        observation.sharedState.currentObservation = {
+          ...current,
+          meta: { ...(current.meta ?? {}), timeDisplayFormat: format },
+        } as typeof observation.sharedState.currentObservation;
+
+        try {
+          const updated = await observationService.update(current.id, {
+            meta: { timeDisplayFormat: format },
+          });
+          if (updated?.meta) {
+            observation.sharedState.currentObservation = {
+              ...observation.sharedState.currentObservation,
+              meta: updated.meta,
+            } as typeof observation.sharedState.currentObservation;
+          }
+        } catch (error) {
+          console.error('Failed to persist timeDisplayFormat to observation meta:', error);
+        }
       },
       // Construit le canvas de légende (noms de catégories/observables + pastilles
       // de couleur). Partagé par tous les exports impliquant la légende (légende
@@ -505,6 +536,27 @@ export default defineComponent({
         graph.sharedState.pixiApp.events.off('zoom', onZoom);
       }
     });
+
+    // Restaure le format d'affichage du temps depuis observation.meta quand
+    // une chronique est chargée (persisté par persistTimeDisplayFormat
+    // ci-dessus). Contrairement à uiScale, il n'y a pas de préférence
+    // appareil de repli : une chronique sans meta.timeDisplayFormat (ou une
+    // valeur invalide) retombe explicitement sur Auto plutôt que de garder
+    // le format de la chronique précédemment ouverte.
+    watch(
+      () => observation.sharedState.currentObservation?.meta?.timeDisplayFormat,
+      (formatFromMeta) => {
+        const isValidFormat =
+          typeof formatFromMeta === 'string' &&
+          (Object.values(TimeDisplayFormatEnum) as string[]).includes(formatFromMeta);
+        const nextFormat = isValidFormat
+          ? (formatFromMeta as TimeDisplayFormatEnum)
+          : TimeDisplayFormatEnum.Auto;
+        timeDisplayFormat.value = nextFormat;
+        graph.setTimeDisplayFormat(nextFormat);
+      },
+      { immediate: true }
+    );
 
     // Computed property pour déterminer si le séparateur avant le reset est nécessaire
     const showSeparatorBeforeReset = computed(() => {

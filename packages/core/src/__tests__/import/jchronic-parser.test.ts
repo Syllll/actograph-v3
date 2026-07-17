@@ -2,7 +2,7 @@ import {
   parseJchronicFile,
   normalizeJchronicData,
 } from '../../import/jchronic-parser';
-import { ProtocolItemTypeEnum } from '../../enums';
+import { ProtocolItemTypeEnum, TimeDisplayFormatEnum } from '../../enums';
 import type { IJchronicImport } from '../../import/types';
 
 describe('jchronic-parser - normalizeJchronicData', () => {
@@ -78,6 +78,35 @@ describe('jchronic-parser - normalizeJchronicData', () => {
 
     expect(normalized.observation.meta).toBeDefined();
     expect(normalized.observation.meta?.uiScale).toBe(1.4);
+  });
+
+  it("préserve l'observation.meta (timeDisplayFormat) à l'import", () => {
+    const data: IJchronicImport = {
+      observation: {
+        name: 'Obs test',
+        meta: { timeDisplayFormat: TimeDisplayFormatEnum.HourMinuteSecond },
+      },
+    };
+
+    const normalized = normalizeJchronicData(data);
+
+    expect(normalized.observation.meta?.timeDisplayFormat).toBe(
+      TimeDisplayFormatEnum.HourMinuteSecond,
+    );
+  });
+
+  it("ignore un timeDisplayFormat invalide mais conserve les autres clés du meta", () => {
+    const data: IJchronicImport = {
+      observation: {
+        name: 'Obs test',
+        meta: { timeDisplayFormat: 'not-a-real-format', theme: 'dark' },
+      },
+    };
+
+    const normalized = normalizeJchronicData(data);
+
+    expect(normalized.observation.meta).toEqual({ theme: 'dark' });
+    expect(normalized.observation.meta?.timeDisplayFormat).toBeUndefined();
   });
 
   it('préserve sortOrder legacy comme alias de order', () => {
