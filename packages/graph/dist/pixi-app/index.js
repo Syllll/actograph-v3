@@ -229,6 +229,7 @@ export class PixiApp {
         };
         this.pausePeriods = getGraphPausePeriods(graphObservation.readings ?? []);
         this.yAxis.setData(graphObservation);
+        this.xAxis.setGraphRenderOptions(this.graphRenderOptions);
         this.xAxis.setData(graphObservation);
         this.dataArea.setPausePeriods(this.pausePeriods);
         this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
@@ -276,6 +277,7 @@ export class PixiApp {
             ...this.graphRenderOptions,
             ...options,
         };
+        this.xAxis.setGraphRenderOptions(this.graphRenderOptions);
         this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
         if (drawOptions?.redraw !== false) {
             void this.draw();

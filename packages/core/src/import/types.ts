@@ -1,4 +1,4 @@
-import { ObservationModeEnum, ReadingTypeEnum } from '../enums';
+import { ObservationModeEnum, ReadingTypeEnum, TimeDisplayFormatEnum } from '../enums';
 import type { IGraphPreferences } from '../types/protocol.types';
 
 /**
@@ -18,9 +18,14 @@ import type { IGraphPreferences } from '../types/protocol.types';
  * `uiScale` : facteur d'échelle global de l'UI d'observation (taille des
  * boutons), borné côté parser/UI. Permet de retrouver la même disposition
  * visuelle après export/import ou réouverture.
+ *
+ * `timeDisplayFormat` : format d'affichage du temps sur le graphe (axe X +
+ * survol), par chronique. Permet de retrouver le même format après
+ * export/import ou réouverture (voir TimeDisplayFormatEnum).
  */
 export interface IObservationMeta {
   uiScale?: number;
+  timeDisplayFormat?: TimeDisplayFormatEnum;
   [key: string]: unknown;
 }
 

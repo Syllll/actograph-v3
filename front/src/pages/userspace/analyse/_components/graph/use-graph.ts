@@ -1,7 +1,7 @@
 import { onMounted, onUnmounted, shallowReactive, watch } from 'vue';
 import { PixiApp } from '@actograph/graph';
 import type { IGraphRenderOptions } from '@actograph/graph';
-import { DEFAULT_GRAPH_RENDER_OPTIONS } from '@actograph/graph';
+import { DEFAULT_GRAPH_RENDER_OPTIONS, TimeDisplayFormatEnum } from '@actograph/graph';
 import { useObservation } from 'src/composables/use-observation';
 import { useAppResume } from 'src/composables/use-app-resume';
 import { isElementVisible } from 'src/utils/dom.utils';
@@ -96,6 +96,21 @@ export const useGraph = (options?: {
 
   const getCanvasElement = (): HTMLCanvasElement | null => {
     return options?.init?.canvasRef?.value?.canvasRef ?? null;
+  };
+
+  /**
+   * Change le format d'affichage du temps sur l'axe X et le survol du graphe.
+   * La persistance par chronique (observation.meta.timeDisplayFormat) est gérée
+   * par le composant graph/Index.vue.
+   */
+  const setTimeDisplayFormat = (format: TimeDisplayFormatEnum): void => {
+    sharedState.graphRenderOptions = {
+      ...sharedState.graphRenderOptions,
+      timeDisplayFormat: format,
+    };
+    if (sharedState.ready && sharedState.pixiApp) {
+      sharedState.pixiApp.setGraphRenderOptions(sharedState.graphRenderOptions);
+    }
   };
 
   const refreshGraph = (): void => {
@@ -211,5 +226,6 @@ export const useGraph = (options?: {
   return {
     sharedState,
     onCanvasResize,
+    setTimeDisplayFormat,
   };
 }

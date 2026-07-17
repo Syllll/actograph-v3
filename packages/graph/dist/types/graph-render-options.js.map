@@ -1,1 +1,1 @@
-{"version":3,"file":"graph-render-options.js","sourceRoot":"","sources":["../../src/types/graph-render-options.ts"],"names":[],"mappings":"AAQA,MAAM,CAAC,MAAM,4BAA4B,GAAkC;IACzE,UAAU,EAAE,KAAK;CAClB,CAAC"}
+{"version":3,"file":"graph-render-options.js","sourceRoot":"","sources":["../../src/types/graph-render-options.ts"],"names":[],"mappings":"AAAA;;GAEG;AACH,OAAO,EAAE,qBAAqB,EAAE,MAAM,iBAAiB,CAAC;AASxD,MAAM,CAAC,MAAM,4BAA4B,GAAkC;IACzE,UAAU,EAAE,KAAK;IACjB,iBAAiB,EAAE,qBAAqB,CAAC,IAAI;CAC9C,CAAC"}

@@ -1,9 +1,9 @@
 import { Text, Container, Graphics } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
-import { ReadingTypeEnum, ObservationModeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, mergeGraphPreferences, resolveGraphColor, } from '@actograph/core';
+import { ReadingTypeEnum, ObservationModeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, TimeDisplayFormatEnum, mergeGraphPreferences, resolveGraphColor, } from '@actograph/core';
 import { parseProtocolItems, hydrateProtocolItemsFromStringIfNeeded, } from '../../utils/protocol.utils';
-import { formatFromDate } from '../../utils/duration.utils';
+import { formatFromDate, formatCalendarFixed, formatChronometerFixed, } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 import { createTilingPatternSprite } from '../../lib/pattern-textures';
 import { extractSessionBoundaryReadings, getContinuousSegmentStartIndices, iterContinuousDataPairs, mergeContinuousCategoryReadings, shouldSkipInContinuousDraw, } from '../../utils/continuous-segments.utils';
@@ -165,8 +165,15 @@ export class DataArea extends BaseGroup {
             try {
                 const plotPos = evt.getLocalPosition(plotParent);
                 const dateTime = this.xAxis.getDateTimeFromPos(plotPos.x);
+                const timeDisplayFormat = this.graphRenderOptions.timeDisplayFormat ?? TimeDisplayFormatEnum.Auto;
+                const isChronometer = this.observation?.mode === ObservationModeEnum.Chronometer;
                 let timeString;
-                if (this.observation?.mode === ObservationModeEnum.Chronometer) {
+                if (timeDisplayFormat !== TimeDisplayFormatEnum.Auto) {
+                    timeString = isChronometer
+                        ? formatChronometerFixed(dateTime, CHRONOMETER_T0, timeDisplayFormat)
+                        : formatCalendarFixed(dateTime, timeDisplayFormat);
+                }
+                else if (isChronometer) {
                     timeString = formatFromDate(dateTime, CHRONOMETER_T0);
                 }
                 else {
@@ -220,6 +227,7 @@ export class DataArea extends BaseGroup {
     }
     setGraphRenderOptions(options) {
         this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS, ...options };
+        this.lastTimeLabelText = null;
     }
     setProtocol(protocol) {
         hydrateProtocolItemsFromStringIfNeeded(protocol);

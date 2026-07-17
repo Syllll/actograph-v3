@@ -469,6 +469,14 @@ export default {
     discreteCategoryNormalOnly: 'Discrete categories can only be in Normal mode',
     readingsAfterLastStopWarning:
       'Some readings are ignored by the chart (orphans between sessions or after the last stop).',
+    timeFormatLabel: 'Time display format',
+    timeFormatAuto: 'Automatic',
+    timeFormatFull: 'Full (DD.MM.YYYY hh:mm:ss:ms)',
+    timeFormatDateOnly: 'Date (DD.MM.YYYY)',
+    timeFormatHourMinute: 'hh:mm',
+    timeFormatHourMinuteSecond: 'hh:mm:ss',
+    timeFormatMinuteSecond: 'mm:ss',
+    timeFormatMinuteSecondMs: 'mm:ss:ms',
   },
   appRoot: {
     updateAvailableTitle: 'Update available',

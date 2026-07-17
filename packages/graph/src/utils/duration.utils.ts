@@ -2,6 +2,8 @@
  * Duration management utilities
  */
 
+import { TimeDisplayFormatEnum } from '@actograph/core';
+
 export interface DurationParts {
   days: number;
   hours: number;
@@ -132,6 +134,78 @@ export function formatChronoAxisLabel(
   } else {
     // < 1min : Ws Vms
     return `${parts.seconds}s ${String(parts.milliseconds).padStart(3, '0')}ms`;
+  }
+}
+
+/** Toutes les valeurs de TimeDisplayFormatEnum sauf Auto (qui garde le comportement adaptatif ci-dessus). */
+export type FixedTimeDisplayFormat = Exclude<TimeDisplayFormatEnum, TimeDisplayFormatEnum.Auto>;
+
+/**
+ * Formate une date absolue (mode calendrier) selon une granularité fixe
+ * choisie par l'utilisateur (réglage "Format d'affichage du temps" du
+ * graphe). N'est appelée que lorsque le format n'est pas `Auto` : le
+ * comportement adaptatif historique (formatAxisLabel) reste inchangé.
+ */
+export function formatCalendarFixed(date: Date, format: FixedTimeDisplayFormat): string {
+  const dd = pad2(date.getDate());
+  const MM = pad2(date.getMonth() + 1);
+  const yyyy = String(date.getFullYear());
+  const HH = pad2(date.getHours());
+  const mm = pad2(date.getMinutes());
+  const ss = pad2(date.getSeconds());
+  const SSS = String(date.getMilliseconds()).padStart(3, '0');
+
+  switch (format) {
+    case TimeDisplayFormatEnum.Full:
+      return `${dd}.${MM}.${yyyy} ${HH}:${mm}:${ss}:${SSS}`;
+    case TimeDisplayFormatEnum.DateOnly:
+      return `${dd}.${MM}.${yyyy}`;
+    case TimeDisplayFormatEnum.HourMinute:
+      return `${HH}:${mm}`;
+    case TimeDisplayFormatEnum.HourMinuteSecond:
+      return `${HH}:${mm}:${ss}`;
+    case TimeDisplayFormatEnum.MinuteSecond:
+      return `${mm}:${ss}`;
+    case TimeDisplayFormatEnum.MinuteSecondMs:
+      return `${mm}:${ss}:${SSS}`;
+  }
+}
+
+/**
+ * Formate une durée écoulée depuis t0 (mode chronomètre) selon une
+ * granularité fixe choisie par l'utilisateur. N'est appelée que lorsque le
+ * format n'est pas `Auto` : le comportement adaptatif historique
+ * (formatChronoAxisLabel) reste inchangé.
+ *
+ * Note : les formats "date" (Full, DateOnly) n'ont pas d'équivalent naturel
+ * en mode chronomètre puisqu'il n'y a pas de date de calendrier, seulement
+ * une durée écoulée depuis CHRONOMETER_T0 — Full retombe donc sur la durée
+ * complète (jours/heures/min/sec/ms) et DateOnly sur le nombre de jours
+ * écoulés. À valider avec Sylvain (voir spec).
+ */
+export function formatChronometerFixed(
+  date: Date,
+  t0: Date,
+  format: FixedTimeDisplayFormat
+): string {
+  const ms = date.getTime() - t0.getTime();
+  const parts = millisecondsToParts(ms);
+  const totalHours = parts.days * 24 + parts.hours;
+  const totalMinutes = totalHours * 60 + parts.minutes;
+
+  switch (format) {
+    case TimeDisplayFormatEnum.Full:
+      return formatCompact(ms);
+    case TimeDisplayFormatEnum.DateOnly:
+      return `${parts.days}j`;
+    case TimeDisplayFormatEnum.HourMinute:
+      return `${totalHours}h${pad2(parts.minutes)}m`;
+    case TimeDisplayFormatEnum.HourMinuteSecond:
+      return `${totalHours}h${pad2(parts.minutes)}m${pad2(parts.seconds)}s`;
+    case TimeDisplayFormatEnum.MinuteSecond:
+      return `${totalMinutes}m${pad2(parts.seconds)}s`;
+    case TimeDisplayFormatEnum.MinuteSecondMs:
+      return `${totalMinutes}m${pad2(parts.seconds)}s${String(parts.milliseconds).padStart(3, '0')}ms`;
   }
 }
 

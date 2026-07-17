@@ -41,6 +41,23 @@
           <q-tooltip>{{ $t('graphUi.tooltipResetView') }}</q-tooltip>
         </q-btn>
         <q-separator v-if="showSeparatorBeforeReset" vertical />
+        <q-select
+          dense
+          outlined
+          emit-value
+          map-options
+          options-dense
+          :model-value="timeDisplayFormat"
+          :options="timeFormatOptions"
+          :label="$t('graphUi.timeFormatLabel')"
+          style="min-width: 190px"
+          @update:model-value="methods.setTimeDisplayFormat"
+        >
+          <template #prepend>
+            <q-icon name="mdi-clock-outline" size="xs" />
+          </template>
+        </q-select>
+        <q-separator v-if="showSeparatorBeforeReset" vertical />
         <q-btn
           flat
           dense
@@ -139,8 +156,9 @@ import { useQuasar } from 'quasar';
 import { useGraph } from './use-graph';
 import { useGraphCustomization } from '../graph-customization-drawer/use-graph-customization';
 import { useObservation } from 'src/composables/use-observation';
+import { observationService } from '@services/observations/index.service';
 import { useI18n } from 'vue-i18n';
-import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
+import { DEFAULT_GRAPH_COLOR, TimeDisplayFormatEnum } from '@actograph/graph';
 import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
 import {
   getObservableGraphPreferences,
@@ -176,7 +194,7 @@ export default defineComponent({
   },
   setup(props) {
     const $q = useQuasar();
-    const { t } = useI18n();
+    const { t, locale } = useI18n();
 
     // Référence au canvas HTML qui sera utilisé par PixiJS pour le rendu WebGL
     const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -201,6 +219,31 @@ export default defineComponent({
       { label: 'PNG', value: 'png' },
       { label: 'JPEG', value: 'jpeg' },
     ];
+
+    // Format d'affichage du temps sur l'axe X / le survol du graphe.
+    // Persisté par chronique dans observation.meta.timeDisplayFormat (voir
+    // spec-pr-format-affichage-temps-graphe.md) : restauré à l'ouverture de
+    // la chronique, sauvegardé à chaque changement de sélection.
+    const timeDisplayFormat = ref<TimeDisplayFormatEnum>(TimeDisplayFormatEnum.Auto);
+
+    const timeFormatOptions = computed(() => {
+      void locale.value;
+      return [
+        { label: t('graphUi.timeFormatAuto'), value: TimeDisplayFormatEnum.Auto },
+        { label: t('graphUi.timeFormatFull'), value: TimeDisplayFormatEnum.Full },
+        { label: t('graphUi.timeFormatDateOnly'), value: TimeDisplayFormatEnum.DateOnly },
+        { label: t('graphUi.timeFormatHourMinute'), value: TimeDisplayFormatEnum.HourMinute },
+        {
+          label: t('graphUi.timeFormatHourMinuteSecond'),
+          value: TimeDisplayFormatEnum.HourMinuteSecond,
+        },
+        { label: t('graphUi.timeFormatMinuteSecond'), value: TimeDisplayFormatEnum.MinuteSecond },
+        {
+          label: t('graphUi.timeFormatMinuteSecondMs'),
+          value: TimeDisplayFormatEnum.MinuteSecondMs,
+        },
+      ];
+    });
 
     // Composable pour accéder au nom de l'observation courante (pour le nom du fichier exporté)
     const observation = useObservation();
@@ -235,6 +278,38 @@ export default defineComponent({
         if (graph.sharedState.pixiApp) {
           await graph.sharedState.pixiApp.resetView();
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
+        }
+      },
+      setTimeDisplayFormat: (format: TimeDisplayFormatEnum) => {
+        timeDisplayFormat.value = format;
+        graph.setTimeDisplayFormat(format);
+        void methods.persistTimeDisplayFormat(format);
+      },
+      // Persiste le format choisi dans observation.meta pour le retenir par
+      // chronique (export jchronic + réouverture) — même pattern que
+      // persistUiScaleToObservation (buttons-side/Index.vue). Échec non
+      // bloquant : l'affichage local a déjà changé quoi qu'il arrive.
+      persistTimeDisplayFormat: async (format: TimeDisplayFormatEnum) => {
+        const current = observation.sharedState.currentObservation;
+        if (!current?.id) return;
+
+        observation.sharedState.currentObservation = {
+          ...current,
+          meta: { ...(current.meta ?? {}), timeDisplayFormat: format },
+        } as typeof observation.sharedState.currentObservation;
+
+        try {
+          const updated = await observationService.update(current.id, {
+            meta: { timeDisplayFormat: format },
+          });
+          if (updated?.meta) {
+            observation.sharedState.currentObservation = {
+              ...observation.sharedState.currentObservation,
+              meta: updated.meta,
+            } as typeof observation.sharedState.currentObservation;
+          }
+        } catch (error) {
+          console.error('Failed to persist timeDisplayFormat to observation meta:', error);
         }
       },
       // Construit le canvas de légende (noms de catégories/observables + pastilles
@@ -462,6 +537,27 @@ export default defineComponent({
       }
     });
 
+    // Restaure le format d'affichage du temps depuis observation.meta quand
+    // une chronique est chargée (persisté par persistTimeDisplayFormat
+    // ci-dessus). Contrairement à uiScale, il n'y a pas de préférence
+    // appareil de repli : une chronique sans meta.timeDisplayFormat (ou une
+    // valeur invalide) retombe explicitement sur Auto plutôt que de garder
+    // le format de la chronique précédemment ouverte.
+    watch(
+      () => observation.sharedState.currentObservation?.meta?.timeDisplayFormat,
+      (formatFromMeta) => {
+        const isValidFormat =
+          typeof formatFromMeta === 'string' &&
+          (Object.values(TimeDisplayFormatEnum) as string[]).includes(formatFromMeta);
+        const nextFormat = isValidFormat
+          ? (formatFromMeta as TimeDisplayFormatEnum)
+          : TimeDisplayFormatEnum.Auto;
+        timeDisplayFormat.value = nextFormat;
+        graph.setTimeDisplayFormat(nextFormat);
+      },
+      { immediate: true }
+    );
+
     // Computed property pour déterminer si le séparateur avant le reset est nécessaire
     const showSeparatorBeforeReset = computed(() => {
       // Le séparateur est nécessaire seulement s'il y a des boutons de zoom avant le reset
@@ -484,6 +580,8 @@ export default defineComponent({
       state,
       exportSelection,
       exportFormatOptions,
+      timeDisplayFormat,
+      timeFormatOptions,
       methods,
       customization,
       props,
