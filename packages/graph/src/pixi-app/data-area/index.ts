@@ -339,6 +339,7 @@ export class DataArea extends BaseGroup {
 
   public setGraphRenderOptions(options: IGraphRenderOptions): void {
     this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS, ...options };
+    this.lastTimeLabelText = null;
   }
 
   public setProtocol(protocol: IProtocol) {

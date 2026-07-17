@@ -227,6 +227,7 @@ export class DataArea extends BaseGroup {
     }
     setGraphRenderOptions(options) {
         this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS, ...options };
+        this.lastTimeLabelText = null;
     }
     setProtocol(protocol) {
         hydrateProtocolItemsFromStringIfNeeded(protocol);

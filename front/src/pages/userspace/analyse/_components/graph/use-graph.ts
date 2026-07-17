@@ -99,8 +99,9 @@ export const useGraph = (options?: {
   };
 
   /**
-   * Change le format d'affichage du temps sur l'axe X et le survol du
-   * graphe (réglage de session, non persisté — voir spec-pr-format-temps-graphe.md).
+   * Change le format d'affichage du temps sur l'axe X et le survol du graphe.
+   * La persistance par chronique (observation.meta.timeDisplayFormat) est gérée
+   * par le composant graph/Index.vue.
    */
   const setTimeDisplayFormat = (format: TimeDisplayFormatEnum): void => {
     sharedState.graphRenderOptions = {
