@@ -40,7 +40,7 @@
                 v-model="props.row.type" 
                 :title="t('readingsUi.editTypeTitle')" 
                 buttons
-                @save="createTypeSaveHandler(props.row)"
+                @save="handleTypeSave(props.row, $event)"
                 v-slot="scope"
               >
                 <q-select
@@ -70,7 +70,7 @@
                 buttons
                 @before-show="() => openDateTimeEditor(props.row)"
                 @hide="clearDateTimeEditTarget"
-                @save="createDateTimeSaveHandler(props.row)"
+                @save="handleDateTimeSave(props.row, $event)"
                 v-slot="scope"
               >
                 <!-- Duration editor (chronometer mode) -->
@@ -78,7 +78,7 @@
                   <!-- Champ texte pour copier-coller rapide (Bug 2b.4) -->
                   <q-input
                     :model-value="formatDurationCompact()"
-                    @update:model-value="createDurationTextChangeHandler(scope)"
+                    @update:model-value="onDurationTextChange(scope, $event)"
                     :label="t('readingsUi.durationCopyPaste')"
                     dense
                     :placeholder="t('readingsUi.durationPlaceholder')"
@@ -87,7 +87,7 @@
                   <div class="row q-gutter-sm">
                     <q-input
                       :model-value="durationEditState.days"
-                      @update:model-value="createDurationPartChangeHandler(scope, 'days')"
+                      @update:model-value="onDurationPartChange(scope, 'days', $event)"
                       type="number"
                       :label="t('readingsUi.colDays')"
                       dense
@@ -97,7 +97,7 @@
                     />
                     <q-input
                       :model-value="durationEditState.hours"
-                      @update:model-value="createDurationPartChangeHandler(scope, 'hours')"
+                      @update:model-value="onDurationPartChange(scope, 'hours', $event)"
                       type="number"
                       :label="t('readingsUi.colHours')"
                       dense
@@ -107,7 +107,7 @@
                     />
                     <q-input
                       :model-value="durationEditState.minutes"
-                      @update:model-value="createDurationPartChangeHandler(scope, 'minutes')"
+                      @update:model-value="onDurationPartChange(scope, 'minutes', $event)"
                       type="number"
                       :label="t('readingsUi.colMinutes')"
                       dense
@@ -119,7 +119,7 @@
                   <div class="row q-gutter-sm">
                     <q-input
                       :model-value="durationEditState.seconds"
-                      @update:model-value="createDurationPartChangeHandler(scope, 'seconds')"
+                      @update:model-value="onDurationPartChange(scope, 'seconds', $event)"
                       type="number"
                       :label="t('readingsUi.colSeconds')"
                       dense
@@ -129,7 +129,7 @@
                     />
                     <q-input
                       :model-value="durationEditState.milliseconds"
-                      @update:model-value="createDurationPartChangeHandler(scope, 'milliseconds')"
+                      @update:model-value="onDurationPartChange(scope, 'milliseconds', $event)"
                       type="number"
                       :label="t('readingsUi.colMilliseconds')"
                       dense
@@ -155,7 +155,7 @@
                         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
                           <q-date
                             :model-value="getDatePart(scope.value)"
-                            @update:model-value="createDatePartUpdater(scope)"
+                            @update:model-value="updateDatePart(scope, $event)"
                             mask="DD/MM/YYYY"
                           >
                             <div class="row items-center justify-end">
@@ -168,7 +168,7 @@
                         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
                           <q-time
                             :model-value="getTimePartWithoutMs(scope.value)"
-                            @update:model-value="createTimePartUpdater(scope)"
+                            @update:model-value="updateTimePartFromPicker(scope, $event)"
                             mask="HH:mm:ss"
                             format24h
                           >
@@ -199,7 +199,7 @@
                 v-model="props.row.name" 
                 :title="t('readingsUi.editLabelTitle')" 
                 buttons
-                @save="createNameSaveHandler(props.row)"
+                @save="handleNameSave(props.row, $event)"
                 v-slot="scope"
               >
                 <q-select
@@ -256,7 +256,7 @@
                 v-model="props.row.description" 
                 :title="t('readingsUi.editDescriptionTitle')" 
                 buttons
-                @save="createDescriptionSaveHandler(props.row)"
+                @save="handleDescriptionSave(props.row, $event)"
                 v-slot="scope"
               >
                 <q-input 
@@ -589,37 +589,11 @@ export default defineComponent({
       dateTimeEditTarget.value = null;
     };
 
-    // Bug 2b.4 : Format compact pour affichage (ex: "1j 2h 30m 45s 500ms")
+    // Aligné sur formatDurationForEditDisplay / duration.formatCompact
+    // (ex: "1j 2h 30m 45s 500ms", durée nulle → "0ms") pour que scope.value
+    // reste comparable à la valeur initiale du q-popup-edit.
     const formatDurationCompact = () => {
-      const parts: string[] = [];
-      if (durationEditState.days > 0) parts.push(`${durationEditState.days}j`);
-      if (durationEditState.hours > 0) parts.push(`${durationEditState.hours}h`);
-      if (durationEditState.minutes > 0) parts.push(`${durationEditState.minutes}m`);
-      if (durationEditState.seconds > 0) parts.push(`${durationEditState.seconds}s`);
-      if (durationEditState.milliseconds > 0) parts.push(`${durationEditState.milliseconds}ms`);
-      return parts.join(' ') || '0s';
-    };
-
-    // q-popup-edit ne déclenche @save que si scope.value a changé (comparaison deep-equal
-    // avec sa valeur initiale). Les champs de durée ci-dessous modifient uniquement
-    // durationEditState ; on répercute donc systématiquement l'état courant dans scope.value
-    // pour que le popup détecte la modification et émette bien l'événement save.
-    const syncScopeFromDurationState = (scope: { value: any }) => {
-      scope.value = formatDurationCompact();
-    };
-
-    const createDurationTextChangeHandler = (scope: { value: any }) => (text: string) => {
-      parseDurationFromText(text);
-      syncScopeFromDurationState(scope);
-    };
-
-    const createDurationPartChangeHandler = (
-      scope: { value: any },
-      field: 'days' | 'hours' | 'minutes' | 'seconds' | 'milliseconds'
-    ) => (val: string | number | null) => {
-      const num = typeof val === 'number' ? val : Number(val);
-      durationEditState[field] = Number.isFinite(num) ? num : 0;
-      syncScopeFromDurationState(scope);
+      return duration.formatCompact(duration.partsToMilliseconds(durationEditState));
     };
 
     // Bug 2b.4 : Parse du format compact (ex: "1j 2h 30m 45s 500ms", "2h30m", "45s")
@@ -715,6 +689,33 @@ export default defineComponent({
       durationEditState.milliseconds = milliseconds;
     };
 
+    // q-popup-edit ne déclenche @save que si scope.value a changé (comparaison deep-equal
+    // avec sa valeur initiale). Les champs de durée ci-dessous modifient uniquement
+    // durationEditState ; on répercute donc systématiquement l'état courant dans scope.value
+    // pour que le popup détecte la modification et émette bien l'événement save.
+    //
+    // Important : les handlers doivent être invoqués avec la valeur (pas des factories
+    // retournant une fonction) — Vue compile `@event="factory(x)"` en
+    // `$event => factory(x)` et ignore la fonction retournée.
+    const syncScopeFromDurationState = (scope: { value: any }) => {
+      scope.value = formatDurationCompact();
+    };
+
+    const onDurationTextChange = (scope: { value: any }, text: string | number | null) => {
+      parseDurationFromText(text == null ? '' : String(text));
+      syncScopeFromDurationState(scope);
+    };
+
+    const onDurationPartChange = (
+      scope: { value: any },
+      field: 'days' | 'hours' | 'minutes' | 'seconds' | 'milliseconds',
+      val: string | number | null
+    ) => {
+      const num = typeof val === 'number' ? val : Number(val);
+      durationEditState[field] = Number.isFinite(num) ? num : 0;
+      syncScopeFromDurationState(scope);
+    };
+
     // Extract date part from datetime string (DD/MM/YYYY)
     const getDatePart = (dateTimeStr: string) => {
       if (!dateTimeStr) return '';
@@ -792,7 +793,7 @@ export default defineComponent({
     };
 
     // Handle type save
-    const handleTypeSave = (row: IReading, val: ReadingTypeEnum, initialVal: ReadingTypeEnum) => {
+    const handleTypeSave = (row: IReading, val: ReadingTypeEnum, _initialVal?: ReadingTypeEnum) => {
       if (!val) return;
       const targetRow = findRowSafe(row);
       if (targetRow) {
@@ -805,7 +806,7 @@ export default defineComponent({
     const handleDateTimeSave = (
       row: IReading,
       val: Date | string | null | undefined,
-      initialVal: Date | string | null | undefined
+      _initialVal?: Date | string | null | undefined
     ) => {
       if (!val && !isChronometerMode.value) return;
       
@@ -855,7 +856,7 @@ export default defineComponent({
 
     // Handle name save
     // Utilise le même pattern de row-lookup que handleDateTimeSave (sécurité virtual-scroll)
-    const handleNameSave = (row: IReading, val: string, initialVal: string) => {
+    const handleNameSave = (row: IReading, val: string, _initialVal?: string) => {
       if (!val || !val.trim()) return;
       const targetRow = findRowSafe(row);
       if (targetRow) {
@@ -866,7 +867,11 @@ export default defineComponent({
 
     // Handle description save
     // Utilise le même pattern de row-lookup que handleDateTimeSave (sécurité virtual-scroll)
-    const handleDescriptionSave = (row: IReading, val: string | undefined, initialVal: string | undefined) => {
+    const handleDescriptionSave = (
+      row: IReading,
+      val: string | undefined,
+      _initialVal?: string | undefined
+    ) => {
       const targetRow = findRowSafe(row);
       if (targetRow) {
         targetRow.description = val || undefined;
@@ -886,27 +891,6 @@ export default defineComponent({
 
     const isObservableOptionDisabled = (opt: ProtocolObservableOption): boolean =>
       opt.disable === true;
-
-    const createTypeSaveHandler = (row: IReading) =>
-      (val: ReadingTypeEnum, initialVal: ReadingTypeEnum) =>
-        handleTypeSave(row, val, initialVal);
-
-    const createDateTimeSaveHandler = (row: IReading) =>
-      (val: Date | string | null | undefined, initialVal: Date | string | null | undefined) =>
-        handleDateTimeSave(row, val, initialVal);
-
-    const createNameSaveHandler = (row: IReading) =>
-      (val: string, initialVal: string) => handleNameSave(row, val, initialVal);
-
-    const createDescriptionSaveHandler = (row: IReading) =>
-      (val: string | undefined, initialVal: string | undefined) =>
-        handleDescriptionSave(row, val, initialVal);
-
-    const createDatePartUpdater = (scope: { value: string }) => (dateVal: string) =>
-      updateDatePart(scope, dateVal);
-
-    const createTimePartUpdater = (scope: { value: string }) => (timeVal: string | null) =>
-      updateTimePartFromPicker(scope, timeVal);
     
     return {
       t,
@@ -922,8 +906,8 @@ export default defineComponent({
       clearDateTimeEditTarget,
       formatDurationCompact,
       parseDurationFromText,
-      createDurationTextChangeHandler,
-      createDurationPartChangeHandler,
+      onDurationTextChange,
+      onDurationPartChange,
       formatDateTime,
       formatDateTimeForEdit,
       getDatePart,
@@ -947,12 +931,6 @@ export default defineComponent({
       filterObservables,
       labelRequiredRule,
       isObservableOptionDisabled,
-      createTypeSaveHandler,
-      createDateTimeSaveHandler,
-      createNameSaveHandler,
-      createDescriptionSaveHandler,
-      createDatePartUpdater,
-      createTimePartUpdater,
     };
   },
 });
