@@ -410,11 +410,19 @@ export default defineComponent({
       { immediate: false }
     );
 
-    // Sync structurel : setData+draw via requestRedraw (pas setProtocol+draw seuls).
-    // dataArea ne reconstruit readingsPerCategory que dans setData ; un draw
-    // après setProtocol seul laisse Y et data potentiellement désalignés.
+    // Sync structurel / rollback : full setData+draw (pas setProtocol+draw seuls).
     const syncGraphProtocol = () => {
       graph.requestRedraw();
+    };
+
+    /**
+     * Applique une mutation protocole purement visuelle sans déclencher le
+     * watch → scheduleRedraw (évite full setData 50 ms après redrawCategory).
+     */
+    const applyVisualProtocolUpdate = async (apply: () => void | Promise<void>) => {
+      await graph.runWithoutScheduledRedraw(async () => {
+        await apply();
+      });
     };
 
     let isRepairingPreferences = false;
@@ -634,39 +642,39 @@ export default defineComponent({
               ...category.graphPreferences,
               ...sanitizedPreference,
             };
-            
-            // Forcer la réactivité Vue en créant une nouvelle référence
-            protocol.sharedState.currentProtocol = {
-              ...currentProtocol,
-              _items: currentProtocol._items?.map((item) =>
-                item.id === categoryId ? category : item
-              ),
-            };
           }
 
-          // Attendre que Vue ait fini de mettre à jour les données réactives
-          // avant de mettre à jour le pixiApp et de redessiner
-          await nextTick();
-
-          // Mettre à jour le protocole dans le pixiApp APRÈS nextTick
-          // Cela garantit que les données sont à jour avant le redessinage
           const isStructuralCategoryChange =
             sanitizedPreference.displayMode !== undefined ||
             sanitizedPreference.supportCategoryId !== undefined;
 
-          if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
-            if (isStructuralCategoryChange) {
-              // displayMode / supportCategoryId affectent l'axe Y et le layout :
-              // setData + draw (chemin unique), pas setProtocol + draw seuls.
+          if (isStructuralCategoryChange) {
+            // Affecte l'axe Y / layout : full setData+draw
+            protocol.sharedState.currentProtocol = {
+              ...currentProtocol,
+              _items: currentProtocol._items?.map((item) =>
+                item.id === categoryId && category ? category : item
+              ),
+            };
+            await nextTick();
+            graph.requestRedraw();
+          } else {
+            // Préférences visuelles : redraw ciblé, sans scheduleRedraw du watch
+            await applyVisualProtocolUpdate(async () => {
+              protocol.sharedState.currentProtocol = {
+                ...currentProtocol,
+                _items: currentProtocol._items?.map((item) =>
+                  item.id === categoryId && category ? category : item
+                ),
+              };
               await nextTick();
-              graph.requestRedraw();
-            } else {
-              graph.sharedState.pixiApp.setProtocol(
-                protocol.sharedState.currentProtocol as any
-              );
-              // Préférences visuelles : un seul redraw de la catégorie
-              graph.sharedState.pixiApp.redrawCategory(categoryId);
-            }
+              if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
+                graph.sharedState.pixiApp.setProtocol(
+                  protocol.sharedState.currentProtocol as any
+                );
+                graph.sharedState.pixiApp.redrawCategory(categoryId);
+              }
+            });
           }
 
           // Mettre à jour via l'API (après le rendu pour ne pas bloquer l'UI)
@@ -693,23 +701,22 @@ export default defineComponent({
             );
           }
 
-          // Recharger le protocole depuis l'API pour garantir la persistance (bug 3.7)
+          // Recharger le protocole depuis l'API pour garantir la persistance (bug 3.7).
+          // L'assignation déclenche scheduleRedraw (un seul full sync post-persist).
           if (observation.sharedState.currentObservation) {
             const reloaded = await protocolService.findOneFromObservationId(
               observation.sharedState.currentObservation.id
             );
             protocol.sharedState.currentProtocol = reloaded;
-            if (graph.sharedState.pixiApp) {
-              // Rendu optimiste déjà effectué : synchroniser le protocole sans redraw.
-              graph.sharedState.pixiApp.setProtocol(reloaded as any);
-            }
             await repairStaleCategoryPreferences();
           }
 
           // Sauvegarder avec debounce
           methods.debouncedSave();
         } catch (error: any) {
-          protocol.sharedState.currentProtocol = originalProtocol;
+          await applyVisualProtocolUpdate(() => {
+            protocol.sharedState.currentProtocol = originalProtocol;
+          });
           syncGraphProtocol();
           
           const apiMessage = error?.response?.data?.message;
@@ -772,23 +779,24 @@ export default defineComponent({
           });
 
           if (updated && updatedItems) {
-            // Forcer la réactivité Vue en créant une nouvelle référence
-            protocol.sharedState.currentProtocol = {
-              ...currentProtocol,
-              _items: updatedItems,
-            };
-          }
-
-          await nextTick();
-
-          if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
-            graph.sharedState.pixiApp.setProtocol(protocol.sharedState.currentProtocol as any);
-            graph.sharedState.pixiApp.updateObservablePreference(
-              observableId,
-              sanitizedPreference,
-              { redraw: false },
-            );
-            graph.sharedState.pixiApp.redrawObservable(observableId);
+            await applyVisualProtocolUpdate(async () => {
+              protocol.sharedState.currentProtocol = {
+                ...currentProtocol,
+                _items: updatedItems,
+              };
+              await nextTick();
+              if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
+                graph.sharedState.pixiApp.setProtocol(
+                  protocol.sharedState.currentProtocol as any
+                );
+                graph.sharedState.pixiApp.updateObservablePreference(
+                  observableId,
+                  sanitizedPreference,
+                  { redraw: false },
+                );
+                graph.sharedState.pixiApp.redrawObservable(observableId);
+              }
+            });
           }
 
           // Mettre à jour via l'API
@@ -798,21 +806,20 @@ export default defineComponent({
             sanitizedPreference
           );
 
-          // Recharger le protocole depuis l'API pour garantir la persistance (bug 3.7)
+          // Recharger le protocole : l'assignation déclenche un seul scheduleRedraw.
           if (observation.sharedState.currentObservation) {
             const reloaded = await protocolService.findOneFromObservationId(
               observation.sharedState.currentObservation.id
             );
             protocol.sharedState.currentProtocol = reloaded;
-            if (graph.sharedState.pixiApp) {
-              graph.sharedState.pixiApp.setProtocol(reloaded as any);
-            }
           }
 
           // Sauvegarder avec debounce
           methods.debouncedSave();
         } catch (error: any) {
-          protocol.sharedState.currentProtocol = originalProtocol;
+          await applyVisualProtocolUpdate(() => {
+            protocol.sharedState.currentProtocol = originalProtocol;
+          });
           syncGraphProtocol();
           
           const apiMessage = error?.response?.data?.message;
