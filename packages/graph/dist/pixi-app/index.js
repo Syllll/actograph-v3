@@ -120,9 +120,13 @@ export class PixiApp {
             resolution: dpr, // Pour les écrans HiDPI
             autoDensity: true, // Ajuste automatiquement la densité
             preserveDrawingBuffer: true, // Required for canvas.toDataURL() to produce non-black exports
+            // Explicit renders only: the default ticker would call app.render() every
+            // frame and bypass drawInProgress / axesGraphicsDirty guards.
+            autoStart: false,
             // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
             // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
         });
+        this.app.ticker.stop();
         this.yAxis = new YAxis(this.app);
         this.xAxis = new xAxis(this.app, this.yAxis);
         this.dataArea = new DataArea(this.app, this.yAxis, this.xAxis, {
@@ -130,6 +134,7 @@ export class PixiApp {
         });
         this.dataArea.setDrawStateCallbacks({
             isDrawInProgress: () => this.isDrawInProgress(),
+            isAxesGraphicsDirty: () => this.axesGraphicsDirty,
             requestRender: () => this.requestRender(),
         });
         this.viewport = new Container();
@@ -493,11 +498,11 @@ export class PixiApp {
             return;
         }
         this.drawInProgress = true;
-        let succeeded = false;
         try {
-            // Hide crosshair/label visuals only: keep any pending pointer event so
-            // hover can resume on the next rAF after draw completes.
-            this.dataArea.clearHoverOverlay({ cancelPending: false });
+            // Drop any pending hover: resuming it after a full draw was racing with
+            // remount DRAW#2 (resize/watch) and painting emptied axes over a stale
+            // preserveDrawingBuffer frame on the next pointermove.
+            this.dataArea.clearHoverOverlay({ cancelPending: true });
             if (this.needsPatternTextureRefresh) {
                 // Detach sprites before destroying cached textures they still reference.
                 this.dataArea.clearPatternSprites();
@@ -534,13 +539,14 @@ export class PixiApp {
             else {
                 this.updateWorldTransforms();
             }
-            // Full draw must render explicitly here: requestRender() no-ops while
-            // drawInProgress is true. Do not depend on the ticker alone.
-            if (this.isInitialized && this.app.renderer) {
-                this.app.render();
+            // Always flush the framebuffer after a full draw. With
+            // preserveDrawingBuffer, skipping render leaves a stale "OK" image until
+            // the next hover render reveals emptied axes.
+            if (!this.isInitialized || !this.app.renderer) {
+                throw new Error('PixiApp renderer unavailable at end of draw');
             }
+            this.app.render();
             this.axesGraphicsDirty = false;
-            succeeded = true;
         }
         catch (error) {
             // Axes/data clear at the start of draw. If we fail mid-way and then let
@@ -549,14 +555,12 @@ export class PixiApp {
             this.axesGraphicsDirty = true;
             this.needsInitialFit = true;
             this.needsPatternTextureRefresh = true;
-            this.dataArea.clearHoverOverlay();
+            this.dataArea.clearHoverOverlay({ cancelPending: true });
             throw error;
         }
         finally {
             this.drawInProgress = false;
-            if (succeeded) {
-                this.dataArea.resumeHoverAfterDraw();
-            }
+            // Do not resumeHoverAfterDraw: user must move again after a full redraw.
         }
     }
     /**

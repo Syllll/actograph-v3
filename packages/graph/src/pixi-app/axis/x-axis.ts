@@ -134,7 +134,7 @@ export class xAxis extends BaseGroup {
   }
 
   public clear() {
-    this.labelsContainer.removeChildren();
+    this.destroyAxisLabels();
     this.ticks = [];
     this.pixelsPerMsec = 0;
     this.axisStartTimeInMsec = 0;
@@ -143,6 +143,13 @@ export class xAxis extends BaseGroup {
     this.maxTimeInMsec = 0;
     this.totalDurationMs = 0;
     super.clear();
+  }
+
+  private destroyAxisLabels(): void {
+    const labels = this.labelsContainer.removeChildren();
+    for (const label of labels) {
+      label.destroy({ children: true });
+    }
   }
 
   /**
@@ -283,7 +290,7 @@ export class xAxis extends BaseGroup {
     this.graphic.clear();
     this.graphic.x = 0;
     this.graphic.y = 0;
-    this.labelsContainer.removeChildren();
+    this.destroyAxisLabels();
     this.labelsContainer.x = 0;
     this.labelsContainer.y = 0;
 

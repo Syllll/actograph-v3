@@ -31,6 +31,7 @@ export class DataArea extends BaseGroup {
         this.hoverRafId = null;
         this.lastTimeLabelText = null;
         this.isDrawInProgress = null;
+        this.isAxesGraphicsDirty = null;
         this.requestRender = null;
         this.yAxis = yAxis;
         this.xAxis = xAxis;
@@ -75,16 +76,19 @@ export class DataArea extends BaseGroup {
     }
     /**
      * Wires PixiApp draw/render gates so hover never calls `app.render()` while
-     * a full `executeDraw` (or export) is in progress.
+     * a full `executeDraw` (or export) is in progress, and never paints over
+     * emptied axis graphics.
      */
     setDrawStateCallbacks(callbacks) {
         this.isDrawInProgress = callbacks.isDrawInProgress;
+        this.isAxesGraphicsDirty = callbacks.isAxesGraphicsDirty;
         this.requestRender = callbacks.requestRender;
     }
     /**
      * Hides crosshair and dynamic time label.
      * @param options.cancelPending - When true (default), drops any queued
-     *   pointermove rAF. Pass false during a full draw so hover can resume after.
+     *   pointermove rAF. Full draws always cancel pending to avoid painting
+     *   emptied axes over a stale preserveDrawingBuffer frame after remount.
      */
     clearHoverOverlay(options) {
         if (options?.cancelPending !== false) {
@@ -93,12 +97,6 @@ export class DataArea extends BaseGroup {
         this.pointerDashedLines.clear();
         if (this.timeLabelContainer) {
             this.timeLabelContainer.visible = false;
-        }
-    }
-    /** Re-schedules hover processing after a full draw if a pointer event is pending. */
-    resumeHoverAfterDraw() {
-        if (this.pendingHoverEvent) {
-            this.scheduleHoverUpdate();
         }
     }
     /** Drops any pointermove update queued for the next animation frame. */
@@ -172,6 +170,14 @@ export class DataArea extends BaseGroup {
         if (this.isDrawInProgress?.()) {
             // Race: draw started after onHoverRaf cleared the pending slot. Keep the
             // event and retry on the next frame instead of dropping it.
+            this.pendingHoverEvent = evt;
+            this.scheduleHoverUpdate();
+            return;
+        }
+        // Scene graph has emptied axes (full draw incomplete). Force a full draw
+        // instead of painting crosshair onto a stale preserveDrawingBuffer frame.
+        if (this.isAxesGraphicsDirty?.()) {
+            this.requestRender?.();
             this.pendingHoverEvent = evt;
             this.scheduleHoverUpdate();
             return;

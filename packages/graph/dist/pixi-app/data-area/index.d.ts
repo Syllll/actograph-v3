@@ -28,6 +28,7 @@ export declare class DataArea extends BaseGroup {
     private hoverRafId;
     private lastTimeLabelText;
     private isDrawInProgress;
+    private isAxesGraphicsDirty;
     private requestRender;
     constructor(app: Application, yAxis: YAxis, xAxis: xAxis, options?: {
         interactive?: boolean;
@@ -37,22 +38,23 @@ export declare class DataArea extends BaseGroup {
     setPlotContainer(plotContainer: Container): void;
     /**
      * Wires PixiApp draw/render gates so hover never calls `app.render()` while
-     * a full `executeDraw` (or export) is in progress.
+     * a full `executeDraw` (or export) is in progress, and never paints over
+     * emptied axis graphics.
      */
     setDrawStateCallbacks(callbacks: {
         isDrawInProgress: () => boolean;
+        isAxesGraphicsDirty: () => boolean;
         requestRender: () => void;
     }): void;
     /**
      * Hides crosshair and dynamic time label.
      * @param options.cancelPending - When true (default), drops any queued
-     *   pointermove rAF. Pass false during a full draw so hover can resume after.
+     *   pointermove rAF. Full draws always cancel pending to avoid painting
+     *   emptied axes over a stale preserveDrawingBuffer frame after remount.
      */
     clearHoverOverlay(options?: {
         cancelPending?: boolean;
     }): void;
-    /** Re-schedules hover processing after a full draw if a pointer event is pending. */
-    resumeHoverAfterDraw(): void;
     /** Drops any pointermove update queued for the next animation frame. */
     private cancelPendingHoverUpdate;
     /**

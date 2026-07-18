@@ -107,11 +107,13 @@ this.app.stage.addChild(this.viewport);
 2. `executeDrawBody()` est **exclusif** : `drawChain` / `enqueueDrawBody` garantissent qu’aucun second draw complet ne démarre avant la fin du précédent.
 3. Pendant le draw, `drawInProgress === true` : le hover ne doit pas appeler `app.render()`.
 4. Le hover passe par `requestRender()` (no-op si draw/export en cours).
-5. Au début du draw, l’overlay hover est masqué sans annuler l’événement pointeur en attente ; après un draw **réussi**, `resumeHoverAfterDraw()` peut relancer le rAF hover.
+5. Au début du draw, l’overlay hover est **annulé** (`cancelPending: true`) : on ne reprend plus automatiquement le hover après un full draw (évite la course remount Observation→Graphe où le 1er survol peignait des axes déjà clearés sur un framebuffer périmé).
 6. Après pan/zoom, `getGlobalTransform()` force la mise à jour des matrices monde (requis pour `toGlobal` / `toLocal` du crosshair). Ne pas réintroduire de nudge artificiel du type `scale ± 0.0001`.
-7. Le rendu final du draw complet appelle `app.render()` **directement** (car `requestRender` no-op pendant le draw).
-8. **`axesGraphicsDirty`** : dès qu’un full draw commence (clear des axes), le flag est `true` jusqu’après `app.render()` réussi. Tant qu’il est sale, `requestRender`, `redrawCategory` et `redrawObservable` **ne peignent pas** la scène partielle : ils forcent un full `draw()`. C’est la garde contre le symptôme « axes absents + crosshair / fragments ».
-9. Un `draw()` en échec **reject** sa Promise (les callers comme `redrawFromObservation` le voient) ; le flag dirty reste `true` et le hover n’est pas repris.
+7. Le rendu final du draw complet appelle **toujours** `app.render()` (obligatoire avec `preserveDrawingBuffer: true`).
+8. **`axesGraphicsDirty`** : dès qu’un full draw commence (clear des axes), le flag est `true` jusqu’après `app.render()` réussi. Tant qu’il est sale, hover / `requestRender` / `redrawCategory` forcent un full `draw()` et ne peignent pas la croix sur une scène vide.
+9. Pixi est initialisé avec **`autoStart: false`** (ticker stoppé) : aucun render hors de nos gardes.
+10. Un `draw()` en échec **reject** sa Promise ; le flag dirty reste `true`.
+11. Les labels Text des axes sont **destroy** lors du clear (évite des textures orphelines stressées par le timeLabel du hover).
 
 **Contrat resume / export / mutex** :
 1. **Mutex draw** : les appels `draw()` externes attendent un export **hors** de `drawChain`, puis enfilent `executeDrawBody` ; l’export appelle `enqueueDrawBody()` directement (jamais `draw()`), ce qui évite un deadlock `drawChain ↔ exportQueue`.
@@ -837,18 +839,13 @@ const config = {
 
 ## Dépannage
 
-### Axes / traits qui disparaissent après zoom, hover ou changement d’onglet
+### Axes qui disparaissent au premier survol après Observation → Graphe
 
-**Cause typique** : un full draw efface les graphics des axes en premier (`yAxis.draw` / `xAxis.draw`), puis un chemin **partiel** (`requestRender` hover/pan, `redrawCategory`) peignait la scène avant la fin du redraw. Au resume d’onglet, un refresh trop tôt (canvas 0×0) ou un viewport conservé hors cadre aggravait le symptôme.
+**Séquence** : Graphe OK → Observation (démontage) → retour Graphe (affichage normal) → placer le curseur → axes/labels disparaissent.
 
-**Contrat à respecter** :
-- Ne pas appeler `app.render()` depuis le hover : utiliser `PixiApp.requestRender()`
-- Respecter `axesGraphicsDirty` : tant que les axes ne sont pas redessinés + rendus, forcer un full `draw()`
-- Ne pas réintroduire de nudge `viewport.scale ± 0.0001`
-- Après pan/zoom, laisser `setViewportTransform` appeler `updateWorldTransforms()` (`getGlobalTransform`)
-- Au resume visibility : `prepareForResumeRefresh` + fit (`needsInitialFit`) + `redrawFromObservation`
+**Cause** : après remount, un 2e full draw (resize/watch) clear les axes ; avec `preserveDrawingBuffer: true` le canvas peut encore montrer l’ancienne frame « OK ». Le premier hover appelle `app.render()` et révèle la scène vidée. La reprise auto du hover après draw (`cancelPending: false`) aggravait la course.
 
-Logs utiles : `[PixiApp] Full draw failed:`, `[use-graph] refreshGraph failed:`, `Graph redraw skipped due to inconsistent data:`.
+**Correctifs** : `autoStart: false`, `cancelPending: true` en début de draw, render final obligatoire, garde `axesGraphicsDirty` côté hover, destroy des Text d’axes.
 
 ### Canvas non affiché
 
