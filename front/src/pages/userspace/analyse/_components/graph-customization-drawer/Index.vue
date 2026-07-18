@@ -410,12 +410,11 @@ export default defineComponent({
       { immediate: false }
     );
 
-    const syncGraphProtocol = (protocolToSync: typeof protocol.sharedState.currentProtocol) => {
-      if (!graph.sharedState.pixiApp || !protocolToSync) {
-        return;
-      }
-      graph.sharedState.pixiApp.setProtocol(protocolToSync as any);
-      graph.sharedState.pixiApp.draw();
+    // Sync structurel : setData+draw via requestRedraw (pas setProtocol+draw seuls).
+    // dataArea ne reconstruit readingsPerCategory que dans setData ; un draw
+    // après setProtocol seul laisse Y et data potentiellement désalignés.
+    const syncGraphProtocol = () => {
+      graph.requestRedraw();
     };
 
     let isRepairingPreferences = false;
@@ -444,7 +443,7 @@ export default defineComponent({
             observation.sharedState.currentObservation.id
           );
           protocol.sharedState.currentProtocol = reloaded;
-          syncGraphProtocol(reloaded);
+          syncGraphProtocol();
         }
       } catch (error) {
         console.error('Failed to repair stale category graph preferences:', error);
@@ -651,20 +650,20 @@ export default defineComponent({
 
           // Mettre à jour le protocole dans le pixiApp APRÈS nextTick
           // Cela garantit que les données sont à jour avant le redessinage
-          if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
-            graph.sharedState.pixiApp.setProtocol(protocol.sharedState.currentProtocol as any);
-          }
-
           const isStructuralCategoryChange =
             sanitizedPreference.displayMode !== undefined ||
             sanitizedPreference.supportCategoryId !== undefined;
 
-          if (graph.sharedState.pixiApp) {
+          if (graph.sharedState.pixiApp && protocol.sharedState.currentProtocol) {
             if (isStructuralCategoryChange) {
-              // displayMode / supportCategoryId affectent l'axe Y : redraw complet
+              // displayMode / supportCategoryId affectent l'axe Y et le layout :
+              // setData + draw (chemin unique), pas setProtocol + draw seuls.
               await nextTick();
-              await graph.sharedState.pixiApp.draw();
+              graph.requestRedraw();
             } else {
+              graph.sharedState.pixiApp.setProtocol(
+                protocol.sharedState.currentProtocol as any
+              );
               // Préférences visuelles : un seul redraw de la catégorie
               graph.sharedState.pixiApp.redrawCategory(categoryId);
             }
@@ -711,7 +710,7 @@ export default defineComponent({
           methods.debouncedSave();
         } catch (error: any) {
           protocol.sharedState.currentProtocol = originalProtocol;
-          syncGraphProtocol(originalProtocol);
+          syncGraphProtocol();
           
           const apiMessage = error?.response?.data?.message;
           const validationErrors = error?.response?.data?.errors;
@@ -814,7 +813,7 @@ export default defineComponent({
           methods.debouncedSave();
         } catch (error: any) {
           protocol.sharedState.currentProtocol = originalProtocol;
-          syncGraphProtocol(originalProtocol);
+          syncGraphProtocol();
           
           const apiMessage = error?.response?.data?.message;
           const validationErrors = error?.response?.data?.errors;
