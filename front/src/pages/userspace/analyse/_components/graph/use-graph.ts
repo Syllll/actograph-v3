@@ -71,6 +71,10 @@ export const useGraph = (options?: {
   const observation = useObservation();
 
   const redrawFromObservation = async (pixiApp: PixiApp): Promise<void> => {
+    // Pendant `_loadObservation`, relevés puis protocole sont hydratés alors que
+    // `currentObservation` est encore null ; un rendu partiel serait incohérent.
+    if (observation.sharedState.loading) return;
+
     const obs = observation.sharedState.currentObservation as IObservation;
     if (!obs) return;
 
@@ -140,27 +144,29 @@ export const useGraph = (options?: {
     const pixiApp = new PixiApp();
     sharedState.pixiApp = pixiApp;
 
-    // Le protocole et les relevés sont deux sources réactives distinctes,
-    // mises à jour de façon asynchrone et indépendante (chargement réseau,
-    // édition du protocole, etc.). Avec deux `watch` séparés déclenchant
-    // chacun un redessin immédiat, une mise à jour de l'une pouvait
-    // déclencher un rendu avec l'autre encore "en retard" (protocole neuf +
-    // relevés obsolètes, ou l'inverse) : le graphe affichait alors un état
-    // transitoire incohérent (catégories/étiquettes ne correspondant pas aux
-    // données, tracés absents) qui ne se corrigeait que si un second
-    // changement survenait juste après. On regroupe donc les deux
-    // déclencheurs derrière un court debounce : les changements rapprochés
-    // de protocole et de relevés sont coalescés en un seul redessin qui lit
-    // toujours l'état le plus récent des deux.
+    // Enchaînement `_loadObservation` :
+    //   loading=true → obs=null → readings=[] → protocol=null
+    //   → await loadReadings → await loadProtocol → obs=… → loading=false
+    // Pendant le chargement, les watches relevés/protocole voient des états
+    // partiels (et `redrawFromObservation` early-return faute d'obs). À la fin,
+    // seul `loading` / l'id d'observation signalent que le triplet est prêt :
+    // sans les watches ci-dessous, le graphe ne se redessinait jamais après un
+    // rechargement si le composant était déjà monté.
+    //
+    // Hors chargement, protocole et relevés peuvent encore bouger de façon
+    // rapprochée (édition, sync inter-fenêtres). Un court debounce coalesce
+    // ces bursts en un seul redessin qui lit l'état le plus récent des deux.
     let scheduledRedrawId: ReturnType<typeof setTimeout> | null = null;
     const scheduleRedraw = (): void => {
       if (!sharedState.ready || !sharedState.pixiApp) return;
+      if (observation.sharedState.loading) return;
       if (scheduledRedrawId !== null) {
         clearTimeout(scheduledRedrawId);
       }
       scheduledRedrawId = setTimeout(() => {
         scheduledRedrawId = null;
         if (!sharedState.ready || !sharedState.pixiApp) return;
+        if (observation.sharedState.loading) return;
         void redrawFromObservation(sharedState.pixiApp);
       }, 50);
     };
@@ -213,6 +219,20 @@ export const useGraph = (options?: {
     });
 
     useAppResume(refreshGraph);
+
+    // Fin de chargement : le moment où obs + protocole + relevés sont cohérents.
+    watch(
+      () => observation.sharedState.loading,
+      (loading) => {
+        if (!loading) scheduleRedraw();
+      }
+    );
+
+    // Changement de chronique (y compris obs qui apparaît après hydratation).
+    watch(
+      () => observation.sharedState.currentObservation?.id,
+      () => scheduleRedraw()
+    );
 
     /**
      * Watch pour rafraîchir le graphe quand les relevés changent (bug 3.4 : horodatage modifié)
