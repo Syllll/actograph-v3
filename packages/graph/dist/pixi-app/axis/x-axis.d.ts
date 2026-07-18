@@ -42,6 +42,13 @@ export declare class xAxis extends BaseGroup {
      */
     setGraphRenderOptions(options: IGraphRenderOptions): void;
     private computeLabelForTick;
+    /**
+     * Mention de format affichée sous la flèche de fin d'axe (ex. "(hh:mn:sec)").
+     * Uniquement pour un format fixe (pas Auto, adaptatif donc auto-descriptif)
+     * en mode calendrier (le mode chronomètre porte déjà l'unité en toutes
+     * lettres dans chaque valeur, ex. "62m03s" — pas d'ambiguïté à lever).
+     */
+    private getFormatMentionText;
     setData(observation: IObservation): void;
     draw(): void;
 }

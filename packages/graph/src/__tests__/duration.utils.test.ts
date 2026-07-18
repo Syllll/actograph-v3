@@ -1,5 +1,9 @@
 import { TimeDisplayFormatEnum } from '@actograph/core';
-import { formatCalendarFixed, formatChronometerFixed } from '../utils/duration.utils';
+import {
+  formatCalendarFixed,
+  formatChronometerFixed,
+  getCalendarFixedFormatNotation,
+} from '../utils/duration.utils';
 
 describe('formatCalendarFixed', () => {
   // 15 janvier 2024, 09:05:03.007 (heure locale, comme les dates de readings)
@@ -33,6 +37,24 @@ describe('formatCalendarFixed', () => {
 
   it('MinuteSecondMs: mn:sec:ms', () => {
     expect(formatCalendarFixed(date, TimeDisplayFormatEnum.MinuteSecondMs)).toBe('05:03:007');
+  });
+});
+
+describe('getCalendarFixedFormatNotation', () => {
+  it('renvoie la notation courte attendue pour chaque format fixe', () => {
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.Full)).toBe(
+      'JJ.MM.AAAA hh:mn:sec:ms',
+    );
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.DateOnly)).toBe('JJ.MM.AAAA');
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.HourMinute)).toBe('hh:mn');
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.HourMinuteSecond)).toBe(
+      'hh:mn:sec',
+    );
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.MinuteSecond)).toBe('mn:sec');
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.Second)).toBe('sec');
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.MinuteSecondMs)).toBe(
+      'mn:sec:ms',
+    );
   });
 });
 

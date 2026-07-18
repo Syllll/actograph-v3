@@ -2,7 +2,7 @@ import { Container, Text } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
 import { getGraphDisplayTimeBounds, ObservationModeEnum, ReadingTypeEnum, TimeDisplayFormatEnum, } from '@actograph/core';
-import { formatAxisLabel, formatChronoAxisLabel, formatCalendarFixed, formatChronometerFixed, } from '../../utils/duration.utils';
+import { formatAxisLabel, formatChronoAxisLabel, formatCalendarFixed, formatChronometerFixed, getCalendarFixedFormatNotation, } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 const timeSteps = {
@@ -67,6 +67,8 @@ export class xAxis extends BaseGroup {
             axis: { color: 'black', width: 2 },
             tick: { color: 'black', width: 1 },
             label: { color: 'black', fontSize: 12, fontFamily: 'Arial' },
+            /** Mention de format sous la flèche de fin d'axe (ex. "(hh:mn:sec)") — voir getFormatMentionText(). */
+            formatMention: { color: '#666666', fontSize: 11, fontFamily: 'Arial', fontStyle: 'italic' },
         };
         this.ticks = [];
         this.axisStart = null;
@@ -143,6 +145,20 @@ export class xAxis extends BaseGroup {
         return isChronometer
             ? formatChronoAxisLabel(dateTime, CHRONOMETER_T0, this.totalDurationMs)
             : formatAxisLabel(dateTime, this.totalDurationMs);
+    }
+    /**
+     * Mention de format affichée sous la flèche de fin d'axe (ex. "(hh:mn:sec)").
+     * Uniquement pour un format fixe (pas Auto, adaptatif donc auto-descriptif)
+     * en mode calendrier (le mode chronomètre porte déjà l'unité en toutes
+     * lettres dans chaque valeur, ex. "62m03s" — pas d'ambiguïté à lever).
+     */
+    getFormatMentionText() {
+        const format = this.graphRenderOptions.timeDisplayFormat ?? TimeDisplayFormatEnum.Auto;
+        if (format === TimeDisplayFormatEnum.Auto)
+            return null;
+        if (this.observation?.mode === ObservationModeEnum.Chronometer)
+            return null;
+        return `(${getCalendarFixedFormatNotation(format)})`;
     }
     setData(observation) {
         super.setData(observation);
@@ -324,6 +340,27 @@ export class xAxis extends BaseGroup {
             label.visible = true;
             label.alpha = 1;
             this.labelsContainer.addChild(label);
+        }
+        const formatMentionText = this.getFormatMentionText();
+        if (formatMentionText) {
+            const formatMention = new Text({
+                text: formatMentionText,
+                style: {
+                    fontSize: this.styleOptions.formatMention.fontSize,
+                    fill: this.styleOptions.formatMention.color,
+                    fontFamily: this.styleOptions.formatMention.fontFamily,
+                    fontStyle: this.styleOptions.formatMention.fontStyle,
+                },
+            });
+            // Horizontale (pas inclinée comme les labels de tick), centrée sous la
+            // flèche de fin d'axe, à la même hauteur que les labels de tick.
+            formatMention.x = xAxisEnd.x - 5;
+            formatMention.y = xAxisStart.y + 12;
+            formatMention.anchor.set(0.5, 0);
+            formatMention.angle = 0;
+            formatMention.visible = true;
+            formatMention.alpha = 1;
+            this.labelsContainer.addChild(formatMention);
         }
         this.labelsContainer.visible = true;
         this.labelsContainer.alpha = 1;

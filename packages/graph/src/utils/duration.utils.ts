@@ -174,6 +174,33 @@ export function formatCalendarFixed(date: Date, format: FixedTimeDisplayFormat):
 }
 
 /**
+ * Notation courte d'un format fixe, affichée en mention sous la flèche de
+ * fin d'axe X (mode calendrier uniquement — voir x-axis.ts) pour lever
+ * l'ambiguïté entre formats de même forme visuelle (ex: hh:mn vs mn:sec,
+ * ou l'ordre JJ/MM d'une date pour un lecteur habitué au format anglo-saxon
+ * MM/DD). Non utilisée en mode chronomètre : chaque valeur y porte déjà
+ * son unité en toutes lettres (ex. "62m03s"), donc pas d'ambiguïté.
+ */
+export function getCalendarFixedFormatNotation(format: FixedTimeDisplayFormat): string {
+  switch (format) {
+    case TimeDisplayFormatEnum.Full:
+      return 'JJ.MM.AAAA hh:mn:sec:ms';
+    case TimeDisplayFormatEnum.DateOnly:
+      return 'JJ.MM.AAAA';
+    case TimeDisplayFormatEnum.HourMinute:
+      return 'hh:mn';
+    case TimeDisplayFormatEnum.HourMinuteSecond:
+      return 'hh:mn:sec';
+    case TimeDisplayFormatEnum.MinuteSecond:
+      return 'mn:sec';
+    case TimeDisplayFormatEnum.Second:
+      return 'sec';
+    case TimeDisplayFormatEnum.MinuteSecondMs:
+      return 'mn:sec:ms';
+  }
+}
+
+/**
  * Formate une durée écoulée depuis t0 (mode chronomètre) selon une
  * granularité fixe choisie par l'utilisateur. N'est appelée que lorsque le
  * format n'est pas `Auto` : le comportement adaptatif historique
