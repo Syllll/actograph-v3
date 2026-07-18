@@ -27,14 +27,32 @@ export declare class DataArea extends BaseGroup {
     private pendingHoverEvent;
     private hoverRafId;
     private lastTimeLabelText;
+    private isDrawInProgress;
+    private requestRender;
     constructor(app: Application, yAxis: YAxis, xAxis: xAxis, options?: {
         interactive?: boolean;
     });
     /** Hover visuals must not steal pointer events from the plot hit area. */
     private configureHoverOverlayPassthrough;
     setPlotContainer(plotContainer: Container): void;
-    /** Hides crosshair and dynamic time label (used before image export). */
-    clearHoverOverlay(): void;
+    /**
+     * Wires PixiApp draw/render gates so hover never calls `app.render()` while
+     * a full `executeDraw` (or export) is in progress.
+     */
+    setDrawStateCallbacks(callbacks: {
+        isDrawInProgress: () => boolean;
+        requestRender: () => void;
+    }): void;
+    /**
+     * Hides crosshair and dynamic time label.
+     * @param options.cancelPending - When true (default), drops any queued
+     *   pointermove rAF. Pass false during a full draw so hover can resume after.
+     */
+    clearHoverOverlay(options?: {
+        cancelPending?: boolean;
+    }): void;
+    /** Re-schedules hover processing after a full draw if a pointer event is pending. */
+    resumeHoverAfterDraw(): void;
     /** Drops any pointermove update queued for the next animation frame. */
     private cancelPendingHoverUpdate;
     /**
@@ -42,11 +60,22 @@ export declare class DataArea extends BaseGroup {
      */
     setHoverOverlaySuppressed(suppressed: boolean): void;
     init(): void;
+    private scheduleHoverUpdate;
+    /**
+     * One hover update per frame. If a full draw is in progress, keep the pending
+     * event and retry next frame instead of rendering a mid-draw scene.
+     */
+    private onHoverRaf;
     private processPointerMove;
     setPausePeriods(periods: IPeriod[]): void;
     setGraphRenderOptions(options: IGraphRenderOptions): void;
     setProtocol(protocol: IProtocol): void;
     setData(observation: IObservation): void;
+    /**
+     * Removes tiling pattern sprites from the stage without clearing readings.
+     * Call before clearPatternTextureCache() so destroyed textures are not still bound.
+     */
+    clearPatternSprites(): void;
     clear(): void;
     draw(): void;
     private drawPauseOverlay;

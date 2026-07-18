@@ -3,6 +3,7 @@ import {
   computeFitScale,
   computeFitViewport,
   computeFitViewportPosition,
+  isDegenerateCanvasSize,
   preserveViewportOnResize,
 } from '../utils/viewport.utils';
 
@@ -123,6 +124,19 @@ describe('viewport.utils', () => {
       expect(exportFit.scale).toBeLessThan(userZoomed.scale);
       expect(restored.scale).toBe(userZoomed.scale);
       expect(restored.x).not.toBe(exportFit.x);
+    });
+  });
+
+  describe('isDegenerateCanvasSize', () => {
+    it('returns true for near-zero dimensions', () => {
+      expect(isDegenerateCanvasSize(0, 600)).toBe(true);
+      expect(isDegenerateCanvasSize(800, 2)).toBe(true);
+      expect(isDegenerateCanvasSize(1, 1)).toBe(true);
+    });
+
+    it('returns false for usable dimensions', () => {
+      expect(isDegenerateCanvasSize(3, 600)).toBe(false);
+      expect(isDegenerateCanvasSize(800, 400)).toBe(false);
     });
   });
 });

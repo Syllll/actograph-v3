@@ -58,6 +58,23 @@ export declare class PixiApp {
     private exportQueue;
     private drawRafId;
     private drawResolvers;
+    private drawInProgress;
+    /**
+     * Serializes executeDrawBody. Must never await exportQueue while a caller is
+     * already on this chain (deadlock with export). External draw() waits for
+     * export OFF-chain, then enqueues the body.
+     */
+    private drawChain;
+    private lastObservation;
+    private wasDegenerateCanvas;
+    /** When true, executeDraw clears pattern textures after detaching sprites. */
+    private needsPatternTextureRefresh;
+    /**
+     * True from the moment a full draw clears axis graphics until axes are
+     * successfully stroked again. Partial paints (hover, redrawCategory, pan)
+     * must not call app.render() while this is set — they would show empty axes.
+     */
+    private axesGraphicsDirty;
     /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
     events: EventEmitter<string | symbol, any>;
     private zoomState;
@@ -74,12 +91,28 @@ export declare class PixiApp {
     init(options: IPixiAppInitOptions): Promise<void>;
     /**
      * Resize the renderer to match the current CSS size of the canvas element.
+     * @param options.skipRender - When true, updates layout/viewport without painting
+     *   (caller should follow with a single `draw()`).
      */
-    resizeFromCanvas(): boolean;
+    resizeFromCanvas(options?: {
+        skipRender?: boolean;
+    }): boolean;
+    /**
+     * Clears hover and marks pattern textures stale before a visibility resume refresh.
+     * Forces initial fit so axes cannot stay off-canvas after a bad viewport preserved
+     * across tab hide/show.
+     */
+    prepareForResumeRefresh(): void;
     /**
      * Refresh rendering after window resize, visibility resume, or WebGL context restore.
      */
     refreshAfterResume(): void;
+    /**
+     * Resolves when all in-flight draws and exports have finished.
+     */
+    waitForIdle(): Promise<void>;
+    private markDegenerateCanvasIfNeeded;
+    private reapplyLastObservation;
     private bindWebGLContextHandlers;
     setData(observation: IObservation): void;
     getPausePeriods(): IPeriod[];
@@ -94,8 +127,23 @@ export declare class PixiApp {
     }): void;
     redrawCategory(categoryId: string): void;
     redrawObservable(observableId: string): void;
+    isDrawInProgress(): boolean;
+    /**
+     * Renders only when the app is ready and no full draw/export is in flight.
+     * If axis graphics were cleared and not yet redrawn, schedules a full draw
+     * instead of painting the empty-axes scene (hover/pan must not "exclude" axes).
+     */
+    requestRender(): void;
     draw(): Promise<void>;
-    private executeDraw;
+    /** Queues an exclusive full redraw on drawChain (used by draw + export). */
+    private enqueueDrawBody;
+    private executeDrawBody;
+    /**
+     * Forces Pixi world matrices up to date after viewport pan/zoom.
+     * Needed so hover `toGlobal`/`toLocal` (plot bounds, crosshair) stay correct.
+     * Pixi 8: use getGlobalTransform() rather than a no-arg updateTransform().
+     */
+    private updateWorldTransforms;
     clear(): Promise<void>;
     private getCanvasSize;
     private updateWorldBounds;
