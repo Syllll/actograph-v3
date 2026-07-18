@@ -432,6 +432,12 @@ export class PixiApp {
   }
 
   private async executeDraw() {
+    // destroy() peut avoir annulé le rAF ; si executeDraw était déjà entré,
+    // on sort avant de toucher plot/axes détruits.
+    if (!this.isInitialized) {
+      return;
+    }
+
     this.plot.x = 0;
     this.plot.y = 0;
     this.plot.scale.set(1);
@@ -928,7 +934,20 @@ export class PixiApp {
 
   public destroy() {
     this.isInitialized = false;
+
+    if (this.drawRafId !== null) {
+      cancelAnimationFrame(this.drawRafId);
+      this.drawRafId = null;
+    }
+    const pendingResolvers = this.drawResolvers;
+    this.drawResolvers = [];
+    pendingResolvers.forEach((resolve) => resolve());
+
     this.teardownContextHandlers?.();
+
+    if (this.dataArea) {
+      this.dataArea.clearHoverOverlay();
+    }
 
     if (this.app.canvas && (this.app.canvas as any)._zoomPanHandlers) {
       const handlers = (this.app.canvas as any)._zoomPanHandlers;

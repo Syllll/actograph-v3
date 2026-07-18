@@ -5,7 +5,7 @@ import { DEFAULT_GRAPH_RENDER_OPTIONS, TimeDisplayFormatEnum } from '@actograph/
 import { useObservation } from 'src/composables/use-observation';
 import { useAppResume } from 'src/composables/use-app-resume';
 import { isElementVisible } from 'src/utils/dom.utils';
-import { IObservation, IProtocol, IReading } from '@services/observations/interface';
+import { IObservation, IReading } from '@services/observations/interface';
 import type { IObservation as ICoreObservation, IReading as ICoreReading } from '@actograph/core';
 
 /** API may deserialize dateTime as string; normalize before graph helpers. */
@@ -37,40 +37,53 @@ const sharedState = shallowReactive({
   } as IGraphRenderOptions,
 });
 
+/** Debounce partagé : Index (watches) et drawer coalescent ensemble. */
+let scheduledRedrawId: ReturnType<typeof setTimeout> | null = null;
+/** Invalide un setData/draw dépassé si un redraw plus récent a démarré. */
+let redrawGeneration = 0;
+/**
+ * Compteur de suppression : pendant un edit de préférence visuelle optimiste,
+ * l'assignation de currentProtocol ne doit pas enchaîner un full setData via
+ * le watch (sinon flicker + double travail avec redrawCategory/Observable).
+ */
+let scheduledRedrawSuppressionCount = 0;
+
+const clearScheduledRedraw = (): void => {
+  if (scheduledRedrawId !== null) {
+    clearTimeout(scheduledRedrawId);
+    scheduledRedrawId = null;
+  }
+};
+
 /**
  * Composable Vue pour gérer le graphique d'activité avec PixiJS.
- * 
- * Ce composable encapsule toute la logique d'initialisation, de chargement des données
- * et de rendu du graphique. Il gère le cycle de vie de l'application PixiJS :
- * - Création lors du montage du composant
- * - Initialisation avec le canvas HTML
- * - Chargement des données d'observation
- * - Rendu du graphique
- * - Nettoyage lors du démontage
- * 
+ *
+ * Contrat de redraw :
+ * - Full (setData + draw) : chargement obs, relevés, protocole structurel, rollback, resize
+ * - Partiel (setProtocol + redrawCategory/Observable) : prefs visuelles optimistes,
+ *   enveloppées dans runWithoutScheduledRedraw pour ne pas déclencher le watch
+ *
  * @param options - Options d'initialisation du graphique
  * @param options.init - Configuration d'initialisation
  * @param options.init.canvasRef - Référence Vue au canvas HTML qui sera utilisé par PixiJS
- * 
- * @example
- * ```typescript
- * const canvasRef = ref<HTMLCanvasElement | null>(null);
- * const graph = useGraph({
- *   init: {
- *     canvasRef,
- *   },
- * });
- * ```
  */
 export const useGraph = (options?: {
   init?: {
     canvasRef: any;
   };
 }) => {
-  // Récupération du composable d'observation pour accéder aux données
   const observation = useObservation();
 
+  /**
+   * Chemin unique de rendu cohérent : lit obs + protocole + relevés courants,
+   * puis setData + draw. Ne pas appeler setProtocol/draw seuls pour un sync
+   * structurel : dataArea ne reconstruit readingsPerCategory que dans setData.
+   */
   const redrawFromObservation = async (pixiApp: PixiApp): Promise<void> => {
+    // Pendant `_loadObservation`, relevés puis protocole sont hydratés alors que
+    // `currentObservation` est encore null ; un rendu partiel serait incohérent.
+    if (observation.sharedState.loading) return;
+
     const obs = observation.sharedState.currentObservation as IObservation;
     if (!obs) return;
 
@@ -78,16 +91,26 @@ export const useGraph = (options?: {
     const protocol = observation.protocol?.sharedState?.currentProtocol ?? null;
     if (!protocol) return;
 
+    // Tout redraw immédiat (resize, requestRedraw, callback debounce) annule
+    // un éventuel timer concurrent pour éviter un second full redraw 50 ms plus tard.
+    clearScheduledRedraw();
+
+    const generation = ++redrawGeneration;
+
     try {
       const normalizedReadings = normalizeReadingsForGraph(readings as IReading[]);
-      obs.readings = normalizedReadings as IReading[];
-      obs.protocol = protocol as IProtocol;
       pixiApp.setGraphRenderOptions(sharedState.graphRenderOptions, { redraw: false });
+      if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
+
       pixiApp.setData({
         ...(obs as ICoreObservation),
         readings: normalizedReadings,
+        protocol: protocol as unknown as ICoreObservation['protocol'],
       });
+      if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
+
       await pixiApp.draw();
+      if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
     } catch (error) {
       // Guard rail: don't break the page on transient/partial data while editing.
       console.warn('Graph redraw skipped due to inconsistent data:', error);
@@ -96,6 +119,46 @@ export const useGraph = (options?: {
 
   const getCanvasElement = (): HTMLCanvasElement | null => {
     return options?.init?.canvasRef?.value?.canvasRef ?? null;
+  };
+
+  /**
+   * Planifie un redessin complet (setData + draw) après coalescence 50 ms.
+   */
+  const scheduleRedraw = (): void => {
+    if (!sharedState.ready || !sharedState.pixiApp) return;
+    if (observation.sharedState.loading) return;
+    if (scheduledRedrawSuppressionCount > 0) return;
+    clearScheduledRedraw();
+    scheduledRedrawId = setTimeout(() => {
+      scheduledRedrawId = null;
+      if (!sharedState.ready || !sharedState.pixiApp) return;
+      if (observation.sharedState.loading) return;
+      void redrawFromObservation(sharedState.pixiApp);
+    }, 50);
+  };
+
+  /**
+   * Redessin complet immédiat (bypass debounce) — rollback / sync structurel.
+   */
+  const requestRedraw = (): void => {
+    if (!sharedState.ready || !sharedState.pixiApp) return;
+    if (observation.sharedState.loading) return;
+    void redrawFromObservation(sharedState.pixiApp);
+  };
+
+  /**
+   * Exécute `fn` sans qu'une assignation protocole/relevés ne planifie de full redraw.
+   * À utiliser autour des updates optimistes purement visuels (couleur, motif, etc.).
+   */
+  const runWithoutScheduledRedraw = async (
+    fn: () => void | Promise<void>,
+  ): Promise<void> => {
+    scheduledRedrawSuppressionCount += 1;
+    try {
+      await fn();
+    } finally {
+      scheduledRedrawSuppressionCount -= 1;
+    }
   };
 
   /**
@@ -136,16 +199,16 @@ export const useGraph = (options?: {
 
   // Si des options d'initialisation sont fournies, créer et initialiser PixiApp
   if (options?.init) {
-    // Création de l'instance PixiApp qui gère tout le rendu graphique
     const pixiApp = new PixiApp();
     sharedState.pixiApp = pixiApp;
 
-    /**
-     * Hook appelé lorsque le composant est monté dans le DOM.
-     * À ce moment, le canvas est disponible et on peut initialiser PixiJS.
-     */
+    // Enchaînement `_loadObservation` :
+    //   loading=true → obs=null → readings=[] → protocol=null
+    //   → await loadReadings → await loadProtocol → obs=… → loading=false
+    // Pendant le chargement, les watches early-return. À la fin, loading/id
+    // déclenchent le seul redessin cohérent du triplet.
+
     onMounted(async () => {
-      // Validation des options d'initialisation
       if (!options.init) {
         throw new Error('No init options provided');
       }
@@ -154,68 +217,59 @@ export const useGraph = (options?: {
         throw new Error('No canvasRef provided');
       }
 
-      // overlay actif jusqu'au premier rendu : masque le buffer GPU noir
       sharedState.loading = true;
       sharedState.ready = false;
 
       try {
-        // Initialisation de l'application PixiJS avec le canvas HTML
-        // Le canvas sera utilisé pour le rendu WebGL
         await pixiApp.init({
           view: options.init.canvasRef.value.canvasRef,
         });
 
-        // À partir d'ici le renderer et les axes existent : les redraws sont sûrs.
         sharedState.ready = true;
 
-        // Récupération de l'observation courante depuis le composable
         await redrawFromObservation(pixiApp);
 
         console.info('Pixi app initialized');
 
-        // On garde l'overlay jusqu'à ce qu'une frame ait réellement été peinte,
-        // sinon le canvas WebGL (buffer non initialisé = noir) reste visible
-        // pendant le tout premier rendu. Deux rAF = au moins une frame composée.
         await new Promise<void>((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
         );
       } catch (error) {
         console.error('Failed to initialize Pixi app:', error);
       } finally {
-        // masque l'overlay une fois la première frame peinte (ou en cas d'échec)
         sharedState.loading = false;
       }
     });
 
     useAppResume(refreshGraph);
 
-    /**
-     * Watch pour rafraîchir le graphe quand les relevés changent (bug 3.4 : horodatage modifié)
-     */
+    watch(
+      () => observation.sharedState.loading,
+      (loading) => {
+        if (!loading) scheduleRedraw();
+      }
+    );
+
+    watch(
+      () => observation.sharedState.currentObservation?.id,
+      () => scheduleRedraw()
+    );
+
     watch(
       () => observation.readings?.sharedState?.currentReadings ?? [],
-      () => {
-        if (!sharedState.ready || !sharedState.pixiApp) return;
-        void redrawFromObservation(sharedState.pixiApp);
-      },
+      scheduleRedraw,
       { deep: true }
     );
 
     watch(
       () => observation.protocol?.sharedState?.currentProtocol,
-      () => {
-        if (!sharedState.ready || !sharedState.pixiApp) return;
-        void redrawFromObservation(sharedState.pixiApp);
-      },
+      scheduleRedraw,
       { deep: true }
     );
 
-    /**
-     * Hook appelé lorsque le composant est démonté du DOM.
-     * On nettoie les ressources PixiJS pour éviter les fuites mémoire.
-     */
     onUnmounted(() => {
-      // Destruction de l'application PixiJS et libération des ressources
+      clearScheduledRedraw();
+      redrawGeneration += 1;
       pixiApp.destroy();
       sharedState.pixiApp = null;
       sharedState.ready = false;
@@ -227,5 +281,11 @@ export const useGraph = (options?: {
     sharedState,
     onCanvasResize,
     setTimeDisplayFormat,
+    /** Redessin complet immédiat (setData + draw). */
+    requestRedraw,
+    /** Redessin complet coalescé (50 ms). */
+    scheduleRedraw,
+    /** Coupe le scheduleRedraw pendant un update optimiste purement visuel. */
+    runWithoutScheduledRedraw,
   };
-}
+};
