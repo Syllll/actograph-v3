@@ -27,6 +27,10 @@ describe('formatCalendarFixed', () => {
     expect(formatCalendarFixed(date, TimeDisplayFormatEnum.MinuteSecond)).toBe('05:03');
   });
 
+  it('Second: sec seules (sans ms)', () => {
+    expect(formatCalendarFixed(date, TimeDisplayFormatEnum.Second)).toBe('03');
+  });
+
   it('MinuteSecondMs: mn:sec:ms', () => {
     expect(formatCalendarFixed(date, TimeDisplayFormatEnum.MinuteSecondMs)).toBe('05:03:007');
   });
@@ -66,6 +70,12 @@ describe('formatChronometerFixed', () => {
     // 1h 2m 3s -> 62m03s
     const date = new Date(t0.getTime() + (1 * 60 * 60 + 2 * 60 + 3) * 1000);
     expect(formatChronometerFixed(date, t0, TimeDisplayFormatEnum.MinuteSecond)).toBe('62m03s');
+  });
+
+  it('Second: secondes totales cumulées (sans ms)', () => {
+    // 1h 2m 3s -> 3723s
+    const date = new Date(t0.getTime() + (1 * 60 * 60 + 2 * 60 + 3) * 1000);
+    expect(formatChronometerFixed(date, t0, TimeDisplayFormatEnum.Second)).toBe('3723s');
   });
 
   it('MinuteSecondMs: minutes:secondes:millisecondes cumulées', () => {

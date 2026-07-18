@@ -166,6 +166,8 @@ export function formatCalendarFixed(date: Date, format: FixedTimeDisplayFormat):
       return `${HH}:${mm}:${ss}`;
     case TimeDisplayFormatEnum.MinuteSecond:
       return `${mm}:${ss}`;
+    case TimeDisplayFormatEnum.Second:
+      return ss;
     case TimeDisplayFormatEnum.MinuteSecondMs:
       return `${mm}:${ss}:${SSS}`;
   }
@@ -192,6 +194,7 @@ export function formatChronometerFixed(
   const parts = millisecondsToParts(ms);
   const totalHours = parts.days * 24 + parts.hours;
   const totalMinutes = totalHours * 60 + parts.minutes;
+  const totalSeconds = totalMinutes * 60 + parts.seconds;
 
   switch (format) {
     case TimeDisplayFormatEnum.Full:
@@ -204,6 +207,8 @@ export function formatChronometerFixed(
       return `${totalHours}h${pad2(parts.minutes)}m${pad2(parts.seconds)}s`;
     case TimeDisplayFormatEnum.MinuteSecond:
       return `${totalMinutes}m${pad2(parts.seconds)}s`;
+    case TimeDisplayFormatEnum.Second:
+      return `${totalSeconds}s`;
     case TimeDisplayFormatEnum.MinuteSecondMs:
       return `${totalMinutes}m${pad2(parts.seconds)}s${String(parts.milliseconds).padStart(3, '0')}ms`;
   }

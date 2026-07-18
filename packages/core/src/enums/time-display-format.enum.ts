@@ -18,6 +18,8 @@ export enum TimeDisplayFormatEnum {
   HourMinuteSecond = 'hourMinuteSecond',
   /** mn:sec */
   MinuteSecond = 'minuteSecond',
+  /** sec (secondes seules, sans ms) */
+  Second = 'second',
   /** mn:sec:ms */
   MinuteSecondMs = 'minuteSecondMs',
 }

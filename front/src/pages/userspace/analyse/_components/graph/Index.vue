@@ -238,6 +238,7 @@ export default defineComponent({
           value: TimeDisplayFormatEnum.HourMinuteSecond,
         },
         { label: t('graphUi.timeFormatMinuteSecond'), value: TimeDisplayFormatEnum.MinuteSecond },
+        { label: t('graphUi.timeFormatSecond'), value: TimeDisplayFormatEnum.Second },
         {
           label: t('graphUi.timeFormatMinuteSecondMs'),
           value: TimeDisplayFormatEnum.MinuteSecondMs,

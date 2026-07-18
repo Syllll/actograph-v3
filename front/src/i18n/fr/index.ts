@@ -483,6 +483,7 @@ export default {
     timeFormatHourMinute: 'hh:mn',
     timeFormatHourMinuteSecond: 'hh:mn:sec',
     timeFormatMinuteSecond: 'mn:sec',
+    timeFormatSecond: 'sec',
     timeFormatMinuteSecondMs: 'mn:sec:ms',
   },
   appRoot: {
