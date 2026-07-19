@@ -806,6 +806,33 @@ ipcMain.handle('cleanup-old-autosave', async (event, maxAgeDays: number = 7) => 
   }
 });
 
+ipcMain.handle(
+  'log-renderer-error',
+  async (
+    _event,
+    payload: {
+      report?: string;
+      message?: string;
+      stack?: string;
+      type?: string;
+    } | null | undefined
+  ) => {
+    if (!payload || typeof payload !== 'object') {
+      log.error('[renderer-error] Invalid or missing payload');
+      return;
+    }
+
+    const { report = '', message = '(no message)', stack = '', type = 'unknown' } = payload;
+    log.error('[renderer-error]', type, message);
+    if (stack) {
+      log.error(stack);
+    }
+    if (report) {
+      log.error(`Report:\n${report}`);
+    }
+  }
+);
+
 ipcMain.handle('show-save-dialog', async (event, options: {
   defaultPath?: string;
   filters?: { name: string; extensions: string[] }[];

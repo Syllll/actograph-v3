@@ -22,6 +22,13 @@ const sharedState = reactive({
   currentDate: null as Date | null,
 });
 
+export function getCurrentObservationSummary(): string {
+  const obs = sharedState.currentObservation;
+  if (obs?.name) return obs.name;
+  if (obs?.id != null) return String(obs.id);
+  return 'n/a';
+}
+
 let intervalId: number | null = null;
 let hasSetupObservationWindowSync = false;
 let followerObservationMetaHydrated = false;

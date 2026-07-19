@@ -20,6 +20,20 @@ export default {
     shortcuts: 'Raccourcis clavier',
     shortcutsEmpty: 'Aucun raccourci clavier défini pour l\'instant.',
   },
+  errorReport: {
+    title: 'Erreur inattendue',
+    message:
+      'Une erreur est survenue. Vous pouvez copier ou enregistrer le rapport technique ci-dessous pour le support.',
+    copy: 'Copier le rapport',
+    save: 'Enregistrer le rapport',
+    close: 'Fermer',
+    copySuccess: 'Rapport copié dans le presse-papiers',
+    saveSuccess: 'Rapport enregistré',
+    saveFilterText: 'Fichiers texte',
+    saveFilterAll: 'Tous les fichiers',
+    saveFailed: 'Impossible d\'enregistrer le rapport',
+    copyFailed: 'Impossible de copier le rapport',
+  },
   drawer: {
     help: 'Aide',
     preferences: 'Préférences',

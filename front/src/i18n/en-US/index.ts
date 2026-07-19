@@ -20,6 +20,20 @@ export default {
     shortcuts: 'Keyboard shortcuts',
     shortcutsEmpty: 'No keyboard shortcuts defined yet.',
   },
+  errorReport: {
+    title: 'Unexpected error',
+    message:
+      'An error occurred. You can copy or save the technical report below for support.',
+    copy: 'Copy report',
+    save: 'Save report',
+    close: 'Close',
+    copySuccess: 'Report copied to clipboard',
+    saveSuccess: 'Report saved',
+    saveFilterText: 'Text files',
+    saveFilterAll: 'All files',
+    saveFailed: 'Could not save the report',
+    copyFailed: 'Could not copy the report',
+  },
   drawer: {
     help: 'Help',
     preferences: 'Preferences',

@@ -74,6 +74,12 @@ declare global {
         deleted: number;
         error?: string;
       }>;
+      logRendererError: (payload: {
+        report: string;
+        message: string;
+        stack: string;
+        type: string;
+      }) => Promise<void>;
     };
   }
 }

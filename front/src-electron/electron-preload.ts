@@ -28,6 +28,7 @@ const validChannels = [
   'server-status', // For showing server startup status
   'app-resume', // System resume from sleep
   'ensure-backend', // Restart API subprocess if needed
+  'log-renderer-error',
 ];
 
 // Expose protected methods that allow the renderer process to use
@@ -195,5 +196,13 @@ contextBridge.exposeInMainWorld('api', {
       deleted: number;
       error?: string;
     }>;
+  },
+  logRendererError: (payload: {
+    report: string;
+    message: string;
+    stack: string;
+    type: string;
+  }): Promise<void> => {
+    return ipcRenderer.invoke('log-renderer-error', payload) as Promise<void>;
   },
 });
