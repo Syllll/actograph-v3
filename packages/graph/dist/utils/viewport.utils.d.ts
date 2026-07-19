@@ -11,6 +11,8 @@ export interface CanvasSize {
     width: number;
     height: number;
 }
+/** True when CSS/bitmap dimensions are too small to paint a meaningful frame. */
+export declare function isDegenerateCanvasSize(width: number, height: number): boolean;
 /**
  * Scale initial pour faire tenir le plot entier dans le canvas (mode interactif).
  * Ne zoome pas au-delà de 1 si le contenu est déjà plus petit que le canvas.

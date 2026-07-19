@@ -352,6 +352,7 @@ export class YAxis extends BaseGroup {
       const child = this.children[i];
       if (child !== this.graphic) {
         this.removeChild(child);
+        child.destroy({ children: true });
       }
     }
   }

@@ -34,6 +34,7 @@ export declare class xAxis extends BaseGroup {
     getPosFromDateTime(dateTime: Date | string): number;
     getDateTimeFromPos(xPos: number): Date;
     clear(): void;
+    private destroyAxisLabels;
     /**
      * Met à jour le format d'affichage du temps. Ne touche ni aux bornes ni au
      * pas de temps de l'axe (calculés dans setData) : recalcule uniquement le

@@ -496,17 +496,16 @@ Les fonctionnalités suivantes ont été implémentées et sont maintenant dispo
 - **Statut GitHub** : Backlog
 - **Priorité** : P2-Should Have
 - **Taille** : M
-- **État réel** : ✅ **Implémenté**
+- **État réel** : ⚠️ **Partiellement implémenté**
 - **Détails** :
-  - ✅ Zoom avec molette de souris (centré sur la position de la souris) (`front/src/pages/userspace/analyse/_components/graph/pixi-app/index.ts`)
-  - ✅ Pan avec clic-glisser (détection intelligente des éléments interactifs)
+  - ✅ Zoom caméra avec molette (centré sur la souris) (`packages/graph/src/pixi-app/index.ts`)
+  - ✅ Pan avec clic-glisser / pointer events
   - ✅ Boutons de contrôle (zoom in/out, reset) dans l'interface
   - ✅ Indicateur du niveau de zoom actuel
-  - ✅ Limites min/max pour éviter le zoom excessif (0.1x à 5x)
-  - ✅ Ajustement automatique de l'échelle de temps selon le zoom
+  - ✅ Limites min/max (0.1x à 5x)
   - ✅ Gestion du viewport PixiJS pour le zoom et pan
-  - ✅ Détection des éléments interactifs pour éviter les conflits avec le pan
-
+  - ✅ Stabilisation draw/hover/resume (mutex draw, `axesGraphicsDirty`, fit forcé au retour d’onglet, pas de render mid-draw)
+  - ❌ Ajustement automatique de l'échelle de temps selon le zoom (`updateTimeScale()` encore stub ; `pixelsPerMsec` ne suit pas le zoom)
 ### #47 - ETQ user, je souhaite personnaliser les symboles graphiques pour les observables événementiels
 - **Statut GitHub** : Backlog
 - **Priorité** : P3-Could Have

@@ -10,6 +10,7 @@ import { clearPatternTextureCache } from '../lib/pattern-textures';
 import {
   clampViewport,
   computeFitViewport,
+  isDegenerateCanvasSize,
   preserveViewportOnResize,
   type WorldBounds,
 } from '../utils/viewport.utils';
@@ -77,7 +78,27 @@ export class PixiApp {
   private exportInProgress = false;
   private exportQueue: Promise<unknown> = Promise.resolve();
   private drawRafId: number | null = null;
-  private drawResolvers: Array<() => void> = [];
+  private drawResolvers: Array<{
+    resolve: () => void;
+    reject: (reason?: unknown) => void;
+  }> = [];
+  private drawInProgress = false;
+  /**
+   * Serializes executeDrawBody. Must never await exportQueue while a caller is
+   * already on this chain (deadlock with export). External draw() waits for
+   * export OFF-chain, then enqueues the body.
+   */
+  private drawChain: Promise<void> = Promise.resolve();
+  private lastObservation: IObservation | null = null;
+  private wasDegenerateCanvas = false;
+  /** When true, executeDraw clears pattern textures after detaching sprites. */
+  private needsPatternTextureRefresh = false;
+  /**
+   * True from the moment a full draw clears axis graphics until axes are
+   * successfully stroked again. Partial paints (hover, redrawCategory, pan)
+   * must not call app.render() while this is set — they would show empty axes.
+   */
+  private axesGraphicsDirty = false;
 
   /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
   public events = new EventEmitter();
@@ -132,14 +153,23 @@ export class PixiApp {
       resolution: dpr,      // Pour les écrans HiDPI
       autoDensity: true,    // Ajuste automatiquement la densité
       preserveDrawingBuffer: true, // Required for canvas.toDataURL() to produce non-black exports
+      // Explicit renders only: the default ticker would call app.render() every
+      // frame and bypass drawInProgress / axesGraphicsDirty guards.
+      autoStart: false,
       // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
       // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
     });
+    this.app.ticker.stop();
 
     this.yAxis = new YAxis(this.app);
     this.xAxis = new xAxis(this.app, this.yAxis);
     this.dataArea = new DataArea(this.app, this.yAxis, this.xAxis, {
       interactive: this.isInteractive,
+    });
+    this.dataArea.setDrawStateCallbacks({
+      isDrawInProgress: () => this.isDrawInProgress(),
+      isAxesGraphicsDirty: () => this.axesGraphicsDirty,
+      requestRender: () => this.requestRender(),
     });
 
     this.viewport = new Container();
@@ -175,8 +205,10 @@ export class PixiApp {
 
   /**
    * Resize the renderer to match the current CSS size of the canvas element.
+   * @param options.skipRender - When true, updates layout/viewport without painting
+   *   (caller should follow with a single `draw()`).
    */
-  public resizeFromCanvas(): boolean {
+  public resizeFromCanvas(options?: { skipRender?: boolean }): boolean {
     // Le renderer n'existe pas tant que init() n'a pas abouti (ou après destroy).
     // Accéder à app.canvas/renderer avant cela lèverait une exception.
     if (!this.isInitialized || !this.app.renderer || this.exportInProgress) {
@@ -189,8 +221,21 @@ export class PixiApp {
     }
 
     const rect = canvas.getBoundingClientRect();
-    const width = Math.max(1, Math.floor(rect.width));
-    const height = Math.max(1, Math.floor(rect.height));
+    const rawWidth = Math.floor(rect.width);
+    const rawHeight = Math.floor(rect.height);
+
+    if (isDegenerateCanvasSize(rawWidth, rawHeight)) {
+      this.wasDegenerateCanvas = true;
+      return false;
+    }
+
+    const width = Math.max(1, rawWidth);
+    const height = Math.max(1, rawHeight);
+
+    if (this.wasDegenerateCanvas && this.isInteractive) {
+      this.needsInitialFit = true;
+      this.wasDegenerateCanvas = false;
+    }
 
     // Anti-boucle ResizeObserver : si la taille n'a pas réellement changé, ne
     // pas re-déclencher un resize + render (qui pourrait relancer un cycle de
@@ -230,19 +275,74 @@ export class PixiApp {
         this.worldBounds,
         this.getCanvasSize(),
       );
-      this.setViewportTransform(clamped, { emitZoom: false });
-    } else {
+      this.setViewportTransform(clamped, {
+        emitZoom: false,
+        skipRender: options?.skipRender,
+      });
+    } else if (!options?.skipRender) {
       this.app.render();
     }
     return true;
   }
 
   /**
+   * Clears hover and marks pattern textures stale before a visibility resume refresh.
+   * Forces initial fit so axes cannot stay off-canvas after a bad viewport preserved
+   * across tab hide/show.
+   */
+  public prepareForResumeRefresh(): void {
+    this.dataArea.clearHoverOverlay();
+    this.needsPatternTextureRefresh = true;
+    // Always re-fit on resume: preserving zoom across a hidden tab often leaves
+    // the camera on an empty region (axes "disappeared", one data fragment left).
+    this.needsInitialFit = true;
+    this.wasDegenerateCanvas = true;
+    this.markDegenerateCanvasIfNeeded();
+  }
+
+  /**
    * Refresh rendering after window resize, visibility resume, or WebGL context restore.
    */
   public refreshAfterResume(): void {
-    this.resizeFromCanvas();
+    if (!this.isInitialized) {
+      return;
+    }
+    this.dataArea.clearHoverOverlay();
+    this.needsPatternTextureRefresh = true;
+    this.needsInitialFit = true;
+    this.wasDegenerateCanvas = true;
+    if (this.lastObservation) {
+      this.reapplyLastObservation();
+    }
+    this.markDegenerateCanvasIfNeeded();
+    this.resizeFromCanvas({ skipRender: true });
     void this.draw();
+  }
+
+  /**
+   * Resolves when all in-flight draws and exports have finished.
+   */
+  public waitForIdle(): Promise<void> {
+    const exportGate = this.exportInProgress ? this.exportQueue : Promise.resolve();
+    return Promise.all([this.drawChain, exportGate]).then(() => undefined);
+  }
+
+  private markDegenerateCanvasIfNeeded(): void {
+    const canvas = this.app.canvas as HTMLCanvasElement | null;
+    if (!canvas) {
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    if (isDegenerateCanvasSize(rect.width, rect.height)) {
+      this.wasDegenerateCanvas = true;
+    }
+  }
+
+  private reapplyLastObservation(): void {
+    if (!this.lastObservation) {
+      return;
+    }
+    this.setData(this.lastObservation);
   }
 
   private bindWebGLContextHandlers(): void {
@@ -253,6 +353,12 @@ export class PixiApp {
 
     const onContextLost = (event: Event) => {
       event.preventDefault();
+      this.dataArea.clearHoverOverlay();
+      this.needsPatternTextureRefresh = true;
+      this.axesGraphicsDirty = true;
+      // Force fit after restore: GPU context loss often coincides with a bad
+      // or stale viewport even when CSS size still looks valid.
+      this.wasDegenerateCanvas = true;
     };
     const onContextRestored = () => {
       this.refreshAfterResume();
@@ -283,6 +389,8 @@ export class PixiApp {
       ...observation,
       readings: filterReadingsForGraphDisplay(observation.readings),
     };
+
+    this.lastObservation = graphObservation;
 
     this.pausePeriods = getGraphPausePeriods(graphObservation.readings ?? []);
 
@@ -401,22 +509,51 @@ export class PixiApp {
   }
 
   public redrawCategory(categoryId: string): void {
-    this.dataArea.redrawCategory(categoryId);
-    if (this.isInitialized && this.app.renderer) {
-      this.app.render();
+    if (this.axesGraphicsDirty) {
+      void this.draw();
+      return;
     }
+    this.dataArea.redrawCategory(categoryId);
+    this.requestRender();
   }
 
   public redrawObservable(observableId: string): void {
-    this.dataArea.redrawObservable(observableId);
-    if (this.isInitialized && this.app.renderer) {
-      this.app.render();
+    if (this.axesGraphicsDirty) {
+      void this.draw();
+      return;
     }
+    this.dataArea.redrawObservable(observableId);
+    this.requestRender();
+  }
+
+  public isDrawInProgress(): boolean {
+    return this.drawInProgress;
+  }
+
+  /**
+   * Renders only when the app is ready and no full draw/export is in flight.
+   * If axis graphics were cleared and not yet redrawn, schedules a full draw
+   * instead of painting the empty-axes scene (hover/pan must not "exclude" axes).
+   */
+  public requestRender(): void {
+    if (
+      !this.isInitialized ||
+      !this.app.renderer ||
+      this.drawInProgress ||
+      this.exportInProgress
+    ) {
+      return;
+    }
+    if (this.axesGraphicsDirty) {
+      void this.draw();
+      return;
+    }
+    this.app.render();
   }
 
   public draw(): Promise<void> {
-    return new Promise((resolve) => {
-      this.drawResolvers.push(resolve);
+    return new Promise((resolve, reject) => {
+      this.drawResolvers.push({ resolve, reject });
       if (this.drawRafId !== null) {
         return;
       }
@@ -424,65 +561,129 @@ export class PixiApp {
         this.drawRafId = null;
         const resolvers = this.drawResolvers;
         this.drawResolvers = [];
-        void this.executeDraw().then(() => {
-          resolvers.forEach((r) => r());
-        });
+
+        // Wait for export OFF drawChain, then enqueue the body. Waiting for
+        // exportQueue while already on drawChain deadlocks against export,
+        // which must also enqueue bodies on the same chain.
+        void (async () => {
+          try {
+            while (this.exportInProgress) {
+              await this.exportQueue;
+            }
+            await this.enqueueDrawBody();
+            resolvers.forEach((r) => r.resolve());
+          } catch (error) {
+            resolvers.forEach((r) => r.reject(error));
+          }
+        })();
       });
     });
   }
 
-  private async executeDraw() {
+  /** Queues an exclusive full redraw on drawChain (used by draw + export). */
+  private enqueueDrawBody(): Promise<void> {
+    const done = this.drawChain.then(
+      () => this.executeDrawBody(),
+      () => this.executeDrawBody(),
+    );
+    // Keep drawChain healthy after a failure, but still reject `done` so callers
+    // (and draw() promises) observe the error.
+    this.drawChain = done.catch(() => undefined);
+    return done;
+  }
+
+  private async executeDrawBody() {
     // destroy() peut avoir annulé le rAF ; si executeDraw était déjà entré,
     // on sort avant de toucher plot/axes détruits.
     if (!this.isInitialized) {
       return;
     }
 
-    this.plot.x = 0;
-    this.plot.y = 0;
-    this.plot.scale.set(1);
-    this.plot.rotation = 0;
+    this.drawInProgress = true;
+    try {
+      // Drop any pending hover: resuming it after a full draw was racing with
+      // remount DRAW#2 (resize/watch) and painting emptied axes over a stale
+      // preserveDrawingBuffer frame on the next pointermove.
+      this.dataArea.clearHoverOverlay({ cancelPending: true });
 
-    this.yAxis.draw();
-    this.xAxis.draw();
-    this.dataArea.draw();
-
-    const currentScale = this.viewport.scale.x;
-    this.viewport.scale.set(currentScale + 0.0001);
-    this.viewport.scale.set(currentScale);
-
-    if (this.isInteractive) {
-      this.updateWorldBounds();
-      this.recalculateFitViewport();
-      if (this.needsInitialFit) {
-        this.needsInitialFit = false;
-        this.setViewportTransform({ ...this.fitViewport }, { skipRender: true });
-      } else {
-        // Les bornes du plot peuvent avoir changé (protocole, relevés) sans
-        // reset volontaire du zoom : on reclamp la vue courante.
-        this.setViewportTransform(
-          {
-            scale: this.zoomState.scale,
-            x: this.zoomState.x,
-            y: this.zoomState.y,
-          },
-          { emitZoom: false, skipRender: true },
-        );
+      if (this.needsPatternTextureRefresh) {
+        // Detach sprites before destroying cached textures they still reference.
+        this.dataArea.clearPatternSprites();
+        clearPatternTextureCache();
+        this.needsPatternTextureRefresh = false;
       }
-    }
 
-    // Rendu explicite : ne pas dépendre uniquement du ticker. Sans cela, le
-    // canvas WebGL reste sur son buffer initial (noir) jusqu'à ce qu'un
-    // événement (resize/interaction) déclenche enfin un rendu.
-    if (this.isInitialized && this.app.renderer) {
+      this.plot.x = 0;
+      this.plot.y = 0;
+      this.plot.scale.set(1);
+      this.plot.rotation = 0;
+
+      // Axis draw() clears graphics first — stay dirty until the full scene
+      // has been rendered, so hover/pan cannot paint emptied axes.
+      this.axesGraphicsDirty = true;
+      this.yAxis.draw();
+      this.xAxis.draw();
+      this.dataArea.draw();
+
+      if (this.isInteractive) {
+        this.updateWorldBounds();
+        this.recalculateFitViewport();
+        if (this.needsInitialFit) {
+          this.needsInitialFit = false;
+          this.setViewportTransform({ ...this.fitViewport }, { skipRender: true });
+        } else {
+          // Les bornes du plot peuvent avoir changé (protocole, relevés) sans
+          // reset volontaire du zoom : on reclamp la vue courante.
+          this.setViewportTransform(
+            {
+              scale: this.zoomState.scale,
+              x: this.zoomState.x,
+              y: this.zoomState.y,
+            },
+            { emitZoom: false, skipRender: true },
+          );
+        }
+      } else {
+        this.updateWorldTransforms();
+      }
+
+      // Always flush the framebuffer after a full draw. With
+      // preserveDrawingBuffer, skipping render leaves a stale "OK" image until
+      // the next hover render reveals emptied axes.
+      if (!this.isInitialized || !this.app.renderer) {
+        throw new Error('PixiApp renderer unavailable at end of draw');
+      }
       this.app.render();
+      this.axesGraphicsDirty = false;
+    } catch (error) {
+      // Axes/data clear at the start of draw. If we fail mid-way and then let
+      // hover call requestRender(), the user sees empty axes + orphan crosshair.
+      console.error('[PixiApp] Full draw failed:', error);
+      this.axesGraphicsDirty = true;
+      this.needsInitialFit = true;
+      this.needsPatternTextureRefresh = true;
+      this.dataArea.clearHoverOverlay({ cancelPending: true });
+      throw error;
+    } finally {
+      this.drawInProgress = false;
+      // Do not resumeHoverAfterDraw: user must move again after a full redraw.
     }
+  }
+
+  /**
+   * Forces Pixi world matrices up to date after viewport pan/zoom.
+   * Needed so hover `toGlobal`/`toLocal` (plot bounds, crosshair) stay correct.
+   * Pixi 8: use getGlobalTransform() rather than a no-arg updateTransform().
+   */
+  private updateWorldTransforms(): void {
+    this.viewport.getGlobalTransform();
   }
 
   public async clear() {
     this.yAxis.clear();
     this.xAxis.clear();
     this.dataArea.clear();
+    this.axesGraphicsDirty = true;
   }
 
   private getCanvasSize(): { width: number; height: number } {
@@ -535,14 +736,16 @@ export class PixiApp {
     this.viewport.scale.set(clamped.scale);
     this.viewport.x = clamped.x;
     this.viewport.y = clamped.y;
+    this.updateWorldTransforms();
 
     if (options?.emitZoom !== false) {
       this.events.emit('zoom', clamped.scale);
       this.updateTimeScale();
     }
 
-    if (!options?.skipRender && this.isInitialized && this.app.renderer) {
-      this.app.render();
+    // Gate via requestRender so a pan/zoom event cannot paint a mid-draw frame.
+    if (!options?.skipRender) {
+      this.requestRender();
     }
   }
 
@@ -876,6 +1079,7 @@ export class PixiApp {
 
     this.exportInProgress = true;
     this.dataArea.setHoverOverlaySuppressed(true);
+    this.dataArea.clearHoverOverlay();
 
     const originalWidth = this.app.screen.width;
     const originalHeight = this.app.screen.height;
@@ -910,7 +1114,9 @@ export class PixiApp {
         this.setViewportTransform(fitViewport, { emitZoom: false, skipRender: true });
       }
 
-      await this.draw();
+      // Direct enqueue (not draw()): avoids deadlock with external draws that
+      // wait on exportQueue off-chain before enqueueing.
+      await this.enqueueDrawBody();
       this.app.render();
       const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
       return (this.app.canvas as HTMLCanvasElement).toDataURL(mimeType, quality);
@@ -923,7 +1129,7 @@ export class PixiApp {
             this.recalculateFitViewport();
           }
           this.setViewportTransform(savedViewport, { emitZoom: false, skipRender: true });
-          await this.draw();
+          await this.enqueueDrawBody();
         }
       } finally {
         this.exportInProgress = false;
@@ -941,7 +1147,7 @@ export class PixiApp {
     }
     const pendingResolvers = this.drawResolvers;
     this.drawResolvers = [];
-    pendingResolvers.forEach((resolve) => resolve());
+    pendingResolvers.forEach((r) => r.resolve());
 
     this.teardownContextHandlers?.();
 

@@ -30,6 +30,9 @@ export class DataArea extends BaseGroup {
         this.pendingHoverEvent = null;
         this.hoverRafId = null;
         this.lastTimeLabelText = null;
+        this.isDrawInProgress = null;
+        this.isAxesGraphicsDirty = null;
+        this.requestRender = null;
         this.yAxis = yAxis;
         this.xAxis = xAxis;
         this.graphInteractionEnabled = options?.interactive ?? true;
@@ -71,9 +74,26 @@ export class DataArea extends BaseGroup {
     setPlotContainer(plotContainer) {
         this.plotContainer = plotContainer;
     }
-    /** Hides crosshair and dynamic time label (used before image export). */
-    clearHoverOverlay() {
-        this.cancelPendingHoverUpdate();
+    /**
+     * Wires PixiApp draw/render gates so hover never calls `app.render()` while
+     * a full `executeDraw` (or export) is in progress, and never paints over
+     * emptied axis graphics.
+     */
+    setDrawStateCallbacks(callbacks) {
+        this.isDrawInProgress = callbacks.isDrawInProgress;
+        this.isAxesGraphicsDirty = callbacks.isAxesGraphicsDirty;
+        this.requestRender = callbacks.requestRender;
+    }
+    /**
+     * Hides crosshair and dynamic time label.
+     * @param options.cancelPending - When true (default), drops any queued
+     *   pointermove rAF. Full draws always cancel pending to avoid painting
+     *   emptied axes over a stale preserveDrawingBuffer frame after remount.
+     */
+    clearHoverOverlay(options) {
+        if (options?.cancelPending !== false) {
+            this.cancelPendingHoverUpdate();
+        }
         this.pointerDashedLines.clear();
         if (this.timeLabelContainer) {
             this.timeLabelContainer.visible = false;
@@ -115,23 +135,53 @@ export class DataArea extends BaseGroup {
             // events than the screen can render, and each update redraws the
             // crosshair and regenerates the time label's text texture.
             this.pendingHoverEvent = evt;
-            if (this.hoverRafId === null) {
-                this.hoverRafId = requestAnimationFrame(() => {
-                    this.hoverRafId = null;
-                    const pendingEvent = this.pendingHoverEvent;
-                    this.pendingHoverEvent = null;
-                    if (pendingEvent) {
-                        this.processPointerMove(pendingEvent);
-                    }
-                });
-            }
+            this.scheduleHoverUpdate();
         });
         this.pointerHitArea.on('pointerleave', () => {
             this.clearHoverOverlay();
         });
         this.ensurePointerHitAreaOnTop();
     }
+    scheduleHoverUpdate() {
+        if (this.hoverRafId !== null) {
+            return;
+        }
+        this.hoverRafId = requestAnimationFrame(() => this.onHoverRaf());
+    }
+    /**
+     * One hover update per frame. If a full draw is in progress, keep the pending
+     * event and retry next frame instead of rendering a mid-draw scene.
+     */
+    onHoverRaf() {
+        this.hoverRafId = null;
+        if (this.isDrawInProgress?.()) {
+            if (this.pendingHoverEvent) {
+                this.scheduleHoverUpdate();
+            }
+            return;
+        }
+        const pendingEvent = this.pendingHoverEvent;
+        this.pendingHoverEvent = null;
+        if (pendingEvent) {
+            this.processPointerMove(pendingEvent);
+        }
+    }
     processPointerMove(evt) {
+        if (this.isDrawInProgress?.()) {
+            // Race: draw started after onHoverRaf cleared the pending slot. Keep the
+            // event and retry on the next frame instead of dropping it.
+            this.pendingHoverEvent = evt;
+            this.scheduleHoverUpdate();
+            return;
+        }
+        // Scene graph has emptied axes (full draw incomplete). Force a full draw
+        // instead of painting crosshair onto a stale preserveDrawingBuffer frame.
+        if (this.isAxesGraphicsDirty?.()) {
+            this.requestRender?.();
+            this.pendingHoverEvent = evt;
+            this.scheduleHoverUpdate();
+            return;
+        }
         if (!shouldRenderHoverOverlay({
             interactive: this.graphInteractionEnabled,
             suppressed: this.hoverOverlaySuppressed,
@@ -220,7 +270,12 @@ export class DataArea extends BaseGroup {
                 }
             }
         }
-        this.app.render();
+        if (this.requestRender) {
+            this.requestRender();
+        }
+        else {
+            this.app.render();
+        }
     }
     setPausePeriods(periods) {
         this.pausePeriods = periods;
@@ -288,6 +343,19 @@ export class DataArea extends BaseGroup {
             categoryEntry.readings = mergeContinuousCategoryReadings(categoryEntry.readings, sessionBoundaryReadings);
         }
     }
+    /**
+     * Removes tiling pattern sprites from the stage without clearing readings.
+     * Call before clearPatternTextureCache() so destroyed textures are not still bound.
+     */
+    clearPatternSprites() {
+        for (const spriteEntry of this.tilingSpritesPerCategory) {
+            for (const sprite of spriteEntry.sprites) {
+                this.removeChild(sprite);
+                sprite.destroy();
+            }
+        }
+        this.tilingSpritesPerCategory = [];
+    }
     clear() {
         super.clear();
         this.pointerHitArea.clear();
@@ -299,13 +367,7 @@ export class DataArea extends BaseGroup {
             this.removeChild(graphicEntry.graphic);
         }
         this.graphicPerCategory = [];
-        for (const spriteEntry of this.tilingSpritesPerCategory) {
-            for (const sprite of spriteEntry.sprites) {
-                this.removeChild(sprite);
-                sprite.destroy();
-            }
-        }
-        this.tilingSpritesPerCategory = [];
+        this.clearPatternSprites();
     }
     draw() {
         if (this.hoverOverlaySuppressed) {

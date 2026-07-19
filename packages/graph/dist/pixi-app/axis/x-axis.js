@@ -109,7 +109,7 @@ export class xAxis extends BaseGroup {
         return new Date(dateTimeInMsec);
     }
     clear() {
-        this.labelsContainer.removeChildren();
+        this.destroyAxisLabels();
         this.ticks = [];
         this.pixelsPerMsec = 0;
         this.axisStartTimeInMsec = 0;
@@ -118,6 +118,12 @@ export class xAxis extends BaseGroup {
         this.maxTimeInMsec = 0;
         this.totalDurationMs = 0;
         super.clear();
+    }
+    destroyAxisLabels() {
+        const labels = this.labelsContainer.removeChildren();
+        for (const label of labels) {
+            label.destroy({ children: true });
+        }
     }
     /**
      * Met à jour le format d'affichage du temps. Ne touche ni aux bornes ni au
@@ -250,7 +256,7 @@ export class xAxis extends BaseGroup {
         this.graphic.clear();
         this.graphic.x = 0;
         this.graphic.y = 0;
-        this.labelsContainer.removeChildren();
+        this.destroyAxisLabels();
         this.labelsContainer.x = 0;
         this.labelsContainer.y = 0;
         this.x = 0;
@@ -354,9 +360,13 @@ export class xAxis extends BaseGroup {
             });
             // Horizontale (pas inclinée comme les labels de tick), centrée sous la
             // flèche de fin d'axe, à la même hauteur que les labels de tick.
-            formatMention.x = xAxisEnd.x - 5;
-            formatMention.y = xAxisStart.y + 12;
+            // Clamp pour éviter le débordement à droite sur un graphe étroit
+            // (ex. "(JJ.MM.AAAA hh:mn:sec:ms)" avec seulement 10% de marge).
             formatMention.anchor.set(0.5, 0);
+            const preferredX = xAxisEnd.x - 5;
+            const halfWidth = formatMention.width / 2;
+            formatMention.x = Math.min(width - halfWidth, Math.max(halfWidth, preferredX));
+            formatMention.y = xAxisStart.y + 12;
             formatMention.angle = 0;
             formatMention.visible = true;
             formatMention.alpha = 1;

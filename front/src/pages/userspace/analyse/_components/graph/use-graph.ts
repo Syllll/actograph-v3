@@ -98,6 +98,9 @@ export const useGraph = (options?: {
     const generation = ++redrawGeneration;
 
     try {
+      await pixiApp.waitForIdle();
+      if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
+
       const normalizedReadings = normalizeReadingsForGraph(readings as IReading[]);
       pixiApp.setGraphRenderOptions(sharedState.graphRenderOptions, { redraw: false });
       if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
@@ -176,12 +179,41 @@ export const useGraph = (options?: {
     }
   };
 
-  const refreshGraph = (): void => {
-    if (!sharedState.ready || !sharedState.pixiApp || !isElementVisible(getCanvasElement())) {
+  const refreshGraph = (attempt = 0): void => {
+    if (!sharedState.ready || !sharedState.pixiApp) {
       return;
     }
-    sharedState.pixiApp.resizeFromCanvas();
-    void redrawFromObservation(sharedState.pixiApp);
+    // After a browser tab switch the canvas can still be 0×0 for a few frames.
+    // Skipping entirely left a cleared/stale WebGL scene (axes gone, crosshair only).
+    if (!isElementVisible(getCanvasElement())) {
+      if (attempt < 12) {
+        window.setTimeout(() => refreshGraph(attempt + 1), 40 + attempt * 20);
+      }
+      return;
+    }
+    const pixiApp = sharedState.pixiApp;
+    pixiApp.prepareForResumeRefresh();
+    // Wait for any in-flight export/draw before resize: resizeFromCanvas no-ops
+    // while exportInProgress, and a skipped resize would leave a stale viewport.
+    void (async () => {
+      try {
+        await pixiApp.waitForIdle();
+        if (!sharedState.ready || sharedState.pixiApp !== pixiApp) return;
+        if (!isElementVisible(getCanvasElement())) {
+          if (attempt < 12) {
+            window.setTimeout(() => refreshGraph(attempt + 1), 40 + attempt * 20);
+          }
+          return;
+        }
+        pixiApp.resizeFromCanvas({ skipRender: true });
+        await redrawFromObservation(pixiApp);
+      } catch (error) {
+        console.error('[use-graph] refreshGraph failed:', error);
+        if (attempt < 12) {
+          window.setTimeout(() => refreshGraph(attempt + 1), 80 + attempt * 30);
+        }
+      }
+    })();
   };
 
   const onCanvasResize = (): void => {
@@ -191,7 +223,7 @@ export const useGraph = (options?: {
     if (!sharedState.ready || !sharedState.pixiApp) {
       return;
     }
-    const didResize = sharedState.pixiApp.resizeFromCanvas();
+    const didResize = sharedState.pixiApp.resizeFromCanvas({ skipRender: true });
     if (didResize) {
       void redrawFromObservation(sharedState.pixiApp);
     }

@@ -19,20 +19,23 @@ Les **graphiques d'activité** visualisent les données d'observation sur un axe
 
 ### Structure du code
 
+Le moteur vit dans le package `@actograph/graph`. L’UI analyse consomme ce package.
+
 ```
-front/src/pages/userspace/analyse/_components/graph/
-├── Index.vue                    # Composant Vue principal
-├── use-graph.ts                 # Composable Vue gérant le cycle de vie
+packages/graph/src/
 ├── pixi-app/
-│   ├── index.ts                 # Classe principale PixiApp
+│   ├── index.ts                 # PixiApp (viewport zoom/pan, draw, render)
 │   ├── axis/
-│   │   ├── x-axis.ts           # Axe temporel (X) avec calcul automatique des graduations
-│   │   └── y-axis.ts            # Axe des observables (Y) avec calcul dynamique de la hauteur
-│   ├── data-area/
-│   │   └── index.ts             # Zone de données avec interactions souris
-│   └── lib/
-│       ├── base-graphic.ts      # Classe de base pour les graphiques (lignes pointillés)
-│       └── base-group.ts         # Classe de base pour les groupes de composants
+│   │   ├── x-axis.ts            # Axe temporel (X)
+│   │   └── y-axis.ts            # Axe des observables (Y)
+│   └── data-area/
+│       └── index.ts             # Segments + hover (croix / label temps)
+├── utils/                       # Viewport, crosshair, pauses, etc.
+└── lib/                         # BaseGraphic, BaseGroup, defaults
+
+front/src/pages/userspace/analyse/_components/graph/
+├── Index.vue                    # Shell Vue (boutons zoom, export, format temps)
+└── use-graph.ts                 # Cycle de vie, coalescing des redraws
 ```
 
 ## Classe PixiApp
@@ -40,7 +43,7 @@ front/src/pages/userspace/analyse/_components/graph/
 ### Initialisation
 
 ```typescript
-import { PixiApp } from './pixi-app';
+import { PixiApp } from '@actograph/graph';
 
 const pixiApp = new PixiApp();
 
@@ -53,8 +56,9 @@ await pixiApp.init({
 
 L'application PixiJS est configurée avec :
 - **Background** : Fond blanc
-- **ResizeTo** : Redimensionnement automatique selon le canvas
+- **Dimensions** : contrôlées manuellement (pas de `resizeTo` Pixi)
 - **View** : Canvas HTML fourni
+- **preserveDrawingBuffer** : activé pour les exports image
 
 ### Formatage selon le mode
 
@@ -66,25 +70,61 @@ Le graphique s'adapte automatiquement au mode de l'observation :
 
 ### Structure du graphique
 
-Le graphique est composé de trois éléments principaux :
+Hiérarchie de scènes :
 
-1. **Y-Axis** : Axe vertical avec les observables du protocole
-2. **X-Axis** : Axe horizontal avec la timeline
-3. **Data Area** : Zone centrale affichant les données
+```
+stage
+  └─ viewport (Container)   ← scale + translation (zoom / pan caméra)
+       └─ plot
+            ├─ xAxis
+            ├─ yAxis
+            └─ DataArea
+```
 
 ```typescript
 this.yAxis = new YAxis(this.app);
 this.xAxis = new xAxis(this.app, this.yAxis);
 this.dataArea = new DataArea(this.app, this.yAxis, this.xAxis);
 
+this.viewport = new Container();
 this.plot = new Container();
 this.plot.addChild(this.xAxis);
 this.plot.addChild(this.yAxis);
 this.plot.addChild(this.dataArea);
-
-this.app.stage.addChild(this.plot);
+this.viewport.addChild(this.plot);
+this.app.stage.addChild(this.viewport);
 ```
 
+### Zoom, pan et contrat de rendu
+
+**Zoom actuel = caméra**, pas zoom données :
+- Molette, pinch et boutons appliquent `viewport.scale` (limites 0.1×–5×) et `viewport.x/y`.
+- Les axes, labels et traits sont **dans** le viewport : ils grossissent avec le zoom.
+- `updateTimeScale()` est un stub : les graduations X ne se recalculent **pas** encore selon le zoom (`pixelsPerMsec` reste basé sur la plage complète). Un vrai zoom données reste une évolution future.
+
+**Contrat draw / hover** (anti-sautes) :
+1. `draw()` coalesce via `requestAnimationFrame`, attend un export éventuel **hors** chaîne, puis enfile `executeDrawBody()` via `drawChain`.
+2. `executeDrawBody()` est **exclusif** : `drawChain` / `enqueueDrawBody` garantissent qu’aucun second draw complet ne démarre avant la fin du précédent.
+3. Pendant le draw, `drawInProgress === true` : le hover ne doit pas appeler `app.render()`.
+4. Le hover passe par `requestRender()` (no-op si draw/export en cours).
+5. Au début du draw, l’overlay hover est **annulé** (`cancelPending: true`) : on ne reprend plus automatiquement le hover après un full draw (évite la course remount Observation→Graphe où le 1er survol peignait des axes déjà clearés sur un framebuffer périmé).
+6. Après pan/zoom, `getGlobalTransform()` force la mise à jour des matrices monde (requis pour `toGlobal` / `toLocal` du crosshair). Ne pas réintroduire de nudge artificiel du type `scale ± 0.0001`.
+7. Le rendu final du draw complet appelle **toujours** `app.render()` (obligatoire avec `preserveDrawingBuffer: true`).
+8. **`axesGraphicsDirty`** : dès qu’un full draw commence (clear des axes), le flag est `true` jusqu’après `app.render()` réussi. Tant qu’il est sale, hover / `requestRender` / `redrawCategory` forcent un full `draw()` et ne peignent pas la croix sur une scène vide.
+9. Pixi est initialisé avec **`autoStart: false`** (ticker stoppé) : aucun render hors de nos gardes.
+10. Un `draw()` en échec **reject** sa Promise ; le flag dirty reste `true`.
+11. Les labels Text des axes sont **destroy** lors du clear (évite des textures orphelines stressées par le timeLabel du hover).
+
+**Contrat resume / export / mutex** :
+1. **Mutex draw** : les appels `draw()` externes attendent un export **hors** de `drawChain`, puis enfilent `executeDrawBody` ; l’export appelle `enqueueDrawBody()` directement (jamais `draw()`), ce qui évite un deadlock `drawChain ↔ exportQueue`.
+2. **`resizeFromCanvas({ skipRender?: boolean })`** : en chemin resume/refresh, appeler avec `skipRender: true` puis un seul `draw()` pour peindre. Évite un `app.render()` intermédiaire sur une scène partiellement effacée.
+3. **Canvas dégénéré** (`isDegenerateCanvasSize`, width ou height ≤ 2) : mémorisé via `wasDegenerateCanvas` ; au retour à une taille utile, `needsInitialFit = true` pour éviter un scale microscopique conservé par `preserveViewportOnResize`.
+4. **`refreshAfterResume()`** (mobile, `webglcontextrestored`) : garde `isInitialized` → `clearHoverOverlay` (cancel pending) → marque `needsPatternTextureRefresh` + `needsInitialFit` → réapplication de `lastObservation` → `resizeFromCanvas({ skipRender: true })` → `draw()`. Le cache motifs est vidé **au début de `executeDrawBody`**, après détachement des sprites.
+5. **`refreshGraph()` desktop** (visibility resume) : retry si canvas pas encore visible → `prepareForResumeRefresh()` (force `needsInitialFit`) → `waitForIdle()` → `resizeFromCanvas({ skipRender: true })` → `redrawFromObservation()`. Un fit systématique au resume évite la caméra coincée sur une zone vide (axes hors écran + fragment de données).
+6. **`webglcontextlost`** : `preventDefault()` + `clearHoverOverlay` + `needsPatternTextureRefresh` + `axesGraphicsDirty` + `wasDegenerateCanvas = true`.
+7. **Export** : au début, hover supprimé (cancel pending) ; paints via `enqueueDrawBody` ; après `finally`, hover unsuppressed.
+8. **`waitForIdle()`** : `redrawFromObservation` / `refreshGraph` attendent la fin des draws/exports en cours avant un nouveau setData+draw.
+9. **Échec de draw** : pas de `resumeHoverAfterDraw` (évite de peindre axes clearés + crosshair orphelin) ; `axesGraphicsDirty` + `needsInitialFit` remis pour un retry.
 ## Chargement des données
 
 ### Données requises
@@ -733,12 +773,19 @@ Lors du mouvement de la souris dans la zone de données :
 - **Ligne horizontale** : Depuis le curseur jusqu'à l'axe Y (aide à lire l'observable)
 - Les lignes disparaissent lorsque la souris quitte la zone
 
-### Zoom (futur)
+### Zoom et pan (implémenté — caméra)
 
-Le système peut être étendu pour supporter :
-- Zoom sur la timeline (modifier `pixelsPerMsec` et recalculer les ticks)
-- Zoom sur les observables (modifier l'espacement entre les ticks de l'axe Y)
-- Pan (déplacement) : Modifier les positions de départ des axes
+Disponible en mode interactif :
+- **Molette** : zoom centré sous le curseur (`viewport.scale`, 0.1×–5×)
+- **Clic-glisser / touch** : pan (`viewport.x/y`)
+- **Pinch** : zoom tactile
+- **Boutons UI** : zoom in / out / reset (fit)
+
+Ce n’est **pas** encore un zoom données (pas de recalcul de `pixelsPerMsec` ni de fenêtre temporelle). Voir la section [Zoom, pan et contrat de rendu](#zoom-pan-et-contrat-de-rendu).
+
+Évolutions possibles :
+- Zoom données sur la timeline (`pixelsPerMsec` + ticks)
+- Chrome à taille fixe (axes/labels hors viewport scalé, ou contre-échelle)
 
 ### Sélection (futur)
 
@@ -791,6 +838,14 @@ const config = {
 ```
 
 ## Dépannage
+
+### Axes qui disparaissent au premier survol après Observation → Graphe
+
+**Séquence** : Graphe OK → Observation (démontage) → retour Graphe (affichage normal) → placer le curseur → axes/labels disparaissent.
+
+**Cause** : après remount, un 2e full draw (resize/watch) clear les axes ; avec `preserveDrawingBuffer: true` le canvas peut encore montrer l’ancienne frame « OK ». Le premier hover appelle `app.render()` et révèle la scène vidée. La reprise auto du hover après draw (`cancelPending: false`) aggravait la course.
+
+**Correctifs** : `autoStart: false`, `cancelPending: true` en début de draw, render final obligatoire, garde `axesGraphicsDirty` côté hover, destroy des Text d’axes.
 
 ### Canvas non affiché
 
