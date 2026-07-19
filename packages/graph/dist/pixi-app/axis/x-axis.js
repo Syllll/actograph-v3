@@ -140,6 +140,55 @@ export class xAxis extends BaseGroup {
             }));
         }
     }
+    /**
+     * Largeur d'un texte pour le style des labels de tick, via un canvas 2D
+     * hors-DOM réutilisé (measureText). Fallback grossier si `document` n'est
+     * pas disponible (SSR).
+     */
+    measureLabelWidth(text) {
+        if (typeof document === 'undefined') {
+            return text.length * this.styleOptions.label.fontSize * 0.6;
+        }
+        if (!xAxis.measureCanvas) {
+            xAxis.measureCanvas = document.createElement('canvas');
+        }
+        const ctx = xAxis.measureCanvas.getContext('2d');
+        if (!ctx) {
+            return text.length * this.styleOptions.label.fontSize * 0.6;
+        }
+        ctx.font = `${this.styleOptions.label.fontSize}px ${this.styleOptions.label.fontFamily}`;
+        return ctx.measureText(text).width;
+    }
+    /**
+     * Espace vertical nécessaire sous la ligne de l'axe X pour contenir
+     * entièrement les labels de tick, inclinés à 45°. `getRequiredHeight()` de
+     * YAxis ne réservait qu'une marge fixe de 20px, insuffisante dès que les
+     * labels dépassent quelques caractères (ex. format "Full" : 24 caractères)
+     * — d'où le rognage observé en export PNG/JPEG quand le canvas est
+     * redimensionné exactement à la hauteur "requise".
+     */
+    getRequiredBottomMargin() {
+        if (this.ticks.length === 0)
+            return 0;
+        let maxLabelWidth = 0;
+        for (const tick of this.ticks) {
+            if (!tick.label)
+                continue;
+            const width = this.measureLabelWidth(tick.label);
+            if (width > maxLabelWidth)
+                maxLabelWidth = width;
+        }
+        if (maxLabelWidth === 0)
+            return 0;
+        const angleRad = (45 * Math.PI) / 180;
+        const fontSize = this.styleOptions.label.fontSize;
+        // Étendue verticale de la boîte de texte pivotée à 45° depuis son point
+        // d'ancrage (proche du coin haut-gauche, voir anchor.set(-0.05, 0) dans draw()).
+        const rotatedExtent = maxLabelWidth * Math.sin(angleRad) + fontSize * Math.cos(angleRad);
+        const labelOffsetFromAxis = 12; // doit rester aligné avec `label.y = xAxisStart.y + 12` dans draw()
+        const safetyPadding = 8;
+        return Math.ceil(labelOffsetFromAxis + rotatedExtent + safetyPadding);
+    }
     computeLabelForTick(dateTime) {
         const format = this.graphRenderOptions.timeDisplayFormat ?? TimeDisplayFormatEnum.Auto;
         const isChronometer = this.observation?.mode === ObservationModeEnum.Chronometer;
@@ -378,4 +427,6 @@ export class xAxis extends BaseGroup {
         this.alpha = 1;
     }
 }
+/** Canvas hors-DOM réutilisé pour mesurer les labels (measureText), partagé entre instances. */
+xAxis.measureCanvas = null;
 //# sourceMappingURL=x-axis.js.map

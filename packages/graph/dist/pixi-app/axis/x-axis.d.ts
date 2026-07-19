@@ -42,6 +42,23 @@ export declare class xAxis extends BaseGroup {
      * chaud sans recharger l'observation.
      */
     setGraphRenderOptions(options: IGraphRenderOptions): void;
+    /**
+     * Largeur d'un texte pour le style des labels de tick, via un canvas 2D
+     * hors-DOM réutilisé (measureText). Fallback grossier si `document` n'est
+     * pas disponible (SSR).
+     */
+    private measureLabelWidth;
+    /**
+     * Espace vertical nécessaire sous la ligne de l'axe X pour contenir
+     * entièrement les labels de tick, inclinés à 45°. `getRequiredHeight()` de
+     * YAxis ne réservait qu'une marge fixe de 20px, insuffisante dès que les
+     * labels dépassent quelques caractères (ex. format "Full" : 24 caractères)
+     * — d'où le rognage observé en export PNG/JPEG quand le canvas est
+     * redimensionné exactement à la hauteur "requise".
+     */
+    getRequiredBottomMargin(): number;
+    /** Canvas hors-DOM réutilisé pour mesurer les labels (measureText), partagé entre instances. */
+    private static measureCanvas;
     private computeLabelForTick;
     /**
      * Mention de format affichée sous la flèche de fin d'axe (ex. "(hh:mn:sec)").

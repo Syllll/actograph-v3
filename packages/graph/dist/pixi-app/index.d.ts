@@ -146,6 +146,13 @@ export declare class PixiApp {
     private updateWorldTransforms;
     clear(): Promise<void>;
     private getCanvasSize;
+    /**
+     * Hauteur totale requise pour un rendu hors-écran complet (export, mobile),
+     * en tenant compte de la marge réelle nécessaire sous l'axe X pour les
+     * labels inclinés à 45° (peut dépasser largement les 20px fixes de
+     * `YAxis.getRequiredHeight()` selon le format de temps choisi, ex. "Full").
+     */
+    private getRequiredCanvasHeight;
     private updateWorldBounds;
     private recalculateFitViewport;
     private setViewportTransform;
