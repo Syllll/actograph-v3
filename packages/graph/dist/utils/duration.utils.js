@@ -144,8 +144,36 @@ export function formatCalendarFixed(date, format) {
             return `${HH}:${mm}:${ss}`;
         case TimeDisplayFormatEnum.MinuteSecond:
             return `${mm}:${ss}`;
+        case TimeDisplayFormatEnum.Second:
+            return ss;
         case TimeDisplayFormatEnum.MinuteSecondMs:
             return `${mm}:${ss}:${SSS}`;
+    }
+}
+/**
+ * Notation courte d'un format fixe, affichée en mention sous la flèche de
+ * fin d'axe X (mode calendrier uniquement — voir x-axis.ts) pour lever
+ * l'ambiguïté entre formats de même forme visuelle (ex: hh:mn vs mn:sec,
+ * ou l'ordre JJ/MM d'une date pour un lecteur habitué au format anglo-saxon
+ * MM/DD). Non utilisée en mode chronomètre : chaque valeur y porte déjà
+ * son unité en toutes lettres (ex. "62m03s"), donc pas d'ambiguïté.
+ */
+export function getCalendarFixedFormatNotation(format) {
+    switch (format) {
+        case TimeDisplayFormatEnum.Full:
+            return 'JJ.MM.AAAA hh:mn:sec:ms';
+        case TimeDisplayFormatEnum.DateOnly:
+            return 'JJ.MM.AAAA';
+        case TimeDisplayFormatEnum.HourMinute:
+            return 'hh:mn';
+        case TimeDisplayFormatEnum.HourMinuteSecond:
+            return 'hh:mn:sec';
+        case TimeDisplayFormatEnum.MinuteSecond:
+            return 'mn:sec';
+        case TimeDisplayFormatEnum.Second:
+            return 'sec';
+        case TimeDisplayFormatEnum.MinuteSecondMs:
+            return 'mn:sec:ms';
     }
 }
 /**
@@ -165,6 +193,7 @@ export function formatChronometerFixed(date, t0, format) {
     const parts = millisecondsToParts(ms);
     const totalHours = parts.days * 24 + parts.hours;
     const totalMinutes = totalHours * 60 + parts.minutes;
+    const totalSeconds = totalMinutes * 60 + parts.seconds;
     switch (format) {
         case TimeDisplayFormatEnum.Full:
             return formatCompact(ms);
@@ -176,6 +205,8 @@ export function formatChronometerFixed(date, t0, format) {
             return `${totalHours}h${pad2(parts.minutes)}m${pad2(parts.seconds)}s`;
         case TimeDisplayFormatEnum.MinuteSecond:
             return `${totalMinutes}m${pad2(parts.seconds)}s`;
+        case TimeDisplayFormatEnum.Second:
+            return `${totalSeconds}s`;
         case TimeDisplayFormatEnum.MinuteSecondMs:
             return `${totalMinutes}m${pad2(parts.seconds)}s${String(parts.milliseconds).padStart(3, '0')}ms`;
     }

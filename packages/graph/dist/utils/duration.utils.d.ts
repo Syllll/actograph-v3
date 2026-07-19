@@ -44,6 +44,15 @@ export type FixedTimeDisplayFormat = Exclude<TimeDisplayFormatEnum, TimeDisplayF
  */
 export declare function formatCalendarFixed(date: Date, format: FixedTimeDisplayFormat): string;
 /**
+ * Notation courte d'un format fixe, affichée en mention sous la flèche de
+ * fin d'axe X (mode calendrier uniquement — voir x-axis.ts) pour lever
+ * l'ambiguïté entre formats de même forme visuelle (ex: hh:mn vs mn:sec,
+ * ou l'ordre JJ/MM d'une date pour un lecteur habitué au format anglo-saxon
+ * MM/DD). Non utilisée en mode chronomètre : chaque valeur y porte déjà
+ * son unité en toutes lettres (ex. "62m03s"), donc pas d'ambiguïté.
+ */
+export declare function getCalendarFixedFormatNotation(format: FixedTimeDisplayFormat): string;
+/**
  * Formate une durée écoulée depuis t0 (mode chronomètre) selon une
  * granularité fixe choisie par l'utilisateur. N'est appelée que lorsque le
  * format n'est pas `Auto` : le comportement adaptatif historique

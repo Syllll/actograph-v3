@@ -1,5 +1,9 @@
 import { TimeDisplayFormatEnum } from '@actograph/core';
-import { formatCalendarFixed, formatChronometerFixed } from '../utils/duration.utils';
+import {
+  formatCalendarFixed,
+  formatChronometerFixed,
+  getCalendarFixedFormatNotation,
+} from '../utils/duration.utils';
 
 describe('formatCalendarFixed', () => {
   // 15 janvier 2024, 09:05:03.007 (heure locale, comme les dates de readings)
@@ -27,8 +31,30 @@ describe('formatCalendarFixed', () => {
     expect(formatCalendarFixed(date, TimeDisplayFormatEnum.MinuteSecond)).toBe('05:03');
   });
 
+  it('Second: sec seules (sans ms)', () => {
+    expect(formatCalendarFixed(date, TimeDisplayFormatEnum.Second)).toBe('03');
+  });
+
   it('MinuteSecondMs: mn:sec:ms', () => {
     expect(formatCalendarFixed(date, TimeDisplayFormatEnum.MinuteSecondMs)).toBe('05:03:007');
+  });
+});
+
+describe('getCalendarFixedFormatNotation', () => {
+  it('renvoie la notation courte attendue pour chaque format fixe', () => {
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.Full)).toBe(
+      'JJ.MM.AAAA hh:mn:sec:ms',
+    );
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.DateOnly)).toBe('JJ.MM.AAAA');
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.HourMinute)).toBe('hh:mn');
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.HourMinuteSecond)).toBe(
+      'hh:mn:sec',
+    );
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.MinuteSecond)).toBe('mn:sec');
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.Second)).toBe('sec');
+    expect(getCalendarFixedFormatNotation(TimeDisplayFormatEnum.MinuteSecondMs)).toBe(
+      'mn:sec:ms',
+    );
   });
 });
 
@@ -66,6 +92,12 @@ describe('formatChronometerFixed', () => {
     // 1h 2m 3s -> 62m03s
     const date = new Date(t0.getTime() + (1 * 60 * 60 + 2 * 60 + 3) * 1000);
     expect(formatChronometerFixed(date, t0, TimeDisplayFormatEnum.MinuteSecond)).toBe('62m03s');
+  });
+
+  it('Second: secondes totales cumulées (sans ms)', () => {
+    // 1h 2m 3s -> 3723s
+    const date = new Date(t0.getTime() + (1 * 60 * 60 + 2 * 60 + 3) * 1000);
+    expect(formatChronometerFixed(date, t0, TimeDisplayFormatEnum.Second)).toBe('3723s');
   });
 
   it('MinuteSecondMs: minutes:secondes:millisecondes cumulées', () => {
