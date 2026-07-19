@@ -109,6 +109,10 @@ export function getContinuousSegmentStartIndices(readings: IReading[]): number[]
  * Consecutive DATA pairs within the same continuous segment (no bridge across
  * STOP). Pauses are ignored and do not break pairing. Used for background and
  * frieze rendering.
+ *
+ * The last DATA of a segment is also paired with the segment's closing STOP
+ * (session end or pause), so the final state is drawn through to that
+ * boundary instead of disappearing.
  */
 export function iterContinuousDataPairs(
   readings: IReading[],
@@ -119,12 +123,21 @@ export function iterContinuousDataPairs(
   for (let s = 0; s < starts.length; s++) {
     const segmentStartIdx = starts[s]!;
     const segmentEndIdx = s + 1 < starts.length ? starts[s + 1]! : readings.length;
-    const dataInSegment = readings
-      .slice(segmentStartIdx, segmentEndIdx)
-      .filter((reading) => reading.type === ReadingTypeEnum.DATA);
+    const segmentReadings = readings.slice(segmentStartIdx, segmentEndIdx);
+    const dataInSegment = segmentReadings.filter(
+      (reading) => reading.type === ReadingTypeEnum.DATA,
+    );
 
     for (let i = 0; i < dataInSegment.length - 1; i++) {
       pairs.push({ from: dataInSegment[i]!, to: dataInSegment[i + 1]! });
+    }
+
+    const lastData = dataInSegment[dataInSegment.length - 1];
+    const boundary = [...segmentReadings]
+      .reverse()
+      .find((reading) => reading.type === ReadingTypeEnum.STOP);
+    if (lastData && boundary) {
+      pairs.push({ from: lastData, to: boundary });
     }
   }
 
