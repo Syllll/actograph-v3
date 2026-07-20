@@ -89,6 +89,12 @@ export default defineComponent({
 <style lang="scss">
 .d-dialog-card {
   .q-card {
+    // Sans largeur explicite, la carte se dimensionne sur le contenu le
+    // plus large (ex. le champ "Catégorie de destination") au lieu de se
+    // limiter a son parent flex (.d-dialog-card), qui lui est bien
+    // contraint a la largeur de la fenetre. Le pied de page (boutons
+    // Annuler/Valider) deborde alors hors champ, invisible sans defiler.
+    width: 100%;
     border: 1px solid var(--neutral-low);
     border-radius: 12px;
     box-shadow: 0 16px 36px var(--neutral-high-20);
@@ -104,25 +110,35 @@ export default defineComponent({
     padding-top: 16px;
   }
 
+  // Le min-width est un plancher fixe : si la fenetre de l'appli est plus
+  // etroite que ce plancher (fenetre redimensionnee, petit ecran), il entre
+  // en conflit avec max-width et le q-dialog__inner (overflow: auto) affiche
+  // une barre de defilement horizontale au lieu de retrecir le dialogue.
+  // Le pied de page (boutons Annuler/Valider) se retrouve alors hors champ,
+  // obligeant a faire defiler le dialogue pour l'atteindre. On plafonne donc
+  // le min-width a la largeur de fenetre disponible (moins le padding du
+  // q-dialog__inner) pour que le dialogue puisse toujours retrecir.
   &--sm {
-    min-width: 400px;
-    max-width: 90vw;
+    min-width: min(400px, calc(100vw - 48px));
+    max-width: min(90vw, calc(100vw - 48px));
   }
 
   &--md {
-    min-width: 500px;
-    max-width: 700px;
+    min-width: min(500px, calc(100vw - 48px));
+    // Sans plafond viewport, un contenu large (max 700px) deborde encore
+    // sur fenetre etroite : on aligne max-width sur la meme contrainte.
+    max-width: min(700px, calc(100vw - 48px));
   }
 
   &--lg {
     width: 600px;
-    max-width: 90vw;
+    max-width: min(90vw, calc(100vw - 48px));
     max-height: 80vh;
   }
 
   &--xl {
-    min-width: 700px;
-    max-width: 900px;
+    min-width: min(700px, calc(100vw - 48px));
+    max-width: min(900px, calc(100vw - 48px));
   }
 
   &--wide {
