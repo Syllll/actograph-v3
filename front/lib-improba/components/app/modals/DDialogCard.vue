@@ -120,23 +120,25 @@ export default defineComponent({
   // q-dialog__inner) pour que le dialogue puisse toujours retrecir.
   &--sm {
     min-width: min(400px, calc(100vw - 48px));
-    max-width: 90vw;
+    max-width: min(90vw, calc(100vw - 48px));
   }
 
   &--md {
     min-width: min(500px, calc(100vw - 48px));
-    max-width: 700px;
+    // Sans plafond viewport, un contenu large (max 700px) deborde encore
+    // sur fenetre etroite : on aligne max-width sur la meme contrainte.
+    max-width: min(700px, calc(100vw - 48px));
   }
 
   &--lg {
     width: 600px;
-    max-width: 90vw;
+    max-width: min(90vw, calc(100vw - 48px));
     max-height: 80vh;
   }
 
   &--xl {
     min-width: min(700px, calc(100vw - 48px));
-    max-width: 900px;
+    max-width: min(900px, calc(100vw - 48px));
   }
 
   &--wide {
