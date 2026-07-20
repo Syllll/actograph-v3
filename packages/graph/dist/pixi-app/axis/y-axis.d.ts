@@ -25,6 +25,13 @@ export declare class YAxis extends BaseGroup {
     isCategoryBackground(categoryId: string): boolean;
     isCategoryFrieze(categoryId: string): boolean;
     getRequiredHeight(): number;
+    /**
+     * Position Y de la ligne d'axe X (bas de la liste des catégories), sans
+     * nécessiter un appel préalable à draw(). Utilisé par PixiApp pour calculer
+     * la hauteur totale requise en tenant compte de la marge réelle des labels
+     * d'axe X (voir xAxis.getRequiredBottomMargin()).
+     */
+    getAxisStartY(): number;
     setData(observation: IObservation): void;
     setProtocol(protocol: {
         items?: IProtocolItem[];

@@ -422,7 +422,7 @@ export class PixiApp {
     // s'exécute JAMAIS en mode interactif (desktop), donc elle n'alimente pas
     // la boucle A3 : le bug desktop venait de la branche interactive + des
     // écritures inline de DCanvas, pas d'ici.
-    const requiredHeight = this.yAxis.getRequiredHeight();
+    const requiredHeight = this.getRequiredCanvasHeight();
     const currentWidth = this.app.screen.width;
     const currentHeight = this.app.screen.height;
     const targetHeight = Math.max(this.baseCanvasHeight, requiredHeight);
@@ -691,6 +691,18 @@ export class PixiApp {
       width: this.app.screen.width,
       height: this.app.screen.height,
     };
+  }
+
+  /**
+   * Hauteur totale requise pour un rendu hors-écran complet (export, mobile),
+   * en tenant compte de la marge réelle nécessaire sous l'axe X pour les
+   * labels inclinés à 45° (peut dépasser largement les 20px fixes de
+   * `YAxis.getRequiredHeight()` selon le format de temps choisi, ex. "Full").
+   */
+  private getRequiredCanvasHeight(): number {
+    const axisStartY = this.yAxis.getAxisStartY();
+    const xAxisBottomMargin = this.xAxis.getRequiredBottomMargin();
+    return Math.max(this.yAxis.getRequiredHeight(), axisStartY + xAxisBottomMargin);
   }
 
   private updateWorldBounds(): void {
@@ -1083,7 +1095,7 @@ export class PixiApp {
 
     const originalWidth = this.app.screen.width;
     const originalHeight = this.app.screen.height;
-    const requiredHeight = this.yAxis.getRequiredHeight();
+    const requiredHeight = this.getRequiredCanvasHeight();
     const exportHeight = Math.max(originalHeight, requiredHeight);
 
     const savedViewport = {

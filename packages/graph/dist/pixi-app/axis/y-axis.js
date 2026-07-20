@@ -115,6 +115,16 @@ export class YAxis extends BaseGroup {
         const extraMargin = 20;
         return axisLength + AXIS_CONFIG.OFFSET_Y + extraMargin;
     }
+    /**
+     * Position Y de la ligne d'axe X (bas de la liste des catégories), sans
+     * nécessiter un appel préalable à draw(). Utilisé par PixiApp pour calculer
+     * la hauteur totale requise en tenant compte de la marge réelle des labels
+     * d'axe X (voir xAxis.getRequiredBottomMargin()).
+     */
+    getAxisStartY() {
+        const { axisLength } = this.computeAxisLengthAndTicks();
+        return axisLength + AXIS_CONFIG.OFFSET_Y;
+    }
     setData(observation) {
         super.setData(observation);
         const protocol = observation.protocol;
