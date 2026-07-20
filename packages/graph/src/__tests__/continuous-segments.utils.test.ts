@@ -188,7 +188,7 @@ describe('continuous-segments.utils', () => {
       expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:30:00Z'));
     });
 
-    it('pairs consecutive DATA within the same segment only', () => {
+    it('pairs consecutive DATA within the same segment only, and extends the last DATA to the STOP', () => {
       const readings = [
         mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:10:00Z') }),
         mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:15:00Z') }),
@@ -198,8 +198,35 @@ describe('continuous-segments.utils', () => {
 
       const pairs = iterContinuousDataPairs(readings);
 
+      expect(pairs).toHaveLength(2);
+      expect(pairs[0]?.from.dateTime).toEqual(new Date('2024-01-01T10:10:00Z'));
+      expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:15:00Z'));
+      expect(pairs[1]?.from.dateTime).toEqual(new Date('2024-01-01T10:15:00Z'));
+      expect(pairs[1]?.to.dateTime).toEqual(new Date('2024-01-01T10:30:00Z'));
+    });
+
+    it('extends a single DATA reading to the closing STOP (last state before chronicle end)', () => {
+      const readings = [
+        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:10:00Z') }),
+        mk({ type: ReadingTypeEnum.STOP, dateTime: new Date('2024-01-01T10:30:00Z') }),
+      ];
+
+      const pairs = iterContinuousDataPairs(readings);
+
       expect(pairs).toHaveLength(1);
       expect(pairs[0]?.from.dateTime).toEqual(new Date('2024-01-01T10:10:00Z'));
+      expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:30:00Z'));
+    });
+
+    it('does not extend when the segment has no closing STOP (recording still in progress)', () => {
+      const readings = [
+        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:10:00Z') }),
+        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:15:00Z') }),
+      ];
+
+      const pairs = iterContinuousDataPairs(readings);
+
+      expect(pairs).toHaveLength(1);
       expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:15:00Z'));
     });
   });
