@@ -321,6 +321,20 @@ export const useObservation = (options?: { init?: boolean }) => {
       readings.sharedState.currentReadings = [];
       protocol.sharedState.currentProtocol = null;
 
+      // sharedState est un singleton partagé par toute l'appli : sans ce reset,
+      // currentDate/elapsedTime/startTime d'une précédente observation en mode
+      // chronomètre (basée sur CHRONOMETER_T0, 9 février 1989) fuitent vers
+      // l'observation qu'on charge ici (ex: une chronique dupliquée), qui les
+      // réutilise ensuite via le fallback `currentDate || new Date()`.
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+      sharedState.isPlaying = false;
+      sharedState.elapsedTime = 0;
+      sharedState.startTime = null;
+      sharedState.currentDate = null;
+
       try {
         await readings.methods.loadReadings(observation);
         await protocol.methods.loadProtocol(observation);
