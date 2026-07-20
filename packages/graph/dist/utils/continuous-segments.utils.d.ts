@@ -21,6 +21,10 @@ export declare function getContinuousSegmentStartIndices(readings: IReading[]): 
  * Consecutive DATA pairs within the same continuous segment (no bridge across
  * STOP). Pauses are ignored and do not break pairing. Used for background and
  * frieze rendering.
+ *
+ * The last DATA of a segment is also paired with the segment's closing STOP
+ * (session end or pause), so the final state is drawn through to that
+ * boundary instead of disappearing.
  */
 export declare function iterContinuousDataPairs(readings: IReading[]): Array<{
     from: IReading;
