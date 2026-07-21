@@ -502,12 +502,6 @@ export default {
     timeFormatMinuteSecond: 'mn:sec',
     timeFormatSecond: 'sec',
     timeFormatMinuteSecondMs: 'mn:sec:ms',
-    toggleCategoryVisibility: 'Afficher/masquer cette catégorie sur le graphe',
-    axisScaleTooltip: 'Ajuster l\'affichage',
-    axisScaleTitle: 'Ajuster l\'affichage',
-    axisScaleXLabel: 'Étirer l\'axe du temps',
-    axisScaleYLabel: 'Compacter les catégories',
-    axisScaleReset: 'Réinitialiser',
   },
   appRoot: {
     updateAvailableTitle: 'Mise à jour disponible',
