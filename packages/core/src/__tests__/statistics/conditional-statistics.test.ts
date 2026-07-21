@@ -709,6 +709,78 @@ describe('conditional-statistics', () => {
     expect(t?.onDuration).toBe(5 * 60 * 1000);
   });
 
+  it('counts an occurrence when the target observable is already active before the condition turns on', () => {
+    // Common real-world pattern: the target (e.g. a location) activates first,
+    // and the condition observable (e.g. an unrelated activity) only turns on
+    // later while the location is still active. The location's activation
+    // reading therefore falls BEFORE the condition-filtered window starts,
+    // but this must still count as one occurrence, not zero.
+    const multiCategoryProtocol: IProtocolItem[] = [
+      {
+        id: 'loc',
+        type: ProtocolItemTypeEnum.Category,
+        name: 'Loc',
+        children: [
+          { id: 'bureau', type: ProtocolItemTypeEnum.Observable, name: 'Bureau' },
+          { id: 'hangar', type: ProtocolItemTypeEnum.Observable, name: 'Hangar' },
+        ],
+      },
+      {
+        id: 'ali',
+        type: ProtocolItemTypeEnum.Category,
+        name: 'Ali',
+        children: [{ id: 'e', type: ProtocolItemTypeEnum.Observable, name: 'Eat' }],
+      },
+    ];
+
+    const readingsForCount: IReading[] = [
+      {
+        type: ReadingTypeEnum.START,
+        dateTime: new Date('2024-01-01T10:00:00.000Z'),
+      },
+      {
+        type: ReadingTypeEnum.DATA,
+        dateTime: new Date('2024-01-01T10:01:00.000Z'),
+        name: 'Bureau',
+      },
+      {
+        type: ReadingTypeEnum.DATA,
+        dateTime: new Date('2024-01-01T10:05:00.000Z'),
+        name: 'Eat',
+      },
+      {
+        type: ReadingTypeEnum.DATA,
+        dateTime: new Date('2024-01-01T10:08:00.000Z'),
+        name: 'Hangar',
+      },
+      {
+        type: ReadingTypeEnum.STOP,
+        dateTime: new Date('2024-01-01T10:10:00.000Z'),
+      },
+    ];
+
+    const result = calculateConditionalStatistics(
+      readingsForCount,
+      multiCategoryProtocol,
+      {
+        targetCategoryId: 'loc',
+        groupOperator: ConditionOperatorEnum.OR,
+        conditionGroups: [
+          {
+            operator: ConditionOperatorEnum.OR,
+            observables: [{ observableName: 'Eat', state: ObservableStateEnum.ON }],
+          },
+        ],
+      },
+    );
+
+    const bureau = result.categoryStatistics.observables.find(
+      (obs) => obs.observableName === 'Bureau',
+    );
+    expect(bureau?.onCount).toBe(1);
+    expect(bureau?.onDuration).toBe(3 * 60 * 1000);
+  });
+
   it('supports discrete target categories with occurrence counts only', () => {
     const discreteProtocol: IProtocolItem[] = [
       {
