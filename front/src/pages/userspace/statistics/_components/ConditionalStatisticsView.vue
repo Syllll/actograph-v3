@@ -186,6 +186,7 @@ import {
   buildCategoryPieChartColors,
   buildCategoryPieChartData,
   calculateUnaccountedPieDuration,
+  filterAndSortPieChartObservables,
 } from 'src/composables/use-statistics/category-pie-chart.utils';
 import AmChartsPieChart from './AmChartsPieChart.vue';
 import AmChartsBarChart from './AmChartsBarChart.vue';
@@ -447,10 +448,9 @@ export default defineComponent({
       const stats = statistics.sharedState.conditionalStatistics;
       const protocol = observation.protocol?.sharedState?.currentProtocol;
       const categoryId = state.targetCategoryId ?? '';
-      const observables =
-        stats?.targetCategory?.observables?.filter(
-          (obs) => obs.onDuration > 0 || obs.onCount > 0,
-        ) || [];
+      const observables = filterAndSortPieChartObservables(
+        stats?.targetCategory?.observables || [],
+      );
       const resolvedColors = observables.map((obs) =>
         resolveObservableChartColor(obs.observableId, categoryId, protocol),
       );

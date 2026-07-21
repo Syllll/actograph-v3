@@ -42,6 +42,26 @@ export function shouldIncludePauseSegment(
   return treatPausesAsSeparateState && pauseDuration > 0;
 }
 
+/**
+ * Filters out observables with no data and orders the rest by descending
+ * duration (the pie chart starts at 12 o'clock and draws clockwise, so this
+ * ordering puts the largest slice first / at the top). Ties keep their
+ * original position in the category. Used by both the data segments and the
+ * color list so the two stay aligned.
+ */
+export function filterAndSortPieChartObservables<
+  T extends { onDuration: number; onCount: number },
+>(observables: T[]): T[] {
+  return observables
+    .map((obs, index) => ({ obs, index }))
+    .filter(({ obs }) => obs.onDuration > 0 || obs.onCount > 0)
+    .sort((a, b) => {
+      const durationDiff = (b.obs.onDuration || 0) - (a.obs.onDuration || 0);
+      return durationDiff !== 0 ? durationDiff : a.index - b.index;
+    })
+    .map(({ obs }) => obs);
+}
+
 type PieStatsInput = Pick<
   ICategoryStatistics,
   | 'observables'
@@ -118,12 +138,7 @@ export function buildCategoryPieChartData(
   );
   const pieDenominator = resolvePieDenominator(stats, includePauseSegment);
 
-  const data = stats.observables
-    .filter((obs) => {
-      const hasDuration = obs.onDuration > 0;
-      const hasCount = obs.onCount > 0;
-      return hasDuration || hasCount;
-    })
+  const data = filterAndSortPieChartObservables(stats.observables)
     .map((obs) => {
       const value = pieDenominator > 0 ? (obs.onDuration / pieDenominator) * 100 : 0;
       return {

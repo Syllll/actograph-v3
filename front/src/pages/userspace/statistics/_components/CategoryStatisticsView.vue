@@ -71,6 +71,7 @@ import {
   buildCategoryPieChartColors,
   buildCategoryPieChartData,
   calculateUnaccountedPieDuration,
+  filterAndSortPieChartObservables,
 } from 'src/composables/use-statistics/category-pie-chart.utils';
 import {
   resolveCategoryGraphColor,
@@ -176,10 +177,7 @@ export default defineComponent({
       const stats = statistics.sharedState.categoryStatistics;
       const protocol = observation.protocol?.sharedState?.currentProtocol;
       const categoryId = state.selectedCategoryId;
-      const observables =
-        stats?.observables?.filter(
-          (obs) => obs.onDuration > 0 || obs.onCount > 0,
-        ) || [];
+      const observables = filterAndSortPieChartObservables(stats?.observables || []);
       const resolvedColors = observables.map((obs) =>
         resolveObservableChartColor(obs.observableId, categoryId ?? '', protocol),
       );
