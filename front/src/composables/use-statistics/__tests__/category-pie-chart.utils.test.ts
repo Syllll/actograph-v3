@@ -2,6 +2,7 @@ import {
   buildCategoryPieChartData,
   buildCategoryPieChartColors,
   calculateUnaccountedPieDuration,
+  filterAndSortPieChartObservables,
   shouldIncludePauseSegment,
 } from '../category-pie-chart.utils';
 import { IObservableStatistics } from '@services/observations/statistics.interface';
@@ -64,7 +65,7 @@ describe('buildCategoryPieChartData', () => {
     });
   });
 
-  it('sums to 100% in separate-state mode with pauses', () => {
+  it('sums to 100% in separate-state mode with pauses, sorted by descending duration', () => {
     const data = buildCategoryPieChartData(baseStats, {
       treatPausesAsSeparateState: true,
       pauseSegmentLabel: 'Pause',
@@ -75,8 +76,12 @@ describe('buildCategoryPieChartData', () => {
     const total = data.reduce((sum, segment) => sum + segment.value, 0);
     expect(total).toBeCloseTo(100, 5);
 
-    expect(data[0].value).toBeCloseTo(30, 5);
-    expect(data[1].value).toBeCloseTo(60, 5);
+    // obs-b (6 min) has the longer duration, so it sorts before obs-a (3 min);
+    // Pause always comes last among accounted segments.
+    expect(data[0].label).toBe('obsB');
+    expect(data[0].value).toBeCloseTo(60, 5);
+    expect(data[1].label).toBe('obsA');
+    expect(data[1].value).toBeCloseTo(30, 5);
     expect(data[2].value).toBeCloseTo(10, 5);
   });
 
@@ -185,6 +190,47 @@ describe('calculateUnaccountedPieDuration', () => {
 
   it('returns 0 when there is no gap', () => {
     expect(calculateUnaccountedPieDuration(baseStats, true)).toBe(0);
+  });
+});
+
+describe('filterAndSortPieChartObservables', () => {
+  it('drops observables with no duration and no count', () => {
+    const observables = [
+      mockObservable('obs-a', 'obsA', 0, 0, 0),
+      mockObservable('obs-b', 'obsB', 60_000, 100, 1),
+    ];
+
+    expect(filterAndSortPieChartObservables(observables).map((o) => o.observableName)).toEqual([
+      'obsB',
+    ]);
+  });
+
+  it('sorts by descending duration', () => {
+    const observables = [
+      mockObservable('obs-a', 'obsA', 60_000, 0, 1),
+      mockObservable('obs-b', 'obsB', 180_000, 0, 1),
+      mockObservable('obs-c', 'obsC', 120_000, 0, 1),
+    ];
+
+    expect(filterAndSortPieChartObservables(observables).map((o) => o.observableName)).toEqual([
+      'obsB',
+      'obsC',
+      'obsA',
+    ]);
+  });
+
+  it('keeps the category declaration order for ties', () => {
+    const observables = [
+      mockObservable('obs-a', 'obsA', 60_000, 0, 1),
+      mockObservable('obs-b', 'obsB', 60_000, 0, 1),
+      mockObservable('obs-c', 'obsC', 120_000, 0, 1),
+    ];
+
+    expect(filterAndSortPieChartObservables(observables).map((o) => o.observableName)).toEqual([
+      'obsC',
+      'obsA',
+      'obsB',
+    ]);
   });
 });
 
