@@ -60,6 +60,59 @@
         <q-separator v-if="showSeparatorBeforeReset" vertical />
         <q-btn
           flat
+          round
+          dense
+          icon="mdi-tune"
+          color="grey-8"
+        >
+          <q-tooltip>{{ $t('graphUi.axisScaleTooltip') }}</q-tooltip>
+          <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
+            <div class="q-pa-md" style="min-width: 260px">
+              <div class="text-weight-medium q-mb-sm">{{ $t('graphUi.axisScaleTitle') }}</div>
+
+              <div class="text-caption text-grey-7">{{ $t('graphUi.axisScaleXLabel') }}</div>
+              <q-slider
+                :model-value="axisStretch.x"
+                :min="0.5"
+                :max="3"
+                :step="0.25"
+                dense
+                color="primary"
+                label
+                :label-value="`${axisStretch.x}×`"
+                class="q-mb-md"
+                @update:model-value="methods.onAxisStretchXChange"
+              />
+
+              <div class="text-caption text-grey-7">{{ $t('graphUi.axisScaleYLabel') }}</div>
+              <q-slider
+                :model-value="axisStretch.y"
+                :min="0.4"
+                :max="1"
+                :step="0.1"
+                dense
+                color="primary"
+                label
+                :label-value="`${axisStretch.y}×`"
+                class="q-mb-md"
+                @update:model-value="methods.onAxisStretchYChange"
+              />
+
+              <q-btn
+                flat
+                dense
+                no-caps
+                color="primary"
+                :label="$t('graphUi.axisScaleReset')"
+                class="full-width"
+                @click="methods.resetAxisStretch"
+              />
+            </div>
+          </q-menu>
+        </q-btn>
+        <q-separator v-if="showSeparatorBeforeReset" vertical />
+        <q-btn
+          flat
           dense
           no-caps
           color="grey-8"
@@ -159,7 +212,10 @@ import { useObservation } from 'src/composables/use-observation';
 import { observationService } from '@services/observations/index.service';
 import { useI18n } from 'vue-i18n';
 import { DEFAULT_GRAPH_COLOR, TimeDisplayFormatEnum } from '@actograph/graph';
-import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
+import {
+  hasReadingsAfterLastStop as detectReadingsAfterLastStop,
+  isCategoryVisible,
+} from '@actograph/core';
 import {
   getObservableGraphPreferences,
   resolveGraphColor,
@@ -225,6 +281,13 @@ export default defineComponent({
     // spec-pr-format-affichage-temps-graphe.md) : restauré à l'ouverture de
     // la chronique, sauvegardé à chaque changement de sélection.
     const timeDisplayFormat = ref<TimeDisplayFormatEnum>(TimeDisplayFormatEnum.Auto);
+
+    // Étirement indépendant des axes (x = temps, y = catégories), par-dessus
+    // le zoom uniforme existant. Persisté par chronique dans
+    // observation.meta.graphXStretch/graphYCompact, même pattern que
+    // timeDisplayFormat ci-dessus : restauré à l'ouverture, sauvegardé à
+    // chaque changement de réglage.
+    const axisStretch = reactive({ x: 1, y: 1 });
 
     const timeFormatOptions = computed(() => {
       void locale.value;
@@ -313,6 +376,48 @@ export default defineComponent({
           console.error('Failed to persist timeDisplayFormat to observation meta:', error);
         }
       },
+      onAxisStretchXChange: (value: number | null) => {
+        if (value === null) return;
+        methods.setAxisStretch({ x: value });
+      },
+      onAxisStretchYChange: (value: number | null) => {
+        if (value === null) return;
+        methods.setAxisStretch({ y: value });
+      },
+      resetAxisStretch: () => {
+        methods.setAxisStretch({ x: 1, y: 1 });
+      },
+      setAxisStretch: (next: { x?: number; y?: number }) => {
+        axisStretch.x = next.x ?? axisStretch.x;
+        axisStretch.y = next.y ?? axisStretch.y;
+        graph.setAxisStretch(next);
+        void methods.persistAxisStretch({ x: axisStretch.x, y: axisStretch.y });
+      },
+      // Même pattern que persistTimeDisplayFormat ci-dessus : sauvegarde non
+      // bloquante dans observation.meta, l'affichage local a déjà changé.
+      persistAxisStretch: async (next: { x: number; y: number }) => {
+        const current = observation.sharedState.currentObservation;
+        if (!current?.id) return;
+
+        observation.sharedState.currentObservation = {
+          ...current,
+          meta: { ...(current.meta ?? {}), graphXStretch: next.x, graphYCompact: next.y },
+        } as typeof observation.sharedState.currentObservation;
+
+        try {
+          const updated = await observationService.update(current.id, {
+            meta: { graphXStretch: next.x, graphYCompact: next.y },
+          });
+          if (updated?.meta) {
+            observation.sharedState.currentObservation = {
+              ...observation.sharedState.currentObservation,
+              meta: updated.meta,
+            } as typeof observation.sharedState.currentObservation;
+          }
+        } catch (error) {
+          console.error('Failed to persist axis stretch to observation meta:', error);
+        }
+      },
       // Construit le canvas de légende (noms de catégories/observables + pastilles
       // de couleur). Partagé par tous les exports impliquant la légende (légende
       // seule ou combinée graphe + légende), pour garantir un contenu identique.
@@ -330,6 +435,7 @@ export default defineComponent({
         const rows: Array<{ label: string; color: string; isCategory?: boolean }> = [];
         for (const category of items) {
           if (String(category?.type ?? '').toLowerCase() !== 'category') continue;
+          if (!isCategoryVisible(category)) continue;
           const categoryColor = category?.graphPreferences?.color || DEFAULT_GRAPH_COLOR;
           rows.push({
             // Le nom de la catégorie est une donnée utilisateur, pas un texte à
@@ -559,6 +665,25 @@ export default defineComponent({
       { immediate: true }
     );
 
+    // Restaure l'étirement des axes depuis observation.meta quand une
+    // chronique est chargée (persisté par persistAxisStretch ci-dessus).
+    // Même politique que timeDisplayFormat : pas de repli sur la chronique
+    // précédemment ouverte, une valeur absente ou invalide retombe sur 1×.
+    watch(
+      () => [
+        observation.sharedState.currentObservation?.meta?.graphXStretch,
+        observation.sharedState.currentObservation?.meta?.graphYCompact,
+      ] as const,
+      ([xFromMeta, yFromMeta]) => {
+        const nextX = typeof xFromMeta === 'number' && Number.isFinite(xFromMeta) ? xFromMeta : 1;
+        const nextY = typeof yFromMeta === 'number' && Number.isFinite(yFromMeta) ? yFromMeta : 1;
+        axisStretch.x = nextX;
+        axisStretch.y = nextY;
+        graph.setAxisStretch({ x: nextX, y: nextY });
+      },
+      { immediate: true }
+    );
+
     // Computed property pour déterminer si le séparateur avant le reset est nécessaire
     const showSeparatorBeforeReset = computed(() => {
       // Le séparateur est nécessaire seulement s'il y a des boutons de zoom avant le reset
@@ -583,6 +708,7 @@ export default defineComponent({
       exportFormatOptions,
       timeDisplayFormat,
       timeFormatOptions,
+      axisStretch,
       methods,
       customization,
       props,

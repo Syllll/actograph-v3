@@ -35,6 +35,10 @@ const sharedState = shallowReactive({
   graphRenderOptions: {
     ...DEFAULT_GRAPH_RENDER_OPTIONS,
   } as IGraphRenderOptions,
+  // Miroir réactif de PixiApp.axisStretch, pour piloter les sliders du menu
+  // de réglages d'échelle (graph/Index.vue). PixiApp reste la source de
+  // vérité pour le rendu ; ceci n'est utile qu'à l'affichage des sliders.
+  axisStretch: { x: 1, y: 1 },
 });
 
 /** Debounce partagé : Index (watches) et drawer coalescent ensemble. */
@@ -179,6 +183,21 @@ export const useGraph = (options?: {
     }
   };
 
+  /**
+   * Étirement indépendant des axes (x = temps, y = catégories), par-dessus le
+   * zoom uniforme existant. La persistance par chronique
+   * (observation.meta.graphXStretch/graphYCompact) est gérée par graph/Index.vue.
+   */
+  const setAxisStretch = (next: { x?: number; y?: number }): void => {
+    sharedState.axisStretch = {
+      x: next.x ?? sharedState.axisStretch.x,
+      y: next.y ?? sharedState.axisStretch.y,
+    };
+    if (sharedState.ready && sharedState.pixiApp) {
+      void sharedState.pixiApp.setAxisStretch(next);
+    }
+  };
+
   const refreshGraph = (attempt = 0): void => {
     if (!sharedState.ready || !sharedState.pixiApp) {
       return;
@@ -313,6 +332,7 @@ export const useGraph = (options?: {
     sharedState,
     onCanvasResize,
     setTimeDisplayFormat,
+    setAxisStretch,
     /** Redessin complet immédiat (setData + draw). */
     requestRedraw,
     /** Redessin complet coalescé (50 ms). */

@@ -16,6 +16,7 @@ export interface IGraphPreferences {
   displayMode?: DisplayModeEnum;
   supportCategoryId?: string | null;
   supportCategoryName?: string | null;
+  visible?: boolean;
 }
 
 export interface ProtocolItem {

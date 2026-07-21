@@ -39,6 +39,17 @@
           <div class="category-container">
             <!-- Ligne Catégorie -->
             <div class="category-row customization-row">
+              <!-- Visibilité -->
+              <div class="cell-visible">
+                <q-checkbox
+                  :model-value="category.graphPreferences?.visible !== false"
+                  dense
+                  @update:model-value="methods.onCategoryVisibleChange(category.id, $event)"
+                >
+                  <q-tooltip>{{ $t('graphUi.toggleCategoryVisibility') }}</q-tooltip>
+                </q-checkbox>
+              </div>
+
               <!-- Nom de la catégorie -->
               <DrawerLabelCell
                 :text="category.name ?? ''"
@@ -145,6 +156,9 @@
                 :key="observable.id"
                 class="observable-row customization-row"
               >
+                <!-- Visibilité (espace réservé, propriété de la catégorie uniquement) -->
+                <div class="cell-visible" aria-hidden="true" />
+
                 <!-- Nom de l'observable -->
                 <DrawerLabelCell
                   :text="observable.name ?? ''"
@@ -266,8 +280,8 @@ import {
 } from './graph-preferences.utils';
 
 const COMPACT_MODE_THRESHOLD = 400; // Largeur en pixels pour activer le mode compact
-const GRID_COLUMN_WIDTHS = [140, 120, 36, 90, 140, 140];
-const GRID_COLUMN_WIDTHS_COMPACT = [100, 100, 36, 80, 120, 120];
+const GRID_COLUMN_WIDTHS = [36, 140, 120, 36, 90, 140, 140];
+const GRID_COLUMN_WIDTHS_COMPACT = [32, 100, 100, 36, 80, 120, 120];
 const GRID_GAP = 8;
 const GRID_GAP_COMPACT = 4;
 const ROW_PADDING_X = 16; // padding-left 12px + padding-right 4px
@@ -282,6 +296,7 @@ const computeMinContentWidth = (compact: boolean): number => {
 };
 
 const GRID_LAYOUT_KEYS = [
+  'visible',
   'name',
   'display',
   'color',
@@ -558,6 +573,10 @@ export default defineComponent({
         methods.updateCategoryPreference(categoryId, { strokeWidth: val ?? undefined });
       },
 
+      onCategoryVisibleChange: (categoryId: string, val: boolean) => {
+        methods.updateCategoryPreference(categoryId, { visible: val });
+      },
+
       onCategoryPatternChange: (categoryId: string, val: BackgroundPatternEnum) => {
         methods.updateCategoryPreference(categoryId, { backgroundPattern: val });
       },
@@ -646,7 +665,8 @@ export default defineComponent({
 
           const isStructuralCategoryChange =
             sanitizedPreference.displayMode !== undefined ||
-            sanitizedPreference.supportCategoryId !== undefined;
+            sanitizedPreference.supportCategoryId !== undefined ||
+            sanitizedPreference.visible !== undefined;
 
           if (isStructuralCategoryChange) {
             // Affecte l'axe Y / layout : full setData+draw
@@ -958,6 +978,7 @@ export default defineComponent({
 .customization-row {
   display: grid;
   grid-template-columns:
+    var(--gc-col-visible)
     var(--gc-col-name)
     var(--gc-col-display)
     var(--gc-col-color)
@@ -1025,6 +1046,12 @@ export default defineComponent({
     white-space: nowrap;
     min-width: 0;
   }
+}
+
+.cell-visible {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
 }
 
 .cell-color {
