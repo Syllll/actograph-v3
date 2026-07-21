@@ -18,6 +18,7 @@ import {
   TimeDisplayFormatEnum,
   mergeGraphPreferences,
   resolveGraphColor,
+  isCategoryVisible,
 } from '@actograph/core';
 import { YAxis } from '../axis/y-axis';
 import { xAxis } from '../axis/x-axis';
@@ -94,6 +95,15 @@ export class DataArea extends BaseGroup {
   private isDrawInProgress: (() => boolean) | null = null;
   private isAxesGraphicsDirty: (() => boolean) | null = null;
   private requestRender: (() => void) | null = null;
+  /** Voir YAxis.axisStretch : contre-scale marqueurs ronds et étiquette de survol. */
+  private axisStretch = { x: 1, y: 1 };
+
+  public setAxisStretch(stretch: { x: number; y: number }): void {
+    this.axisStretch = stretch;
+    if (this.timeLabelContainer) {
+      this.timeLabelContainer.scale.set(1 / stretch.x, 1 / stretch.y);
+    }
+  }
 
   constructor(
     app: Application,
@@ -550,6 +560,13 @@ export class DataArea extends BaseGroup {
     const normalCategories: Array<{ category: ProtocolItem; readings: IReading[] }> = [];
 
     for (const categoryEntry of this.readingsPerCategory) {
+      if (!isCategoryVisible(categoryEntry.category)) {
+        // Catégorie décochée : ne pas la classer pour dessin, et vider son
+        // graphique persistant pour ne pas laisser un résidu affiché (son
+        // drawCategoryX ne sera pas rappelé tant qu'elle reste cachée).
+        this.clearCategoryGraphic(categoryEntry.category.id);
+        continue;
+      }
       const displayMode = this.getEffectiveDisplayMode(categoryEntry.category);
       if (displayMode === DisplayModeEnum.Background) {
         backgroundCategories.push(categoryEntry);
@@ -688,6 +705,12 @@ export class DataArea extends BaseGroup {
     this.setChildIndex(this.timeLabelContainer!, count - 2);
   }
 
+  /** Vide le graphique persistant d'une catégorie (ex: catégorie décochée), sans le détruire. */
+  private clearCategoryGraphic(categoryId: string): void {
+    const graphicEntry = this.graphicPerCategory.find((g) => g.category.id === categoryId);
+    graphicEntry?.graphic.clear();
+  }
+
   private getOrCreateGraphicForCategory(category: ProtocolItem): BaseGraphic {
     let graphicEntry = this.graphicPerCategory.find((g) => g.category.id === category.id);
     if (!graphicEntry) {
@@ -725,7 +748,14 @@ export class DataArea extends BaseGroup {
           const color = resolveGraphColor(prefs);
           const strokeWidth = prefs?.strokeWidth ?? 4;
 
-          graphic.circle(xPos, yPos, strokeWidth / 2);
+          // Ellipse contre-scalée par l'étirement courant : reste un cercle
+          // visuellement correct même quand scaleX ≠ scaleY sur le viewport.
+          graphic.ellipse(
+            xPos,
+            yPos,
+            strokeWidth / 2 / this.axisStretch.x,
+            strokeWidth / 2 / this.axisStretch.y,
+          );
           graphic.setFillStyle({ color });
           graphic.fill();
         }
@@ -1040,7 +1070,12 @@ export class DataArea extends BaseGroup {
           const color = resolveGraphColor(prefs);
           const strokeWidth = prefs?.strokeWidth ?? 4;
 
-          graphic.circle(xPos, yPos, strokeWidth / 2);
+          graphic.ellipse(
+            xPos,
+            yPos,
+            strokeWidth / 2 / this.axisStretch.x,
+            strokeWidth / 2 / this.axisStretch.y,
+          );
           graphic.setFillStyle({ color });
           graphic.fill();
         }
@@ -1129,6 +1164,11 @@ export class DataArea extends BaseGroup {
       return;
     }
 
+    if (!isCategoryVisible(categoryEntry.category)) {
+      this.clearCategoryGraphic(categoryId);
+      return;
+    }
+
     const displayMode = this.getEffectiveDisplayMode(categoryEntry.category);
 
     switch (displayMode) {
@@ -1177,6 +1217,11 @@ export class DataArea extends BaseGroup {
     const categoryEntry = this.readingsPerCategory.find((r) => r.category.id === category.id);
 
     if (!categoryEntry) {
+      return;
+    }
+
+    if (!isCategoryVisible(categoryEntry.category)) {
+      this.clearCategoryGraphic(category.id);
       return;
     }
 

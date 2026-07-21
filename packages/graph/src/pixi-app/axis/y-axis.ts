@@ -2,7 +2,7 @@ import { Application, Text } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
 import type { IObservation, IProtocolItem } from '@actograph/core';
-import { DisplayModeEnum, ProtocolItemActionEnum } from '@actograph/core';
+import { DisplayModeEnum, ProtocolItemActionEnum, isCategoryVisible } from '@actograph/core';
 import { parseProtocolItems, ProtocolItem } from '../../utils/protocol.utils';
 
 // ============================================================================
@@ -67,11 +67,22 @@ export class YAxis extends BaseGroup {
   private categories: ProtocolItem[] = [];
   private axisStart: IPosition | null = null;
   private axisEnd: IPosition | null = null;
+  /**
+   * Étirement par axe courant (voir PixiApp.axisStretch). Sert uniquement à
+   * contre-scaler les labels pour qu'ils restent lisibles (non déformés) quand
+   * scaleX ≠ scaleY sur le viewport parent. {1,1} = comportement identique à
+   * avant (le zoom uniforme normal continue d'agrandir les labels comme avant).
+   */
+  private axisStretch = { x: 1, y: 1 };
 
   constructor(app: Application) {
     super(app);
     this.graphic = new BaseGraphic(this.app);
     this.addChild(this.graphic);
+  }
+
+  public setAxisStretch(stretch: { x: number; y: number }): void {
+    this.axisStretch = stretch;
   }
 
   public getAxisStart(): IPosition | null {
@@ -354,6 +365,9 @@ export class YAxis extends BaseGroup {
     label.anchor.set(1, 0.5);
     label.visible = true;
     label.alpha = 1;
+    // Contre-scale l'étirement du parent (viewport) pour garder un texte lisible
+    // et non déformé quand scaleX ≠ scaleY (voir PixiApp.axisStretch).
+    label.scale.set(1 / this.axisStretch.x, 1 / this.axisStretch.y);
     this.addChild(label);
     return label;
   }
@@ -379,6 +393,10 @@ export class YAxis extends BaseGroup {
     const reversedCategories = [...this.categories].reverse();
 
     for (const category of reversedCategories) {
+      if (!isCategoryVisible(category)) {
+        continue;
+      }
+
       const displayMode = this.getEffectiveDisplayMode(category);
 
       if (displayMode === DisplayModeEnum.Background) {

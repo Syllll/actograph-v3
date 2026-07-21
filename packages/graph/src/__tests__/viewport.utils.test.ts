@@ -39,15 +39,27 @@ describe('viewport.utils', () => {
         { width: 400, height: 300 },
         { width: 800, height: 600 },
         1,
+        1,
       );
       expect(position).toEqual({ x: 200, y: 150 });
+    });
+
+    it('centers each axis independently when scaleX differs from scaleY', () => {
+      const position = computeFitViewportPosition(
+        { width: 400, height: 300 },
+        { width: 800, height: 600 },
+        1,
+        2,
+      );
+      // scaledWidth = 400 -> centered x = 200 ; scaledHeight = 600 -> fills canvas, y = 0
+      expect(position).toEqual({ x: 200, y: 0 });
     });
   });
 
   describe('clampViewport', () => {
     it('prevents panning into empty space vertically', () => {
       const clamped = clampViewport(
-        { x: 0, y: 500, scale: 1 },
+        { x: 0, y: 500, scaleX: 1, scaleY: 1 },
         { width: 800, height: 1200 },
         { width: 800, height: 600 },
       );
@@ -57,7 +69,7 @@ describe('viewport.utils', () => {
 
     it('centers plot when scaled smaller than canvas', () => {
       const clamped = clampViewport(
-        { x: -200, y: -100, scale: 0.5 },
+        { x: -200, y: -100, scaleX: 0.5, scaleY: 0.5 },
         { width: 400, height: 300 },
         { width: 800, height: 600 },
       );
@@ -69,26 +81,48 @@ describe('viewport.utils', () => {
       const world = { width: 800, height: 1200 };
       const canvas = { width: 800, height: 600 };
       const fitScale = computeFitScale(world, canvas, minScale, maxScale);
-      const fitPos = computeFitViewportPosition(world, canvas, fitScale);
+      const fitPos = computeFitViewportPosition(world, canvas, fitScale, fitScale);
 
-      let scale = fitScale * 1.2 * 0.8;
-      const clamped = clampViewport({ x: fitPos.x, y: fitPos.y, scale }, world, canvas);
+      const scale = fitScale * 1.2 * 0.8;
+      const clamped = clampViewport(
+        { x: fitPos.x, y: fitPos.y, scaleX: scale, scaleY: scale },
+        world,
+        canvas,
+      );
 
-      expect(clamped.scale * world.height).toBeLessThanOrEqual(canvas.height);
-      expect(clamped.y).toBeGreaterThanOrEqual(canvas.height - clamped.scale * world.height - 24);
+      expect(clamped.scaleY * world.height).toBeLessThanOrEqual(canvas.height);
+      expect(clamped.y).toBeGreaterThanOrEqual(canvas.height - clamped.scaleY * world.height - 24);
+      expect(clamped.y).toBeLessThanOrEqual(24);
+    });
+
+    it('clamps width and height independently when scaleX differs from scaleY', () => {
+      const world = { width: 800, height: 1200 };
+      const canvas = { width: 800, height: 600 };
+      // scaleX fits width exactly (no horizontal overscroll possible), scaleY zooms in on height.
+      const clamped = clampViewport(
+        { x: -999, y: -999, scaleX: 1, scaleY: 2 },
+        world,
+        canvas,
+      );
+
+      // Width == canvas width at scaleX=1 -> horizontally centered, not clamped to -999.
+      expect(clamped.x).toBe(0);
+      // Height clamp still allows panning within bounds (not centered).
+      expect(clamped.y).toBeGreaterThanOrEqual(canvas.height - world.height * 2 - 24);
       expect(clamped.y).toBeLessThanOrEqual(24);
     });
   });
 
   describe('computeFitViewport', () => {
-    it('returns scale and centered position for export fit', () => {
+    it('returns uniform scaleX/scaleY and centered position for export fit', () => {
       const fit = computeFitViewport(
         { width: 400, height: 1200 },
         { width: 800, height: 600 },
         minScale,
         maxScale,
       );
-      expect(fit.scale).toBeCloseTo(0.5);
+      expect(fit.scaleX).toBeCloseTo(0.5);
+      expect(fit.scaleY).toBeCloseTo(0.5);
       expect(fit.x).toBe(300);
       expect(fit.y).toBe(0);
     });
@@ -98,7 +132,8 @@ describe('viewport.utils', () => {
     it('preserves user zoom scale after canvas resize', () => {
       const world = { width: 800, height: 1200 };
       const oldCanvas = { width: 800, height: 600 };
-      const userViewport = { x: -50, y: -100, scale: 1.5 };
+      const userViewport = { x: -50, y: -100, scaleX: 1.5, scaleY: 1.5 };
+      void oldCanvas;
 
       const clamped = preserveViewportOnResize(
         userViewport,
@@ -106,7 +141,8 @@ describe('viewport.utils', () => {
         { width: 1024, height: 768 },
       );
 
-      expect(clamped.scale).toBe(1.5);
+      expect(clamped.scaleX).toBe(1.5);
+      expect(clamped.scaleY).toBe(1.5);
       expect(clamped.x).toBeLessThanOrEqual(24);
       expect(clamped.y).toBeLessThanOrEqual(24);
     });
@@ -116,13 +152,13 @@ describe('viewport.utils', () => {
     it('forces full-graph fit independent of user zoom', () => {
       const world = { width: 1600, height: 2400 };
       const exportCanvas = { width: 800, height: 600 };
-      const userZoomed = { x: -400, y: -800, scale: 2.5 };
+      const userZoomed = { x: -400, y: -800, scaleX: 2.5, scaleY: 2.5 };
 
       const exportFit = computeFitViewport(world, exportCanvas, minScale, maxScale);
       const restored = preserveViewportOnResize(userZoomed, world, exportCanvas);
 
-      expect(exportFit.scale).toBeLessThan(userZoomed.scale);
-      expect(restored.scale).toBe(userZoomed.scale);
+      expect(exportFit.scaleX).toBeLessThan(userZoomed.scaleX);
+      expect(restored.scaleX).toBe(userZoomed.scaleX);
       expect(restored.x).not.toBe(exportFit.x);
     });
   });

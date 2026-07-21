@@ -58,6 +58,10 @@ export function sanitizeGraphPreferencePatch(
     patch.supportCategoryId = null;
   }
 
+  if (typeof preference.visible === 'boolean') {
+    patch.visible = preference.visible;
+  }
+
   return patch;
 }
 

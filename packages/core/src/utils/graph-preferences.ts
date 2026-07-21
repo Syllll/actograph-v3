@@ -124,6 +124,18 @@ export function mergeGraphPreferences(
 }
 
 /**
+ * Détermine si une catégorie doit être affichée sur le graphe.
+ * Non défini = visible (comportement opt-out). Propriété propre à la
+ * catégorie, comme displayMode/supportCategoryId : pas d'héritage vers les
+ * observables.
+ */
+export function isCategoryVisible(category: {
+  graphPreferences?: IGraphPreferences | null;
+}): boolean {
+  return category.graphPreferences?.visible !== false;
+}
+
+/**
  * Retourne la couleur effective à partir des préférences résolues.
  */
 export function resolveGraphColor(

@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsNumber,
   IsEnum,
+  IsBoolean,
   Min,
   Max,
 } from 'class-validator';
@@ -30,4 +31,8 @@ export class UpdateProtocolItemGraphPreferencesDto {
   @IsString()
   @IsOptional()
   supportCategoryId?: string | null;
+
+  @IsBoolean()
+  @IsOptional()
+  visible?: boolean;
 }

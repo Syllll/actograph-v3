@@ -86,6 +86,12 @@ export class xAxis extends BaseGroup {
   private ticks: { dateTime: Date; label: string; pos?: number }[] = [];
   private axisStart: { x: number; y: number } | null = null;
   private axisEnd: { x: number; y: number } | null = null;
+  /** Voir YAxis.axisStretch : contre-scale les labels quand scaleX ≠ scaleY. */
+  private axisStretch = { x: 1, y: 1 };
+
+  public setAxisStretch(stretch: { x: number; y: number }): void {
+    this.axisStretch = stretch;
+  }
 
   public getAxisStart() {
     return { ...this.axisStart };
@@ -465,13 +471,22 @@ export class xAxis extends BaseGroup {
           fontFamily: this.styleOptions.label.fontFamily,
         },
       });
-      label.x = tickXpos;
-      label.y = xAxisStart.y + 12;
       label.anchor.set(-0.05, 0);
       label.angle = 45;
       label.visible = true;
       label.alpha = 1;
-      this.labelsContainer.addChild(label);
+      // Le label est incliné à 45° : contre-scaler directement le Text
+      // mélangerait rotation et échelle anisotrope sur la même matrice locale
+      // et le ferait apparaître cisaillé. On isole la contre-échelle sur un
+      // conteneur parent non-tourné : composée avec le scale anisotrope du
+      // viewport (diagonal lui aussi), elle s'annule exactement et ne laisse
+      // que la rotation, quel que soit l'étirement courant.
+      const labelWrapper = new Container();
+      labelWrapper.x = tickXpos;
+      labelWrapper.y = xAxisStart.y + 12;
+      labelWrapper.scale.set(1 / this.axisStretch.x, 1 / this.axisStretch.y);
+      labelWrapper.addChild(label);
+      this.labelsContainer.addChild(labelWrapper);
     }
 
     const formatMentionText = this.getFormatMentionText();
@@ -497,6 +512,8 @@ export class xAxis extends BaseGroup {
       formatMention.angle = 0;
       formatMention.visible = true;
       formatMention.alpha = 1;
+      // Pas de rotation ici : contre-scale directe sans risque de cisaillement.
+      formatMention.scale.set(1 / this.axisStretch.x, 1 / this.axisStretch.y);
       this.labelsContainer.addChild(formatMention);
     }
 

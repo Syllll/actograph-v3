@@ -16,6 +16,8 @@ export interface IGraphPreferences {
   supportCategoryId?: string | null;
   /** Référence portable par nom de catégorie (export/import sans IDs). */
   supportCategoryName?: string | null;
+  /** Visibilité de la catégorie sur le graphe. Non défini = visible (opt-out). Catégorie uniquement, non héritée par les observables. */
+  visible?: boolean;
 }
 
 /**

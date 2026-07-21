@@ -48,6 +48,7 @@ export interface IGraphPreferences {
   backgroundPattern?: BackgroundPatternEnum;
   displayMode?: DisplayModeEnum;
   supportCategoryId?: string | null;
+  visible?: boolean;
 }
 
 export interface IProtocolItem {

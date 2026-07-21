@@ -615,6 +615,9 @@ export class Items {
       targetItem.graphPreferences.supportCategoryId =
         normalizedPreferences.supportCategoryId;
     }
+    if (normalizedPreferences.visible !== undefined) {
+      targetItem.graphPreferences.visible = normalizedPreferences.visible;
+    }
 
     // Update the protocol with the new items
     protocol.items = JSON.stringify(items);

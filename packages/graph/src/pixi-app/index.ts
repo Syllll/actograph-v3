@@ -12,6 +12,7 @@ import {
   computeFitViewport,
   isDegenerateCanvasSize,
   preserveViewportOnResize,
+  type ViewportState,
   type WorldBounds,
 } from '../utils/viewport.utils';
 import type { IGraphRenderOptions } from '../types/graph-render-options';
@@ -71,7 +72,7 @@ export class PixiApp {
    */
   private isInitialized = false;
   private worldBounds: WorldBounds = { width: 1, height: 1 };
-  private fitViewport = { scale: 1, x: 0, y: 0 };
+  private fitViewport: ViewportState = { scaleX: 1, scaleY: 1, x: 0, y: 0 };
   private needsInitialFit = false;
   private pausePeriods: IPeriod[] = [];
   private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
@@ -116,6 +117,18 @@ export class PixiApp {
     lastPinchDistance: 0,
     lastPinchCenter: { x: 0, y: 0 },
     isPinching: false,
+  };
+
+  /**
+   * Multiplicateurs d'étirement par axe, appliqués par-dessus zoomState.scale.
+   * Indépendants du zoom pan/molette/+- (qui reste uniforme) : permettent
+   * d'étirer le temps (x) et de compacter les catégories (y) séparément.
+   */
+  private axisStretch = {
+    x: 1,
+    y: 1,
+    minStretch: 0.25,
+    maxStretch: 4,
   };
 
   constructor() {
@@ -268,17 +281,21 @@ export class PixiApp {
       this.recalculateFitViewport();
       const clamped = preserveViewportOnResize(
         {
-          scale: this.zoomState.scale,
+          scaleX: this.zoomState.scale * this.axisStretch.x,
+          scaleY: this.zoomState.scale * this.axisStretch.y,
           x: this.viewport.x,
           y: this.viewport.y,
         },
         this.worldBounds,
         this.getCanvasSize(),
       );
-      this.setViewportTransform(clamped, {
-        emitZoom: false,
-        skipRender: options?.skipRender,
-      });
+      this.setViewportTransform(
+        { scale: this.zoomState.scale, x: clamped.x, y: clamped.y },
+        {
+          emitZoom: false,
+          skipRender: options?.skipRender,
+        },
+      );
     } else if (!options?.skipRender) {
       this.app.render();
     }
@@ -630,7 +647,10 @@ export class PixiApp {
         this.recalculateFitViewport();
         if (this.needsInitialFit) {
           this.needsInitialFit = false;
-          this.setViewportTransform({ ...this.fitViewport }, { skipRender: true });
+          this.setViewportTransform(
+            { scale: this.fitViewport.scaleX, x: this.fitViewport.x, y: this.fitViewport.y },
+            { skipRender: true },
+          );
         } else {
           // Les bornes du plot peuvent avoir changé (protocole, relevés) sans
           // reset volontaire du zoom : on reclamp la vue courante.
@@ -731,10 +751,11 @@ export class PixiApp {
     transform: { scale?: number; x?: number; y?: number },
     options?: { emitZoom?: boolean; skipRender?: boolean },
   ): void {
-    const scale = transform.scale ?? this.zoomState.scale;
+    const baseScale = transform.scale ?? this.zoomState.scale;
     const clamped = clampViewport(
       {
-        scale,
+        scaleX: baseScale * this.axisStretch.x,
+        scaleY: baseScale * this.axisStretch.y,
         x: transform.x ?? this.viewport.x,
         y: transform.y ?? this.viewport.y,
       },
@@ -742,16 +763,16 @@ export class PixiApp {
       this.getCanvasSize(),
     );
 
-    this.zoomState.scale = clamped.scale;
+    this.zoomState.scale = baseScale;
     this.zoomState.x = clamped.x;
     this.zoomState.y = clamped.y;
-    this.viewport.scale.set(clamped.scale);
+    this.viewport.scale.set(clamped.scaleX, clamped.scaleY);
     this.viewport.x = clamped.x;
     this.viewport.y = clamped.y;
     this.updateWorldTransforms();
 
     if (options?.emitZoom !== false) {
-      this.events.emit('zoom', clamped.scale);
+      this.events.emit('zoom', baseScale);
       this.updateTimeScale();
     }
 
@@ -1054,6 +1075,42 @@ export class PixiApp {
   }
 
   /**
+   * Étirement indépendant par axe (x = temps, y = catégories), appliqué
+   * par-dessus le zoom uniforme existant (pan/molette/+-, inchangé).
+   * Redessine les axes/données (labels et marqueurs recréés à chaque draw)
+   * pour que le contre-scaling anti-déformation (voir YAxis/xAxis/DataArea)
+   * soit appliqué avec la nouvelle valeur.
+   */
+  public setAxisStretch(next: { x?: number; y?: number }): Promise<void> {
+    if (typeof next.x === 'number' && Number.isFinite(next.x)) {
+      this.axisStretch.x = Math.max(
+        this.axisStretch.minStretch,
+        Math.min(this.axisStretch.maxStretch, next.x),
+      );
+    }
+    if (typeof next.y === 'number' && Number.isFinite(next.y)) {
+      this.axisStretch.y = Math.max(
+        this.axisStretch.minStretch,
+        Math.min(this.axisStretch.maxStretch, next.y),
+      );
+    }
+
+    const stretch = { x: this.axisStretch.x, y: this.axisStretch.y };
+    this.yAxis.setAxisStretch(stretch);
+    this.xAxis.setAxisStretch(stretch);
+    this.dataArea.setAxisStretch(stretch);
+
+    if (!this.isInteractive) {
+      return Promise.resolve();
+    }
+    return this.draw();
+  }
+
+  public getAxisStretch(): { x: number; y: number } {
+    return { x: this.axisStretch.x, y: this.axisStretch.y };
+  }
+
+  /**
    * Exporte le graphique sous forme d'image (data URL)
    * @param format - Format de l'image : 'png' ou 'jpeg'
    * @param quality - Qualité JPEG (0-1), ignoré pour PNG
@@ -1123,7 +1180,12 @@ export class PixiApp {
           this.zoomState.minScale,
           this.zoomState.maxScale,
         );
-        this.setViewportTransform(fitViewport, { emitZoom: false, skipRender: true });
+        // Applique aussi axisStretch (via setViewportTransform) : l'export
+        // reflète l'étirement courant, comme ce que l'utilisatrice voit à l'écran.
+        this.setViewportTransform(
+          { scale: fitViewport.scaleX, x: fitViewport.x, y: fitViewport.y },
+          { emitZoom: false, skipRender: true },
+        );
       }
 
       // Direct enqueue (not draw()): avoids deadlock with external draws that
