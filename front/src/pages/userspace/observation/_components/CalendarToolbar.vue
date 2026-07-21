@@ -20,6 +20,18 @@
       @click="handleStop"
     />
 
+    <!-- Paused indicator: distinct color from the play (resume) and stop
+         buttons, so the operator recognizes at a glance that readings are
+         locked, without confusing it with the button used to resume. -->
+    <q-chip
+      v-if="isPausedState"
+      class="paused-badge"
+      icon="lock"
+      dense
+    >
+      {{ $t('observation.pausedBadge') }}
+    </q-chip>
+
     <!-- Attach video (chronometer without video) -->
     <q-btn
       v-if="showAttachVideo"
@@ -105,6 +117,13 @@ export default defineComponent({
     const isObservationActive = computed(() => {
       return observation.sharedState.isPlaying
         || observation.sharedState.elapsedTime > 0;
+    });
+
+    // Observation démarrée (ou déjà avancée) mais actuellement à l'arrêt :
+    // affiche le badge "En pause" pour donner un retour visuel non ambigu,
+    // distinct de la couleur du bouton lecture (bleu, "reprendre").
+    const isPausedState = computed(() => {
+      return !observation.sharedState.isPlaying && isObservationActive.value;
     });
 
     // Attacher une vidéo alors que le chrono a déjà avancé bascule usesVideoTime
@@ -208,6 +227,7 @@ export default defineComponent({
       currentMode,
       canChangeMode,
       isObservationActive,
+      isPausedState,
       attachInProgress,
       showAttachVideo,
       attachVideoBlocked,
@@ -228,6 +248,20 @@ export default defineComponent({
   flex-shrink: 0;
   min-height: 0;
   height: auto;
+}
+
+/* Badge "En pause" : ambre, volontairement distinct du bleu (bouton lecture
+   / reprendre) et du rouge (bouton pause pendant l'enregistrement actif),
+   pour ne jamais être confondu avec la couleur habituelle de reprise. */
+.paused-badge {
+  background-color: #fac775 !important;
+  color: #412402 !important;
+  font-weight: 500;
+}
+
+.body--dark .paused-badge {
+  background-color: #854f0b !important;
+  color: #faeeda !important;
 }
 </style>
 

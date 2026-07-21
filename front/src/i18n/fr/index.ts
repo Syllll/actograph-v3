@@ -188,6 +188,9 @@ export default {
     readyState: 'Prêt',
     tooltipSwitchToCalendar: 'Passer en mode calendrier',
     tooltipSwitchToChronometer: 'Passer en mode chronomètre',
+    pausedBadge: 'En pause',
+    pausedOverlayTitle: 'En pause',
+    pausedOverlaySubtitle: 'Relevés verrouillés jusqu\'à la reprise',
     noProtocolLoadedTitle: 'Aucun protocole chargé',
     noProtocolLoadedHint:
       'Veuillez sélectionner une observation pour afficher son protocole.',
@@ -499,6 +502,12 @@ export default {
     timeFormatMinuteSecond: 'mn:sec',
     timeFormatSecond: 'sec',
     timeFormatMinuteSecondMs: 'mn:sec:ms',
+    toggleCategoryVisibility: 'Afficher/masquer cette catégorie sur le graphe',
+    axisScaleTooltip: 'Ajuster l\'affichage',
+    axisScaleTitle: 'Ajuster l\'affichage',
+    axisScaleXLabel: 'Étirer l\'axe du temps',
+    axisScaleYLabel: 'Compacter les catégories',
+    axisScaleReset: 'Réinitialiser',
   },
   appRoot: {
     updateAvailableTitle: 'Mise à jour disponible',

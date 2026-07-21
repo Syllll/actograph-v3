@@ -185,6 +185,9 @@ export default {
     readyState: 'Ready',
     tooltipSwitchToCalendar: 'Switch to calendar mode',
     tooltipSwitchToChronometer: 'Switch to chronometer mode',
+    pausedBadge: 'Paused',
+    pausedOverlayTitle: 'Paused',
+    pausedOverlaySubtitle: 'Readings locked until resumed',
     noProtocolLoadedTitle: 'No protocol loaded',
     noProtocolLoadedHint:
       'Select an observation to display its protocol.',
@@ -492,6 +495,12 @@ export default {
     timeFormatMinuteSecond: 'mm:ss',
     timeFormatSecond: 'sec',
     timeFormatMinuteSecondMs: 'mm:ss:ms',
+    toggleCategoryVisibility: 'Show/hide this category on the graph',
+    axisScaleTooltip: 'Adjust display',
+    axisScaleTitle: 'Adjust display',
+    axisScaleXLabel: 'Stretch time axis',
+    axisScaleYLabel: 'Compact categories',
+    axisScaleReset: 'Reset',
   },
   appRoot: {
     updateAvailableTitle: 'Update available',
