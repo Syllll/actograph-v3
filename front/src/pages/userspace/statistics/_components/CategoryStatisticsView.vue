@@ -222,26 +222,43 @@ export default defineComponent({
       return !category.action || category.action === ProtocolItemActionEnum.Continuous;
     });
 
-    const occurrencesBarChartData = computed(() => {
+    // Une seule liste triée sert de source à la fois pour les barres et
+    // leurs couleurs, afin qu'elles restent alignées après le tri.
+    const occurrencesBarChartRows = computed(() => {
       const stats = statistics.sharedState.categoryStatistics;
       if (!stats || !stats.observables || stats.observables.length === 0) {
         return [];
       }
 
-      const data = stats.observables
-        .filter((obs) => obs.onCount > 0)
-        .map((obs) => {
+      const protocol = observation.protocol?.sharedState?.currentProtocol;
+      const categoryId = state.selectedCategoryId ?? '';
+
+      return stats.observables
+        .map((obs, index) => ({ obs, index }))
+        .filter(({ obs }) => obs.onCount > 0)
+        .map(({ obs, index }) => {
           const c = obs.onCount || 0;
           return {
             label: obs.observableName,
             value: c,
             formattedValue: formatOccurrenceCount(t, c),
+            color: resolveObservableChartColor(obs.observableId, categoryId, protocol),
+            index,
           };
-        });
-
-      return data.length > 0 ? data : [];
+        })
+        .sort((a, b) => (b.value !== a.value ? b.value - a.value : b.index - a.index));
     });
 
+    const occurrencesBarChartData = computed(() =>
+      occurrencesBarChartRows.value.map(({ label, value, formattedValue, color }) => ({
+        label,
+        value,
+        formattedValue,
+        color,
+      })),
+    );
+
+    // Fallback fill for AmChartsBarChart when a row has no resolved color.
     const barChartColors = computed(() => {
       return resolveCategoryGraphColor(
         state.selectedCategoryId,

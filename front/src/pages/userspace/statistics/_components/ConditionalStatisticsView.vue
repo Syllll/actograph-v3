@@ -463,22 +463,38 @@ export default defineComponent({
       );
     });
 
-    const barChartData = computed(() => {
+    // Une seule liste triée sert de source à la fois pour les barres et
+    // leurs couleurs, afin qu'elles restent alignées après le tri.
+    const barChartRows = computed(() => {
       const stats = statistics.sharedState.conditionalStatistics;
       if (!stats || !stats.targetCategory || !stats.targetCategory.observables) {
         return [];
       }
 
-      const data = stats.targetCategory.observables
-        .filter((obs) => obs.onCount > 0)
-        .map((obs) => ({
+      const protocol = observation.protocol?.sharedState?.currentProtocol;
+      const categoryId = state.targetCategoryId ?? '';
+
+      return stats.targetCategory.observables
+        .map((obs, index) => ({ obs, index }))
+        .filter(({ obs }) => obs.onCount > 0)
+        .map(({ obs, index }) => ({
           label: obs.observableName,
           value: obs.onCount || 0,
           formattedValue: formatOccurrenceCount(t, obs.onCount || 0),
-        }));
-
-      return data.length > 0 ? data : [];
+          color: resolveObservableChartColor(obs.observableId, categoryId, protocol),
+          index,
+        }))
+        .sort((a, b) => (b.value !== a.value ? b.value - a.value : b.index - a.index));
     });
+
+    const barChartData = computed(() =>
+      barChartRows.value.map(({ label, value, formattedValue, color }) => ({
+        label,
+        value,
+        formattedValue,
+        color,
+      })),
+    );
 
     const barChartColors = computed(() => {
       return resolveCategoryGraphColor(

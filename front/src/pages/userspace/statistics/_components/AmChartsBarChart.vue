@@ -61,9 +61,12 @@ export default defineComponent({
         label: string;
         value: number;
         formattedValue?: string;
+        /** Per-bar color; falls back to `colors` when absent. */
+        color?: string;
       }>>,
       required: true,
     },
+    /** Fallback fill used for bars that don't carry their own `color`. */
     colors: {
       type: String,
       default: '#1976D2',
@@ -187,61 +190,35 @@ export default defineComponent({
         return text;
       });
 
+      // Each bar takes the color of its own observable (matching the pie
+      // chart/legend) when the data row carries one; otherwise fall back
+      // to the single `colors` prop.
+      series.columns.template.adapters.add('fill', (fill, target) => {
+        const context = target.dataItem?.dataContext as any;
+        return context?.color ? am5.color(context.color) : fill;
+      });
+      series.columns.template.adapters.add('stroke', (stroke, target) => {
+        const context = target.dataItem?.dataContext as any;
+        return context?.color ? am5.color(context.color) : stroke;
+      });
+
       /**
        * CONFIGURATION DES BARRES VERTICALES
        * ====================================
-       * 
-       * Les barres verticales sont configurées avec :
+       *
        * - cornerRadiusTL et cornerRadiusBL : coins arrondis en haut (top-left et bottom-left)
        *   car les barres partent du bas et montent vers le haut
-       * 
-       * Les labels sont positionnés en haut des barres :
-       * - locationY: 1 → position au sommet de la barre
-       * - centerY: am5.p100 → alignement vertical en haut
-       * - centerX: am5.p50 → centrage horizontal
-       * - textAlign: 'center' → texte centré
+       *
+       * La valeur de chaque barre n'est affichée qu'au survol (tooltip),
+       * pas en permanence au-dessus de la colonne.
        */
-      
+
       // Configure columns appearance
       series.columns.template.setAll({
         tooltipY: 0,
         strokeOpacity: 0,
         cornerRadiusTL: 4,
         cornerRadiusBL: 4,
-      });
-
-      // Enable and configure labels on bars using bullets
-      // Capture root in a local variable for TypeScript (root is guaranteed to be set at this point)
-      const currentRoot = root as am5.Root;
-      series.bullets.push(() => {
-        const label = am5.Label.new(currentRoot, {
-          text: '{formattedValue}',
-          fill: am5.color('#000'),
-          centerX: am5.p50,
-          centerY: am5.p100,
-          fontSize: 12,
-          textAlign: 'center',
-          paddingBottom: 5,
-        });
-
-        // Configure adapter for formattedValue
-        label.adapters.add('text', (text: string | undefined, target: any) => {
-          const dataItem = target.dataItem;
-          if (dataItem && dataItem.dataContext) {
-            const context = dataItem.dataContext as any;
-            if (context.formattedValue) {
-              return context.formattedValue;
-            }
-            // Fallback to value if no formattedValue
-            return String(context.value);
-          }
-          return text;
-        });
-
-        return am5.Bullet.new(currentRoot, {
-          locationY: 1,
-          sprite: label,
-        });
       });
 
       exporting = am5exporting.Exporting.new(root, {
