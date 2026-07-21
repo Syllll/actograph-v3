@@ -141,9 +141,26 @@ export default defineComponent({
           renderer: am5xy.AxisRendererX.new(root, {
             cellStartLocation: 0.1,
             cellEndLocation: 0.9,
+            // Petite distance minimale car les labels sont inclinés (moins
+            // d'emprise horizontale) : la valeur par défaut (50) forçait
+            // amCharts à faire chevaucher/masquer des labels de catégories
+            // dès qu'il y en avait plus de 5-6 sur des largeurs de carte
+            // courantes.
+            minGridDistance: 10,
           }),
         })
       );
+
+      // Labels obliques : évite le chevauchement entre noms de catégories
+      // longs (ex. "Hangar Autres" / "Alcôves") qui, à l'horizontale,
+      // finissaient superposés et illisibles sur des largeurs de carte
+      // courantes.
+      xAxis.get('renderer').labels.template.setAll({
+        rotation: -45,
+        centerY: am5.p50,
+        centerX: am5.p100,
+        paddingRight: 15,
+      });
 
       // Create Y axis (values) - pour barres verticales
       const yAxis = chart.yAxes.push(
