@@ -116,7 +116,9 @@ export const useGraph = (options?: {
       });
       if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
 
-      await pixiApp.draw();
+      // Réapplique l'étirement persisté (peut avoir été défini avant ready via
+      // le watch meta dans Index.vue) ; setAxisStretch déclenche le draw.
+      await pixiApp.setAxisStretch(sharedState.axisStretch);
       if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
     } catch (error) {
       // Guard rail: don't break the page on transient/partial data while editing.
