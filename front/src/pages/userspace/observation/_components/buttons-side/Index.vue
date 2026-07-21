@@ -54,7 +54,17 @@
       </div>
     </div>
 
-    <DScrollArea class="col" style="min-height: 0;">
+    <div class="col buttons-scroll-wrapper position-relative" style="min-height: 0;">
+      <!-- Voile "En pause" : uniquement en mode calendrier, quand la pause
+           verrouille les relevés. Renforce visuellement que les boutons ci-
+           dessous sont désactivés (isContinuousDisabled/isDiscreteDisabled). -->
+      <div v-if="computedState.isLockedByCalendarPause.value" class="paused-overlay column items-center justify-center">
+        <q-icon name="lock" size="24px" />
+        <div class="paused-overlay-title q-mt-xs">{{ $t('observation.pausedOverlayTitle') }}</div>
+        <div class="paused-overlay-subtitle">{{ $t('observation.pausedOverlaySubtitle') }}</div>
+      </div>
+
+      <DScrollArea class="fit" style="min-height: 0;">
       <div class="categories-wrapper"
         ref="categoriesWrapper"
         :style="{ '--ui-scale': state.uiScale }"
@@ -86,6 +96,7 @@
         </div>
       </div>
     </DScrollArea>
+    </div>
   </div>
 </template>
 
@@ -201,18 +212,33 @@ export default defineComponent({
       isRecordingActiveFromReadings(readings.sharedState.currentReadings)
     );
 
-    const canRecordReading = computed(
-      () => isRecordingStarted.value && observation.sharedState.isPlaying
+    const isPaused = computed(() => isRecordingStarted.value && !observation.sharedState.isPlaying);
+
+    // En mode chronomètre (avec ou sans vidéo), la pause fige le temps mais les
+    // boutons restent actifs : les relevés doivent pouvoir s'enregistrer au temps
+    // figé, exactement comme en mode vidéo où la vidéo à l'arrêt reste cliquable.
+    // En mode calendrier (observation in situ), la pause verrouille les relevés :
+    // impossible d'enregistrer tant que l'observation n'a pas repris.
+    const canRecordReading = computed(() => {
+      if (!isRecordingStarted.value) return false;
+      if (observation.isChronometerMode.value) return true;
+      return observation.sharedState.isPlaying;
+    });
+
+    // Les boutons ne sont verrouillés (grisés) qu'en mode calendrier pendant une
+    // pause. Dans tous les autres cas (mode chronomètre, avant le START, en
+    // lecture) ils restent utilisables (Bug 2.3 / 2.4).
+    const isLockedByCalendarPause = computed(
+      () => isPaused.value && !observation.isChronometerMode.value
     );
 
     const computedState = {
       isRecordingStarted,
-      isPaused: computed(() => isRecordingStarted.value && !observation.sharedState.isPlaying),
+      isPaused,
       canRecordReading,
-      // Bug 2.3 / 2.4: les boutons doivent rester utilisables
-      // même sans START explicite et en pause.
-      isContinuousDisabled: computed(() => false),
-      isDiscreteDisabled: computed(() => false),
+      isLockedByCalendarPause,
+      isContinuousDisabled: computed(() => isLockedByCalendarPause.value),
+      isDiscreteDisabled: computed(() => isLockedByCalendarPause.value),
       categories: computed(() => {
         if (!sharedState.currentProtocol || !sharedState.currentProtocol._items) {
           return [] as ProtocolItem[];
@@ -964,6 +990,39 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* Voile "En pause" (mode calendrier uniquement) : mêmes couleurs que le badge
+   de CalendarToolbar (ambre), pour un signal visuel cohérent et distinct du
+   bleu (reprendre) / rouge (pause pendant l'enregistrement actif). */
+.paused-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background-color: rgba(252, 252, 252, 0.82);
+  backdrop-filter: blur(1px);
+  color: #854f0b;
+  text-align: center;
+  pointer-events: none;
+}
+
+.body--dark .paused-overlay {
+  background-color: rgba(20, 26, 36, 0.82);
+  color: #faeeda;
+}
+
+.paused-overlay-title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.paused-overlay-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+}
+
+.body--dark .paused-overlay-subtitle {
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .buttons-side-container {
   display: flex;
   flex-direction: column;

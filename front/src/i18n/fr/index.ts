@@ -188,6 +188,9 @@ export default {
     readyState: 'Prêt',
     tooltipSwitchToCalendar: 'Passer en mode calendrier',
     tooltipSwitchToChronometer: 'Passer en mode chronomètre',
+    pausedBadge: 'En pause',
+    pausedOverlayTitle: 'En pause',
+    pausedOverlaySubtitle: 'Relevés verrouillés jusqu\'à la reprise',
     noProtocolLoadedTitle: 'Aucun protocole chargé',
     noProtocolLoadedHint:
       'Veuillez sélectionner une observation pour afficher son protocole.',
