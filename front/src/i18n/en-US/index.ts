@@ -185,6 +185,9 @@ export default {
     readyState: 'Ready',
     tooltipSwitchToCalendar: 'Switch to calendar mode',
     tooltipSwitchToChronometer: 'Switch to chronometer mode',
+    pausedBadge: 'Paused',
+    pausedOverlayTitle: 'Paused',
+    pausedOverlaySubtitle: 'Readings locked until resumed',
     noProtocolLoadedTitle: 'No protocol loaded',
     noProtocolLoadedHint:
       'Select an observation to display its protocol.',
