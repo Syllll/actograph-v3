@@ -18,6 +18,7 @@ import {
   calculatePausePeriods,
   calculatePauseOverlap,
   intersectPeriods,
+  intersectTwoPeriods,
   unionPeriods,
   filterByTimeRange,
   subtractPausesFromPeriods,
@@ -298,11 +299,15 @@ export function calculateCategoryStatisticsForPeriods(
         return sum + Math.max(0, rawDuration - pauseOverlap);
       }, 0);
 
-      const onCount = countObservableActivationsInPeriods(
-        readings,
-        observableName,
-        filteredObservablePeriods,
-      );
+      // Count distinct "on" episodes that overlap the filtered window at all,
+      // rather than raw activation readings landing inside it: the reading
+      // that starts an episode predates the window whenever the observable
+      // was already active before a condition turned on, which would
+      // otherwise undercount (down to zero) the very common case where the
+      // target observable activates first and the condition follows.
+      const onCount = observablePeriods.filter((period) =>
+        periods.some((filterPeriod) => intersectTwoPeriods(period, filterPeriod) !== null),
+      ).length;
 
       return {
         observableId: observable.id,
