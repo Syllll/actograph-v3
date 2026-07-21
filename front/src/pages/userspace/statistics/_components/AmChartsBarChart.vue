@@ -146,8 +146,11 @@ export default defineComponent({
       );
 
       // Create Y axis (values) - pour barres verticales
+      // min: 0 because these values are occurrence counts, which are never negative;
+      // without it amCharts pads a lone zero value with an arbitrary negative range.
       const yAxis = chart.yAxes.push(
         am5xy.ValueAxis.new(root, {
+          min: 0,
           ...(props.integerAxis ? { maxPrecision: 0 } : {}),
           renderer: am5xy.AxisRendererY.new(root, {}),
         })
