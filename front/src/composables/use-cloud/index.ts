@@ -179,7 +179,13 @@ export function useCloud() {
         }
 
         // Créer un fichier File pour l'import via le backend
-        const fileName = chronicle.name;
+        // Le nom affiché (chronicle.name) peut ne pas contenir l'extension, notamment
+        // pour les anciens fichiers .chronic : le backend route le parsing sur l'extension
+        // du nom de fichier (endsWith sensible à la casse), donc on normalise
+        // l'extension attendue avant l'envoi.
+        const ext = chronicle.isJchronic ? '.jchronic' : '.chronic';
+        const baseName = chronicle.name.replace(/\.j?chronic$/i, '');
+        const fileName = `${baseName}${ext}`;
         const file = new File([downloadResult.content], fileName, {
           type: chronicle.isJchronic ? 'application/json' : 'application/octet-stream',
         });
