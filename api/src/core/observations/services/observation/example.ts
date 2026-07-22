@@ -6,7 +6,7 @@ import { ActivityGraphService } from '../activity-graph.service';
 import { ProtocolService } from '../protocol/index.service';
 import { ReadingService } from '../reading.service';
 import { ObservationService } from './index.service';
-import { ObservationType, ReadingTypeEnum, ProtocolItemActionEnum } from '@actograph/core';
+import { ObservationType, ObservationModeEnum, ReadingTypeEnum, ProtocolItemActionEnum } from '@actograph/core';
 import { NotFoundException } from '@nestjs/common';
 
 interface ExampleDefinition {
@@ -30,7 +30,7 @@ export class Example {
     },
     {
       key: 'faire-le-cafe',
-      version: 'v0.0.1',
+      version: 'v0.0.2',
       create: () => this.createFaireLeCafeExampleObservation(),
     },
   ];
@@ -287,9 +287,10 @@ export class Example {
     // First create the observation entity
     const observationObj = this.observationRepository.create({
       name: 'Exemple Faire le café',
-      description: 'Exemple Faire le café. v0.0.1',
+      description: 'Exemple Faire le café. v0.0.2',
       type: ObservationType.Example,
       exampleKey: 'faire-le-cafe',
+      mode: ObservationModeEnum.Calendar,
     });
 
     // Save the observation in the db

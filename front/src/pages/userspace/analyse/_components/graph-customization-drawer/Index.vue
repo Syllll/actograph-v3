@@ -958,8 +958,13 @@ export default defineComponent({
     min-width: 0; // Important pour permettre le scroll
   }
   
+  // Quasar force opacity: 0 !important + pointer-events: none via .q-scrollarea__thumb--invisible
+  // (voir node_modules/quasar/src/components/scroll-area/QScrollArea.sass) : sans !important ici,
+  // la barre horizontale reste invisible et non cliquable au repos, rendant la colonne "support"
+  // (dernière colonne de la grille, hors champ en mode compact) impossible à atteindre.
   :deep(.q-scrollarea__thumb) {
-    opacity: 1;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
 }
 
