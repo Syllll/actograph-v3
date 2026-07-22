@@ -89,15 +89,6 @@ export class ObservationLocalMetaService extends BaseService<
   ): Promise<ObservationLocalMetaResponse> {
     await this.assertObservationOwnership(observationId, userId);
 
-    if (
-      body.usedFor?.includes('other') &&
-      (!body.usedForOther || body.usedForOther.trim() === '')
-    ) {
-      throw new BadRequestException(
-        'usedForOther is required when usedFor contains "other"',
-      );
-    }
-
     let localMeta = await this.observationLocalMetaRepository.findOne({
       where: {
         observation: { id: observationId },
@@ -130,6 +121,17 @@ export class ObservationLocalMetaService extends BaseService<
       if (body.note !== undefined) {
         localMeta.note = body.note;
       }
+    }
+
+    const effectiveUsedFor = localMeta.usedFor ?? [];
+    const effectiveUsedForOther = localMeta.usedForOther;
+    if (
+      effectiveUsedFor.includes('other') &&
+      (!effectiveUsedForOther || effectiveUsedForOther.trim() === '')
+    ) {
+      throw new BadRequestException(
+        'usedForOther is required when usedFor contains "other"',
+      );
     }
 
     const saved = await this.observationLocalMetaRepository.save(localMeta);

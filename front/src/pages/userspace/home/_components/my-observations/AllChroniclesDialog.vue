@@ -203,7 +203,7 @@ export default defineComponent({
       default: false,
     },
   },
-  emits: ['update:modelValue', 'selected'],
+  emits: ['update:modelValue', 'selected', 'hide'],
   setup(props, { emit }) {
     const $q = useQuasar();
     const observation = useObservation();
@@ -300,6 +300,8 @@ export default defineComponent({
 
     const displayedCount = computed(() => displayedRows.value.length);
 
+    let fetchGeneration = 0;
+
     const localShow = computed({
       get: () => props.modelValue,
       set: (value) => emit('update:modelValue', value),
@@ -320,6 +322,7 @@ export default defineComponent({
       },
 
       async fetchAll(options?: { silent?: boolean }) {
+        const generation = ++fetchGeneration;
         const silent = options?.silent === true;
         if (!silent) {
           state.loading = true;
@@ -337,9 +340,15 @@ export default defineComponent({
               includeArchived: state.includeArchived,
             }
           );
+          if (generation !== fetchGeneration) {
+            return;
+          }
           state.rows = response.results;
           state.totalCount = response.count;
         } catch (error) {
+          if (generation !== fetchGeneration) {
+            return;
+          }
           console.error('Error fetching all observations:', error);
           if (!silent) {
             $q.notify({
@@ -350,7 +359,7 @@ export default defineComponent({
             state.totalCount = 0;
           }
         } finally {
-          if (!silent) {
+          if (!silent && generation === fetchGeneration) {
             state.loading = false;
           }
         }
@@ -361,7 +370,11 @@ export default defineComponent({
       },
 
       handleHide() {
+        if (!localShow.value) {
+          return;
+        }
         localShow.value = false;
+        emit('hide');
       },
 
       isActive(id: number): boolean {

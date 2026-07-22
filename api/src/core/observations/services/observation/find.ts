@@ -8,6 +8,7 @@ import {
 } from '@utils/repositories/base.repositories';
 import { ObservationService } from './index.service';
 import { ObservationRepository } from '@core/observations/repositories/obsavation.repository';
+import { buildExcludeArchivedFilterConditions } from './archived-filter.conditions';
 
 export class Find {
   constructor(
@@ -104,25 +105,7 @@ export class Find {
       }
 
       if (!searchOptions.includeArchived) {
-        conditions.push({
-          type: TypeEnum.AND,
-          conditions: [
-            {
-              type: TypeEnum.OR,
-              conditions: [
-                {
-                  key: 'localMeta.id',
-                  operator: OperatorEnum.IS_NULL,
-                },
-                {
-                  key: 'localMeta.archived',
-                  operator: OperatorEnum.EQUAL,
-                  value: false,
-                },
-              ],
-            },
-          ],
-        });
+        conditions.push(buildExcludeArchivedFilterConditions());
       }
     }
 

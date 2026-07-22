@@ -58,6 +58,7 @@
     <AllChroniclesDialog
       v-model="state.showAllDialog"
       @selected="methods.onChronicleSelected"
+      @hide="methods.onAllChroniclesDialogHide"
     />
   </div>
 </template>
@@ -140,6 +141,10 @@ export default defineComponent({
 
       openAllChronicles() {
         state.showAllDialog = true;
+      },
+
+      onAllChroniclesDialogHide() {
+        void methods.fetchRecent();
       },
 
       async onChronicleSelected(id: number) {

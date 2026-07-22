@@ -116,6 +116,7 @@ export default defineComponent({
 
     const meta = computed(() => getEffectiveLocalMeta(props.observation));
     const pendingOtherSelection = ref(false);
+    let saveChain: Promise<void> = Promise.resolve();
 
     const usedForOptions = computed(() => {
       void locale.value;
@@ -169,6 +170,19 @@ export default defineComponent({
         usedForOther?: string | null;
         note?: string | null;
       }) {
+        saveChain = saveChain
+          .then(() => methods.doSave(partial))
+          .catch(() => undefined);
+        return saveChain;
+      },
+
+      async doSave(partial: {
+        archived?: boolean;
+        isProtocol?: boolean;
+        usedFor?: ObservationLocalMetaUsedFor[];
+        usedForOther?: string | null;
+        note?: string | null;
+      }) {
         const current = meta.value;
         let usedFor = partial.usedFor ?? current.usedFor;
         let usedForOther =
@@ -181,12 +195,8 @@ export default defineComponent({
           (!usedForOther || usedForOther.trim() === '');
 
         if (otherSelectedWithoutText) {
-          const onlyOtherSelection =
-            Object.keys(partial).length === 1 && partial.usedFor !== undefined;
-          if (onlyOtherSelection) {
-            return;
-          }
           usedFor = usedFor.filter((value) => value !== 'other');
+          pendingOtherSelection.value = false;
         }
 
         if (!usedFor.includes('other')) {
@@ -219,15 +229,21 @@ export default defineComponent({
       },
 
       toggleArchived() {
-        methods.save({ archived: !meta.value.archived });
+        const archived = !meta.value.archived;
+        methods.applyLocalUpdate({ archived });
+        void methods.save({ archived });
       },
 
       toggleProtocol() {
-        methods.save({ isProtocol: !meta.value.isProtocol });
+        const isProtocol = !meta.value.isProtocol;
+        methods.applyLocalUpdate({ isProtocol });
+        void methods.save({ isProtocol });
       },
 
       saveNote(value: string) {
-        methods.save({ note: value.trim() === '' ? null : value });
+        const note = value.trim() === '' ? null : value;
+        methods.applyLocalUpdate({ note });
+        void methods.save({ note });
       },
 
       toggleUsedFor(value: ObservationLocalMetaUsedFor) {
@@ -269,6 +285,7 @@ export default defineComponent({
           partial.usedForOther = null;
         }
 
+        methods.applyLocalUpdate(partial);
         void methods.save(partial);
       },
 
