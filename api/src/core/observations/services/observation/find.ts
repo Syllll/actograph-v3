@@ -54,12 +54,17 @@ export class Find {
       userId?: number;
       searchString?: string;
       observationId?: number;
+      includeArchived?: boolean;
     },
   ): Promise<IPaginationOutput<Observation>> {
     const relations = [
       ...(paginationOptions.relations || []),
       ...(searchOptions?.includes || []),
     ];
+
+    if (!relations.includes('localMeta')) {
+      relations.push('localMeta');
+    }
 
     const conditions: IConditions[] = [];
 
@@ -95,6 +100,28 @@ export class Find {
           key: 'name',
           operator: OperatorEnum.LIKE,
           value: searchOptions.searchString,
+        });
+      }
+
+      if (!searchOptions.includeArchived) {
+        conditions.push({
+          type: TypeEnum.AND,
+          conditions: [
+            {
+              type: TypeEnum.OR,
+              conditions: [
+                {
+                  key: 'localMeta.id',
+                  operator: OperatorEnum.IS_NULL,
+                },
+                {
+                  key: 'localMeta.archived',
+                  operator: OperatorEnum.EQUAL,
+                  value: false,
+                },
+              ],
+            },
+          ],
         });
       }
     }

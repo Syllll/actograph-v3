@@ -3,10 +3,12 @@ import { UsersModule } from '@users/users.module';
 import { TypeOrmExModule } from 'src/database/typeorm-ex.module';
 import { ActivityGraphRepository } from './repositories/activity-graph.repository';
 import { ObservationRepository } from './repositories/obsavation.repository';
+import { ObservationLocalMetaRepository } from './repositories/observation-local-meta.repository';
 import { ProtocolRepository } from './repositories/protocol.repository';
 import { ReadingRepository } from './repositories/reading.repository';
 import { ActivityGraphService } from './services/activity-graph.service';
 import { ObservationService } from './services/observation/index.service';
+import { ObservationLocalMetaService } from './services/observation-local-meta.service';
 import { ProtocolService } from './services/protocol/index.service';
 import { ReadingService } from './services/reading.service';
 import { ObservationController } from './controllers/observation.controller';
@@ -22,6 +24,7 @@ import { StatisticsService } from './services/statistics.service';
     TypeOrmExModule.forCustomRepository([
       ActivityGraphRepository,
       ObservationRepository,
+      ObservationLocalMetaRepository,
       ProtocolRepository,
       ReadingRepository,
     ]),
@@ -36,6 +39,7 @@ import { StatisticsService } from './services/statistics.service';
   providers: [
     ActivityGraphService,
     ObservationService,
+    ObservationLocalMetaService,
     ProtocolService,
     ReadingService,
     StatisticsService,
@@ -43,6 +47,7 @@ import { StatisticsService } from './services/statistics.service';
   exports: [
     ActivityGraphService,
     ObservationService,
+    ObservationLocalMetaService,
     ProtocolService,
     ReadingService,
   ],
