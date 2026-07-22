@@ -118,6 +118,22 @@ export default defineComponent({
     const pendingOtherSelection = ref(false);
     let saveChain: Promise<void> = Promise.resolve();
 
+    type LocalMetaSnapshot = {
+      archived: boolean;
+      isProtocol: boolean;
+      usedFor: ObservationLocalMetaUsedFor[];
+      usedForOther: string | null;
+      note: string | null;
+    };
+
+    const snapshotMeta = (): LocalMetaSnapshot => ({
+      archived: meta.value.archived,
+      isProtocol: meta.value.isProtocol,
+      usedFor: [...meta.value.usedFor],
+      usedForOther: meta.value.usedForOther,
+      note: meta.value.note,
+    });
+
     const usedForOptions = computed(() => {
       void locale.value;
       return OBSERVATION_LOCAL_META_USED_FOR_VALUES.map((value) => ({
@@ -163,26 +179,33 @@ export default defineComponent({
         });
       },
 
-      async save(partial: {
-        archived?: boolean;
-        isProtocol?: boolean;
-        usedFor?: ObservationLocalMetaUsedFor[];
-        usedForOther?: string | null;
-        note?: string | null;
-      }) {
+      async save(
+        partial: {
+          archived?: boolean;
+          isProtocol?: boolean;
+          usedFor?: ObservationLocalMetaUsedFor[];
+          usedForOther?: string | null;
+          note?: string | null;
+        },
+        revertSnapshot?: LocalMetaSnapshot
+      ) {
         saveChain = saveChain
-          .then(() => methods.doSave(partial))
+          .then(() => methods.doSave(partial, revertSnapshot))
           .catch(() => undefined);
         return saveChain;
       },
 
-      async doSave(partial: {
-        archived?: boolean;
-        isProtocol?: boolean;
-        usedFor?: ObservationLocalMetaUsedFor[];
-        usedForOther?: string | null;
-        note?: string | null;
-      }) {
+      async doSave(
+        partial: {
+          archived?: boolean;
+          isProtocol?: boolean;
+          usedFor?: ObservationLocalMetaUsedFor[];
+          usedForOther?: string | null;
+          note?: string | null;
+        },
+        revertSnapshot?: LocalMetaSnapshot
+      ) {
+        const snapshot = revertSnapshot ?? snapshotMeta();
         const current = meta.value;
         let usedFor = partial.usedFor ?? current.usedFor;
         let usedForOther =
@@ -221,6 +244,7 @@ export default defineComponent({
           methods.applyResponse(response);
         } catch (error) {
           console.error('Error saving local meta:', error);
+          methods.applyLocalUpdate(snapshot);
           $q.notify({
             type: 'negative',
             message: t('observationsList.localMetaSaveError'),
@@ -230,20 +254,21 @@ export default defineComponent({
 
       toggleArchived() {
         const archived = !meta.value.archived;
-        methods.applyLocalUpdate({ archived });
         void methods.save({ archived });
       },
 
       toggleProtocol() {
+        const snapshot = snapshotMeta();
         const isProtocol = !meta.value.isProtocol;
         methods.applyLocalUpdate({ isProtocol });
-        void methods.save({ isProtocol });
+        void methods.save({ isProtocol }, snapshot);
       },
 
       saveNote(value: string) {
+        const snapshot = snapshotMeta();
         const note = value.trim() === '' ? null : value;
         methods.applyLocalUpdate({ note });
-        void methods.save({ note });
+        void methods.save({ note }, snapshot);
       },
 
       toggleUsedFor(value: ObservationLocalMetaUsedFor) {
@@ -253,6 +278,7 @@ export default defineComponent({
 
         if (value === 'other') {
           if (isSelected) {
+            const snapshot = snapshotMeta();
             current.splice(index, 1);
             methods.applyLocalUpdate({
               usedFor: current,
@@ -261,7 +287,7 @@ export default defineComponent({
             if (pendingOtherSelection.value) {
               pendingOtherSelection.value = false;
             } else {
-              void methods.save({ usedFor: current, usedForOther: null });
+              void methods.save({ usedFor: current, usedForOther: null }, snapshot);
             }
           } else {
             pendingOtherSelection.value = true;
@@ -270,6 +296,7 @@ export default defineComponent({
           return;
         }
 
+        const snapshot = snapshotMeta();
         if (isSelected) {
           current.splice(index, 1);
         } else {
@@ -286,7 +313,7 @@ export default defineComponent({
         }
 
         methods.applyLocalUpdate(partial);
-        void methods.save(partial);
+        void methods.save(partial, snapshot);
       },
 
       onUsedForOtherInput(value: string | number | null) {
@@ -303,10 +330,14 @@ export default defineComponent({
         if (text === '') {
           return;
         }
-        void methods.save({
-          usedFor: meta.value.usedFor,
-          usedForOther: text,
-        });
+        const snapshot = snapshotMeta();
+        void methods.save(
+          {
+            usedFor: meta.value.usedFor,
+            usedForOther: text,
+          },
+          snapshot
+        );
       },
     };
 

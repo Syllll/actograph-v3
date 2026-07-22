@@ -359,7 +359,7 @@ export default defineComponent({
             state.totalCount = 0;
           }
         } finally {
-          if (!silent && generation === fetchGeneration) {
+          if (!silent) {
             state.loading = false;
           }
         }
@@ -370,11 +370,10 @@ export default defineComponent({
       },
 
       handleHide() {
-        if (!localShow.value) {
-          return;
-        }
-        localShow.value = false;
         emit('hide');
+        if (localShow.value) {
+          localShow.value = false;
+        }
       },
 
       isActive(id: number): boolean {
