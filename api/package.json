@@ -143,8 +143,8 @@
       "^@threshold/(.*)$": "core/threshold/$1",
       "^@experimentation/(.*)$": "core/experimentation/$1",
       "^@filesystem/(.*)$": "core/filesystem/$1",
-      "^@actograph/core/(.*)$": "<rootDir>/../../packages/core/dist/$1",
-      "^@actograph/core$": "<rootDir>/../../packages/core/dist"
+      "^@actograph/core/(.*)$": "../packages/core/dist/$1",
+      "^@actograph/core$": "../packages/core/dist"
     },
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
