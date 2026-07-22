@@ -5,8 +5,6 @@ import {
 } from '@core/security/entities/license.entity';
 import {
   BadRequestException,
-  forwardRef,
-  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -41,7 +39,6 @@ import { Check } from './check';
 import { ActivityGraphService } from '../activity-graph.service';
 import { ProtocolService } from '../protocol/index.service';
 import { ReadingService } from '../reading.service';
-import { ObservationLocalMetaService } from '../observation-local-meta.service';
 import { Example } from './example';
 import { Export } from './export';
 import { Import } from './import';
@@ -64,8 +61,6 @@ export class ObservationService extends BaseService<
     private readonly protocolService: ProtocolService,
     private readonly activityGraphService: ActivityGraphService,
     private readonly readingService: ReadingService,
-    @Inject(forwardRef(() => ObservationLocalMetaService))
-    private readonly observationLocalMetaService: ObservationLocalMetaService,
   ) {
     super(observationRepository);
 
@@ -121,11 +116,6 @@ export class ObservationService extends BaseService<
 
     // Remove the readings if any
     await this.readingService.removeAllForObservation(<number>observation.id);
-
-    // Remove local meta if any
-    await this.observationLocalMetaService.removeForObservation(
-      <number>observation.id,
-    );
   }
 
   public override async delete(id: number): Promise<Observation | undefined> {

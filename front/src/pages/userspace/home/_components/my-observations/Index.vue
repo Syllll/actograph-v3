@@ -14,13 +14,6 @@
         >
           <q-item-section>
             <q-item-label :class="{ 'text-weight-bold': methods.isActive(obs.id) }">
-              <q-icon
-                v-if="methods.isProtocol(obs)"
-                name="mdi-star"
-                color="amber-8"
-                size="xs"
-                class="q-mr-xs"
-              />
               {{ obs.name }}
             </q-item-label>
           </q-item-section>
@@ -58,7 +51,6 @@
     <AllChroniclesDialog
       v-model="state.showAllDialog"
       @selected="methods.onChronicleSelected"
-      @hide="methods.onAllChroniclesDialogHide"
     />
   </div>
 </template>
@@ -69,7 +61,7 @@ import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useAppResume } from 'src/composables/use-app-resume';
 import { observationService } from '@services/observations/index.service';
-import { IObservation, getEffectiveLocalMeta } from '@services/observations/interface';
+import { IObservation } from '@services/observations/interface';
 import { useObservation } from 'src/composables/use-observation';
 import { relativeDay } from '@lib-improba/utils/date-format.utils';
 import AllChroniclesDialog from './AllChroniclesDialog.vue';
@@ -143,10 +135,6 @@ export default defineComponent({
         state.showAllDialog = true;
       },
 
-      onAllChroniclesDialogHide() {
-        void methods.fetchRecent();
-      },
-
       async onChronicleSelected(id: number) {
         state.showAllDialog = false;
         await observation.methods.loadObservation(id);
@@ -154,10 +142,6 @@ export default defineComponent({
 
       isActive(id: number): boolean {
         return observation.sharedState.currentObservation?.id === id;
-      },
-
-      isProtocol(obs: IObservation): boolean {
-        return getEffectiveLocalMeta(obs).isProtocol;
       },
 
       formatDate(val: Date | string | undefined): string {

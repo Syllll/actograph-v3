@@ -11,7 +11,6 @@ import {
   ValueTransformer,
 } from 'typeorm';
 import { ActivityGraph } from './activity-graph.entity';
-import { ObservationLocalMeta } from './observation-local-meta.entity';
 import { Protocol } from './protocol.entity';
 import { Reading } from './reading.entity';
 import { ObservationType, ObservationModeEnum } from '@actograph/core';
@@ -102,10 +101,4 @@ export class Observation extends BaseEntity {
 
   @OneToOne(() => Protocol, (protocol) => protocol.observation)
   protocol?: Protocol;
-
-  @OneToOne(
-    () => ObservationLocalMeta,
-    (localMeta) => localMeta.observation,
-  )
-  localMeta?: ObservationLocalMeta;
 }
