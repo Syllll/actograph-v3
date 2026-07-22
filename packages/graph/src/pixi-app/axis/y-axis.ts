@@ -327,8 +327,12 @@ export class YAxis extends BaseGroup {
   }
 
   private drawNormalTick(axisX: number, tickY: number, label: string): void {
-    this.graphic.moveTo(axisX - TICK_CONFIG.TICK_LENGTH, tickY);
-    this.graphic.lineTo(axisX + TICK_CONFIG.TICK_LENGTH, tickY);
+    // Contre-scale l'étirement horizontal (temps) : une graduation est une
+    // marque de repère fixe, elle ne doit pas s'allonger/raccourcir quand
+    // l'utilisatrice étire l'axe du temps (voir PixiApp.axisStretch).
+    const tickLength = TICK_CONFIG.TICK_LENGTH / this.axisStretch.x;
+    this.graphic.moveTo(axisX - tickLength, tickY);
+    this.graphic.lineTo(axisX + tickLength, tickY);
     this.graphic.setStrokeStyle({
       color: TICK_CONFIG.COLOR,
       width: TICK_CONFIG.TICK_WIDTH,
@@ -339,8 +343,9 @@ export class YAxis extends BaseGroup {
   }
 
   private drawFriezeTick(axisX: number, tickY: number, label: string): void {
-    this.graphic.moveTo(axisX - TICK_CONFIG.FRIEZE_TICK_LENGTH, tickY);
-    this.graphic.lineTo(axisX + TICK_CONFIG.FRIEZE_TICK_LENGTH, tickY);
+    const tickLength = TICK_CONFIG.FRIEZE_TICK_LENGTH / this.axisStretch.x;
+    this.graphic.moveTo(axisX - tickLength, tickY);
+    this.graphic.lineTo(axisX + tickLength, tickY);
     this.graphic.setStrokeStyle({
       color: TICK_CONFIG.COLOR,
       width: TICK_CONFIG.TICK_WIDTH,
@@ -408,16 +413,21 @@ export class YAxis extends BaseGroup {
       }
 
       if (displayMode === DisplayModeEnum.Frieze) {
+        // Contre-scale la compaction verticale : une frise garde une hauteur
+        // affichée fixe même quand l'utilisatrice compacte l'axe Y (voir
+        // PixiApp.axisStretch), contrairement aux lignes d'observables
+        // normales qui doivent se compacter.
+        const worldFriezeHeight = TICK_CONFIG.FRIEZE_HEIGHT / this.axisStretch.y;
         const friezeStartY = axisLength;
-        axisLength += TICK_CONFIG.FRIEZE_HEIGHT;
+        axisLength += worldFriezeHeight;
 
         ticks.push({
           label: category.name,
-          pos: friezeStartY + TICK_CONFIG.FRIEZE_HEIGHT / 2,
+          pos: friezeStartY + worldFriezeHeight / 2,
           category,
           observable: category,
           isFrieze: true,
-          friezeHeight: TICK_CONFIG.FRIEZE_HEIGHT,
+          friezeHeight: worldFriezeHeight,
           friezeStartY,
         });
       } else {
