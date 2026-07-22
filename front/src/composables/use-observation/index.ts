@@ -137,26 +137,16 @@ export const useObservation = (options?: { init?: boolean }) => {
     startTimer: () => {
       if (sharedState.isPlaying) return;
 
-      const shouldCreateStartReading = !isRecordingActiveFromReadings(
-        readings.sharedState.currentReadings,
-      );
-
-      if (shouldCreateStartReading) {
-        readings.methods.addStartReading();
-      } else {
-        readings.methods.addPauseEndReading();
-      }
-
       const now = Date.now();
 
-      // Mode calendrier : currentDate doit toujours refléter l'heure réelle
-      // actuelle au (re)démarrage, y compris à la reprise après une pause.
-      // Sans ce `else` inconditionnel, startTime restait non-null après une
-      // pause (seul stopTimer le remet à null) et ce bloc ne s'exécutait
-      // qu'au tout premier démarrage : la reprise réutilisait alors le
-      // currentDate figé au moment de la mise en pause, et le relevé
-      // "fin de pause" (ajouté juste après avec ce currentDate) enregistrait
-      // l'heure de la pause au lieu de l'heure de reprise.
+      // currentDate DOIT être à jour AVANT addStartReading / addPauseEndReading :
+      // ces méthodes lisent sharedState.currentDate pour horodater le relevé.
+      // Mode calendrier : toujours l'heure murale réelle au (re)démarrage, y
+      // compris à la reprise après pause (sinon le relevé "fin de pause"
+      // réutilise le currentDate figé à la mise en pause).
+      // Mode chronomètre : ne recalcule qu'au premier démarrage (startTime
+      // null) ; à la reprise, elapsed et currentDate restent cohérents car
+      // le temps chronomètre ne avance pas pendant la pause.
       if (isChronometerMode.value) {
         if (!sharedState.startTime) {
           const t0 = chronometerMethods.getT0();
@@ -165,6 +155,16 @@ export const useObservation = (options?: { init?: boolean }) => {
         }
       } else {
         sharedState.currentDate = new Date(now);
+      }
+
+      const shouldCreateStartReading = !isRecordingActiveFromReadings(
+        readings.sharedState.currentReadings,
+      );
+
+      if (shouldCreateStartReading) {
+        readings.methods.addStartReading();
+      } else {
+        readings.methods.addPauseEndReading();
       }
 
       sharedState.startTime = now - sharedState.elapsedTime * 1000;
