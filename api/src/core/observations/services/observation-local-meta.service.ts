@@ -144,7 +144,7 @@ export class ObservationLocalMetaService extends BaseService<
     });
 
     if (localMeta) {
-      await this.observationLocalMetaRepository.softRemove(localMeta);
+      await this.observationLocalMetaRepository.remove(localMeta);
     }
   }
 }

@@ -89,7 +89,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, type PropType } from 'vue';
+import { defineComponent, computed, ref, type PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { observationService } from '@services/observations/index.service';
@@ -115,6 +115,7 @@ export default defineComponent({
     const { t, locale } = useI18n();
 
     const meta = computed(() => getEffectiveLocalMeta(props.observation));
+    const pendingOtherSelection = ref(false);
 
     const usedForOptions = computed(() => {
       void locale.value;
@@ -125,11 +126,29 @@ export default defineComponent({
     });
 
     const methods = {
+      applyLocalUpdate(partial: {
+        archived?: boolean;
+        isProtocol?: boolean;
+        usedFor?: ObservationLocalMetaUsedFor[];
+        usedForOther?: string | null;
+        note?: string | null;
+      }) {
+        emit('updated', {
+          observationId: props.observation.id,
+          localMeta: {
+            id: props.observation.localMeta?.id,
+            ...meta.value,
+            ...partial,
+          },
+        });
+      },
+
       isUsedForSelected(value: ObservationLocalMetaUsedFor): boolean {
         return meta.value.usedFor.includes(value);
       },
 
       applyResponse(response: IObservationLocalMetaResponse) {
+        pendingOtherSelection.value = false;
         emit('updated', {
           observationId: props.observation.id,
           localMeta: {
@@ -151,23 +170,38 @@ export default defineComponent({
         note?: string | null;
       }) {
         const current = meta.value;
+        let usedFor = partial.usedFor ?? current.usedFor;
+        let usedForOther =
+          partial.usedForOther !== undefined
+            ? partial.usedForOther
+            : current.usedForOther;
+
+        const otherSelectedWithoutText =
+          usedFor.includes('other') &&
+          (!usedForOther || usedForOther.trim() === '');
+
+        if (otherSelectedWithoutText) {
+          const onlyOtherSelection =
+            Object.keys(partial).length === 1 && partial.usedFor !== undefined;
+          if (onlyOtherSelection) {
+            return;
+          }
+          usedFor = usedFor.filter((value) => value !== 'other');
+        }
+
+        if (!usedFor.includes('other')) {
+          usedForOther = null;
+        } else if (usedForOther) {
+          usedForOther = usedForOther.trim();
+        }
+
         const body = {
           archived: partial.archived ?? current.archived,
           isProtocol: partial.isProtocol ?? current.isProtocol,
-          usedFor: partial.usedFor ?? current.usedFor,
-          usedForOther:
-            partial.usedForOther !== undefined
-              ? partial.usedForOther
-              : current.usedForOther,
+          usedFor,
+          usedForOther,
           note: partial.note !== undefined ? partial.note : current.note,
         };
-
-        if (
-          body.usedFor.includes('other') &&
-          (!body.usedForOther || body.usedForOther.trim() === '')
-        ) {
-          return;
-        }
 
         try {
           const response = await observationService.upsertLocalMeta(
@@ -199,7 +233,28 @@ export default defineComponent({
       toggleUsedFor(value: ObservationLocalMetaUsedFor) {
         const current = [...meta.value.usedFor];
         const index = current.indexOf(value);
-        if (index >= 0) {
+        const isSelected = index >= 0;
+
+        if (value === 'other') {
+          if (isSelected) {
+            current.splice(index, 1);
+            methods.applyLocalUpdate({
+              usedFor: current,
+              usedForOther: null,
+            });
+            if (pendingOtherSelection.value) {
+              pendingOtherSelection.value = false;
+            } else {
+              void methods.save({ usedFor: current, usedForOther: null });
+            }
+          } else {
+            pendingOtherSelection.value = true;
+            methods.applyLocalUpdate({ usedFor: [...current, 'other'] });
+          }
+          return;
+        }
+
+        if (isSelected) {
           current.splice(index, 1);
         } else {
           current.push(value);
@@ -214,17 +269,12 @@ export default defineComponent({
           partial.usedForOther = null;
         }
 
-        methods.save(partial);
+        void methods.save(partial);
       },
 
       onUsedForOtherInput(value: string | number | null) {
-        emit('updated', {
-          observationId: props.observation.id,
-          localMeta: {
-            id: props.observation.localMeta?.id,
-            ...meta.value,
-            usedForOther: value == null ? null : String(value),
-          },
+        methods.applyLocalUpdate({
+          usedForOther: value == null ? null : String(value),
         });
       },
 
@@ -232,7 +282,14 @@ export default defineComponent({
         if (!meta.value.usedFor.includes('other')) {
           return;
         }
-        methods.save({ usedForOther: meta.value.usedForOther });
+        const text = meta.value.usedForOther?.trim() ?? '';
+        if (text === '') {
+          return;
+        }
+        void methods.save({
+          usedFor: meta.value.usedFor,
+          usedForOther: text,
+        });
       },
     };
 
