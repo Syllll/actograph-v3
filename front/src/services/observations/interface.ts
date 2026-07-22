@@ -98,6 +98,59 @@ export enum ObservationModeEnum {
   Chronometer = 'chronometer',
 }
 
+export const OBSERVATION_LOCAL_META_USED_FOR_VALUES = [
+  'autoConfrontation',
+  'copil',
+  'restitution',
+  'publication',
+  'other',
+] as const;
+
+export type ObservationLocalMetaUsedFor =
+  (typeof OBSERVATION_LOCAL_META_USED_FOR_VALUES)[number];
+
+export interface IObservationLocalMeta {
+  id?: number;
+  archived?: boolean;
+  isProtocol?: boolean;
+  usedFor?: ObservationLocalMetaUsedFor[] | null;
+  usedForOther?: string | null;
+  note?: string | null;
+}
+
+export interface IObservationLocalMetaUpsert {
+  archived?: boolean;
+  isProtocol?: boolean;
+  usedFor?: ObservationLocalMetaUsedFor[];
+  usedForOther?: string | null;
+  note?: string | null;
+}
+
+export interface IObservationLocalMetaResponse {
+  observationId: number;
+  archived: boolean;
+  isProtocol: boolean;
+  usedFor: ObservationLocalMetaUsedFor[];
+  usedForOther: string | null;
+  note: string | null;
+}
+
+export function getEffectiveLocalMeta(obs: IObservation): {
+  archived: boolean;
+  isProtocol: boolean;
+  usedFor: ObservationLocalMetaUsedFor[];
+  usedForOther: string | null;
+  note: string | null;
+} {
+  return {
+    archived: obs.localMeta?.archived ?? false,
+    isProtocol: obs.localMeta?.isProtocol ?? false,
+    usedFor: obs.localMeta?.usedFor ?? [],
+    usedForOther: obs.localMeta?.usedForOther ?? null,
+    note: obs.localMeta?.note ?? null,
+  };
+}
+
 export interface IObservation extends IEntity {
   name: string;
   description?: string;
@@ -113,4 +166,5 @@ export interface IObservation extends IEntity {
   protocol?: IProtocol;
   readings?: IReading[];
   activityGraph?: IActivityGraph;
+  localMeta?: IObservationLocalMeta | null;
 }
