@@ -140,6 +140,14 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
   public async cloneAndAttributeToObservation(options: {
     observationIdToCopyFrom: number;
     observationIdToCopyTo: number;
+    // Si vrai, décale toutes les dates des relevés clonés pour que le
+    // dernier relevé (le plus tardif) tombe à l'instant de la copie.
+    // Utilisé pour les chroniques exemples : ainsi, tout relevé ajouté
+    // ensuite par l'utilisateur (horodaté avec l'heure réelle) tombe
+    // juste après les relevés de démonstration, au lieu d'en être
+    // séparé par l'écart entre la date de création de l'exemple et
+    // aujourd'hui.
+    rebaseLastReadingToNow?: boolean;
   }) {
     // Find the readings to clone
     const readings = await this.readingRepository.find({
@@ -147,6 +155,14 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
     });
     if (readings.length === 0) {
       return;
+    }
+
+    let offsetMs = 0;
+    if (options.rebaseLastReadingToNow) {
+      const lastReadingTime = Math.max(
+        ...readings.map((r) => new Date(r.dateTime).getTime()),
+      );
+      offsetMs = Date.now() - lastReadingTime;
     }
 
     // Clone the readings
@@ -157,7 +173,9 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
           description: r.description ?? '',
           observationId: options.observationIdToCopyTo,
           type: r.type,
-          dateTime: r.dateTime,
+          dateTime: offsetMs
+            ? new Date(new Date(r.dateTime).getTime() + offsetMs)
+            : r.dateTime,
         };
       }),
     );

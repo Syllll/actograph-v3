@@ -190,6 +190,10 @@ export class ObservationService extends BaseService<
     await this.readingService.cloneAndAttributeToObservation({
       observationIdToCopyFrom: observation.id,
       observationIdToCopyTo: clonedObservation.id,
+      // Pour les chroniques exemples, recale les relevés démo sur "maintenant"
+      // afin que les relevés ajoutés ensuite par l'utilisateur (horodatés en
+      // temps réel) tombent juste après, plutôt qu'à des mois/années d'écart.
+      rebaseLastReadingToNow: observation.type === ObservationType.Example,
     });
 
     return clonedObservation;
