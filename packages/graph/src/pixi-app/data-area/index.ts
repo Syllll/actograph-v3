@@ -858,7 +858,12 @@ export class DataArea extends BaseGroup {
           graphic.lineTo(xPos, yPos);
           graphic.setStrokeStyle({
             color: 'grey',
-            width: 1,
+            // Contre-scale l'étirement horizontal : l'épaisseur d'une ligne
+            // verticale est portée par scaleX, donc étirer l'axe du temps la
+            // ferait paraître plus épaisse/fine sans raison (voir
+            // PixiApp.axisStretch, même logique que les marqueurs ellipse
+            // ci-dessus).
+            width: 1 / this.axisStretch.x,
           });
           graphic.stroke();
         }
