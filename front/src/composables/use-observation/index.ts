@@ -172,6 +172,13 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
 
     pauseTimer: () => {
+      // Dernier refresh avant de figer : le relevé "début de pause" doit
+      // porter l'horodatage absolu de l'instant de pause (currentDate), pas
+      // celui du tick précédent (~10 ms plus tôt).
+      if (!usesVideoTime.value && sharedState.startTime) {
+        updateTimeFromSource();
+      }
+
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
