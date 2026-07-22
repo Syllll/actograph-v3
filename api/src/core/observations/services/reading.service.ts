@@ -173,7 +173,7 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
           description: r.description ?? '',
           observationId: options.observationIdToCopyTo,
           type: r.type,
-          dateTime: offsetMs
+          dateTime: options.rebaseLastReadingToNow
             ? new Date(new Date(r.dateTime).getTime() + offsetMs)
             : r.dateTime,
         };
