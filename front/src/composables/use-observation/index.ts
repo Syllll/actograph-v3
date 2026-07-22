@@ -149,14 +149,22 @@ export const useObservation = (options?: { init?: boolean }) => {
 
       const now = Date.now();
 
-      if (!sharedState.startTime) {
-        if (isChronometerMode.value) {
+      // Mode calendrier : currentDate doit toujours refléter l'heure réelle
+      // actuelle au (re)démarrage, y compris à la reprise après une pause.
+      // Sans ce `else` inconditionnel, startTime restait non-null après une
+      // pause (seul stopTimer le remet à null) et ce bloc ne s'exécutait
+      // qu'au tout premier démarrage : la reprise réutilisait alors le
+      // currentDate figé au moment de la mise en pause, et le relevé
+      // "fin de pause" (ajouté juste après avec ce currentDate) enregistrait
+      // l'heure de la pause au lieu de l'heure de reprise.
+      if (isChronometerMode.value) {
+        if (!sharedState.startTime) {
           const t0 = chronometerMethods.getT0();
           const elapsedMs = sharedState.elapsedTime * 1000;
           sharedState.currentDate = new Date(t0.getTime() + elapsedMs);
-        } else {
-          sharedState.currentDate = new Date();
         }
+      } else {
+        sharedState.currentDate = new Date(now);
       }
 
       sharedState.startTime = now - sharedState.elapsedTime * 1000;

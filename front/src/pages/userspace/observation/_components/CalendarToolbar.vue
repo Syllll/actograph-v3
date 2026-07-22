@@ -57,16 +57,34 @@
       @mode-change="handleModeChange"
     />
 
-    <!-- Timer -->
-    <q-chip color="accent" text-color="white" icon="access_time">
-      {{ observation.timerMethods.formatDuration(observation.sharedState.elapsedTime) }}
-    </q-chip>
+    <!-- Timer : en mode calendrier on affiche l'heure réelle (qui défile en
+         continu, y compris en pause) plutôt qu'un chrono qui repart de zéro.
+         En mode chronomètre on garde la durée écoulée. -->
+    <div class="timer-chip-wrapper">
+      <q-chip color="accent" text-color="white" icon="access_time">
+        {{
+          currentMode === 'calendar'
+            ? liveClockLabel
+            : observation.timerMethods.formatDuration(observation.sharedState.elapsedTime)
+        }}
+      </q-chip>
+      <!-- Voile "En pause" sur l'horloge, cohérent avec celui du dashboard de
+           boutons : l'heure continue de défiler dessous, le voile rappelle
+           juste que l'observation (et l'enregistrement des relevés) est en
+           pause. -->
+      <div
+        v-if="currentMode === 'calendar' && isPausedState"
+        class="timer-paused-veil"
+      >
+        <q-icon name="lock" size="12px" />
+      </div>
+    </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref } from 'vue';
-import { useQuasar } from 'quasar';
+import { defineComponent, computed, ref, onMounted, onUnmounted } from 'vue';
+import { useQuasar, date as qDate } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { useObservation } from 'src/composables/use-observation';
 import { ObservationModeEnum, ReadingTypeEnum } from '@services/observations/interface';
@@ -84,6 +102,26 @@ export default defineComponent({
     const $q = useQuasar();
     const { t } = useI18n();
     const attachInProgress = ref(false);
+
+    // Horloge murale (mode calendrier) : indépendante de elapsedTime/isPlaying
+    // pour continuer à défiler pendant la pause, où l'intervalle du chrono de
+    // l'observation est arrêté (cf. pauseTimer dans use-observation).
+    const now = ref(new Date());
+    let clockIntervalId: number | null = null;
+    const liveClockLabel = computed(() => qDate.formatDate(now.value, 'HH:mm:ss'));
+
+    onMounted(() => {
+      clockIntervalId = window.setInterval(() => {
+        now.value = new Date();
+      }, 1000);
+    });
+
+    onUnmounted(() => {
+      if (clockIntervalId !== null) {
+        clearInterval(clockIntervalId);
+        clockIntervalId = null;
+      }
+    });
 
     /**
      * Récupère le mode actuel de l'observation
@@ -228,6 +266,7 @@ export default defineComponent({
       canChangeMode,
       isObservationActive,
       isPausedState,
+      liveClockLabel,
       attachInProgress,
       showAttachVideo,
       attachVideoBlocked,
@@ -252,16 +291,60 @@ export default defineComponent({
 
 /* Badge "En pause" : ambre, volontairement distinct du bleu (bouton lecture
    / reprendre) et du rouge (bouton pause pendant l'enregistrement actif),
-   pour ne jamais être confondu avec la couleur habituelle de reprise. */
+   pour ne jamais être confondu avec la couleur habituelle de reprise.
+   Clignotement : signale que l'écran n'est pas figé (l'observation reste en
+   pause tant qu'on ne clique pas sur reprendre). */
 .paused-badge {
   background-color: #fac775 !important;
   color: #412402 !important;
   font-weight: 500;
+  animation: paused-badge-blink 1.4s ease-in-out infinite;
 }
 
 .body--dark .paused-badge {
   background-color: #854f0b !important;
   color: #faeeda !important;
+}
+
+@keyframes paused-badge-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paused-badge {
+    animation: none;
+  }
+}
+
+/* Horloge (mode calendrier) + voile de pause : le chiffre continue de
+   défiler derrière le voile, qui rappelle juste visuellement l'état pause,
+   avec les mêmes teintes ambre que le badge et le voile du dashboard de
+   boutons (buttons-side/Index.vue). */
+.timer-chip-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.timer-paused-veil {
+  position: absolute;
+  inset: -2px;
+  border-radius: 16px;
+  background-color: rgba(250, 199, 117, 0.55);
+  color: #412402;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.body--dark .timer-paused-veil {
+  background-color: rgba(133, 79, 11, 0.6);
+  color: #faeeda;
 }
 </style>
 
