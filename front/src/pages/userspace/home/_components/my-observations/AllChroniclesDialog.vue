@@ -10,7 +10,10 @@
       </q-card-section>
 
       <q-card-section class="col-auto q-pb-none">
-        <div class="row items-center q-gutter-sm">
+        <div class="text-caption text-grey-7 q-mb-sm">
+          {{ $t('observationsList.localMetaHelper') }}
+        </div>
+        <div class="row items-center q-gutter-sm q-mb-sm">
           <DSearchInput
             class="col"
             v-model:searchText="state.searchText"
@@ -30,6 +33,40 @@
             @update:model-value="methods.triggerReload"
           />
         </div>
+        <div class="row items-center q-gutter-sm">
+          <q-toggle
+            v-model="state.includeArchived"
+            dense
+            :label="$t('observationsList.showArchived')"
+            @update:model-value="methods.triggerReload"
+          />
+          <q-select
+            v-model="state.filterUsedFor"
+            :options="usedForFilterOptions"
+            :label="$t('observationsList.filterUsedFor')"
+            dense
+            outlined
+            multiple
+            use-chips
+            emit-value
+            map-options
+            clearable
+            class="col"
+            style="min-width: 200px"
+          />
+          <q-select
+            v-model="state.filterIsProtocol"
+            :options="protocolFilterOptions"
+            :label="$t('observationsList.filterProtocol')"
+            dense
+            outlined
+            emit-value
+            map-options
+            clearable
+            class="col-auto"
+            style="min-width: 180px"
+          />
+        </div>
       </q-card-section>
 
       <q-card-section class="col q-pt-sm" style="min-height: 0">
@@ -37,7 +74,7 @@
           class="fit virtual-table"
           flat
           dense
-          :rows="state.rows"
+          :rows="displayedRows"
           :columns="tableColumns"
           row-key="id"
           virtual-scroll
@@ -47,6 +84,7 @@
           hide-pagination
           hide-bottom
           :loading="state.loading"
+          :row-class="methods.rowClass"
           @row-click="methods.handleRowClick"
         >
           <template v-slot:body-cell-name="cellProps">
@@ -58,6 +96,13 @@
                   color="positive"
                   size="xs"
                   class="q-mr-sm"
+                />
+                <q-icon
+                  v-if="methods.isProtocol(cellProps.row)"
+                  name="mdi-star"
+                  color="amber-8"
+                  size="xs"
+                  class="q-mr-xs"
                 />
                 <span
                   :class="{ 'text-weight-bold text-primary': methods.isActive(cellProps.row.id) }"
@@ -80,6 +125,15 @@
             </q-td>
           </template>
 
+          <template v-slot:body-cell-localMeta="cellProps">
+            <q-td :props="cellProps" @click.stop>
+              <ChronicleLocalMetaCell
+                :observation="cellProps.row"
+                @updated="methods.onLocalMetaUpdated"
+              />
+            </q-td>
+          </template>
+
           <template v-slot:body-cell-updatedAt="cellProps">
             <q-td :props="cellProps">
               {{ methods.formatDate(cellProps.row.updatedAt) }}
@@ -98,12 +152,15 @@
       <q-card-section class="col-auto q-pt-none">
         <div class="row items-center justify-between">
           <div class="text-body2 text-neutral-high">
-            {{ state.totalCount }}
+            {{ displayedCount }}
             {{
-              state.totalCount === 1
+              displayedCount === 1
                 ? $t('observationsList.chronicleWordSingular')
                 : $t('observationsList.chronicleWordPlural')
             }}
+            <span v-if="displayedCount !== state.totalCount" class="text-grey-6">
+              ({{ state.totalCount }} {{ $t('observationsList.totalLoaded') }})
+            </span>
           </div>
           <q-btn
             flat
@@ -123,15 +180,22 @@ import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { useAppResume } from 'src/composables/use-app-resume';
 import { observationService } from '@services/observations/index.service';
-import { IObservation } from '@services/observations/interface';
+import {
+  getEffectiveLocalMeta,
+  IObservation,
+  ObservationLocalMetaUsedFor,
+  OBSERVATION_LOCAL_META_USED_FOR_VALUES,
+} from '@services/observations/interface';
 import { DSearchInput } from '@lib-improba/components/app/inputs';
 import { useObservation } from 'src/composables/use-observation';
 import { relativeDay } from '@lib-improba/utils/date-format.utils';
+import ChronicleLocalMetaCell from './ChronicleLocalMetaCell.vue';
 
 export default defineComponent({
   name: 'AllChroniclesDialog',
   components: {
     DSearchInput,
+    ChronicleLocalMetaCell,
   },
   props: {
     modelValue: {
@@ -139,7 +203,7 @@ export default defineComponent({
       default: false,
     },
   },
-  emits: ['update:modelValue', 'selected'],
+  emits: ['update:modelValue', 'selected', 'hide'],
   setup(props, { emit }) {
     const $q = useQuasar();
     const observation = useObservation();
@@ -153,6 +217,7 @@ export default defineComponent({
           align: 'left' as const,
           label: t('observationsList.colName'),
           field: 'name',
+          style: 'min-width: 180px',
         },
         {
           name: 'mode',
@@ -162,11 +227,17 @@ export default defineComponent({
           style: 'width: 120px',
         },
         {
+          name: 'localMeta',
+          align: 'left' as const,
+          label: t('observationsList.colLocalMeta'),
+          field: 'localMeta',
+        },
+        {
           name: 'updatedAt',
           align: 'left' as const,
           label: t('observationsList.colUpdatedAt'),
           field: 'updatedAt',
-          style: 'width: 200px',
+          style: 'width: 140px',
         },
       ];
     });
@@ -180,14 +251,56 @@ export default defineComponent({
       ];
     });
 
+    const usedForFilterOptions = computed(() => {
+      void locale.value;
+      return OBSERVATION_LOCAL_META_USED_FOR_VALUES.map((value) => ({
+        label: t(`observationsList.localMetaUsedFor.${value}`),
+        value,
+      }));
+    });
+
+    const protocolFilterOptions = computed(() => {
+      void locale.value;
+      return [
+        { label: t('observationsList.filterProtocolOnly'), value: true },
+        { label: t('observationsList.filterProtocolExclude'), value: false },
+      ];
+    });
+
     const state = reactive({
       rows: [] as IObservation[],
       loading: false,
       searchText: '',
       sortField: 'updatedAt',
       totalCount: 0,
+      includeArchived: false,
+      filterUsedFor: [] as ObservationLocalMetaUsedFor[],
+      filterIsProtocol: null as boolean | null,
       searchDebounceTimeout: null as NodeJS.Timeout | null,
     });
+
+    const displayedRows = computed(() => {
+      return state.rows.filter((row) => {
+        const meta = getEffectiveLocalMeta(row);
+
+        if (state.filterIsProtocol !== null && meta.isProtocol !== state.filterIsProtocol) {
+          return false;
+        }
+
+        if (state.filterUsedFor.length > 0) {
+          const hasAny = state.filterUsedFor.some((tag) => meta.usedFor.includes(tag));
+          if (!hasAny) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+    });
+
+    const displayedCount = computed(() => displayedRows.value.length);
+
+    let fetchGeneration = 0;
 
     const localShow = computed({
       get: () => props.modelValue,
@@ -209,6 +322,7 @@ export default defineComponent({
       },
 
       async fetchAll(options?: { silent?: boolean }) {
+        const generation = ++fetchGeneration;
         const silent = options?.silent === true;
         if (!silent) {
           state.loading = true;
@@ -223,11 +337,18 @@ export default defineComponent({
             },
             {
               searchString: state.searchText || undefined,
+              includeArchived: state.includeArchived,
             }
           );
+          if (generation !== fetchGeneration) {
+            return;
+          }
           state.rows = response.results;
           state.totalCount = response.count;
         } catch (error) {
+          if (generation !== fetchGeneration) {
+            return;
+          }
           console.error('Error fetching all observations:', error);
           if (!silent) {
             $q.notify({
@@ -249,11 +370,40 @@ export default defineComponent({
       },
 
       handleHide() {
-        localShow.value = false;
+        emit('hide');
+        if (localShow.value) {
+          localShow.value = false;
+        }
       },
 
       isActive(id: number): boolean {
         return observation.sharedState.currentObservation?.id === id;
+      },
+
+      isProtocol(row: IObservation): boolean {
+        return getEffectiveLocalMeta(row).isProtocol;
+      },
+
+      rowClass(row: IObservation): string {
+        return getEffectiveLocalMeta(row).archived ? 'chronicle-row--archived' : '';
+      },
+
+      onLocalMetaUpdated(payload: {
+        observationId: number;
+        localMeta: IObservation['localMeta'];
+      }) {
+        const index = state.rows.findIndex((row) => row.id === payload.observationId);
+        if (index < 0) {
+          return;
+        }
+
+        const row = state.rows[index];
+        row.localMeta = payload.localMeta ?? null;
+
+        if (payload.localMeta?.archived && !state.includeArchived) {
+          state.rows.splice(index, 1);
+          state.totalCount = Math.max(0, state.totalCount - 1);
+        }
       },
 
       formatMode(mode: string | null | undefined): string {
@@ -273,6 +423,9 @@ export default defineComponent({
         if (newVal) {
           state.searchText = '';
           state.sortField = 'updatedAt';
+          state.includeArchived = false;
+          state.filterUsedFor = [];
+          state.filterIsProtocol = null;
           methods.fetchAll();
         }
       }
@@ -293,7 +446,11 @@ export default defineComponent({
     return {
       tableColumns,
       sortOptions,
+      usedForFilterOptions,
+      protocolFilterOptions,
       state,
+      displayedRows,
+      displayedCount,
       localShow,
       methods,
     };
@@ -319,6 +476,10 @@ export default defineComponent({
 
       &:hover td {
         background: var(--neutral-lower);
+      }
+
+      &.chronicle-row--archived td {
+        opacity: 0.55;
       }
     }
   }

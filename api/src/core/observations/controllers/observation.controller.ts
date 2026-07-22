@@ -4,6 +4,7 @@ import {
   DefaultValuePipe,
   Get,
   Post,
+  Put,
   Param,
   Patch,
   Delete,
@@ -36,12 +37,14 @@ import { Observation } from '../entities/observation.entity';
 import { IPaginationOutput } from '@utils/repositories/base.repositories';
 import { UserRolesGuard } from '@users/guards/user-roles.guard';
 import { SearchQueryParams, ISearchQueryParams } from '@utils/decorators';
-import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
+import { ParseEnumArrayPipe, ParseFilterPipe, ParseBoolOrUndefinedPipe } from '@utils/pipes';
 import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 import { IsPlainObject } from '@utils/validators/is-plain-object.decorator';
 import { IChronicExport } from '../services/observation/export';
 import { ObservationModeEnum } from '@actograph/core';
 import { MergeObservationsDto } from '../dtos/merge-observations.dto';
+import { ObservationLocalMetaService } from '../services/observation-local-meta.service';
+import { UpsertObservationLocalMetaDto } from '../dtos/upsert-observation-local-meta.dto';
 
 export class ICreateObservationDto {
   @IsString()
@@ -93,6 +96,7 @@ export class ObservationController extends BaseController {
     @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     private readonly observationService: ObservationService,
+    private readonly observationLocalMetaService: ObservationLocalMetaService,
     private readonly protocolService: ProtocolService,
     private readonly readingService: ReadingService,
     private readonly activityGraphService: ActivityGraphService,
@@ -139,6 +143,8 @@ export class ObservationController extends BaseController {
     relations: string[] = [],
     @Query('searchString', new DefaultValuePipe('*'), ParseFilterPipe)
     searchString: string,
+    @Query('includeArchived', new DefaultValuePipe('false'), ParseBoolOrUndefinedPipe)
+    includeArchived: boolean,
   ): Promise<IPaginationOutput<Observation>> {
     const user = req.user;
     const results =
@@ -153,6 +159,7 @@ export class ObservationController extends BaseController {
         {
           searchString: searchString,
           userId: user.id,
+          includeArchived,
         },
       );
 
@@ -273,6 +280,26 @@ export class ObservationController extends BaseController {
       user.id,
     );
     return exportData;
+  }
+
+  @Get(':id/local-meta')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async getLocalMeta(@Param('id') id: number, @Req() req: any) {
+    const user = req.user;
+    return this.observationLocalMetaService.getOrDefault(id, user.id);
+  }
+
+  @Put(':id/local-meta')
+  @UseGuards(JwtAuthGuard, UserRolesGuard)
+  @Roles(UserRoleEnum.User)
+  async upsertLocalMeta(
+    @Param('id') id: number,
+    @Req() req: any,
+    @Body() body: UpsertObservationLocalMetaDto,
+  ) {
+    const user = req.user;
+    return this.observationLocalMetaService.upsert(id, user.id, body);
   }
 
   @Get(':id')

@@ -5,7 +5,12 @@ import {
   PaginationResponse,
 } from '@lib-improba/utils/pagination.utils';
 import { IUser } from '@services/users/user.interface';
-import { IObservation, ObservationModeEnum } from './interface';
+import {
+  IObservation,
+  IObservationLocalMetaResponse,
+  IObservationLocalMetaUpsert,
+  ObservationModeEnum,
+} from './interface';
 import { IChronicExport } from './export.interface';
 
 const apiUrl = httpUtils.apiUrl();
@@ -13,8 +18,13 @@ const apiUrl = httpUtils.apiUrl();
 export interface IObservationService {
   findWithPagination(
     options: PaginationOptions,
-    search?: { searchString?: string }
+    search?: { searchString?: string; includeArchived?: boolean }
   ): Promise<PaginationResponse<IObservation>>;
+  getLocalMeta(id: number): Promise<IObservationLocalMetaResponse>;
+  upsertLocalMeta(
+    id: number,
+    body: IObservationLocalMetaUpsert
+  ): Promise<IObservationLocalMetaResponse>;
   findOne(id: number, options?: { includes?: string[] }): Promise<IObservation>;
   findAllForCurrentUser(): Promise<IObservation[]>;
   delete(id: number): Promise<void>;
@@ -52,6 +62,7 @@ export const observationService: IObservationService = {
     options: PaginationOptions,
     search?: {
       searchString?: string;
+      includeArchived?: boolean;
     }
   ): Promise<PaginationResponse<IObservation>> {
     const response = await api().get(`${apiUrl}/observations/paginate`, {
@@ -61,6 +72,17 @@ export const observationService: IObservationService = {
       },
     });
 
+    return response.data;
+  },
+  getLocalMeta: async (id: number): Promise<IObservationLocalMetaResponse> => {
+    const response = await api().get(`${apiUrl}/observations/${id}/local-meta`);
+    return response.data;
+  },
+  upsertLocalMeta: async (
+    id: number,
+    body: IObservationLocalMetaUpsert
+  ): Promise<IObservationLocalMetaResponse> => {
+    const response = await api().put(`${apiUrl}/observations/${id}/local-meta`, body);
     return response.data;
   },
   findOne: async (

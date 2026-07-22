@@ -8,6 +8,7 @@ import {
 } from '@utils/repositories/base.repositories';
 import { ObservationService } from './index.service';
 import { ObservationRepository } from '@core/observations/repositories/obsavation.repository';
+import { buildExcludeArchivedFilterConditions } from './archived-filter.conditions';
 
 export class Find {
   constructor(
@@ -54,12 +55,17 @@ export class Find {
       userId?: number;
       searchString?: string;
       observationId?: number;
+      includeArchived?: boolean;
     },
   ): Promise<IPaginationOutput<Observation>> {
     const relations = [
       ...(paginationOptions.relations || []),
       ...(searchOptions?.includes || []),
     ];
+
+    if (!relations.includes('localMeta')) {
+      relations.push('localMeta');
+    }
 
     const conditions: IConditions[] = [];
 
@@ -96,6 +102,10 @@ export class Find {
           operator: OperatorEnum.LIKE,
           value: searchOptions.searchString,
         });
+      }
+
+      if (!searchOptions.includeArchived) {
+        conditions.push(buildExcludeArchivedFilterConditions());
       }
     }
 
