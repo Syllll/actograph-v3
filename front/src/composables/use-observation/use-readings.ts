@@ -446,20 +446,21 @@ export const useReadings = (options: {
         }
       }
       
-      // Calculate the exact timestamp based on observation time if provided
+      // Calculate the exact timestamp based on observation time if provided.
       // IMPORTANT: Use getTime() + elapsedTime instead of setMilliseconds() because
-      // setMilliseconds() only accepts 0-999, but elapsedTime can be much larger (seconds/minutes).
-      // Adding milliseconds directly to getTime() handles overflow correctly.
-      // 
-      // NOTE: In chronometer mode, currentDate is already t0 + elapsedTime, so we should NOT
-      // add elapsedTime again. We use currentDate directly if it exists, otherwise fallback
-      // to using elapsedTime with t0 (if in chronometer mode).
+      // setMilliseconds() only accepts 0-999, but elapsedTime can be much larger.
+      //
+      // currentDate est déjà l'horodatage absolu courant dans les deux modes :
+      // - chronomètre : t0 + elapsedTime (mis à jour par updateTimeFromSource)
+      // - calendrier : heure murale réelle (idem)
+      // On l'utilise donc directement. Ajouter elapsedTime en calendrier
+      // double-comptait (currentDate=now puis +elapsed → lecture dans le futur).
       if (options.elapsedTime !== undefined) {
-        // In chronometer mode, allow recording even if currentDate is not initialized
-        // (e.g. clicks before START or while paused).
         const isChronometerMode = observationSharedState?.currentObservation?.mode === 'chronometer';
 
         if (isChronometerMode) {
+          // Autorise l'enregistrement même si currentDate n'est pas initialisé
+          // (clics avant START ou pendant une pause).
           const t0Ms = CHRONOMETER_T0.getTime();
           const dateTimeMs = options.currentDate
             ? options.currentDate.getTime()
@@ -467,10 +468,7 @@ export const useReadings = (options: {
           // Bug 2b.1 : Clamp to t0 minimum - évite les horodatages négatifs (-2ms)
           newReading.dateTime = new Date(Math.max(dateTimeMs, t0Ms));
         } else if (options.currentDate) {
-          // In calendar mode, add elapsedTime to currentDate when currentDate exists
-          newReading.dateTime = new Date(
-            options.currentDate.getTime() + (options.elapsedTime * 1000)
-          );
+          newReading.dateTime = new Date(options.currentDate.getTime());
         }
       }
 
