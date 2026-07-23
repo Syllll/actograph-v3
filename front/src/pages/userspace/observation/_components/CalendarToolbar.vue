@@ -1,5 +1,8 @@
 <template>
-  <div class="calendar-toolbar row items-center q-pa-sm q-gutter-md">
+  <div
+    class="calendar-toolbar row items-center q-pa-sm q-gutter-md"
+    :class="{ 'toolbar-recording': observation.sharedState.isPlaying }"
+  >
     <!-- Play/Pause button -->
     <q-btn
       round
@@ -19,6 +22,18 @@
       :disable="!isObservationActive"
       @click="handleStop"
     />
+
+    <!-- Recording indicator: shown only while actively recording (not
+         paused, not stopped), so the operator has a clear, sustained signal
+         that readings are being captured right now. -->
+    <q-chip
+      v-if="observation.sharedState.isPlaying"
+      class="recording-badge"
+      dense
+    >
+      <span class="recording-badge-dot q-mr-xs"></span>
+      {{ $t('observation.recordingInProgress') }}
+    </q-chip>
 
     <!-- Paused indicator: distinct color from the play (resume) and stop
          buttons, so the operator recognizes at a glance that readings are
@@ -108,7 +123,6 @@ export default defineComponent({
     // l'observation est arrêté (cf. pauseTimer dans use-observation).
     const now = ref(new Date());
     let clockIntervalId: number | null = null;
-    const liveClockLabel = computed(() => qDate.formatDate(now.value, 'HH:mm:ss'));
 
     onMounted(() => {
       clockIntervalId = window.setInterval(() => {
@@ -155,6 +169,29 @@ export default defineComponent({
     const isObservationActive = computed(() => {
       return observation.sharedState.isPlaying
         || observation.sharedState.elapsedTime > 0;
+    });
+
+    // Observation démarrée (relevé START présent) puis arrêtée (STOP) : l'horloge
+    // murale ne doit plus défiler dans cet état, contrairement à la pause où elle
+    // continue volontairement (cf. commentaire sur `now` plus haut). On la fige
+    // sur l'heure exacte du relevé STOP plutôt que de continuer à afficher l'heure
+    // réelle, ce qui donnerait à tort l'impression que l'observation continue.
+    const isStoppedState = computed(() => !canChangeMode.value && !isObservationActive.value);
+
+    const stopReadingDate = computed(() => {
+      const stopReadings = observation.readings.sharedState.currentReadings.filter(
+        (reading: any) => reading.type === ReadingTypeEnum.STOP
+      );
+      if (stopReadings.length === 0) return null;
+      const lastStop = stopReadings[stopReadings.length - 1];
+      return lastStop.dateTime instanceof Date ? lastStop.dateTime : new Date(lastStop.dateTime);
+    });
+
+    const liveClockLabel = computed(() => {
+      const displayDate = isStoppedState.value && stopReadingDate.value
+        ? stopReadingDate.value
+        : now.value;
+      return qDate.formatDate(displayDate, 'HH:mm:ss');
     });
 
     // Observation démarrée (ou déjà avancée) mais actuellement à l'arrêt :
@@ -287,6 +324,55 @@ export default defineComponent({
   flex-shrink: 0;
   min-height: 0;
   height: auto;
+  transition: background-color 0.2s ease;
+}
+
+/* Bandeau de fond pendant l'enregistrement actif : donne un repère visuel
+   perceptible même en vision périphérique, sans attendre de lire le badge
+   ou le compteur. Disparaît en pause et à l'arrêt (isPlaying redevient
+   false dans les deux cas, cf. use-observation/index.ts). */
+.calendar-toolbar.toolbar-recording {
+  background-color: rgba(255, 61, 0, 0.07);
+}
+
+.body--dark .calendar-toolbar.toolbar-recording {
+  background-color: rgba(255, 61, 0, 0.16);
+}
+
+/* Badge "Enregistrement en cours" : rouge, même couleur que le bouton
+   pause pendant l'enregistrement actif, pour un langage visuel cohérent.
+   Le point qui pulse (plutôt que le badge entier qui clignote comme pour
+   la pause) signale la capture en continu sans fatiguer l'œil sur une
+   session longue. */
+.recording-badge {
+  background-color: #ff3d00 !important;
+  color: white !important;
+  font-weight: 500;
+}
+
+.recording-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  display: inline-block;
+  animation: recording-badge-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes recording-badge-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recording-badge-dot {
+    animation: none;
+  }
 }
 
 /* Badge "En pause" : ambre, volontairement distinct du bleu (bouton lecture
