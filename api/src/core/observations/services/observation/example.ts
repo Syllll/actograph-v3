@@ -67,7 +67,9 @@ export class Example {
         console.info(
           `Example observation "${example.key}" version is outdated, recreating it...`,
         );
-        await this.observationRepository.delete(observation.id);
+        // Use ObservationService.delete to clean protocol / activity graph /
+        // readings first; a raw repository.delete hits SQLite FK constraints.
+        await this.observationService.delete(observation.id);
         await example.create();
       }
     }
