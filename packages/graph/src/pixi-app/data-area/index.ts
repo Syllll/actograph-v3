@@ -1119,7 +1119,7 @@ export class DataArea extends BaseGroup {
       if (pattern === BackgroundPatternEnum.Solid) {
         graphic
           .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
-          .fill({ color, alpha: 0.6 });
+          .fill({ color, alpha: 1 });
 
         graphic
           .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
