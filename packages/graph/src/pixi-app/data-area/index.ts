@@ -37,7 +37,6 @@ import { createTilingPatternSprite } from '../../lib/pattern-textures';
 import {
   extractSessionBoundaryReadings,
   getContinuousSegmentStartIndices,
-  isBoundaryReadingType,
   iterContinuousDataPairs,
   mergeContinuousCategoryReadings,
   shouldSkipInContinuousDraw,
@@ -85,12 +84,6 @@ export class DataArea extends BaseGroup {
 
   private protocol: IProtocol | null = null;
   protected observation: IObservation | null = null;
-  // Calendar mode: readings carry real wall-clock timestamps, so an open
-  // pause still spans real time and must break a continuous segment (like a
-  // STOP does) or the state would appear to run straight through the pause.
-  // Chronometer mode freezes elapsed time during a pause, so bridging over it
-  // is correct there and left untouched.
-  private treatPauseAsSegmentBoundary = false;
   private pausePeriods: IPeriod[] = [];
   private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
   private hoverOverlaySuppressed = false;
@@ -443,8 +436,6 @@ export class DataArea extends BaseGroup {
   public setData(observation: IObservation) {
     super.setData(observation);
     this.observation = observation;
-    this.treatPauseAsSegmentBoundary =
-      observation.mode !== ObservationModeEnum.Chronometer;
 
     const protocol = observation.protocol;
     if (!protocol) {
@@ -490,10 +481,7 @@ export class DataArea extends BaseGroup {
       }
     }
 
-    const sessionBoundaryReadings = extractSessionBoundaryReadings(
-      sortedReadings,
-      this.treatPauseAsSegmentBoundary,
-    );
+    const sessionBoundaryReadings = extractSessionBoundaryReadings(sortedReadings);
 
     for (const categoryEntry of this.readingsPerCategory) {
       const isContinuous = !categoryEntry.category.action ||
@@ -796,9 +784,7 @@ export class DataArea extends BaseGroup {
       }
       const axisEndX = xAxisEnd.x;
       const newSegmentIndices = new Set(
-        getContinuousSegmentStartIndices(readings, this.treatPauseAsSegmentBoundary).filter(
-          (idx) => idx > 0,
-        ),
+        getContinuousSegmentStartIndices(readings).filter((idx) => idx > 0),
       );
 
       graphic.clear();
@@ -809,7 +795,7 @@ export class DataArea extends BaseGroup {
 
         const previousReading = readings[i - 1];
 
-        if (shouldSkipInContinuousDraw(reading, previousReading, this.treatPauseAsSegmentBoundary)) {
+        if (shouldSkipInContinuousDraw(reading, previousReading)) {
           continue;
         }
 
@@ -832,9 +818,10 @@ export class DataArea extends BaseGroup {
           continue;
         }
 
-        const yPos = isBoundaryReadingType(reading.type, this.treatPauseAsSegmentBoundary)
-          ? -1
-          : this.getYPosForReading(category, reading.name || '');
+        const yPos =
+          reading.type === ReadingTypeEnum.STOP
+            ? -1
+            : this.getYPosForReading(category, reading.name || '');
 
         // Consecutive readings can share the same timestamp (mobile taps in same second).
         // Without a minimum spacing, segments collapse to zero width and look "missing".
@@ -931,7 +918,7 @@ export class DataArea extends BaseGroup {
     graphic.clear();
     this.clearTilingSpritesForCategory(category);
 
-    for (const { from, to } of iterContinuousDataPairs(readings, this.treatPauseAsSegmentBoundary)) {
+    for (const { from, to } of iterContinuousDataPairs(readings)) {
       const startX = this.xAxis.getPosFromDateTime(from.dateTime);
       const endX = this.xAxis.getPosFromDateTime(to.dateTime);
       const zoneWidth = endX - startX;
@@ -1115,7 +1102,7 @@ export class DataArea extends BaseGroup {
     const friezeTopY = friezeInfo.endY;
     const friezeHeight = friezeInfo.height;
 
-    for (const { from, to } of iterContinuousDataPairs(readings, this.treatPauseAsSegmentBoundary)) {
+    for (const { from, to } of iterContinuousDataPairs(readings)) {
       const segmentStartX = this.xAxis.getPosFromDateTime(from.dateTime);
       const segmentEndX = this.xAxis.getPosFromDateTime(to.dateTime);
       const segmentWidth = segmentEndX - segmentStartX;
