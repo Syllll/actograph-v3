@@ -127,23 +127,6 @@ describe('continuous-segments.utils', () => {
       expect(shouldSkipInContinuousDraw(pauseEnd, stop1)).toBe(true);
       expect(shouldSkipInContinuousDraw(stop1, undefined)).toBe(false);
     });
-
-    it('calendar mode: draws PAUSE_START after DATA but skips trailing boundary markers', () => {
-      const data = mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:10:00Z') });
-      const pauseStart = mk({
-        type: ReadingTypeEnum.PAUSE_START,
-        dateTime: new Date('2024-01-01T10:20:00Z'),
-      });
-      const pauseEnd = mk({
-        type: ReadingTypeEnum.PAUSE_END,
-        dateTime: new Date('2024-01-01T10:25:00Z'),
-      });
-      const stop = mk({ type: ReadingTypeEnum.STOP, dateTime: new Date('2024-01-01T10:30:00Z') });
-
-      expect(shouldSkipInContinuousDraw(pauseStart, data, true)).toBe(false);
-      expect(shouldSkipInContinuousDraw(pauseEnd, pauseStart, true)).toBe(true);
-      expect(shouldSkipInContinuousDraw(stop, pauseStart, true)).toBe(true);
-    });
   });
 
   describe('getContinuousSegmentStartIndices', () => {
@@ -186,28 +169,6 @@ describe('continuous-segments.utils', () => {
       );
       expect(getContinuousSegmentStartIndices(merged)).toEqual([0]);
       expect(merged[0]?.type).toBe(ReadingTypeEnum.DATA);
-    });
-
-    it('calendar mode: splits at each PAUSE_START between DATA readings', () => {
-      const sortedReadings = [
-        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:10:00Z') }),
-        mk({ type: ReadingTypeEnum.PAUSE_START, dateTime: new Date('2024-01-01T10:20:00Z') }),
-        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:30:00Z') }),
-        mk({ type: ReadingTypeEnum.PAUSE_START, dateTime: new Date('2024-01-01T10:40:00Z') }),
-        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:50:00Z') }),
-      ];
-      const categoryData = sortedReadings.filter((r) => r.type === ReadingTypeEnum.DATA);
-      const boundaries = extractSessionBoundaryReadings(sortedReadings, true);
-      const merged = mergeContinuousCategoryReadings(categoryData, boundaries);
-
-      expect(merged.map((r) => r.type)).toEqual([
-        ReadingTypeEnum.DATA,
-        ReadingTypeEnum.PAUSE_START,
-        ReadingTypeEnum.DATA,
-        ReadingTypeEnum.PAUSE_START,
-        ReadingTypeEnum.DATA,
-      ]);
-      expect(getContinuousSegmentStartIndices(merged, true)).toEqual([0, 2, 4]);
     });
   });
 
@@ -268,33 +229,10 @@ describe('continuous-segments.utils', () => {
       expect(pairs).toHaveLength(1);
       expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:15:00Z'));
     });
-
-    it('calendar mode: pairs each segment to its boundary without bridging pauses', () => {
-      const sortedReadings = [
-        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:10:00Z') }),
-        mk({ type: ReadingTypeEnum.PAUSE_START, dateTime: new Date('2024-01-01T10:20:00Z') }),
-        mk({ type: ReadingTypeEnum.PAUSE_END, dateTime: new Date('2024-01-01T10:25:00Z') }),
-        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:30:00Z') }),
-        mk({ type: ReadingTypeEnum.STOP, dateTime: new Date('2024-01-01T10:40:00Z') }),
-      ];
-      const categoryData = sortedReadings.filter((r) => r.type === ReadingTypeEnum.DATA);
-      const boundaries = extractSessionBoundaryReadings(sortedReadings, true);
-      const merged = mergeContinuousCategoryReadings(categoryData, boundaries);
-
-      const pairs = iterContinuousDataPairs(merged, true);
-
-      expect(pairs).toHaveLength(2);
-      expect(pairs[0]?.from.dateTime).toEqual(new Date('2024-01-01T10:10:00Z'));
-      expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:20:00Z'));
-      expect(pairs[0]?.to.type).toBe(ReadingTypeEnum.PAUSE_START);
-      expect(pairs[1]?.from.dateTime).toEqual(new Date('2024-01-01T10:30:00Z'));
-      expect(pairs[1]?.to.dateTime).toEqual(new Date('2024-01-01T10:40:00Z'));
-      expect(pairs[1]?.to.type).toBe(ReadingTypeEnum.STOP);
-    });
   });
 
   describe('setData pipeline simulation', () => {
-    it('keeps one continuous segment after merge when pauses are present (chronometer mode)', () => {
+    it('keeps one continuous segment after merge when pauses are present', () => {
       const sortedReadings = [
         mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:10:00Z'), name: 'obs1' }),
         mk({ type: ReadingTypeEnum.PAUSE_START, dateTime: new Date('2024-01-01T10:20:00Z') }),
@@ -308,42 +246,6 @@ describe('continuous-segments.utils', () => {
 
       expect(getContinuousSegmentStartIndices(merged)).toEqual([0]);
       expect(iterContinuousDataPairs(merged)).toHaveLength(1);
-    });
-
-    it('breaks the segment at the pause in calendar mode (treatPauseAsBoundary)', () => {
-      const sortedReadings = [
-        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:10:00Z'), name: 'obs1' }),
-        mk({ type: ReadingTypeEnum.PAUSE_START, dateTime: new Date('2024-01-01T10:20:00Z') }),
-        mk({ type: ReadingTypeEnum.PAUSE_END, dateTime: new Date('2024-01-01T10:25:00Z') }),
-        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:30:00Z'), name: 'obs1' }),
-      ];
-
-      const categoryData = sortedReadings.filter((r) => r.type === ReadingTypeEnum.DATA);
-      const boundaries = extractSessionBoundaryReadings(sortedReadings, true);
-      const merged = mergeContinuousCategoryReadings(categoryData, boundaries);
-
-      // merged = [DATA, PAUSE_START, PAUSE_END, DATA]; second segment starts at index 3.
-      expect(getContinuousSegmentStartIndices(merged, true)).toEqual([0, 3]);
-
-      const pairs = iterContinuousDataPairs(merged, true);
-      expect(pairs).toHaveLength(1);
-      expect(pairs[0]?.from.dateTime).toEqual(new Date('2024-01-01T10:10:00Z'));
-      expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:20:00Z'));
-    });
-
-    it('keeps an ongoing pause (no PAUSE_END yet) frozen at PAUSE_START in calendar mode', () => {
-      const sortedReadings = [
-        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:10:00Z'), name: 'obs1' }),
-        mk({ type: ReadingTypeEnum.PAUSE_START, dateTime: new Date('2024-01-01T10:20:00Z') }),
-      ];
-
-      const categoryData = sortedReadings.filter((r) => r.type === ReadingTypeEnum.DATA);
-      const boundaries = extractSessionBoundaryReadings(sortedReadings, true);
-      const merged = mergeContinuousCategoryReadings(categoryData, boundaries);
-
-      const pairs = iterContinuousDataPairs(merged, true);
-      expect(pairs).toHaveLength(1);
-      expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:20:00Z'));
     });
   });
 });
