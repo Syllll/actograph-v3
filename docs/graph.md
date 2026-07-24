@@ -119,9 +119,9 @@ this.app.stage.addChild(this.viewport);
 1. **Mutex draw** : les appels `draw()` externes attendent un export **hors** de `drawChain`, puis enfilent `executeDrawBody` ; l’export appelle `enqueueDrawBody()` directement (jamais `draw()`), ce qui évite un deadlock `drawChain ↔ exportQueue`.
 2. **`resizeFromCanvas({ skipRender?: boolean })`** : en chemin resume/refresh, appeler avec `skipRender: true` puis un seul `draw()` pour peindre. Évite un `app.render()` intermédiaire sur une scène partiellement effacée.
 3. **Canvas dégénéré** (`isDegenerateCanvasSize`, width ou height ≤ 2) : mémorisé via `wasDegenerateCanvas` ; au retour à une taille utile, `needsInitialFit = true` pour éviter un scale microscopique conservé par `preserveViewportOnResize`.
-4. **`refreshAfterResume()`** (mobile, `webglcontextrestored`) : garde `isInitialized` → `clearHoverOverlay` (cancel pending) → marque `needsPatternTextureRefresh` + `needsInitialFit` → réapplication de `lastObservation` → `resizeFromCanvas({ skipRender: true })` → `draw()`. Le cache motifs est vidé **au début de `executeDrawBody`**, après détachement des sprites.
+4. **`refreshAfterResume()`** (mobile, `webglcontextrestored`) : garde `isInitialized` + `!contextRestoring` → `clearHoverOverlay` → marque `needsPatternTextureRefresh` + `needsInitialFit` → réapplication de `lastObservation` → `resizeFromCanvas({ skipRender: true })` → `scheduleDraw('resume')` (catch des rejections). Le cache motifs est vidé au début de `executeDrawBody` seulement s'il y a des sprites motifs ou après une perte WebGL (`forcePatternTextureClear`).
 5. **`refreshGraph()` desktop** (visibility resume) : retry si canvas pas encore visible → `prepareForResumeRefresh()` (force `needsInitialFit`) → `waitForIdle()` → `resizeFromCanvas({ skipRender: true })` → `redrawFromObservation()`. Un fit systématique au resume évite la caméra coincée sur une zone vide (axes hors écran + fragment de données).
-6. **`webglcontextlost`** : `preventDefault()` + `clearHoverOverlay` + `needsPatternTextureRefresh` + `axesGraphicsDirty` + `wasDegenerateCanvas = true`.
+6. **`webglcontextlost`** : `preventDefault()` + `contextRestoring = true` + annulation des rAF de restore en attente + `clearHoverOverlay` + `needsPatternTextureRefresh` + `forcePatternTextureClear` + `axesGraphicsDirty` + `wasDegenerateCanvas = true`. **`webglcontextrestored`** : double rAF puis `contextRestoring = false` + `refreshAfterResume()`.
 7. **Export** : au début, hover supprimé (cancel pending) ; paints via `enqueueDrawBody` ; après `finally`, hover unsuppressed.
 8. **`waitForIdle()`** : `redrawFromObservation` / `refreshGraph` attendent la fin des draws/exports en cours avant un nouveau setData+draw.
 9. **Échec de draw** : pas de `resumeHoverAfterDraw` (évite de peindre axes clearés + crosshair orphelin) ; `axesGraphicsDirty` + `needsInitialFit` remis pour un retry.
@@ -488,7 +488,7 @@ Une pause est une **métadonnée temporelle** (`PAUSE_START` / `PAUSE_END`), pas
 
 ### Overlay `maskPauses`
 
-- Défaut code : `maskPauses: false` → overlay **visible** (gris `0x888888`, alpha `0.45`, pleine hauteur data-area, au-dessus des segments).
+- Défaut code : `maskPauses: false` → overlay **visible** (gris `0x888888`, alpha `1`, pleine hauteur data-area, au-dessus des segments).
 - `maskPauses: true` → overlay masqué (segments seuls, toujours continus).
 - Pas de toggle UI dans le drawer de personnalisation (option API uniquement).
 - Intervalles : `getGraphPausePeriods` → `calculatePausePeriods` (`@actograph/core`).

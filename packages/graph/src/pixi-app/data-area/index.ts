@@ -498,6 +498,10 @@ export class DataArea extends BaseGroup {
     }
   }
 
+  public hasPatternSprites(): boolean {
+    return this.tilingSpritesPerCategory.some((entry) => entry.sprites.length > 0);
+  }
+
   /**
    * Removes tiling pattern sprites from the stage without clearing readings.
    * Call before clearPatternTextureCache() so destroyed textures are not still bound.

@@ -11,7 +11,18 @@ export declare class YAxis extends BaseGroup {
     private categories;
     private axisStart;
     private axisEnd;
+    /**
+     * Étirement par axe courant (voir PixiApp.axisStretch). Sert uniquement à
+     * contre-scaler les labels pour qu'ils restent lisibles (non déformés) quand
+     * scaleX ≠ scaleY sur le viewport parent. {1,1} = comportement identique à
+     * avant (le zoom uniforme normal continue d'agrandir les labels comme avant).
+     */
+    private axisStretch;
     constructor(app: Application);
+    setAxisStretch(stretch: {
+        x: number;
+        y: number;
+    }): void;
     getAxisStart(): IPosition | null;
     getAxisEnd(): IPosition | null;
     getPosFromLabel(label: string): number;

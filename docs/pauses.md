@@ -103,7 +103,7 @@ La PR #113 avait introduit une coupure calendrier (`treatPauseAsBoundary`) ; ell
 | Calcul des intervalles | `getGraphPausePeriods` → `calculatePausePeriods` |
 | Géométrie | `computePauseOverlayRects` (`pause-overlay.utils.ts`) |
 | Rendu | `pauseOverlayGraphic` dans `DataArea` (au-dessus des segments) |
-| Style | Gris `0x888888`, alpha `0.45`, pleine hauteur de la zone de données |
+| Style | Gris `0x888888`, alpha `1` (opaque), pleine hauteur de la zone de données |
 
 Option `IGraphRenderOptions.maskPauses` :
 - `false` (**défaut actuel**) → overlay **dessiné** (pauses visibles) ;

@@ -23,7 +23,7 @@ export interface PauseOverlayStyle {
 
 export const DEFAULT_PAUSE_OVERLAY_STYLE: PauseOverlayStyle = {
   color: 0x888888,
-  alpha: 0.45,
+  alpha: 1,
 };
 
 export function shouldDrawPauseOverlay(

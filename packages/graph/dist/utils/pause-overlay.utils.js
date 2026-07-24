@@ -1,7 +1,7 @@
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../types/graph-render-options';
 export const DEFAULT_PAUSE_OVERLAY_STYLE = {
     color: 0x888888,
-    alpha: 0.45,
+    alpha: 1,
 };
 export function shouldDrawPauseOverlay(maskPauses = DEFAULT_GRAPH_RENDER_OPTIONS.maskPauses) {
     // maskPauses === true means "hide pauses": no overlay is drawn, segments

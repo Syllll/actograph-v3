@@ -30,6 +30,12 @@ export declare class DataArea extends BaseGroup {
     private isDrawInProgress;
     private isAxesGraphicsDirty;
     private requestRender;
+    /** Voir YAxis.axisStretch : contre-scale marqueurs ronds et étiquette de survol. */
+    private axisStretch;
+    setAxisStretch(stretch: {
+        x: number;
+        y: number;
+    }): void;
     constructor(app: Application, yAxis: YAxis, xAxis: xAxis, options?: {
         interactive?: boolean;
     });
@@ -73,6 +79,7 @@ export declare class DataArea extends BaseGroup {
     setGraphRenderOptions(options: IGraphRenderOptions): void;
     setProtocol(protocol: IProtocol): void;
     setData(observation: IObservation): void;
+    hasPatternSprites(): boolean;
     /**
      * Removes tiling pattern sprites from the stage without clearing readings.
      * Call before clearPatternTextureCache() so destroyed textures are not still bound.
@@ -88,6 +95,8 @@ export declare class DataArea extends BaseGroup {
     private getPlotBoundsLocal;
     /** Keep crosshair and time label above segments and pause overlays. */
     private ensureCursorUiOnTop;
+    /** Vide le graphique persistant d'une catégorie (ex: catégorie décochée), sans le détruire. */
+    private clearCategoryGraphic;
     private getOrCreateGraphicForCategory;
     private drawCategoryNormal;
     private drawCategoryBackground;

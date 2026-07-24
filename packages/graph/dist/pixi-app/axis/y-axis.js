@@ -1,7 +1,7 @@
 import { Text } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
-import { DisplayModeEnum, ProtocolItemActionEnum } from '@actograph/core';
+import { DisplayModeEnum, ProtocolItemActionEnum, isCategoryVisible } from '@actograph/core';
 import { parseProtocolItems } from '../../utils/protocol.utils';
 // ============================================================================
 // Constants
@@ -40,8 +40,18 @@ export class YAxis extends BaseGroup {
         this.categories = [];
         this.axisStart = null;
         this.axisEnd = null;
+        /**
+         * Étirement par axe courant (voir PixiApp.axisStretch). Sert uniquement à
+         * contre-scaler les labels pour qu'ils restent lisibles (non déformés) quand
+         * scaleX ≠ scaleY sur le viewport parent. {1,1} = comportement identique à
+         * avant (le zoom uniforme normal continue d'agrandir les labels comme avant).
+         */
+        this.axisStretch = { x: 1, y: 1 };
         this.graphic = new BaseGraphic(this.app);
         this.addChild(this.graphic);
+    }
+    setAxisStretch(stretch) {
+        this.axisStretch = stretch;
     }
     getAxisStart() {
         return this.axisStart ? { ...this.axisStart } : null;
@@ -233,8 +243,12 @@ export class YAxis extends BaseGroup {
         }
     }
     drawNormalTick(axisX, tickY, label) {
-        this.graphic.moveTo(axisX - TICK_CONFIG.TICK_LENGTH, tickY);
-        this.graphic.lineTo(axisX + TICK_CONFIG.TICK_LENGTH, tickY);
+        // Contre-scale l'étirement horizontal (temps) : une graduation est une
+        // marque de repère fixe, elle ne doit pas s'allonger/raccourcir quand
+        // l'utilisatrice étire l'axe du temps (voir PixiApp.axisStretch).
+        const tickLength = TICK_CONFIG.TICK_LENGTH / this.axisStretch.x;
+        this.graphic.moveTo(axisX - tickLength, tickY);
+        this.graphic.lineTo(axisX + tickLength, tickY);
         this.graphic.setStrokeStyle({
             color: TICK_CONFIG.COLOR,
             width: TICK_CONFIG.TICK_WIDTH,
@@ -243,8 +257,9 @@ export class YAxis extends BaseGroup {
         this.createLabel(label, axisX - LABEL_CONFIG.OFFSET, tickY, false);
     }
     drawFriezeTick(axisX, tickY, label) {
-        this.graphic.moveTo(axisX - TICK_CONFIG.FRIEZE_TICK_LENGTH, tickY);
-        this.graphic.lineTo(axisX + TICK_CONFIG.FRIEZE_TICK_LENGTH, tickY);
+        const tickLength = TICK_CONFIG.FRIEZE_TICK_LENGTH / this.axisStretch.x;
+        this.graphic.moveTo(axisX - tickLength, tickY);
+        this.graphic.lineTo(axisX + tickLength, tickY);
         this.graphic.setStrokeStyle({
             color: TICK_CONFIG.COLOR,
             width: TICK_CONFIG.TICK_WIDTH,
@@ -267,6 +282,9 @@ export class YAxis extends BaseGroup {
         label.anchor.set(1, 0.5);
         label.visible = true;
         label.alpha = 1;
+        // Contre-scale l'étirement du parent (viewport) pour garder un texte lisible
+        // et non déformé quand scaleX ≠ scaleY (voir PixiApp.axisStretch).
+        label.scale.set(1 / this.axisStretch.x, 1 / this.axisStretch.y);
         this.addChild(label);
         return label;
     }
@@ -288,6 +306,9 @@ export class YAxis extends BaseGroup {
         // draws from bottom (large Y) to top (small Y).
         const reversedCategories = [...this.categories].reverse();
         for (const category of reversedCategories) {
+            if (!isCategoryVisible(category)) {
+                continue;
+            }
             const displayMode = this.getEffectiveDisplayMode(category);
             if (displayMode === DisplayModeEnum.Background) {
                 continue;
@@ -296,15 +317,20 @@ export class YAxis extends BaseGroup {
                 continue;
             }
             if (displayMode === DisplayModeEnum.Frieze) {
+                // Contre-scale la compaction verticale : une frise garde une hauteur
+                // affichée fixe même quand l'utilisatrice compacte l'axe Y (voir
+                // PixiApp.axisStretch), contrairement aux lignes d'observables
+                // normales qui doivent se compacter.
+                const worldFriezeHeight = TICK_CONFIG.FRIEZE_HEIGHT / this.axisStretch.y;
                 const friezeStartY = axisLength;
-                axisLength += TICK_CONFIG.FRIEZE_HEIGHT;
+                axisLength += worldFriezeHeight;
                 ticks.push({
                     label: category.name,
-                    pos: friezeStartY + TICK_CONFIG.FRIEZE_HEIGHT / 2,
+                    pos: friezeStartY + worldFriezeHeight / 2,
                     category,
                     observable: category,
                     isFrieze: true,
-                    friezeHeight: TICK_CONFIG.FRIEZE_HEIGHT,
+                    friezeHeight: worldFriezeHeight,
                     friezeStartY,
                 });
             }

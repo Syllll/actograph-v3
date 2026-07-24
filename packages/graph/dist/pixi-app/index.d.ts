@@ -70,14 +70,28 @@ export declare class PixiApp {
     /** When true, executeDraw clears pattern textures after detaching sprites. */
     private needsPatternTextureRefresh;
     /**
+     * After WebGL context loss, cached pattern textures hold dead GPU resources
+     * even if no sprites remain on stage; force a full cache clear on next draw.
+     */
+    private forcePatternTextureClear;
+    /**
      * True from the moment a full draw clears axis graphics until axes are
      * successfully stroked again. Partial paints (hover, redrawCategory, pan)
      * must not call app.render() while this is set — they would show empty axes.
      */
     private axesGraphicsDirty;
+    private contextRestoring;
+    private contextRestoreOuterRafId;
+    private contextRestoreInnerRafId;
     /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
     events: EventEmitter<string | symbol, any>;
     private zoomState;
+    /**
+     * Multiplicateurs d'étirement par axe, appliqués par-dessus zoomState.scale.
+     * Indépendants du zoom pan/molette/+- (qui reste uniforme) : permettent
+     * d'étirer le temps (x) et de compacter les catégories (y) séparément.
+     */
+    private axisStretch;
     constructor();
     /**
      * Initialize the PixiJS application.
@@ -103,6 +117,7 @@ export declare class PixiApp {
      * across tab hide/show.
      */
     prepareForResumeRefresh(): void;
+    private cancelContextRestoreRafs;
     /**
      * Refresh rendering after window resize, visibility resume, or WebGL context restore.
      */
@@ -134,6 +149,7 @@ export declare class PixiApp {
      * instead of painting the empty-axes scene (hover/pan must not "exclude" axes).
      */
     requestRender(): void;
+    private scheduleDraw;
     draw(): Promise<void>;
     /** Queues an exclusive full redraw on drawChain (used by draw + export). */
     private enqueueDrawBody;
@@ -162,6 +178,21 @@ export declare class PixiApp {
     zoomOut(): void;
     resetView(): Promise<void>;
     getZoomLevel(): number;
+    /**
+     * Étirement indépendant par axe (x = temps, y = catégories), appliqué
+     * par-dessus le zoom uniforme existant (pan/molette/+-, inchangé).
+     * Redessine les axes/données (labels et marqueurs recréés à chaque draw)
+     * pour que le contre-scaling anti-déformation (voir YAxis/xAxis/DataArea)
+     * soit appliqué avec la nouvelle valeur.
+     */
+    setAxisStretch(next: {
+        x?: number;
+        y?: number;
+    }): Promise<void>;
+    getAxisStretch(): {
+        x: number;
+        y: number;
+    };
     /**
      * Exporte le graphique sous forme d'image (data URL)
      * @param format - Format de l'image : 'png' ou 'jpeg'

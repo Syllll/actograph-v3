@@ -95,11 +95,19 @@ export class PixiApp {
   /** When true, executeDraw clears pattern textures after detaching sprites. */
   private needsPatternTextureRefresh = false;
   /**
+   * After WebGL context loss, cached pattern textures hold dead GPU resources
+   * even if no sprites remain on stage; force a full cache clear on next draw.
+   */
+  private forcePatternTextureClear = false;
+  /**
    * True from the moment a full draw clears axis graphics until axes are
    * successfully stroked again. Partial paints (hover, redrawCategory, pan)
    * must not call app.render() while this is set — they would show empty axes.
    */
   private axesGraphicsDirty = false;
+  private contextRestoring = false;
+  private contextRestoreOuterRafId: number | null = null;
+  private contextRestoreInnerRafId: number | null = null;
 
   /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
   public events = new EventEmitter();
@@ -317,11 +325,22 @@ export class PixiApp {
     this.markDegenerateCanvasIfNeeded();
   }
 
+  private cancelContextRestoreRafs(): void {
+    if (this.contextRestoreOuterRafId !== null) {
+      cancelAnimationFrame(this.contextRestoreOuterRafId);
+      this.contextRestoreOuterRafId = null;
+    }
+    if (this.contextRestoreInnerRafId !== null) {
+      cancelAnimationFrame(this.contextRestoreInnerRafId);
+      this.contextRestoreInnerRafId = null;
+    }
+  }
+
   /**
    * Refresh rendering after window resize, visibility resume, or WebGL context restore.
    */
   public refreshAfterResume(): void {
-    if (!this.isInitialized) {
+    if (!this.isInitialized || this.contextRestoring) {
       return;
     }
     this.dataArea.clearHoverOverlay();
@@ -333,7 +352,7 @@ export class PixiApp {
     }
     this.markDegenerateCanvasIfNeeded();
     this.resizeFromCanvas({ skipRender: true });
-    void this.draw();
+    this.scheduleDraw('resume');
   }
 
   /**
@@ -370,15 +389,32 @@ export class PixiApp {
 
     const onContextLost = (event: Event) => {
       event.preventDefault();
+      this.contextRestoring = true;
+      // Cancel any restore refresh already queued: a re-loss before the
+      // deferred resume must not run resize/draw on a dead GL context.
+      this.cancelContextRestoreRafs();
       this.dataArea.clearHoverOverlay();
       this.needsPatternTextureRefresh = true;
+      this.forcePatternTextureClear = true;
       this.axesGraphicsDirty = true;
       // Force fit after restore: GPU context loss often coincides with a bad
       // or stale viewport even when CSS size still looks valid.
       this.wasDegenerateCanvas = true;
     };
     const onContextRestored = () => {
-      this.refreshAfterResume();
+      // Defer until the browser has recreated the GL context and canvas layout.
+      this.cancelContextRestoreRafs();
+      this.contextRestoreOuterRafId = requestAnimationFrame(() => {
+        this.contextRestoreOuterRafId = null;
+        this.contextRestoreInnerRafId = requestAnimationFrame(() => {
+          this.contextRestoreInnerRafId = null;
+          if (!this.isInitialized) {
+            return;
+          }
+          this.contextRestoring = false;
+          this.refreshAfterResume();
+        });
+      });
     };
 
     canvas.addEventListener('webglcontextlost', onContextLost, false);
@@ -472,7 +508,7 @@ export class PixiApp {
     this.xAxis.setGraphRenderOptions(this.graphRenderOptions);
     this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
     if (drawOptions?.redraw !== false) {
-      void this.draw();
+      this.scheduleDraw('renderOptions');
     }
   }
 
@@ -517,7 +553,7 @@ export class PixiApp {
           }
           Object.assign(observable.graphPreferences, preference);
           if (options?.redraw !== false) {
-            void this.draw();
+            this.scheduleDraw('observablePref');
           }
           break;
         }
@@ -527,7 +563,7 @@ export class PixiApp {
 
   public redrawCategory(categoryId: string): void {
     if (this.axesGraphicsDirty) {
-      void this.draw();
+      this.scheduleDraw('redrawCategory');
       return;
     }
     this.dataArea.redrawCategory(categoryId);
@@ -536,7 +572,7 @@ export class PixiApp {
 
   public redrawObservable(observableId: string): void {
     if (this.axesGraphicsDirty) {
-      void this.draw();
+      this.scheduleDraw('redrawObservable');
       return;
     }
     this.dataArea.redrawObservable(observableId);
@@ -562,10 +598,19 @@ export class PixiApp {
       return;
     }
     if (this.axesGraphicsDirty) {
-      void this.draw();
+      this.scheduleDraw('renderGate');
       return;
     }
     this.app.render();
+  }
+
+  private scheduleDraw(reason?: string): void {
+    if (!this.isInitialized) {
+      return;
+    }
+    this.draw().catch((error) => {
+      console.warn(`[PixiApp] scheduleDraw failed (${reason ?? 'unknown'}):`, error);
+    });
   }
 
   public draw(): Promise<void> {
@@ -615,6 +660,12 @@ export class PixiApp {
     if (!this.isInitialized) {
       return;
     }
+    if (this.contextRestoring) {
+      return;
+    }
+    if (!this.app.renderer) {
+      return;
+    }
 
     this.drawInProgress = true;
     try {
@@ -624,9 +675,14 @@ export class PixiApp {
       this.dataArea.clearHoverOverlay({ cancelPending: true });
 
       if (this.needsPatternTextureRefresh) {
-        // Detach sprites before destroying cached textures they still reference.
+        const hadPatterns = this.dataArea.hasPatternSprites();
         this.dataArea.clearPatternSprites();
-        clearPatternTextureCache();
+        // Skip cache destroy in Normal (no pattern sprites) unless WebGL
+        // context loss left dead GPU textures in the shared module cache.
+        if (hadPatterns || this.forcePatternTextureClear) {
+          clearPatternTextureCache();
+          this.forcePatternTextureClear = false;
+        }
         this.needsPatternTextureRefresh = false;
       }
 
@@ -1219,6 +1275,8 @@ export class PixiApp {
       cancelAnimationFrame(this.drawRafId);
       this.drawRafId = null;
     }
+    this.cancelContextRestoreRafs();
+    this.contextRestoring = false;
     const pendingResolvers = this.drawResolvers;
     this.drawResolvers = [];
     pendingResolvers.forEach((r) => r.resolve());

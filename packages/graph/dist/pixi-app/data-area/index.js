@@ -1,7 +1,7 @@
 import { Text, Container, Graphics } from 'pixi.js';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
-import { ReadingTypeEnum, ObservationModeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, TimeDisplayFormatEnum, mergeGraphPreferences, resolveGraphColor, } from '@actograph/core';
+import { ReadingTypeEnum, ObservationModeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, TimeDisplayFormatEnum, mergeGraphPreferences, resolveGraphColor, isCategoryVisible, } from '@actograph/core';
 import { parseProtocolItems, hydrateProtocolItemsFromStringIfNeeded, } from '../../utils/protocol.utils';
 import { formatFromDate, formatCalendarFixed, formatChronometerFixed, } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
@@ -12,6 +12,12 @@ import { computePauseOverlayRects, DEFAULT_PAUSE_OVERLAY_STYLE, } from '../../ut
 import { computeCrosshairSegments, computeHoverTimeLabelPosition, } from '../../utils/crosshair.utils';
 import { shouldRenderHoverOverlay } from '../../utils/hover-overlay.utils';
 export class DataArea extends BaseGroup {
+    setAxisStretch(stretch) {
+        this.axisStretch = stretch;
+        if (this.timeLabelContainer) {
+            this.timeLabelContainer.scale.set(1 / stretch.x, 1 / stretch.y);
+        }
+    }
     constructor(app, yAxis, xAxis, options) {
         super(app);
         this.plotContainer = null;
@@ -33,6 +39,8 @@ export class DataArea extends BaseGroup {
         this.isDrawInProgress = null;
         this.isAxesGraphicsDirty = null;
         this.requestRender = null;
+        /** Voir YAxis.axisStretch : contre-scale marqueurs ronds et étiquette de survol. */
+        this.axisStretch = { x: 1, y: 1 };
         this.yAxis = yAxis;
         this.xAxis = xAxis;
         this.graphInteractionEnabled = options?.interactive ?? true;
@@ -343,6 +351,9 @@ export class DataArea extends BaseGroup {
             categoryEntry.readings = mergeContinuousCategoryReadings(categoryEntry.readings, sessionBoundaryReadings);
         }
     }
+    hasPatternSprites() {
+        return this.tilingSpritesPerCategory.some((entry) => entry.sprites.length > 0);
+    }
     /**
      * Removes tiling pattern sprites from the stage without clearing readings.
      * Call before clearPatternTextureCache() so destroyed textures are not still bound.
@@ -394,6 +405,13 @@ export class DataArea extends BaseGroup {
         const friezeCategories = [];
         const normalCategories = [];
         for (const categoryEntry of this.readingsPerCategory) {
+            if (!isCategoryVisible(categoryEntry.category)) {
+                // Catégorie décochée : ne pas la classer pour dessin, et vider son
+                // graphique persistant pour ne pas laisser un résidu affiché (son
+                // drawCategoryX ne sera pas rappelé tant qu'elle reste cachée).
+                this.clearCategoryGraphic(categoryEntry.category.id);
+                continue;
+            }
             const displayMode = this.getEffectiveDisplayMode(categoryEntry.category);
             if (displayMode === DisplayModeEnum.Background) {
                 backgroundCategories.push(categoryEntry);
@@ -502,6 +520,11 @@ export class DataArea extends BaseGroup {
         this.setChildIndex(this.pointerDashedLines, count - 3);
         this.setChildIndex(this.timeLabelContainer, count - 2);
     }
+    /** Vide le graphique persistant d'une catégorie (ex: catégorie décochée), sans le détruire. */
+    clearCategoryGraphic(categoryId) {
+        const graphicEntry = this.graphicPerCategory.find((g) => g.category.id === categoryId);
+        graphicEntry?.graphic.clear();
+    }
     getOrCreateGraphicForCategory(category) {
         let graphicEntry = this.graphicPerCategory.find((g) => g.category.id === category.id);
         if (!graphicEntry) {
@@ -535,7 +558,9 @@ export class DataArea extends BaseGroup {
                     const prefs = this.getObservablePreferencesForReading(category, reading.name || '');
                     const color = resolveGraphColor(prefs);
                     const strokeWidth = prefs?.strokeWidth ?? 4;
-                    graphic.circle(xPos, yPos, strokeWidth / 2);
+                    // Ellipse contre-scalée par l'étirement courant : reste un cercle
+                    // visuellement correct même quand scaleX ≠ scaleY sur le viewport.
+                    graphic.ellipse(xPos, yPos, strokeWidth / 2 / this.axisStretch.x, strokeWidth / 2 / this.axisStretch.y);
                     graphic.setFillStyle({ color });
                     graphic.fill();
                 }
@@ -619,7 +644,12 @@ export class DataArea extends BaseGroup {
                     graphic.lineTo(xPos, yPos);
                     graphic.setStrokeStyle({
                         color: 'grey',
-                        width: 1,
+                        // Contre-scale l'étirement horizontal : l'épaisseur d'une ligne
+                        // verticale est portée par scaleX, donc étirer l'axe du temps la
+                        // ferait paraître plus épaisse/fine sans raison (voir
+                        // PixiApp.axisStretch, même logique que les marqueurs ellipse
+                        // ci-dessus).
+                        width: 1 / this.axisStretch.x,
                     });
                     graphic.stroke();
                 }
@@ -793,7 +823,7 @@ export class DataArea extends BaseGroup {
                     const prefs = this.getObservablePreferencesForReading(category, reading.name || '');
                     const color = resolveGraphColor(prefs);
                     const strokeWidth = prefs?.strokeWidth ?? 4;
-                    graphic.circle(xPos, yPos, strokeWidth / 2);
+                    graphic.ellipse(xPos, yPos, strokeWidth / 2 / this.axisStretch.x, strokeWidth / 2 / this.axisStretch.y);
                     graphic.setFillStyle({ color });
                     graphic.fill();
                 }
@@ -825,7 +855,7 @@ export class DataArea extends BaseGroup {
             if (pattern === BackgroundPatternEnum.Solid) {
                 graphic
                     .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
-                    .fill({ color, alpha: 0.6 });
+                    .fill({ color, alpha: 1 });
                 graphic
                     .rect(segmentStartX, friezeTopY, segmentWidth, friezeHeight)
                     .stroke({ color: color, width: 1 });
@@ -855,6 +885,10 @@ export class DataArea extends BaseGroup {
     redrawCategory(categoryId) {
         const categoryEntry = this.readingsPerCategory.find((r) => r.category.id === categoryId);
         if (!categoryEntry) {
+            return;
+        }
+        if (!isCategoryVisible(categoryEntry.category)) {
+            this.clearCategoryGraphic(categoryId);
             return;
         }
         const displayMode = this.getEffectiveDisplayMode(categoryEntry.category);
@@ -896,6 +930,10 @@ export class DataArea extends BaseGroup {
         const category = targetCategory;
         const categoryEntry = this.readingsPerCategory.find((r) => r.category.id === category.id);
         if (!categoryEntry) {
+            return;
+        }
+        if (!isCategoryVisible(categoryEntry.category)) {
+            this.clearCategoryGraphic(category.id);
             return;
         }
         const displayMode = this.getEffectiveDisplayMode(category);

@@ -21,6 +21,12 @@ export declare class xAxis extends BaseGroup {
     private ticks;
     private axisStart;
     private axisEnd;
+    /** Voir YAxis.axisStretch : contre-scale les labels quand scaleX ≠ scaleY. */
+    private axisStretch;
+    setAxisStretch(stretch: {
+        x: number;
+        y: number;
+    }): void;
     getAxisStart(): {
         x?: number | undefined;
         y?: number | undefined;

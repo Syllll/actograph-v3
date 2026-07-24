@@ -4,8 +4,10 @@ export function isDegenerateCanvasSize(width, height) {
     return width <= 2 || height <= 2;
 }
 /**
- * Scale initial pour faire tenir le plot entier dans le canvas (mode interactif).
+ * Scale initial (uniforme) pour faire tenir le plot entier dans le canvas (mode interactif).
  * Ne zoome pas au-delà de 1 si le contenu est déjà plus petit que le canvas.
+ * Reste volontairement une échelle unique : c'est la base du zoom pan/molette/+- ;
+ * l'étirement par axe (axisStretch) est composé par-dessus par l'appelant.
  */
 export function computeFitScale(worldBounds, canvasSize, minScale, maxScale) {
     if (worldBounds.width <= 0 || worldBounds.height <= 0) {
@@ -19,20 +21,21 @@ export function computeFitScale(worldBounds, canvasSize, minScale, maxScale) {
 /**
  * Position du viewport pour centrer le plot quand il est plus petit que le canvas.
  */
-export function computeFitViewportPosition(worldBounds, canvasSize, scale) {
-    const scaledWidth = worldBounds.width * scale;
-    const scaledHeight = worldBounds.height * scale;
+export function computeFitViewportPosition(worldBounds, canvasSize, scaleX, scaleY) {
+    const scaledWidth = worldBounds.width * scaleX;
+    const scaledHeight = worldBounds.height * scaleY;
     const x = scaledWidth < canvasSize.width ? (canvasSize.width - scaledWidth) / 2 : 0;
     const y = scaledHeight < canvasSize.height ? (canvasSize.height - scaledHeight) / 2 : 0;
     return { x, y };
 }
 /**
  * Borne le viewport pour éviter de montrer une zone vide hors du plot.
+ * scaleX/scaleY sont bornés indépendamment (largeur contre scaleX, hauteur contre scaleY).
  */
 export function clampViewport(viewport, worldBounds, canvasSize, margin = DEFAULT_OVERSCROLL_MARGIN) {
-    const { scale } = viewport;
-    const scaledWidth = worldBounds.width * scale;
-    const scaledHeight = worldBounds.height * scale;
+    const { scaleX, scaleY } = viewport;
+    const scaledWidth = worldBounds.width * scaleX;
+    const scaledHeight = worldBounds.height * scaleY;
     let x = viewport.x;
     let y = viewport.y;
     if (scaledWidth <= canvasSize.width) {
@@ -51,15 +54,17 @@ export function clampViewport(viewport, worldBounds, canvasSize, margin = DEFAUL
         const maxY = margin;
         y = Math.max(minY, Math.min(maxY, y));
     }
-    return { x, y, scale };
+    return { x, y, scaleX, scaleY };
 }
 /**
  * Fit viewport for a given world size and canvas (used on init, export, resize).
+ * Le fit reste uniforme (scaleX === scaleY) : c'est la base neutre avant application
+ * de l'étirement par axe par l'appelant (PixiApp.axisStretch).
  */
 export function computeFitViewport(worldBounds, canvasSize, minScale, maxScale) {
     const scale = computeFitScale(worldBounds, canvasSize, minScale, maxScale);
-    const position = computeFitViewportPosition(worldBounds, canvasSize, scale);
-    return { scale, x: position.x, y: position.y };
+    const position = computeFitViewportPosition(worldBounds, canvasSize, scale, scale);
+    return { scaleX: scale, scaleY: scale, x: position.x, y: position.y };
 }
 /**
  * Re-clamps the current viewport after a canvas resize (preserves user zoom).
