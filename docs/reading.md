@@ -54,14 +54,16 @@ enum ReadingTypeEnum {
 
 ### Pauses
 
-Les relevés `PAUSE_START` et `PAUSE_END` délimitent une **métadonnée temporelle** : ils marquent un intervalle de pause sans couper les états actifs.
+> Référence complète : **[docs/pauses.md](pauses.md)**.
 
-- Les pauses ne sont pas des frontières d'état pour les observables continus : un état (Lieu, Action) reste actif à travers une pause jusqu'au prochain relevé `DATA` ou `STOP` de la catégorie.
-- Les catégories discrètes (Évènements) ne sont pas affectées : chaque relevé `DATA` reste un événement ponctuel.
-- Une pause orpheline (`PAUSE_START` sans `PAUSE_END` correspondant, ou l'inverse) est ignorée silencieusement dans les calculs statistiques : elle ne contribue ni à la durée de pause ni aux durées des observables.
-- Le rendu graphique (overlay `maskPauses`, segments continus) est décrit dans `docs/graph.md` (section [Pauses](graph.md#pauses)). L'option statistique **« Traiter les pauses comme un état séparé »** est documentée dans `docs/features/20250115000000-22-23-statistiques-Sylvain-Meylan.md`.
+Les relevés `PAUSE_START` et `PAUSE_END` délimitent une **métadonnée temporelle** : intervalle de pause **sans** couper les états actifs.
 
-**Mode chronomètre + vidéo** : lorsqu'une vidéo est chargée (`videoPath`), les relevés de pause ne sont pas créés automatiquement. Voir la section [Synchronisation avec la vidéo](#synchronisation-avec-la-vidéo-1) ci-dessous.
+- Observables continus : l’état reste actif à travers la pause jusqu’au prochain `DATA` / `STOP` de la catégorie.
+- Catégories discrètes : aucun effet sur les occurrences.
+- Pause orpheline : ignorée en stats / périodes.
+- Graphe : segments continus + overlay (pas de coupure calendrier). Stats : comportement figé « pauses comme état séparé ».
+
+**Mode chronomètre + vidéo** : pas de `PAUSE_*` automatiques si `videoPath` est renseigné. Voir [Synchronisation avec la vidéo](#synchronisation-avec-la-vidéo-1).
 
 ## Création de Readings
 
@@ -414,7 +416,7 @@ En mode chronomètre avec une vidéo chargée :
 - Les boutons s'activent automatiquement selon la position de la vidéo
 - **Performance optimisée** : Utilisation du protocole `file://` pour streaming natif (pas de chargement en mémoire)
 - **Vérification de taille** : Avertissement automatique pour fichiers volumineux (>500 MB)
-- **Pauses** : les relevés `PAUSE_START` / `PAUSE_END` ne sont pas créés en mode vidéo (voir section [Pauses](#pauses) et `docs/graph.md`)
+- **Pauses** : les relevés `PAUSE_START` / `PAUSE_END` ne sont pas créés en mode vidéo (voir [docs/pauses.md](pauses.md))
 
 Voir la documentation de la feature [intégration vidéo](../features/integration-video/integration-video.md) pour plus de détails.
 
@@ -558,7 +560,7 @@ Lorsqu'une vidéo est chargée en mode chronomètre :
 - Les encoches sur la timeline de la vidéo indiquent la position des readings
 - Les boutons s'activent automatiquement selon la position de la vidéo
 
-**Pauses en mode vidéo** : les relevés `PAUSE_START` et `PAUSE_END` ne sont **pas** créés lors d'une pause de l'observation ou de la vidéo (comportement préexistant). Les options de masquage graphique (`maskPauses`) et l'option statistique « Traiter les pauses comme un état séparé » n'ont donc aucun effet dans ce mode. Voir `docs/graph.md` (section Pauses).
+**Pauses en mode vidéo** : les relevés `PAUSE_START` et `PAUSE_END` ne sont **pas** créés lors d'une pause de l'observation ou de la vidéo. Overlay graphe et traitement stats des pauses n'ont donc aucun effet. Voir [docs/pauses.md](pauses.md).
 
 ### Création de readings en mode chronomètre
 

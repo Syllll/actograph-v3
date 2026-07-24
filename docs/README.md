@@ -15,6 +15,7 @@ docs/
 ├── graph.md                     # Documentation graphe d'activité
 ├── issues-status.md             # État des issues GitHub
 ├── monorepo-build.md            # Build monorepo
+├── pauses.md                    # Gestion des pauses (observation, graphe, stats)
 ├── protocol.md                  # Documentation protocole
 ├── reading.md                   # Documentation relevés
 ├── features/                    # Documentation PÉRENNE de features terminées
