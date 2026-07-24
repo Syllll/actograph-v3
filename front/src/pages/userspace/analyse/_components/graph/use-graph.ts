@@ -246,7 +246,14 @@ export const useGraph = (options?: {
     }
     const didResize = sharedState.pixiApp.resizeFromCanvas({ skipRender: true });
     if (didResize) {
-      void redrawFromObservation(sharedState.pixiApp);
+      // Coalescé (comme scheduleRedraw) : un drag de volet ou un relayout de
+      // splitter émet une rafale de resize (ResizeObserver). Un redraw complet
+      // immédiat par tick faisait s'enchaîner/se chevaucher des cycles
+      // setData+draw concurrents, laissant l'état des axes/labels incohérent
+      // (labels manquants ou d'une autre catégorie) une fois la rafale
+      // terminée. On ne redessine donc qu'une fois, 50 ms après le dernier
+      // resize.
+      scheduleRedraw();
     }
   };
 
