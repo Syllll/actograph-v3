@@ -1361,9 +1361,22 @@ export default defineComponent({
 
 .timer-display {
   font-family: 'Roboto Mono', 'Courier New', monospace;
+  // Se réduit sur les écrans étroits pour garder une marge par rapport aux
+  // boutons play/pause/stop voisins (sinon le texte peut déborder derrière
+  // eux, cf. rapport-bug écran caché par les boutons). 2.125rem = taille
+  // text-h4 par défaut, conservée sur les écrans suffisamment larges.
+  font-size: clamp(22px, 8vw, 2.125rem);
   letter-spacing: 2px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   line-height: 1.2;
+  // Filet de sécurité : si malgré le clamp le texte reste trop large
+  // (police système agrandie, très petit écran...), il est tronqué
+  // proprement dans sa propre boîte plutôt que de déborder sous les
+  // boutons voisins.
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   &.blink {
     animation: blink-animation 1s ease-in-out infinite;
