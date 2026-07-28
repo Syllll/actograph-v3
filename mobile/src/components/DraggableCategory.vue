@@ -464,12 +464,15 @@ export default defineComponent({
 
   &.continuous {
     .category-header {
-      background: rgba(249, 115, 22, 0.12);
-      color: #9a3412;
-      border-bottom-color: rgba(249, 115, 22, 0.18);
+      // Reste plus discret que l'en-tête sombre par défaut (teinte orange
+      // pâle plutôt que --primary plein), mais #7c2d12 (vs #9a3412 avant)
+      // porte le contraste sur fond clair à ~8:1 (AAA) au lieu de ~6:1.
+      background: rgba(249, 115, 22, 0.16);
+      color: #7c2d12;
+      border-bottom-color: rgba(249, 115, 22, 0.22);
 
       .drag-handle {
-        color: #9a3412 !important;
+        color: #7c2d12 !important;
       }
     }
   }
