@@ -23,6 +23,11 @@
           class="timer-display text-h4 text-weight-bold col text-center"
           :class="chronicle.sharedState.isPaused ? 'text-warning blink' : 'text-accent'"
         >
+          <span
+            v-if="state.isRecording && !chronicle.sharedState.isPaused"
+            class="rec-dot"
+            aria-hidden="true"
+          />
           {{ chronicle.formattedTime.value }}
         </div>
 
@@ -1370,9 +1375,26 @@ export default defineComponent({
   }
 }
 
+.rec-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  margin-bottom: 2px;
+  border-radius: 50%;
+  background: var(--q-negative);
+  vertical-align: middle;
+  animation: rec-dot-pulse 1.1s ease-in-out infinite;
+}
+
 @keyframes blink-animation {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+@keyframes rec-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
 }
 
 .categories-container {
