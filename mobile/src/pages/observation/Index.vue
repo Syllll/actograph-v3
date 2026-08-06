@@ -18,12 +18,18 @@
         />
         <div v-else class="toolbar-spacer" />
 
-        <!-- Center: Timer -->
+        <!-- Center: Timer (+ REC dot while recording) -->
         <div
           class="timer-display text-h4 text-weight-bold col text-center"
           :class="chronicle.sharedState.isPaused ? 'text-warning blink' : 'text-accent'"
+          :aria-label="state.isRecording && !chronicle.sharedState.isPaused ? 'Enregistrement en cours' : undefined"
         >
-          {{ chronicle.formattedTime.value }}
+          <span
+            v-if="state.isRecording && !chronicle.sharedState.isPaused"
+            class="rec-dot"
+            aria-hidden="true"
+          />
+          <span class="timer-text">{{ chronicle.formattedTime.value }}</span>
         </div>
 
         <!-- Right: Edit mode actions OR Record controls -->
@@ -1360,19 +1366,49 @@ export default defineComponent({
 }
 
 .timer-display {
+  // Flex so the REC dot stays visible while only the time text can ellipsize
+  // on narrow screens / large system fonts (avoids painting under pause/stop).
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
   font-family: 'Roboto Mono', 'Courier New', monospace;
+  // 2.125rem = Quasar text-h4; shrink on narrow viewports to keep margin vs buttons.
+  font-size: clamp(22px, 8vw, 2.125rem);
   letter-spacing: 2px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   line-height: 1.2;
+
+  .timer-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   &.blink {
     animation: blink-animation 1s ease-in-out infinite;
   }
 }
 
+.rec-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--q-negative);
+  animation: rec-dot-pulse 1.1s ease-in-out infinite;
+}
+
 @keyframes blink-animation {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+@keyframes rec-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
 }
 
 .categories-container {
