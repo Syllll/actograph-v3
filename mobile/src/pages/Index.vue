@@ -18,7 +18,7 @@
         <q-card-section class="stats-section">
           <div class="row no-wrap">
             <div class="stat-item col text-center">
-              <div class="text-h4 text-weight-bold text-primary">{{ chronicle.sharedState.currentReadings.length }}</div>
+              <div class="text-h4 text-weight-bold stat-value">{{ chronicle.sharedState.currentReadings.length }}</div>
               <div class="stat-label text-caption">
                 <q-icon name="mdi-database" size="14px" class="q-mr-xs" />
                 Relevés
@@ -26,7 +26,7 @@
             </div>
             <q-separator vertical />
             <div class="stat-item col text-center">
-              <div class="text-h4 text-weight-bold text-primary">{{ chronicle.sharedState.currentProtocol.length }}</div>
+              <div class="text-h4 text-weight-bold stat-value">{{ chronicle.sharedState.currentProtocol.length }}</div>
               <div class="stat-label text-caption">
                 <q-icon name="mdi-folder-outline" size="14px" class="q-mr-xs" />
                 Catégories
@@ -501,6 +501,12 @@ body.body--light .home-action-btn {
 .chronicle-description,
 .stat-label {
   color: var(--text-secondary);
+}
+
+// `.text-primary` is hardcoded to brand (#1f2937) in both themes, so near-invisible
+// on the dark-mode card. Prefer theme-aware --text (black light / white dark).
+.stat-value {
+  color: var(--text);
 }
 
 body.body--dark {

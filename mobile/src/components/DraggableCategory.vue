@@ -464,12 +464,14 @@ export default defineComponent({
 
   &.continuous {
     .category-header {
-      background: rgba(249, 115, 22, 0.12);
-      color: #9a3412;
-      border-bottom-color: rgba(249, 115, 22, 0.18);
+      // Still softer than discrete headers (full --primary + white), but
+      // #7c2d12 on the slightly stronger orange wash reaches ~8:1 (AAA).
+      background: rgba(249, 115, 22, 0.16);
+      color: #7c2d12;
+      border-bottom-color: rgba(249, 115, 22, 0.22);
 
       .drag-handle {
-        color: #9a3412 !important;
+        color: #7c2d12 !important;
       }
     }
   }
