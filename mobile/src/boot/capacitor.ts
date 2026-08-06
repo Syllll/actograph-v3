@@ -20,6 +20,7 @@ export default boot(async ({ router }) => {
 
   // Configure status bar with ActoGraph colors
   try {
+    await StatusBar.setOverlaysWebView({ overlay: true });
     await StatusBar.setStyle({ style: Style.Light });
     await StatusBar.setBackgroundColor({ color: '#1f2937' }); // primary color
   } catch (error) {
