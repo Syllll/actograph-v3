@@ -464,15 +464,19 @@ export default defineComponent({
 
   &.continuous {
     .category-header {
-      // Reste plus discret que l'en-tête sombre par défaut (teinte orange
-      // pâle plutôt que --primary plein), mais #7c2d12 (vs #9a3412 avant)
-      // porte le contraste sur fond clair à ~8:1 (AAA) au lieu de ~6:1.
-      background: rgba(249, 115, 22, 0.16);
-      color: #7c2d12;
-      border-bottom-color: rgba(249, 115, 22, 0.22);
+      // La teinte pâle + texte foncé (#7c2d12 sur rgba orange 16%) restait
+      // illisible en pratique (retour testeur) : le fond pâle varie trop
+      // selon la carte sous-jacente (blanc en clair, gris sombre en thème
+      // sombre) pour garantir un contraste fiable. Fond orange plein
+      // (--accent-strong, #c2410c) + texte blanc légèrement grisé, comme
+      // l'en-tête par défaut, pour un contraste stable (~5:1 AA) sur les
+      // deux thèmes.
+      background: var(--accent-strong);
+      color: #f5f5f4;
+      border-bottom-color: rgba(0, 0, 0, 0.12);
 
       .drag-handle {
-        color: #7c2d12 !important;
+        color: #f5f5f4 !important;
       }
     }
   }
