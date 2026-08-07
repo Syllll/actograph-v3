@@ -20,8 +20,8 @@ const TICK_CONFIG = {
   OBSERVABLE_HEIGHT: 30,
   FRIEZE_HEIGHT: 40,
   CATEGORY_SPACING: 15,
-  TICK_LENGTH: 10,
-  FRIEZE_TICK_LENGTH: 5,
+  TICK_LENGTH: 5,
+  FRIEZE_TICK_LENGTH: 3,
   TICK_WIDTH: 1,
   COLOR: 'black',
 } as const;
@@ -339,7 +339,11 @@ export class YAxis extends BaseGroup {
     });
     this.graphic.stroke();
 
-    this.createLabel(label, axisX - LABEL_CONFIG.OFFSET, tickY, false);
+    // Même contre-scale que tickLength ci-dessus : l'écart entre la marque et
+    // son étiquette doit rester visuellement constant, pas s'élargir avec
+    // l'étirement de l'axe du temps.
+    const labelOffset = LABEL_CONFIG.OFFSET / this.axisStretch.x;
+    this.createLabel(label, axisX - labelOffset, tickY, false);
   }
 
   private drawFriezeTick(axisX: number, tickY: number, label: string): void {
@@ -352,7 +356,8 @@ export class YAxis extends BaseGroup {
     });
     this.graphic.stroke();
 
-    this.createLabel(label, axisX - LABEL_CONFIG.OFFSET, tickY, true);
+    const labelOffset = LABEL_CONFIG.OFFSET / this.axisStretch.x;
+    this.createLabel(label, axisX - labelOffset, tickY, true);
   }
 
   private createLabel(text: string, x: number, y: number, bold: boolean): Text {

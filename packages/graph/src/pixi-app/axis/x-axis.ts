@@ -77,7 +77,7 @@ export class xAxis extends BaseGroup {
 
   private styleOptions = {
     axis: { color: 'black', width: 2 },
-    tick: { color: 'black', width: 1 },
+    tick: { color: 'black', width: 1, length: 5 },
     label: { color: 'black', fontSize: 12, fontFamily: 'Arial' },
     /** Mention de format sous la flèche de fin d'axe (ex. "(hh:mn:sec)") — voir getFormatMentionText(). */
     formatMention: { color: '#666666', fontSize: 11, fontFamily: 'Arial', fontStyle: 'italic' as const },
@@ -455,8 +455,8 @@ export class xAxis extends BaseGroup {
 
       tick.pos = tickXpos;
 
-      this.graphic.moveTo(tickXpos, xAxisStart.y - 10);
-      this.graphic.lineTo(tickXpos, xAxisStart.y + 10);
+      this.graphic.moveTo(tickXpos, xAxisStart.y - this.styleOptions.tick.length);
+      this.graphic.lineTo(tickXpos, xAxisStart.y + this.styleOptions.tick.length);
       this.graphic.setStrokeStyle({
         color: this.styleOptions.tick.color,
         width: this.styleOptions.tick.width,
