@@ -18,12 +18,18 @@
         />
         <div v-else class="toolbar-spacer" />
 
-        <!-- Center: Timer -->
+        <!-- Center: Timer (+ REC dot while recording) -->
         <div
           class="timer-display text-h4 text-weight-bold col text-center"
           :class="chronicle.sharedState.isPaused ? 'text-warning blink' : 'text-accent'"
+          :aria-label="state.isRecording && !chronicle.sharedState.isPaused ? 'Enregistrement en cours' : undefined"
         >
-          {{ chronicle.formattedTime.value }}
+          <span
+            v-if="state.isRecording && !chronicle.sharedState.isPaused"
+            class="rec-dot"
+            aria-hidden="true"
+          />
+          <span class="timer-text">{{ chronicle.formattedTime.value }}</span>
         </div>
 
         <!-- Right: Edit mode actions OR Record controls -->
@@ -438,14 +444,15 @@
           </q-list>
 
           <!-- Réglage de la taille d'affichage (contextuel à l'édition du protocole) -->
-          <div class="q-mt-md q-pa-md ui-scale-card">
-            <div class="row items-center q-mb-sm">
-              <q-icon name="mdi-resize" size="20px" color="primary" class="q-mr-sm" />
-              <div class="text-subtitle2 text-weight-medium">Taille d'affichage</div>
+          <div class="q-mt-sm q-pa-sm ui-scale-card">
+            <div class="row items-center q-mb-xs">
+              <q-icon name="mdi-resize" size="18px" color="primary" class="q-mr-sm" />
+              <div class="text-caption text-weight-medium">Taille d'affichage</div>
               <q-space />
               <q-badge color="primary" :label="Math.round(uiScale.state.scale * 100) + '%'" />
             </div>
             <q-slider
+              dense
               :model-value="uiScale.state.scale"
               :min="uiScale.min"
               :max="uiScale.max"
@@ -453,7 +460,7 @@
               color="primary"
               @update:model-value="methods.onUiScaleChange"
             />
-            <div class="row items-center justify-between q-mt-xs">
+            <div class="row items-center justify-between">
               <q-btn flat dense label="Compact" color="grey-7" size="sm" @click="uiScale.setScale(uiScale.min)" />
               <q-btn flat dense label="Standard" color="grey-7" size="sm" @click="uiScale.setScale(1)" />
               <q-btn flat dense label="Grand" color="grey-7" size="sm" @click="uiScale.setScale(uiScale.max)" />
@@ -465,7 +472,7 @@
             color="primary"
             label="Ajouter une catégorie"
             icon="mdi-folder-plus"
-            class="full-width q-mt-md"
+            class="full-width q-mt-sm"
             unelevated
             @click="methods.openAddCategoryFromSheet"
           />
@@ -1360,19 +1367,49 @@ export default defineComponent({
 }
 
 .timer-display {
+  // Flex so the REC dot stays visible while only the time text can ellipsize
+  // on narrow screens / large system fonts (avoids painting under pause/stop).
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
   font-family: 'Roboto Mono', 'Courier New', monospace;
+  // 2.125rem = Quasar text-h4; shrink on narrow viewports to keep margin vs buttons.
+  font-size: clamp(22px, 8vw, 2.125rem);
   letter-spacing: 2px;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   line-height: 1.2;
+
+  .timer-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   &.blink {
     animation: blink-animation 1s ease-in-out infinite;
   }
 }
 
+.rec-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--q-negative);
+  animation: rec-dot-pulse 1.1s ease-in-out infinite;
+}
+
 @keyframes blink-animation {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+@keyframes rec-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
 }
 
 .categories-container {

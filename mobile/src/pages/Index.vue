@@ -503,9 +503,8 @@ body.body--light .home-action-btn {
   color: var(--text-secondary);
 }
 
-// `.text-primary` (Quasar utility) is hardcoded to the brand color (#1f2937)
-// in both themes, so it's near-invisible on the dark-mode card background.
-// Use the theme-aware --text var instead (black on light, white on dark).
+// `.text-primary` is hardcoded to brand (#1f2937) in both themes, so near-invisible
+// on the dark-mode card. Prefer theme-aware --text (black light / white dark).
 .stat-value {
   color: var(--text);
 }
