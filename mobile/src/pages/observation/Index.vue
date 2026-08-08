@@ -444,14 +444,15 @@
           </q-list>
 
           <!-- Réglage de la taille d'affichage (contextuel à l'édition du protocole) -->
-          <div class="q-mt-md q-pa-md ui-scale-card">
-            <div class="row items-center q-mb-sm">
-              <q-icon name="mdi-resize" size="20px" color="primary" class="q-mr-sm" />
-              <div class="text-subtitle2 text-weight-medium">Taille d'affichage</div>
+          <div class="q-mt-sm q-pa-sm ui-scale-card">
+            <div class="row items-center q-mb-xs">
+              <q-icon name="mdi-resize" size="18px" color="primary" class="q-mr-sm" />
+              <div class="text-caption text-weight-medium">Taille d'affichage</div>
               <q-space />
               <q-badge color="primary" :label="Math.round(uiScale.state.scale * 100) + '%'" />
             </div>
             <q-slider
+              dense
               :model-value="uiScale.state.scale"
               :min="uiScale.min"
               :max="uiScale.max"
@@ -459,7 +460,7 @@
               color="primary"
               @update:model-value="methods.onUiScaleChange"
             />
-            <div class="row items-center justify-between q-mt-xs">
+            <div class="row items-center justify-between">
               <q-btn flat dense label="Compact" color="grey-7" size="sm" @click="uiScale.setScale(uiScale.min)" />
               <q-btn flat dense label="Standard" color="grey-7" size="sm" @click="uiScale.setScale(1)" />
               <q-btn flat dense label="Grand" color="grey-7" size="sm" @click="uiScale.setScale(uiScale.max)" />
@@ -471,7 +472,7 @@
             color="primary"
             label="Ajouter une catégorie"
             icon="mdi-folder-plus"
-            class="full-width q-mt-md"
+            class="full-width q-mt-sm"
             unelevated
             @click="methods.openAddCategoryFromSheet"
           />
