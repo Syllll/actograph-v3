@@ -464,13 +464,8 @@ export default defineComponent({
 
   &.continuous {
     .category-header {
-      // La teinte pâle + texte foncé (#7c2d12 sur rgba orange 16%) restait
-      // illisible en pratique (retour testeur) : le fond pâle varie trop
-      // selon la carte sous-jacente (blanc en clair, gris sombre en thème
-      // sombre) pour garantir un contraste fiable. Fond orange plein
-      // (--accent-strong, #c2410c) + texte blanc légèrement grisé, comme
-      // l'en-tête par défaut, pour un contraste stable (~5:1 AA) sur les
-      // deux thèmes.
+      // Fond orange plein (--accent-strong) + texte blanc : contraste stable (~5:1 AA)
+      // sur les deux thèmes (le fond pâle transparent + texte clair/foncé variait trop).
       background: var(--accent-strong);
       color: #f5f5f4;
       border-bottom-color: rgba(0, 0, 0, 0.12);

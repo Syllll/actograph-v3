@@ -1,5 +1,6 @@
 import type { IGraphPreferences } from '../types/protocol.types';
 import { ProtocolItemActionEnum } from '../enums';
+import { normalizeGraphColor } from './graph-color';
 
 /**
  * Couleur par défaut lorsque le protocole ne définit aucune couleur.
@@ -143,8 +144,9 @@ export function resolveGraphColor(
   fallback: string = DEFAULT_GRAPH_COLOR,
 ): string {
   const color = preferences?.color;
-  if (typeof color === 'string' && color.trim() !== '') {
-    return color;
-  }
-  return fallback;
+  const raw =
+    typeof color === 'string' && color.trim() !== ''
+      ? color
+      : fallback;
+  return normalizeGraphColor(raw, fallback);
 }

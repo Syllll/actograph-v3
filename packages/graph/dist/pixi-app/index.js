@@ -9,6 +9,7 @@ import { clearPatternTextureCache } from '../lib/pattern-textures';
 import { clampViewport, computeFitViewport, isDegenerateCanvasSize, preserveViewportOnResize, } from '../utils/viewport.utils';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../types/graph-render-options';
 import { GRAPH_CANVAS_CURSOR_IDLE, GRAPH_CANVAS_CURSOR_PANNING, } from '../utils/graph-cursor.constants';
+import { canPaintPartial, isAuthoritativePaintReason, shouldScheduleDrawOnPaintGate, } from '../utils/scene-paint.utils';
 /**
  * Classe principale gérant l'application PixiJS pour le graphique d'activité.
  *
@@ -59,6 +60,14 @@ export class PixiApp {
         this.drawResolvers = [];
         this.drawInProgress = false;
         /**
+         * True from the moment `draw()` is requested until its async dispatch
+         * (rAF → wait export → drawChain → executeDrawBody) has fully settled.
+         * Closes the gap where drawRafId/resolvers are already cleared but
+         * executeDrawBody has not yet set drawInProgress/mutating — a window that
+         * previously allowed hover to paint.
+         */
+        this.drawDispatchActive = false;
+        /**
          * Serializes executeDrawBody. Must never await exportQueue while a caller is
          * already on this chain (deadlock with export). External draw() waits for
          * export OFF-chain, then enqueues the body.
@@ -74,11 +83,26 @@ export class PixiApp {
          */
         this.forcePatternTextureClear = false;
         /**
-         * True from the moment a full draw clears axis graphics until axes are
-         * successfully stroked again. Partial paints (hover, redrawCategory, pan)
-         * must not call app.render() while this is set — they would show empty axes.
+         * Scene paint contract (see `paint()`):
+         * - stable: coherent scene, partial paints (hover/pan/…) allowed
+         * - mutating: full draw clearing/rebuilding, partial paints forbidden
+         * - failed: last draw failed, partial paints forbidden until a successful draw
+         *
+         * Replaces the old axesGraphicsDirty boolean with an explicit lifecycle.
          */
-        this.axesGraphicsDirty = false;
+        this.scenePaintState = 'failed';
+        /**
+         * Coalesced catch-up: any number of refused partial paints while unstable
+         * collapse to a single flag. Flushed once when the scene is stable again
+         * (either consumed by draw-complete, or one paint('partial') after dispatch).
+         */
+        this.pendingPartialPaint = false;
+        /**
+         * When false, hover/leave/pan cannot paint (Observation→Graphe remount race:
+         * layout resize often arms DRAW#2 after the first OK frame; hover must wait
+         * until the host re-enables after a settled draw).
+         */
+        this.partialPaintsEnabled = true;
         this.contextRestoring = false;
         this.contextRestoreOuterRafId = null;
         this.contextRestoreInnerRafId = null;
@@ -139,8 +163,8 @@ export class PixiApp {
             resolution: dpr, // Pour les écrans HiDPI
             autoDensity: true, // Ajuste automatiquement la densité
             preserveDrawingBuffer: true, // Required for canvas.toDataURL() to produce non-black exports
-            // Explicit renders only: the default ticker would call app.render() every
-            // frame and bypass drawInProgress / axesGraphicsDirty guards.
+            // Explicit paints only: the default ticker would call app.render() every
+            // frame and bypass the scenePaintState contract in paint().
             autoStart: false,
             // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
             // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
@@ -153,8 +177,10 @@ export class PixiApp {
         });
         this.dataArea.setDrawStateCallbacks({
             isDrawInProgress: () => this.isDrawInProgress(),
-            isAxesGraphicsDirty: () => this.axesGraphicsDirty,
-            requestRender: () => this.requestRender(),
+            isDrawPipelineBusy: () => this.isDrawPipelineBusy(),
+            isSceneStable: () => this.isSceneStableForPartialPaint(),
+            requestPaint: (reason) => this.paint(reason),
+            requestFullDraw: () => this.scheduleDraw('hoverGate'),
         });
         this.viewport = new Container();
         this.viewport.x = 0;
@@ -176,9 +202,9 @@ export class PixiApp {
         if (this.isInteractive) {
             this.needsInitialFit = true;
         }
-        // Premier rendu immédiat pour effacer le buffer WebGL (noir) avec le
-        // fond blanc, avant même que les données soient dessinées.
-        this.app.render();
+        // Premier paint : fond blanc (scène encore vide, mais volontairement stable
+        // pour les paints partiels sans contenu). Les données arriveront via draw().
+        this.paint('init');
     }
     /**
      * Resize the renderer to match the current CSS size of the canvas element.
@@ -245,7 +271,7 @@ export class PixiApp {
             });
         }
         else if (!options?.skipRender) {
-            this.app.render();
+            this.paint('resize');
         }
         return true;
     }
@@ -255,7 +281,8 @@ export class PixiApp {
      * across tab hide/show.
      */
     prepareForResumeRefresh() {
-        this.dataArea.clearHoverOverlay();
+        this.setPartialPaintsEnabled(false);
+        this.dataArea.clearHoverOverlay({ skipPaint: true });
         this.needsPatternTextureRefresh = true;
         // Always re-fit on resume: preserving zoom across a hidden tab often leaves
         // the camera on an empty region (axes "disappeared", one data fragment left).
@@ -280,7 +307,7 @@ export class PixiApp {
         if (!this.isInitialized || this.contextRestoring) {
             return;
         }
-        this.dataArea.clearHoverOverlay();
+        this.dataArea.clearHoverOverlay({ skipPaint: true });
         this.needsPatternTextureRefresh = true;
         this.needsInitialFit = true;
         this.wasDegenerateCanvas = true;
@@ -325,10 +352,10 @@ export class PixiApp {
             // Cancel any restore refresh already queued: a re-loss before the
             // deferred resume must not run resize/draw on a dead GL context.
             this.cancelContextRestoreRafs();
-            this.dataArea.clearHoverOverlay();
+            this.dataArea.clearHoverOverlay({ skipPaint: true });
             this.needsPatternTextureRefresh = true;
             this.forcePatternTextureClear = true;
-            this.axesGraphicsDirty = true;
+            this.scenePaintState = 'failed';
             // Force fit after restore: GPU context loss often coincides with a bad
             // or stale viewport even when CSS size still looks valid.
             this.wasDegenerateCanvas = true;
@@ -466,41 +493,136 @@ export class PixiApp {
         }
     }
     redrawCategory(categoryId) {
-        if (this.axesGraphicsDirty) {
+        if (this.scenePaintState !== 'stable') {
             this.scheduleDraw('redrawCategory');
             return;
         }
         this.dataArea.redrawCategory(categoryId);
-        this.requestRender();
+        this.paint('partial');
     }
     redrawObservable(observableId) {
-        if (this.axesGraphicsDirty) {
+        if (this.scenePaintState !== 'stable') {
             this.scheduleDraw('redrawObservable');
             return;
         }
         this.dataArea.redrawObservable(observableId);
-        this.requestRender();
+        this.paint('partial');
     }
     isDrawInProgress() {
         return this.drawInProgress;
     }
-    /**
-     * Renders only when the app is ready and no full draw/export is in flight.
-     * If axis graphics were cleared and not yet redrawn, schedules a full draw
-     * instead of painting the empty-axes scene (hover/pan must not "exclude" axes).
-     */
-    requestRender() {
-        if (!this.isInitialized ||
-            !this.app.renderer ||
+    /** True when a full draw is queued, dispatching, or executing. */
+    isDrawPipelineBusy() {
+        return (this.drawDispatchActive ||
             this.drawInProgress ||
-            this.exportInProgress) {
-            return;
+            this.drawRafId !== null ||
+            this.drawResolvers.length > 0);
+    }
+    /** Partial paints require a coherent scene, idle pipeline, and host enable. */
+    isSceneStableForPartialPaint() {
+        return (this.partialPaintsEnabled &&
+            this.scenePaintState === 'stable' &&
+            !this.isDrawPipelineBusy());
+    }
+    /**
+     * Gate hover/pan paints during remount or resume until layout + draw settle.
+     * Authoritative paints (draw-complete) are unaffected.
+     */
+    setPartialPaintsEnabled(enabled) {
+        this.partialPaintsEnabled = enabled;
+        if (!enabled) {
+            this.dataArea?.clearHoverOverlay({ skipPaint: true });
         }
-        if (this.axesGraphicsDirty) {
-            this.scheduleDraw('renderGate');
-            return;
+        else {
+            this.flushPendingPartialPaint();
+        }
+    }
+    arePartialPaintsEnabled() {
+        return this.partialPaintsEnabled;
+    }
+    /**
+     * Sole gateway to `app.render()`.
+     *
+     * Authoritative reasons (`draw-complete`, `export`, `init`) always paint when
+     * the renderer is ready. Partial reasons (`hover`, `leave`, `pan`, …) paint
+     * only while the scene is STABLE — otherwise they set `pendingPartialPaint`
+     * (coalesced: N refusals → one catch-up) and may schedule a full draw.
+     *
+     * @returns true when a frame was actually painted
+     */
+    paint(reason) {
+        if (!this.isInitialized || !this.app.renderer) {
+            return false;
+        }
+        if (this.exportInProgress &&
+            reason !== 'export' &&
+            reason !== 'draw-complete') {
+            if (!isAuthoritativePaintReason(reason)) {
+                this.pendingPartialPaint = true;
+            }
+            return false;
+        }
+        if (!isAuthoritativePaintReason(reason)) {
+            if (!this.partialPaintsEnabled) {
+                this.pendingPartialPaint = true;
+                return false;
+            }
+            const drawQueued = this.isDrawPipelineBusy();
+            if (!canPaintPartial({
+                scenePaintState: this.scenePaintState,
+                drawInProgress: this.drawInProgress,
+                exportInProgress: this.exportInProgress,
+                drawQueued,
+            })) {
+                // Coalesce: many refused partial paints → one pending catch-up.
+                this.pendingPartialPaint = true;
+                // Leave must not enqueue redraws by itself; a pending flag is enough.
+                // Other reasons may arm a single full draw if the pipeline is idle and
+                // the scene is known bad (failed/mutating without an in-flight draw).
+                if (shouldScheduleDrawOnPaintGate(reason) &&
+                    this.scenePaintState !== 'stable' &&
+                    !this.isDrawPipelineBusy()) {
+                    this.scheduleDraw(`paintGate:${reason}`);
+                }
+                return false;
+            }
         }
         this.app.render();
+        if (reason === 'draw-complete' || reason === 'init') {
+            this.scenePaintState = 'stable';
+        }
+        if (reason === 'draw-complete') {
+            // Authoritative frame already matches the scene (hover cleared at draw
+            // start; viewport applied before paint). Consume the queue without a
+            // second render.
+            this.pendingPartialPaint = false;
+        }
+        else if (!isAuthoritativePaintReason(reason)) {
+            this.pendingPartialPaint = false;
+        }
+        return true;
+    }
+    /**
+     * If partial paints were refused while unstable, run at most one catch-up
+     * paint now that the scene is stable and the draw pipeline is idle.
+     * `paint('partial')` clears the pending flag on success; on refusal it stays
+     * set for a later flush.
+     */
+    flushPendingPartialPaint() {
+        if (!this.pendingPartialPaint) {
+            return;
+        }
+        if (!this.isSceneStableForPartialPaint() || this.exportInProgress) {
+            return;
+        }
+        this.paint('partial');
+    }
+    /**
+     * @deprecated Prefer `paint(reason)`. Kept as a thin alias for pan/zoom paths
+     * that do not distinguish pan vs zoom at the call site.
+     */
+    requestRender() {
+        this.paint('pan');
     }
     scheduleDraw(reason) {
         if (!this.isInitialized) {
@@ -513,6 +635,9 @@ export class PixiApp {
     draw() {
         return new Promise((resolve, reject) => {
             this.drawResolvers.push({ resolve, reject });
+            // Arm immediately so hover/pan cannot partial-paint during the async gap
+            // between this call and executeDrawBody (rAF + export wait + drawChain).
+            this.drawDispatchActive = true;
             if (this.drawRafId !== null) {
                 return;
             }
@@ -533,6 +658,15 @@ export class PixiApp {
                     }
                     catch (error) {
                         resolvers.forEach((r) => r.reject(error));
+                    }
+                    finally {
+                        // A newer draw() may have re-armed the pipeline while we ran.
+                        if (this.drawRafId === null && this.drawResolvers.length === 0) {
+                            this.drawDispatchActive = false;
+                            // Early-return draws never reach paint('draw-complete'); if partial
+                            // paints piled up as pending, flush exactly one now that we are idle.
+                            this.flushPendingPartialPaint();
+                        }
                     }
                 })();
             });
@@ -559,11 +693,14 @@ export class PixiApp {
             return;
         }
         this.drawInProgress = true;
+        // Mark scene mutating before any clear/rebuild so paint('hover'|'leave'|…)
+        // cannot flush a preserveDrawingBuffer frame of emptied axes.
+        this.scenePaintState = 'mutating';
         try {
             // Drop any pending hover: resuming it after a full draw was racing with
             // remount DRAW#2 (resize/watch) and painting emptied axes over a stale
             // preserveDrawingBuffer frame on the next pointermove.
-            this.dataArea.clearHoverOverlay({ cancelPending: true });
+            this.dataArea.clearHoverOverlay({ cancelPending: true, skipPaint: true });
             if (this.needsPatternTextureRefresh) {
                 const hadPatterns = this.dataArea.hasPatternSprites();
                 this.dataArea.clearPatternSprites();
@@ -579,9 +716,6 @@ export class PixiApp {
             this.plot.y = 0;
             this.plot.scale.set(1);
             this.plot.rotation = 0;
-            // Axis draw() clears graphics first — stay dirty until the full scene
-            // has been rendered, so hover/pan cannot paint emptied axes.
-            this.axesGraphicsDirty = true;
             this.yAxis.draw();
             this.xAxis.draw();
             this.dataArea.draw();
@@ -605,23 +739,20 @@ export class PixiApp {
             else {
                 this.updateWorldTransforms();
             }
-            // Always flush the framebuffer after a full draw. With
-            // preserveDrawingBuffer, skipping render leaves a stale "OK" image until
-            // the next hover render reveals emptied axes.
+            // Authoritative paint: the only safe moment to leave MUTATING → STABLE.
             if (!this.isInitialized || !this.app.renderer) {
                 throw new Error('PixiApp renderer unavailable at end of draw');
             }
-            this.app.render();
-            this.axesGraphicsDirty = false;
+            this.paint('draw-complete');
         }
         catch (error) {
-            // Axes/data clear at the start of draw. If we fail mid-way and then let
-            // hover call requestRender(), the user sees empty axes + orphan crosshair.
+            // Axes/data clear at the start of draw. Stay FAILED so hover/pan cannot
+            // paint emptied axes + orphan crosshair.
             console.error('[PixiApp] Full draw failed:', error);
-            this.axesGraphicsDirty = true;
+            this.scenePaintState = 'failed';
             this.needsInitialFit = true;
             this.needsPatternTextureRefresh = true;
-            this.dataArea.clearHoverOverlay({ cancelPending: true });
+            this.dataArea.clearHoverOverlay({ cancelPending: true, skipPaint: true });
             throw error;
         }
         finally {
@@ -638,10 +769,11 @@ export class PixiApp {
         this.viewport.getGlobalTransform();
     }
     async clear() {
+        this.scenePaintState = 'mutating';
         this.yAxis.clear();
         this.xAxis.clear();
         this.dataArea.clear();
-        this.axesGraphicsDirty = true;
+        this.scenePaintState = 'failed';
     }
     getCanvasSize() {
         return {
@@ -692,9 +824,9 @@ export class PixiApp {
             this.events.emit('zoom', baseScale);
             this.updateTimeScale();
         }
-        // Gate via requestRender so a pan/zoom event cannot paint a mid-draw frame.
+        // Gate via paint() so a pan/zoom event cannot flush a mid-draw frame.
         if (!options?.skipRender) {
-            this.requestRender();
+            this.paint('pan');
         }
     }
     setupZoomAndPan() {
@@ -931,12 +1063,15 @@ export class PixiApp {
             y: centerY - worldPos.y * newScale,
         });
     }
-    resetView() {
+    async resetView() {
         if (!this.isInteractive) {
-            return Promise.resolve();
+            return;
         }
         this.needsInitialFit = true;
-        return this.draw();
+        await this.draw();
+        if (this.scenePaintState !== 'stable') {
+            this.scheduleDraw('resetViewGuard');
+        }
     }
     getZoomLevel() {
         return this.zoomState.scale;
@@ -994,7 +1129,7 @@ export class PixiApp {
         }
         this.exportInProgress = true;
         this.dataArea.setHoverOverlaySuppressed(true);
-        this.dataArea.clearHoverOverlay();
+        this.dataArea.clearHoverOverlay({ skipPaint: true });
         const originalWidth = this.app.screen.width;
         const originalHeight = this.app.screen.height;
         const requiredHeight = this.getRequiredCanvasHeight();
@@ -1024,7 +1159,7 @@ export class PixiApp {
             // Direct enqueue (not draw()): avoids deadlock with external draws that
             // wait on exportQueue off-chain before enqueueing.
             await this.enqueueDrawBody();
-            this.app.render();
+            this.paint('export');
             const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
             return this.app.canvas.toDataURL(mimeType, quality);
         }
@@ -1052,6 +1187,8 @@ export class PixiApp {
             cancelAnimationFrame(this.drawRafId);
             this.drawRafId = null;
         }
+        this.drawDispatchActive = false;
+        this.pendingPartialPaint = false;
         this.cancelContextRestoreRafs();
         this.contextRestoring = false;
         const pendingResolvers = this.drawResolvers;
@@ -1059,7 +1196,7 @@ export class PixiApp {
         pendingResolvers.forEach((r) => r.resolve());
         this.teardownContextHandlers?.();
         if (this.dataArea) {
-            this.dataArea.clearHoverOverlay();
+            this.dataArea.clearHoverOverlay({ skipPaint: true });
         }
         if (this.app.canvas && this.app.canvas._zoomPanHandlers) {
             const handlers = this.app.canvas._zoomPanHandlers;

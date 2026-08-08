@@ -93,6 +93,23 @@ export class YAxis extends BaseGroup {
     return this.axisEnd ? { ...this.axisEnd } : null;
   }
 
+  /**
+   * True when axis endpoints are set and stroke geometry or tick labels are
+   * present. Used by hover to detect a cleared axis still referenced by stale
+   * plot bounds (preserveDrawingBuffer can hide the mismatch until hover).
+   */
+  public hasDrawnContent(): boolean {
+    if (!this.axisStart) {
+      return false;
+    }
+    const hasLabels = this.children.some((child) => child !== this.graphic);
+    if (hasLabels) {
+      return true;
+    }
+    const bounds = this.graphic.getLocalBounds();
+    return bounds.width > 0 || bounds.height > 0;
+  }
+
   public getPosFromLabel(label: string): number {
     for (const tick of this.ticks) {
       if (tick.label === label) {

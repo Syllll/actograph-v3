@@ -340,6 +340,7 @@ export default defineComponent({
       },
       resetView: async () => {
         if (graph.sharedState.pixiApp) {
+          graph.clearScheduledRedraw();
           await graph.sharedState.pixiApp.resetView();
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
@@ -436,7 +437,7 @@ export default defineComponent({
         for (const category of items) {
           if (String(category?.type ?? '').toLowerCase() !== 'category') continue;
           if (!isCategoryVisible(category)) continue;
-          const categoryColor = category?.graphPreferences?.color || DEFAULT_GRAPH_COLOR;
+          const categoryColor = resolveGraphColor(category?.graphPreferences);
           rows.push({
             // Le nom de la catégorie est une donnée utilisateur, pas un texte à
             // traduire : on l'affiche directement plutôt que de passer par la clé

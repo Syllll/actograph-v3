@@ -20,7 +20,8 @@
 
         <!-- Center: Timer (+ REC dot while recording) -->
         <div
-          class="timer-display text-h4 text-weight-bold col text-center"
+          ref="timerDisplayRef"
+          class="timer-display text-weight-bold col text-center"
           :class="chronicle.sharedState.isPaused ? 'text-warning blink' : 'text-accent'"
           :aria-label="state.isRecording && !chronicle.sharedState.isPaused ? 'Enregistrement en cours' : undefined"
         >
@@ -29,7 +30,11 @@
             class="rec-dot"
             aria-hidden="true"
           />
-          <span class="timer-text">{{ chronicle.formattedTime.value }}</span>
+          <span
+            ref="timerTextRef"
+            class="timer-text"
+            :style="timerTextStyle"
+          >{{ chronicle.formattedTime.value }}</span>
         </div>
 
         <!-- Right: Edit mode actions OR Record controls -->
@@ -544,6 +549,46 @@ export default defineComponent({
 
     // Edit mode container ref for bounds calculation
     const editContainerRef = ref<HTMLElement | null>(null);
+
+    // Timer: scale font so the full string (HH:mm:ss.mmm) always fits the toolbar slot.
+    const timerDisplayRef = ref<HTMLElement | null>(null);
+    const timerTextRef = ref<HTMLElement | null>(null);
+    const TIMER_FONT_MAX_PX = 34;
+    // Floor for pathological viewports only; typical fitted size stays 15–32px.
+    const TIMER_FONT_ABSOLUTE_MIN_PX = 12;
+
+    const timerFontSizePx = ref(TIMER_FONT_MAX_PX);
+    const timerTextStyle = computed(() => ({ fontSize: `${timerFontSizePx.value}px` }));
+
+    const fitTimerText = () => {
+      const container = timerDisplayRef.value;
+      const text = timerTextRef.value;
+      if (!container || !text) return;
+
+      const recDot = container.querySelector('.rec-dot') as HTMLElement | null;
+      const reserved = recDot ? recDot.offsetWidth + 6 : 0;
+      const maxTextWidth = container.clientWidth - reserved;
+      if (maxTextWidth <= 0) return;
+
+      let size = TIMER_FONT_MAX_PX;
+      text.style.fontSize = `${size}px`;
+      while (text.scrollWidth > maxTextWidth && size > TIMER_FONT_ABSOLUTE_MIN_PX) {
+        size -= 0.5;
+        text.style.fontSize = `${size}px`;
+      }
+      timerFontSizePx.value = Math.max(size, TIMER_FONT_ABSOLUTE_MIN_PX);
+    };
+
+    let timerResizeObserver: ResizeObserver | null = null;
+    let fitTimerRaf = 0;
+
+    const scheduleFitTimerText = () => {
+      cancelAnimationFrame(fitTimerRaf);
+      fitTimerRaf = requestAnimationFrame(() => {
+        fitTimerRaf = 0;
+        fitTimerText();
+      });
+    };
 
     // Container bounds for drag constraints (reactive)
     const containerBounds = ref({ width: 350, height: 600 });
@@ -1247,15 +1292,25 @@ export default defineComponent({
 
       // Update container bounds after DOM is ready
       nextTick(() => {
+        scheduleFitTimerText();
+        if (timerDisplayRef.value) {
+          timerResizeObserver = new ResizeObserver(() => scheduleFitTimerText());
+          timerResizeObserver.observe(timerDisplayRef.value);
+        }
         setTimeout(() => {
           updateContainerBounds();
           editMode.methods.measureHeights(editContainerRef.value);
+          scheduleFitTimerText();
         }, 100);
       });
     });
 
     // Clean up edit mode when component unmounts
     onBeforeUnmount(() => {
+      cancelAnimationFrame(fitTimerRaf);
+      fitTimerRaf = 0;
+      timerResizeObserver?.disconnect();
+      timerResizeObserver = null;
       // Cancel edit mode if active to prevent state leakage
       if (editMode.sharedState.isEditing) {
         editMode.methods.cancelEditMode();
@@ -1304,7 +1359,19 @@ export default defineComponent({
         updateContainerBounds();
         nextTick(() => editMode.methods.measureHeights(editContainerRef.value));
       }
+      nextTick(scheduleFitTimerText);
     });
+
+    watch(
+      () => [
+        chronicle.formattedTime.value.length,
+        state.isRecording,
+        chronicle.sharedState.isPaused,
+        chronicle.sharedState.isPlaying,
+        editMode.sharedState.isEditing,
+      ],
+      () => nextTick(scheduleFitTimerText),
+    );
 
     // Watch edit mode to update bounds when entering
     watch(() => editMode.sharedState.isEditing, (isEditing) => {
@@ -1347,6 +1414,9 @@ export default defineComponent({
       editContainerRef,
       containerBounds,
       canEnterEditMode,
+      timerDisplayRef,
+      timerTextRef,
+      timerTextStyle,
     };
   },
 });
@@ -1358,6 +1428,12 @@ export default defineComponent({
   background: linear-gradient(135deg, var(--primary) 0%, #161d27 100%);
   border-bottom: 2px solid var(--accent);
   min-height: 64px;
+
+  // Side controls keep a fixed footprint so the timer slot width stays predictable.
+  .q-btn,
+  .toolbar-spacer {
+    flex-shrink: 0;
+  }
 }
 
 .toolbar-spacer {
@@ -1367,30 +1443,29 @@ export default defineComponent({
 }
 
 .timer-display {
-  // Flex so the REC dot stays visible while only the time text can ellipsize
-  // on narrow screens / large system fonts (avoids painting under pause/stop).
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  flex: 1 1 0;
   min-width: 0;
-  font-family: 'Roboto Mono', 'Courier New', monospace;
-  // 2.125rem = Quasar text-h4; shrink on narrow viewports to keep margin vs buttons.
-  font-size: clamp(22px, 8vw, 2.125rem);
-  letter-spacing: 2px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   line-height: 1.2;
-
-  .timer-text {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 
   &.blink {
     animation: blink-animation 1s ease-in-out infinite;
   }
+}
+
+.timer-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  // Never ellipsize: fitTimerText() scales font-size down to keep the full string visible.
 }
 
 .rec-dot {

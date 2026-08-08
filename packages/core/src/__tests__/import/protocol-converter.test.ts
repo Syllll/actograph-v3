@@ -122,4 +122,27 @@ describe('ProtocolV1Converter - shape → action', () => {
     expect(protocol.categories?.[0].action).toBe(ProtocolItemActionEnum.Discrete);
     expect(protocol.categories?.[0].observables?.[0].name).toBe('Tap');
   });
+
+  it('normalise colorName nommé en hexadécimal à l\'import v1', () => {
+    const protocol = converter.convert({
+      name: 'root',
+      type: 'Category',
+      isRootNode: true,
+      colorName: '',
+      shape: 'line',
+      thickness: 0,
+      isVisible: true,
+      indexInParentContext: -1,
+      isBackground: false,
+      backgroundCover: '',
+      backgroundMotif: 0,
+      bX: 0,
+      bY: 0,
+      bWidth: 0,
+      bHeight: 0,
+      children: [makeCategoryNode('line', { colorName: 'black' })],
+    });
+
+    expect(protocol.categories?.[0].graphPreferences?.color).toBe('#000000');
+  });
 });

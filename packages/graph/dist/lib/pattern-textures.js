@@ -1,5 +1,5 @@
 import { Texture, TilingSprite } from 'pixi.js';
-import { BackgroundPatternEnum } from '@actograph/core';
+import { BackgroundPatternEnum, normalizeGraphColor } from '@actograph/core';
 import { DEFAULT_GRAPH_COLOR } from './graph-defaults';
 /**
  * Cache pour les textures de motifs.
@@ -8,29 +8,6 @@ const textureCache = new Map();
 const PATTERN_SIZE = 16;
 const LINE_WIDTH = 1;
 const LINE_SPACING = 8;
-/**
- * Convertit une couleur (hex ou nommée) en format hex avec #.
- */
-function colorToHex(color) {
-    const cleanColor = color.replace('#', '').toLowerCase();
-    if (/^[0-9a-f]{6}$/.test(cleanColor)) {
-        return `#${cleanColor}`;
-    }
-    const namedColors = {
-        'green': DEFAULT_GRAPH_COLOR,
-        'grey': '#6b7280',
-        'gray': '#6b7280',
-        'red': '#ef4444',
-        'blue': '#3b82f6',
-        'yellow': '#fbbf24',
-        'orange': '#f97316',
-        'purple': '#a855f7',
-        'pink': '#ec4899',
-        'black': '#000000',
-        'white': '#ffffff',
-    };
-    return namedColors[cleanColor] ?? DEFAULT_GRAPH_COLOR;
-}
 function drawHorizontalLines(ctx, color, size) {
     ctx.strokeStyle = color;
     ctx.lineWidth = LINE_WIDTH;
@@ -82,7 +59,7 @@ function drawDots(ctx, color, size) {
         }
     }
 }
-function createPatternCanvas(pattern, color) {
+function createPatternCanvas(pattern, hexColor) {
     const canvas = document.createElement('canvas');
     canvas.width = PATTERN_SIZE;
     canvas.height = PATTERN_SIZE;
@@ -92,7 +69,6 @@ function createPatternCanvas(pattern, color) {
         return null;
     }
     ctx.clearRect(0, 0, PATTERN_SIZE, PATTERN_SIZE);
-    const hexColor = colorToHex(color);
     switch (pattern) {
         case BackgroundPatternEnum.Horizontal:
             drawHorizontalLines(ctx, hexColor, PATTERN_SIZE);
@@ -121,13 +97,14 @@ export function createPatternTexture(_app, pattern, color) {
     if (pattern === BackgroundPatternEnum.Solid) {
         return null;
     }
-    const cacheKey = `${pattern}-${color}`;
+    const hexColor = normalizeGraphColor(color, DEFAULT_GRAPH_COLOR);
+    const cacheKey = `${pattern}-${hexColor}`;
     const cachedTexture = textureCache.get(cacheKey);
     if (cachedTexture) {
         return cachedTexture;
     }
     try {
-        const canvas = createPatternCanvas(pattern, color);
+        const canvas = createPatternCanvas(pattern, hexColor);
         if (!canvas) {
             return null;
         }

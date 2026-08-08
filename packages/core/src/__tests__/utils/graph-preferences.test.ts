@@ -110,9 +110,26 @@ describe('graph-preferences utils', () => {
       expect(resolveGraphColor({ color: '#123456' })).toBe('#123456');
     });
 
+    it('normalise un nom de couleur legacy', () => {
+      expect(resolveGraphColor({ color: 'black' })).toBe('#000000');
+    });
+
     it('retombe sur DEFAULT_GRAPH_COLOR si la couleur est absente', () => {
       expect(resolveGraphColor({ strokeWidth: 2 })).toBe(DEFAULT_GRAPH_COLOR);
       expect(resolveGraphColor(null)).toBe(DEFAULT_GRAPH_COLOR);
+    });
+
+    it('utilise le fallback personnalisé pour un nom inconnu', () => {
+      expect(resolveGraphColor({ color: 'unknown' }, '#abcdef')).toBe('#abcdef');
+    });
+
+    it('normalise le fallback quand la couleur est absente', () => {
+      expect(resolveGraphColor(null, 'black')).toBe('#000000');
+    });
+
+    it('est idempotent sur une couleur déjà normalisée', () => {
+      expect(resolveGraphColor({ color: '#ff0000' })).toBe('#ff0000');
+      expect(resolveGraphColor({ color: 'black' })).toBe('#000000');
     });
   });
 });

@@ -3,6 +3,8 @@ import { ValidationError } from '../../errors';
 import { INormalizedProtocol, INormalizedCategory } from '../../types';
 import type { IGraphPreferences } from '../../../types/protocol.types';
 import { DisplayModeEnum, ProtocolItemActionEnum } from '../../../enums';
+import { normalizeGraphColor } from '../../../utils/graph-color';
+import { DEFAULT_GRAPH_COLOR } from '../../../utils/graph-preferences';
 
 /**
  * Convertisseur pour transformer le protocole v1 en format normalisé pour v3
@@ -16,7 +18,7 @@ export class ProtocolV1Converter {
     const prefs: IGraphPreferences = {};
 
     if (node.colorName && node.colorName.trim() !== '') {
-      prefs.color = node.colorName;
+      prefs.color = normalizeGraphColor(node.colorName, DEFAULT_GRAPH_COLOR);
     }
 
     if (node.thickness > 0) {

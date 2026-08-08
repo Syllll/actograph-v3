@@ -25,6 +25,12 @@ export declare class YAxis extends BaseGroup {
     }): void;
     getAxisStart(): IPosition | null;
     getAxisEnd(): IPosition | null;
+    /**
+     * True when axis endpoints are set and stroke geometry or tick labels are
+     * present. Used by hover to detect a cleared axis still referenced by stale
+     * plot bounds (preserveDrawingBuffer can hide the mismatch until hover).
+     */
+    hasDrawnContent(): boolean;
     getPosFromLabel(label: string): number;
     getPosFromCategoryObservable(categoryId: string, observableName: string): number;
     getFriezeInfo(categoryId: string): {

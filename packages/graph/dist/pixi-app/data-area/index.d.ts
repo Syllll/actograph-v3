@@ -4,6 +4,7 @@ import type { IObservation, IProtocol, IPeriod } from '@actograph/core';
 import { YAxis } from '../axis/y-axis';
 import { xAxis } from '../axis/x-axis';
 import type { IGraphRenderOptions } from '../../types/graph-render-options';
+import type { PaintReason } from '../../utils/scene-paint.utils';
 export declare class DataArea extends BaseGroup {
     private yAxis;
     private xAxis;
@@ -28,8 +29,10 @@ export declare class DataArea extends BaseGroup {
     private hoverRafId;
     private lastTimeLabelText;
     private isDrawInProgress;
-    private isAxesGraphicsDirty;
-    private requestRender;
+    private isDrawPipelineBusy;
+    private isSceneStable;
+    private requestPaint;
+    private requestFullDraw;
     /** Voir YAxis.axisStretch : contre-scale marqueurs ronds et étiquette de survol. */
     private axisStretch;
     setAxisStretch(stretch: {
@@ -43,23 +46,27 @@ export declare class DataArea extends BaseGroup {
     private configureHoverOverlayPassthrough;
     setPlotContainer(plotContainer: Container): void;
     /**
-     * Wires PixiApp draw/render gates so hover never calls `app.render()` while
-     * a full `executeDraw` (or export) is in progress, and never paints over
-     * emptied axis graphics.
+     * Wires PixiApp scene-paint contract: hover/leave never call app.render()
+     * directly — only via requestPaint, which no-ops unless the scene is STABLE.
      */
     setDrawStateCallbacks(callbacks: {
         isDrawInProgress: () => boolean;
-        isAxesGraphicsDirty: () => boolean;
-        requestRender: () => void;
+        isDrawPipelineBusy: () => boolean;
+        isSceneStable: () => boolean;
+        requestPaint: (reason: Extract<PaintReason, 'hover' | 'leave'>) => boolean;
+        requestFullDraw: () => void;
     }): void;
     /**
      * Hides crosshair and dynamic time label.
      * @param options.cancelPending - When true (default), drops any queued
      *   pointermove rAF. Full draws always cancel pending to avoid painting
      *   emptied axes over a stale preserveDrawingBuffer frame after remount.
+     * @param options.skipPaint - When true, mutates the scene graph only (full
+     *   draw / export paths). The next authoritative paint will show the clear.
      */
     clearHoverOverlay(options?: {
         cancelPending?: boolean;
+        skipPaint?: boolean;
     }): void;
     /** Drops any pointermove update queued for the next animation frame. */
     private cancelPendingHoverUpdate;
@@ -70,8 +77,8 @@ export declare class DataArea extends BaseGroup {
     init(): void;
     private scheduleHoverUpdate;
     /**
-     * One hover update per frame. If a full draw is in progress, keep the pending
-     * event and retry next frame instead of rendering a mid-draw scene.
+     * One hover update per frame. If a full draw is queued or running, keep the
+     * pending event and retry next frame instead of touching the scene.
      */
     private onHoverRaf;
     private processPointerMove;

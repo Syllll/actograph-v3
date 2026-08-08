@@ -34,5 +34,32 @@ describe('dashed-line.utils', () => {
       expect(ops[0]).toEqual({ type: 'move', x: 150, y: 20 });
       expect(ops[1]?.type).toBe('line');
     });
+
+    it('emits nothing for non-finite endpoints', () => {
+      expect(computeDashedLineOps(0, 0, NaN, 0)).toEqual([]);
+      expect(computeDashedLineOps(0, 0, 10, Infinity)).toEqual([]);
+      expect(computeDashedLineOps(NaN, NaN, 10, 10)).toEqual([]);
+    });
+
+    it('never emits a non-finite vertex', () => {
+      const ops = computeDashedLineOps(0, 0, 1e7, 0, [10, 5]);
+
+      expect(ops.every((op) => Number.isFinite(op.x) && Number.isFinite(op.y))).toBe(true);
+    });
+
+    it('falls back to a solid line instead of unbounded dash geometry', () => {
+      const ops = computeDashedLineOps(0, 0, 1e7, 0, [10, 5]);
+
+      expect(ops).toEqual([
+        { type: 'move', x: 0, y: 0 },
+        { type: 'line', x: 1e7, y: 0 },
+      ]);
+    });
+
+    it('keeps dashing spans that stay under the geometry cap', () => {
+      const ops = computeDashedLineOps(0, 0, 600, 0, [10, 5]);
+
+      expect(ops.length).toBeGreaterThan(4);
+    });
   });
 });

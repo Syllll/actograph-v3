@@ -227,12 +227,10 @@ body {
   border-radius: 12px;
 }
 
-// Timer display
+// Timer display (font size is fitted dynamically in observation/Index.vue)
 .timer-display {
   font-family: 'Roboto Mono', monospace;
-  font-size: 2rem;
   font-weight: bold;
-  letter-spacing: 2px;
 }
 
 // Category card styles

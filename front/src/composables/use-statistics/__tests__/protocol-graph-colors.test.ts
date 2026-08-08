@@ -54,4 +54,16 @@ describe('protocol graph color resolution', () => {
   it('resolveObservableChartColor retombe sur DEFAULT_GRAPH_COLOR sans protocole', () => {
     expect(resolveObservableChartColor('obs-1', 'cat-1', null)).toBe(DEFAULT_GRAPH_COLOR);
   });
+
+  it('resolveObservableChartColor normalise un nom de couleur legacy', () => {
+    const protocol = makeProtocol();
+    protocol._items![0].graphPreferences = { color: 'black' };
+    expect(resolveObservableChartColor('obs-2', 'cat-1', protocol)).toBe('#000000');
+  });
+
+  it('resolveObservableChartColor retombe sur DEFAULT_GRAPH_COLOR si la catégorie a une couleur invalide', () => {
+    const protocol = makeProtocol();
+    protocol._items![0].graphPreferences = { color: 'not-a-color' };
+    expect(resolveObservableChartColor('obs-2', 'cat-1', protocol)).toBe(DEFAULT_GRAPH_COLOR);
+  });
 });
