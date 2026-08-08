@@ -15,7 +15,8 @@ export interface ICrosshairSegments {
     horizontal: ICrosshairSegment;
 }
 /**
- * Builds full-span crosshair segments that reach both axes of the plot area.
+ * Builds a semi-crosshair: dashed stubs toward the bottom and left axes only
+ * (cursor → bottom Y-axis tick line, cursor → left X-axis tick line).
  */
 export declare function computeCrosshairSegments(cursorX: number, cursorY: number, bounds: IPlotBounds): ICrosshairSegments;
 /**

@@ -10,7 +10,7 @@ import { extractSessionBoundaryReadings, getContinuousSegmentStartIndices, iterC
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 import { computePauseOverlayRects, DEFAULT_PAUSE_OVERLAY_STYLE, } from '../../utils/pause-overlay.utils';
 import { computeCrosshairSegments, computeHoverTimeLabelPosition, } from '../../utils/crosshair.utils';
-import { shouldRenderHoverOverlay } from '../../utils/hover-overlay.utils';
+import { isPointInsidePlotBounds, shouldRenderHoverOverlay, } from '../../utils/hover-overlay.utils';
 export class DataArea extends BaseGroup {
     setAxisStretch(stretch) {
         this.axisStretch = stretch;
@@ -36,11 +36,12 @@ export class DataArea extends BaseGroup {
         this.pendingHoverEvent = null;
         this.hoverRafId = null;
         this.lastTimeLabelText = null;
+        /** True after crosshair/label were painted; used to flush them on pointerleave. */
+        this.hoverOverlayVisible = false;
         this.isDrawInProgress = null;
-        this.isDrawPipelineBusy = null;
-        this.isSceneStable = null;
-        this.requestPaint = null;
-        this.requestFullDraw = null;
+        this.isAxesGraphicsDirty = null;
+        this.isExportInProgress = null;
+        this.requestRender = null;
         /** Voir YAxis.axisStretch : contre-scale marqueurs ronds et étiquette de survol. */
         this.axisStretch = { x: 1, y: 1 };
         this.yAxis = yAxis;
@@ -85,38 +86,94 @@ export class DataArea extends BaseGroup {
         this.plotContainer = plotContainer;
     }
     /**
-     * Wires PixiApp scene-paint contract: hover/leave never call app.render()
-     * directly — only via requestPaint, which no-ops unless the scene is STABLE.
+     * Wires PixiApp draw/render gates so hover never calls `app.render()` while
+     * a full `executeDraw` (or export) is in progress, and never paints over
+     * emptied axis graphics.
      */
     setDrawStateCallbacks(callbacks) {
         this.isDrawInProgress = callbacks.isDrawInProgress;
-        this.isDrawPipelineBusy = callbacks.isDrawPipelineBusy;
-        this.isSceneStable = callbacks.isSceneStable;
-        this.requestPaint = callbacks.requestPaint;
-        this.requestFullDraw = callbacks.requestFullDraw;
+        this.isAxesGraphicsDirty = callbacks.isAxesGraphicsDirty;
+        this.isExportInProgress = callbacks.isExportInProgress;
+        this.requestRender = callbacks.requestRender;
     }
     /**
      * Hides crosshair and dynamic time label.
      * @param options.cancelPending - When true (default), drops any queued
      *   pointermove rAF. Full draws always cancel pending to avoid painting
      *   emptied axes over a stale preserveDrawingBuffer frame after remount.
-     * @param options.skipPaint - When true, mutates the scene graph only (full
-     *   draw / export paths). The next authoritative paint will show the clear.
      */
     clearHoverOverlay(options) {
         if (options?.cancelPending !== false) {
             this.cancelPendingHoverUpdate();
         }
+        this.hoverOverlayVisible = false;
         this.pointerDashedLines.clear();
         if (this.timeLabelContainer) {
             this.timeLabelContainer.visible = false;
         }
-        this.lastTimeLabelText = null;
-        if (options?.skipPaint) {
+    }
+    /**
+     * Clears crosshair/label and repaints so they disappear from the framebuffer.
+     * Safe to call from canvas DOM handlers (pointerleave) as well as Pixi hit area.
+     */
+    dismissHoverOverlay() {
+        const hadOverlay = this.hoverOverlayVisible;
+        this.clearHoverOverlay();
+        if (hadOverlay) {
+            this.paintAfterHoverOverlayCleared();
+        }
+    }
+    /**
+     * Hides hover UI when the pointer is outside the plot rect (axes, margins, or
+     * outside the canvas). Complements Pixi pointerleave on the hit area alone.
+     */
+    syncHoverDismissWithPointer(clientX, clientY) {
+        if (!this.graphInteractionEnabled || !this.hoverOverlayVisible) {
             return;
         }
-        // Partial paint: refused automatically when scene is not STABLE.
-        this.requestPaint?.('leave');
+        if (!this.isClientPointInsidePlot(clientX, clientY)) {
+            this.dismissHoverOverlay();
+        }
+    }
+    isClientPointInsidePlot(clientX, clientY) {
+        const plot = this.plotContainer;
+        const canvas = this.app.canvas;
+        if (!plot || !canvas) {
+            return false;
+        }
+        const bounds = this.getPlotBoundsLocal();
+        if (!bounds) {
+            return false;
+        }
+        const rect = canvas.getBoundingClientRect();
+        if (clientX < rect.left ||
+            clientX > rect.right ||
+            clientY < rect.top ||
+            clientY > rect.bottom) {
+            return false;
+        }
+        // CSS pixels relative to the canvas (same space Pixi uses with autoDensity).
+        const crossLocal = this.pointerDashedLines.toLocal({
+            x: clientX - rect.left,
+            y: clientY - rect.top,
+        });
+        return isPointInsidePlotBounds(crossLocal.x, crossLocal.y, bounds);
+    }
+    /**
+     * With preserveDrawingBuffer, clearing graphics alone leaves the last frame
+     * (crosshair + label) visible until an explicit render.
+     */
+    paintAfterHoverOverlayCleared() {
+        if (this.isDrawInProgress?.() || this.isExportInProgress?.() || !this.app.renderer) {
+            return;
+        }
+        // Axes emptied / resume in flight: do not paint a partial frame; force a
+        // full draw so the stale crosshair is replaced by a coherent scene.
+        if (this.isAxesGraphicsDirty?.()) {
+            this.requestRender?.();
+            return;
+        }
+        this.app.render();
     }
     /** Drops any pointermove update queued for the next animation frame. */
     cancelPendingHoverUpdate() {
@@ -132,7 +189,7 @@ export class DataArea extends BaseGroup {
     setHoverOverlaySuppressed(suppressed) {
         this.hoverOverlaySuppressed = suppressed;
         if (suppressed) {
-            this.clearHoverOverlay({ skipPaint: true });
+            this.clearHoverOverlay();
         }
     }
     init() {
@@ -157,7 +214,7 @@ export class DataArea extends BaseGroup {
             this.scheduleHoverUpdate();
         });
         this.pointerHitArea.on('pointerleave', () => {
-            this.clearHoverOverlay();
+            this.dismissHoverOverlay();
         });
         this.ensurePointerHitAreaOnTop();
     }
@@ -168,12 +225,12 @@ export class DataArea extends BaseGroup {
         this.hoverRafId = requestAnimationFrame(() => this.onHoverRaf());
     }
     /**
-     * One hover update per frame. If a full draw is queued or running, keep the
-     * pending event and retry next frame instead of touching the scene.
+     * One hover update per frame. If a full draw/export is in progress, keep the
+     * pending event and retry next frame instead of rendering a mid-draw scene.
      */
     onHoverRaf() {
         this.hoverRafId = null;
-        if (this.isDrawPipelineBusy?.() || this.isDrawInProgress?.()) {
+        if (this.isDrawInProgress?.() || this.isExportInProgress?.()) {
             if (this.pendingHoverEvent) {
                 this.scheduleHoverUpdate();
             }
@@ -186,16 +243,17 @@ export class DataArea extends BaseGroup {
         }
     }
     processPointerMove(evt) {
-        if (this.isDrawPipelineBusy?.() || this.isDrawInProgress?.()) {
-            // Race: draw armed after onHoverRaf cleared the pending slot. Keep the
-            // event and retry on the next frame instead of dropping it.
+        if (this.isDrawInProgress?.() || this.isExportInProgress?.()) {
+            // Race: draw/export started after onHoverRaf cleared the pending slot.
+            // Keep the event and retry on the next frame instead of dropping it.
             this.pendingHoverEvent = evt;
             this.scheduleHoverUpdate();
             return;
         }
-        // Scene not STABLE: never partial-paint. Ask for a full draw and retry.
-        if (this.isSceneStable && !this.isSceneStable()) {
-            this.requestFullDraw?.();
+        // Scene graph has emptied axes (full draw incomplete). Force a full draw
+        // instead of painting crosshair onto a stale preserveDrawingBuffer frame.
+        if (this.isAxesGraphicsDirty?.()) {
+            this.requestRender?.();
             this.pendingHoverEvent = evt;
             this.scheduleHoverUpdate();
             return;
@@ -208,22 +266,19 @@ export class DataArea extends BaseGroup {
         }
         const plotBounds = this.getPlotBoundsLocal();
         if (!plotBounds) {
-            this.clearHoverOverlay();
-            return;
-        }
-        // Coherence: bounds exist but Y-axis was cleared — treat as unstable.
-        if (!this.yAxis.hasDrawnContent()) {
-            this.requestFullDraw?.();
-            this.pendingHoverEvent = evt;
-            this.scheduleHoverUpdate();
+            this.dismissHoverOverlay();
             return;
         }
         const plotParent = this.parent;
         if (!plotParent || plotParent !== this.plotContainer) {
-            this.clearHoverOverlay();
+            this.dismissHoverOverlay();
             return;
         }
         const p = evt.getLocalPosition(this.pointerDashedLines);
+        if (!isPointInsidePlotBounds(p.x, p.y, plotBounds)) {
+            this.dismissHoverOverlay();
+            return;
+        }
         const { vertical, horizontal } = computeCrosshairSegments(p.x, p.y, plotBounds);
         this.pointerDashedLines.clear();
         this.pointerDashedLines
@@ -236,6 +291,7 @@ export class DataArea extends BaseGroup {
             .moveTo(horizontal.x1, horizontal.y1)
             .dashedLineTo(horizontal.x2, horizontal.y2)
             .stroke();
+        this.hoverOverlayVisible = true;
         if (this.timeLabel) {
             try {
                 const plotPos = evt.getLocalPosition(plotParent);
@@ -264,31 +320,36 @@ export class DataArea extends BaseGroup {
                     })
                         .replace(/\//g, '-');
                 }
-                // Keep going to requestPaint even if the label UI is missing: the
-                // crosshair was already drawn above and must still be painted.
-                if (this.timeLabel && this.timeLabelContainer && this.timeLabelBackground) {
-                    // Regenerating the text texture is the costliest part of this handler;
-                    // skip it when the displayed string hasn't actually changed (e.g. the
-                    // pointer moved only vertically, same x-axis position).
-                    if (this.lastTimeLabelText !== timeString) {
-                        this.timeLabel.text = timeString;
-                        this.lastTimeLabelText = timeString;
+                if (!this.timeLabel || !this.timeLabelContainer || !this.timeLabelBackground) {
+                    if (this.requestRender) {
+                        this.requestRender();
                     }
-                    const padding = 4;
-                    const textWidth = this.timeLabel.width;
-                    const textHeight = this.timeLabel.height;
-                    const backgroundWidth = textWidth + padding * 2;
-                    const backgroundHeight = textHeight + padding * 2;
-                    this.timeLabelBackground.clear();
-                    this.timeLabelBackground.rect(0, 0, backgroundWidth, backgroundHeight);
-                    this.timeLabelBackground.fill({ color: 'white' });
-                    this.timeLabel.x = padding;
-                    this.timeLabel.y = padding;
-                    const labelPos = computeHoverTimeLabelPosition(p.x, p.y, backgroundWidth, backgroundHeight, plotBounds);
-                    this.timeLabelContainer.x = labelPos.x;
-                    this.timeLabelContainer.y = labelPos.y;
-                    this.timeLabelContainer.visible = true;
+                    else {
+                        this.app.render();
+                    }
+                    return;
                 }
+                // Regenerating the text texture is the costliest part of this handler;
+                // skip it when the displayed string hasn't actually changed (e.g. the
+                // pointer moved only vertically, same x-axis position).
+                if (this.lastTimeLabelText !== timeString) {
+                    this.timeLabel.text = timeString;
+                    this.lastTimeLabelText = timeString;
+                }
+                const padding = 4;
+                const textWidth = this.timeLabel.width;
+                const textHeight = this.timeLabel.height;
+                const backgroundWidth = textWidth + padding * 2;
+                const backgroundHeight = textHeight + padding * 2;
+                this.timeLabelBackground.clear();
+                this.timeLabelBackground.rect(0, 0, backgroundWidth, backgroundHeight);
+                this.timeLabelBackground.fill({ color: 'white' });
+                this.timeLabel.x = padding;
+                this.timeLabel.y = padding;
+                const labelPos = computeHoverTimeLabelPosition(p.x, p.y, backgroundWidth, backgroundHeight, plotBounds);
+                this.timeLabelContainer.x = labelPos.x;
+                this.timeLabelContainer.y = labelPos.y;
+                this.timeLabelContainer.visible = true;
             }
             catch (error) {
                 if (this.timeLabelContainer) {
@@ -296,15 +357,11 @@ export class DataArea extends BaseGroup {
                 }
             }
         }
-        // Sole hover paint path: refused if scene left STABLE / a draw was queued
-        // since the checks above. Revert overlay graphics so the scene graph still
-        // matches the last successfully painted frame.
-        if (!this.requestPaint?.('hover')) {
-            this.pointerDashedLines.clear();
-            if (this.timeLabelContainer) {
-                this.timeLabelContainer.visible = false;
-            }
-            this.lastTimeLabelText = null;
+        if (this.requestRender) {
+            this.requestRender();
+        }
+        else {
+            this.app.render();
         }
     }
     setPausePeriods(periods) {
@@ -393,7 +450,7 @@ export class DataArea extends BaseGroup {
         super.clear();
         this.pointerHitArea.clear();
         this.pauseOverlayGraphic.clear();
-        this.clearHoverOverlay({ skipPaint: true });
+        this.clearHoverOverlay();
         this.readingsPerCategory = [];
         for (const graphicEntry of this.graphicPerCategory) {
             graphicEntry.graphic.clear();
@@ -404,7 +461,7 @@ export class DataArea extends BaseGroup {
     }
     draw() {
         if (this.hoverOverlaySuppressed) {
-            this.clearHoverOverlay({ skipPaint: true });
+            this.clearHoverOverlay();
         }
         const yAxisStart = this.yAxis.getAxisStart();
         const yAxisEnd = this.yAxis.getAxisEnd();

@@ -1,7 +1,6 @@
 import { EventEmitter } from 'pixi.js';
 import type { IObservation, IProtocol, IGraphPreferences, IPeriod } from '@actograph/core';
 import type { IGraphRenderOptions } from '../types/graph-render-options';
-import { type PaintReason } from '../utils/scene-paint.utils';
 interface IPixiAppInitOptions {
     view: HTMLCanvasElement;
     interactive?: boolean;
@@ -50,6 +49,9 @@ export declare class PixiApp {
      * destroy) lève "Cannot read properties of undefined (reading 'canvas')".
      */
     private isInitialized;
+    /** Canvas passé à init(); évite d'accéder à app.canvas après destroy. */
+    private viewCanvas;
+    private isDestroyed;
     private worldBounds;
     private fitViewport;
     private needsInitialFit;
@@ -60,14 +62,6 @@ export declare class PixiApp {
     private drawRafId;
     private drawResolvers;
     private drawInProgress;
-    /**
-     * True from the moment `draw()` is requested until its async dispatch
-     * (rAF → wait export → drawChain → executeDrawBody) has fully settled.
-     * Closes the gap where drawRafId/resolvers are already cleared but
-     * executeDrawBody has not yet set drawInProgress/mutating — a window that
-     * previously allowed hover to paint.
-     */
-    private drawDispatchActive;
     /**
      * Serializes executeDrawBody. Must never await exportQueue while a caller is
      * already on this chain (deadlock with export). External draw() waits for
@@ -84,26 +78,11 @@ export declare class PixiApp {
      */
     private forcePatternTextureClear;
     /**
-     * Scene paint contract (see `paint()`):
-     * - stable: coherent scene, partial paints (hover/pan/…) allowed
-     * - mutating: full draw clearing/rebuilding, partial paints forbidden
-     * - failed: last draw failed, partial paints forbidden until a successful draw
-     *
-     * Replaces the old axesGraphicsDirty boolean with an explicit lifecycle.
+     * True from the moment a full draw clears axis graphics until axes are
+     * successfully stroked again. Partial paints (hover, redrawCategory, pan)
+     * must not call app.render() while this is set — they would show empty axes.
      */
-    private scenePaintState;
-    /**
-     * Coalesced catch-up: any number of refused partial paints while unstable
-     * collapse to a single flag. Flushed once when the scene is stable again
-     * (either consumed by draw-complete, or one paint('partial') after dispatch).
-     */
-    private pendingPartialPaint;
-    /**
-     * When false, hover/leave/pan cannot paint (Observation→Graphe remount race:
-     * layout resize often arms DRAW#2 after the first OK frame; hover must wait
-     * until the host re-enables after a settled draw).
-     */
-    private partialPaintsEnabled;
+    private axesGraphicsDirty;
     private contextRestoring;
     private contextRestoreOuterRafId;
     private contextRestoreInnerRafId;
@@ -167,37 +146,10 @@ export declare class PixiApp {
     redrawCategory(categoryId: string): void;
     redrawObservable(observableId: string): void;
     isDrawInProgress(): boolean;
-    /** True when a full draw is queued, dispatching, or executing. */
-    private isDrawPipelineBusy;
-    /** Partial paints require a coherent scene, idle pipeline, and host enable. */
-    private isSceneStableForPartialPaint;
     /**
-     * Gate hover/pan paints during remount or resume until layout + draw settle.
-     * Authoritative paints (draw-complete) are unaffected.
-     */
-    setPartialPaintsEnabled(enabled: boolean): void;
-    arePartialPaintsEnabled(): boolean;
-    /**
-     * Sole gateway to `app.render()`.
-     *
-     * Authoritative reasons (`draw-complete`, `export`, `init`) always paint when
-     * the renderer is ready. Partial reasons (`hover`, `leave`, `pan`, …) paint
-     * only while the scene is STABLE — otherwise they set `pendingPartialPaint`
-     * (coalesced: N refusals → one catch-up) and may schedule a full draw.
-     *
-     * @returns true when a frame was actually painted
-     */
-    paint(reason: PaintReason): boolean;
-    /**
-     * If partial paints were refused while unstable, run at most one catch-up
-     * paint now that the scene is stable and the draw pipeline is idle.
-     * `paint('partial')` clears the pending flag on success; on refusal it stays
-     * set for a later flush.
-     */
-    private flushPendingPartialPaint;
-    /**
-     * @deprecated Prefer `paint(reason)`. Kept as a thin alias for pan/zoom paths
-     * that do not distinguish pan vs zoom at the call site.
+     * Renders only when the app is ready and no full draw/export is in flight.
+     * If axis graphics were cleared and not yet redrawn, schedules a full draw
+     * instead of painting the empty-axes scene (hover/pan must not "exclude" axes).
      */
     requestRender(): void;
     private scheduleDraw;

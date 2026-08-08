@@ -9,40 +9,44 @@ describe('crosshair.utils', () => {
   };
 
   describe('computeCrosshairSegments', () => {
-    it('draws a vertical line spanning the full plot height', () => {
+    it('draws a vertical stub from the cursor down to the bottom axis only', () => {
       const { vertical } = computeCrosshairSegments(400, 300, bounds);
 
       expect(vertical.x1).toBe(400);
       expect(vertical.x2).toBe(400);
-      expect(vertical.y1).toBe(bounds.topY);
+      expect(vertical.y1).toBe(300);
       expect(vertical.y2).toBe(bounds.bottomY);
     });
 
-    it('draws a horizontal line spanning the full plot width', () => {
+    it('draws a horizontal stub from the cursor left to the left axis only', () => {
       const { horizontal } = computeCrosshairSegments(400, 300, bounds);
 
       expect(horizontal.y1).toBe(300);
       expect(horizontal.y2).toBe(300);
-      expect(horizontal.x1).toBe(bounds.leftX);
-      expect(horizontal.x2).toBe(bounds.rightX);
+      expect(horizontal.x1).toBe(400);
+      expect(horizontal.x2).toBe(bounds.leftX);
     });
 
-    it('anchors crosshair endpoints on both axes at the plot corners', () => {
+    it('does not extend toward the top or right edges', () => {
       const { vertical, horizontal } = computeCrosshairSegments(400, 300, bounds);
 
-      expect(vertical.y1).toBe(bounds.topY);
-      expect(vertical.y2).toBe(bounds.bottomY);
-      expect(horizontal.x1).toBe(bounds.leftX);
-      expect(horizontal.x2).toBe(bounds.rightX);
+      expect(vertical.y1).toBeGreaterThan(bounds.topY);
+      expect(horizontal.x1).toBeLessThan(bounds.rightX);
+      expect(Math.min(vertical.y1, vertical.y2)).toBe(300);
+      expect(Math.max(horizontal.x1, horizontal.x2)).toBe(400);
     });
 
-    it('keeps both axes aligned when the cursor is near a plot edge', () => {
-      const { vertical, horizontal } = computeCrosshairSegments(bounds.leftX, bounds.topY, bounds);
+    it('collapses to zero-length stubs when the cursor sits on the left/bottom axes', () => {
+      const { vertical, horizontal } = computeCrosshairSegments(
+        bounds.leftX,
+        bounds.bottomY,
+        bounds,
+      );
 
-      expect(vertical.x1).toBe(bounds.leftX);
-      expect(horizontal.y1).toBe(bounds.topY);
+      expect(vertical.y1).toBe(bounds.bottomY);
       expect(vertical.y2).toBe(bounds.bottomY);
-      expect(horizontal.x2).toBe(bounds.rightX);
+      expect(horizontal.x1).toBe(bounds.leftX);
+      expect(horizontal.x2).toBe(bounds.leftX);
     });
   });
 

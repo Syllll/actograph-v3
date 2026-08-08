@@ -213,6 +213,7 @@ export const useGraph = (options?: {
       return;
     }
     const pixiApp = sharedState.pixiApp;
+    clearScheduledRedraw();
     pixiApp.prepareForResumeRefresh();
     // Wait for any in-flight export/draw before resize: resizeFromCanvas no-ops
     // while exportInProgress, and a skipped resize would leave a stale viewport.
@@ -228,9 +229,6 @@ export const useGraph = (options?: {
         }
         pixiApp.resizeFromCanvas({ skipRender: true });
         await redrawFromObservation(pixiApp);
-        if (!sharedState.ready || sharedState.pixiApp !== pixiApp) return;
-        clearScheduledRedraw();
-        pixiApp.setPartialPaintsEnabled(true);
       } catch (error) {
         console.error('[use-graph] refreshGraph failed:', error);
         if (attempt < 12) {
@@ -247,19 +245,17 @@ export const useGraph = (options?: {
     if (!sharedState.ready || !sharedState.pixiApp) {
       return;
     }
-    const pixiApp = sharedState.pixiApp;
-    const didResize = pixiApp.resizeFromCanvas({ skipRender: true });
-    if (!didResize) {
-      return;
+    const didResize = sharedState.pixiApp.resizeFromCanvas({ skipRender: true });
+    if (didResize) {
+      // Coalescé (comme scheduleRedraw) : un drag de volet ou un relayout de
+      // splitter émet une rafale de resize (ResizeObserver). Un redraw complet
+      // immédiat par tick faisait s'enchaîner/se chevaucher des cycles
+      // setData+draw concurrents, laissant l'état des axes/labels incohérent
+      // (labels manquants ou d'une autre catégorie) une fois la rafale
+      // terminée. On ne redessine donc qu'une fois, 50 ms après le dernier
+      // resize.
+      scheduleRedraw();
     }
-    // Coalescé (comme scheduleRedraw) : un drag de volet ou un relayout de
-    // splitter émet une rafale de resize (ResizeObserver). Un redraw complet
-    // immédiat par tick faisait s'enchaîner/se chevaucher des cycles
-    // setData+draw concurrents, laissant l'état des axes/labels incohérent
-    // (labels manquants ou d'une autre catégorie) une fois la rafale
-    // terminée. On ne redessine donc qu'une fois, 50 ms après le dernier
-    // resize.
-    scheduleRedraw();
   };
 
   // Si des options d'initialisation sont fournies, créer et initialiser PixiApp
@@ -291,33 +287,14 @@ export const useGraph = (options?: {
         });
 
         sharedState.ready = true;
-        // Block hover until the first real draw arms + settles. After init the
-        // scene is empty but scenePaintState is 'stable' and drawDispatchActive
-        // is still false until setAxisStretch→draw() arms — a window where a
-        // stray pointermove could paint an empty scene + crosshair.
-        pixiApp.setPartialPaintsEnabled(false);
 
         await redrawFromObservation(pixiApp);
 
-        if (!sharedState.ready || sharedState.pixiApp !== pixiApp) {
-          return;
-        }
+        console.info('Pixi app initialized');
 
         await new Promise<void>((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
         );
-
-        if (!sharedState.ready || sharedState.pixiApp !== pixiApp) {
-          return;
-        }
-        // Post-mount layout resize is handled by the ResizeObserver →
-        // onCanvasResize → scheduleRedraw path (debounced), exactly like the
-        // committed sequence. The paint contract + drawDispatchActive block
-        // hover during that redraw; we only release the hover guard once the
-        // first draw has settled.
-        pixiApp.setPartialPaintsEnabled(true);
-
-        console.info('Pixi app initialized');
       } catch (error) {
         console.error('Failed to initialize Pixi app:', error);
       } finally {
@@ -354,7 +331,11 @@ export const useGraph = (options?: {
     onUnmounted(() => {
       clearScheduledRedraw();
       redrawGeneration += 1;
-      pixiApp.destroy();
+      try {
+        pixiApp.destroy();
+      } catch (error) {
+        console.warn('[use-graph] pixiApp.destroy failed:', error);
+      }
       sharedState.pixiApp = null;
       sharedState.ready = false;
       sharedState.loading = false;
@@ -372,7 +353,7 @@ export const useGraph = (options?: {
     scheduleRedraw,
     /** Coupe le scheduleRedraw pendant un update optimiste purement visuel. */
     runWithoutScheduledRedraw,
-    /** Annule un redraw debounce en attente (ex. avant resetView). */
+    /** Annule un redraw debounce en attente (ex. avant resetView / resume). */
     clearScheduledRedraw,
   };
 };

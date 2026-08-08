@@ -18,7 +18,8 @@ export interface ICrosshairSegments {
 }
 
 /**
- * Builds full-span crosshair segments that reach both axes of the plot area.
+ * Builds a semi-crosshair: dashed stubs toward the bottom and left axes only
+ * (cursor → bottom Y-axis tick line, cursor → left X-axis tick line).
  */
 export function computeCrosshairSegments(
   cursorX: number,
@@ -28,14 +29,14 @@ export function computeCrosshairSegments(
   return {
     vertical: {
       x1: cursorX,
-      y1: bounds.topY,
+      y1: cursorY,
       x2: cursorX,
       y2: bounds.bottomY,
     },
     horizontal: {
-      x1: bounds.leftX,
+      x1: cursorX,
       y1: cursorY,
-      x2: bounds.rightX,
+      x2: bounds.leftX,
       y2: cursorY,
     },
   };

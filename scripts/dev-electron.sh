@@ -119,5 +119,20 @@ cd "$scriptFolderPath/../front"
 # Install the dependencies
 yarn install
 
+# yarn install can skip or fail Electron's postinstall (network, ELECTRON_SKIP_BINARY_DOWNLOAD).
+# Without dist/electron, Quasar crashes with ENOENT on spawn.
+if [ ! -x "./node_modules/electron/dist/electron" ]; then
+    echo "Binaire Electron manquant — téléchargement via install.js..."
+    node ./node_modules/electron/install.js
+fi
+
+# vite-plugin-checker copies typescript into typescript-vue-tsc once.
+# A partial copy leaves lib.esnext.d.ts / lib.dom.d.ts missing and vue-tsc reports 11 bogus errors.
+vue_tsc_ts_dir="./node_modules/vite-plugin-checker/dist/cjs/checkers/vueTsc/typescript-vue-tsc"
+if [ -d "$vue_tsc_ts_dir" ] && [ ! -f "$vue_tsc_ts_dir/lib/lib.esnext.d.ts" ]; then
+    echo "Fixture typescript-vue-tsc incomplet — suppression pour reconstruction..."
+    rm -rf "$vue_tsc_ts_dir"
+fi
+
 # Start electron in dev mode
 ./node_modules/.bin/quasar dev -m electron

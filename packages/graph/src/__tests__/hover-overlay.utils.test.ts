@@ -1,4 +1,7 @@
-import { shouldRenderHoverOverlay } from '../utils/hover-overlay.utils';
+import {
+  isPointInsidePlotBounds,
+  shouldRenderHoverOverlay,
+} from '../utils/hover-overlay.utils';
 
 describe('hover-overlay.utils', () => {
   describe('shouldRenderHoverOverlay', () => {
@@ -21,6 +24,29 @@ describe('hover-overlay.utils', () => {
       expect(
         shouldRenderHoverOverlay({ interactive: false, suppressed: true }),
       ).toBe(false);
+    });
+  });
+
+  describe('isPointInsidePlotBounds', () => {
+    const bounds = {
+      leftX: 150,
+      rightX: 720,
+      topY: 20,
+      bottomY: 580,
+    };
+
+    it('returns true for a point inside the plot', () => {
+      expect(isPointInsidePlotBounds(400, 300, bounds)).toBe(true);
+    });
+
+    it('returns true on plot edges', () => {
+      expect(isPointInsidePlotBounds(bounds.leftX, bounds.topY, bounds)).toBe(true);
+      expect(isPointInsidePlotBounds(bounds.rightX, bounds.bottomY, bounds)).toBe(true);
+    });
+
+    it('returns false outside the plot', () => {
+      expect(isPointInsidePlotBounds(bounds.leftX - 1, 300, bounds)).toBe(false);
+      expect(isPointInsidePlotBounds(400, bounds.topY - 1, bounds)).toBe(false);
     });
   });
 
