@@ -1370,7 +1370,9 @@ export default defineComponent({
         chronicle.sharedState.isPlaying,
         editMode.sharedState.isEditing,
       ],
-      () => nextTick(scheduleFitTimerText),
+      () => {
+        nextTick(scheduleFitTimerText);
+      },
     );
 
     // Watch edit mode to update bounds when entering
