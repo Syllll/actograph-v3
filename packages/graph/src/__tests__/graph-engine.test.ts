@@ -70,6 +70,48 @@ function createMockXAxis() {
 }
 
 describe('GraphEngine', () => {
+  it('prepareWorld draws axes before reading bounds (first paint)', () => {
+    const app = {} as Application;
+    const plot = new Container();
+    const dataArea = createMockDataArea();
+    plot.addChild(dataArea as unknown as Container);
+
+    let axisStart: { x: number; y: number } | null = null;
+    const yAxis = {
+      draw: jest.fn(() => {
+        axisStart = { x: 0, y: 400 };
+      }),
+      getAxisStart: () => (axisStart ? { ...axisStart } : null),
+      getAxisEnd: () => (axisStart ? { x: 0, y: 0 } : null),
+      getPosFromCategoryObservable: () => 100,
+      getPosFromLabel: () => 100,
+      getFriezeInfo: () => null,
+    };
+    const xAxis = {
+      draw: jest.fn(),
+      getAxisEnd: () => (axisStart ? { x: 800, y: 400 } : null),
+      getPosFromDateTime: () => 50,
+    };
+
+    const engine = new GraphEngine({
+      app,
+      plot,
+      dataArea,
+      yAxis: yAxis as never,
+      xAxis: xAxis as never,
+      patternStore: { createTilingSprite: jest.fn(), release: jest.fn() } as never,
+    });
+
+    engine.prepareWorld();
+
+    expect(yAxis.draw).toHaveBeenCalled();
+    expect(xAxis.draw).toHaveBeenCalled();
+    expect(dataArea.prepareHitArea).toHaveBeenCalledWith(
+      { x: 0, y: 400 },
+      { x: 800, y: 0 },
+    );
+  });
+
   it('prepareWorld calls axis draw then layers in order', () => {
     const app = {} as Application;
     const plot = new Container();

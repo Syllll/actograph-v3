@@ -71,6 +71,10 @@ export class GraphEngine {
     }
     prepareWorld() {
         const ctx = this.buildContext();
+        // Axes first: getAxisStart/End are only set inside yAxis/xAxis.draw().
+        // Checking bounds before that made the first (and every) prepareWorld
+        // return early with an empty scene.
+        this.axisLayer.prepare(ctx);
         const bounds = ctx.getAxisBounds();
         if (!bounds) {
             return;
@@ -81,7 +85,6 @@ export class GraphEngine {
             }
         }
         this.dataArea.prepareHitArea(bounds.bottomLeft, bounds.topRight);
-        this.axisLayer.prepare(ctx);
         this.backgroundLayer.prepare(ctx);
         this.friezeLayer.prepare(ctx);
         this.seriesLayer.prepare(ctx);
