@@ -806,8 +806,6 @@ const config = {
 
 **Correctifs** : `autoStart: false`, cancel pending hover en début de draw, render final obligatoire, garde `DirtyRegistry.midDraw` (ex-`axesGraphicsDirty`) côté hover, destroy des Text d’axes. Voir aussi le moteur v2 (`docs/graph-engine-v2.md`).
 
-**Correctifs** : `autoStart: false`, `cancelPending: true` en début de draw, render final obligatoire, garde `axesGraphicsDirty` côté hover, destroy des Text d’axes.
-
 ### Canvas non affiché
 
 Si le canvas n'apparaît pas :
