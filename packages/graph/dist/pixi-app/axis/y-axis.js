@@ -62,7 +62,7 @@ export class YAxis extends BaseGroup {
     /**
      * True when axis endpoints are set and stroke geometry or tick labels are
      * present. Used by hover to detect a cleared axis still referenced by stale
-     * plot bounds (preserveDrawingBuffer can hide the mismatch until hover).
+     * plot bounds (a stale framebuffer can hide the mismatch until hover).
      */
     hasDrawnContent() {
         if (!this.axisStart) {

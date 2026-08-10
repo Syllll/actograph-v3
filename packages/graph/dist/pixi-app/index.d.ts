@@ -35,10 +35,14 @@ interface IPixiAppInitOptions {
 export declare class PixiApp {
     private app;
     private viewport;
+    private overlayRoot;
     private plot;
     private xAxis;
     private yAxis;
     private dataArea;
+    private graphEngine;
+    private exportPipeline;
+    private hoverLayer;
     private protocol;
     private isInteractive;
     private baseCanvasHeight;
@@ -59,7 +63,9 @@ export declare class PixiApp {
     private graphRenderOptions;
     private exportInProgress;
     private exportQueue;
-    private drawRafId;
+    private patternStore;
+    private renderScheduler;
+    private drawFrameScheduled;
     private drawResolvers;
     private drawInProgress;
     /**
@@ -78,11 +84,12 @@ export declare class PixiApp {
      */
     private forcePatternTextureClear;
     /**
-     * True from the moment a full draw clears axis graphics until axes are
-     * successfully stroked again. Partial paints (hover, redrawCategory, pan)
-     * must not call app.render() while this is set — they would show empty axes.
+     * Per-layer dirty/midDraw state. midDraw is true while a full draw has
+     * cleared axis graphics but not yet flushed app.render(). Partial paints
+     * (hover, redrawCategory, pan) must not call app.render() while any layer
+     * is midDraw — they would show empty axes.
      */
-    private axesGraphicsDirty;
+    private dirtyRegistry;
     private contextRestoring;
     private contextRestoreOuterRafId;
     private contextRestoreInnerRafId;
@@ -96,6 +103,7 @@ export declare class PixiApp {
      */
     private axisStretch;
     constructor();
+    private registerDirtyLayers;
     /**
      * Initialize the PixiJS application.
      *
@@ -174,6 +182,7 @@ export declare class PixiApp {
     private getRequiredCanvasHeight;
     private updateWorldBounds;
     private recalculateFitViewport;
+    private getPlotBoundsInOverlay;
     private setViewportTransform;
     private setupZoomAndPan;
     private updateTimeScale;

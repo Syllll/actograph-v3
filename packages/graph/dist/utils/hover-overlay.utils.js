@@ -2,7 +2,7 @@
 export function shouldRenderHoverOverlay(state) {
     return state.interactive && !state.suppressed;
 }
-/** True when (x, y) lies inside the plot rectangle (pointerDashedLines local space). */
+/** True when (x, y) lies inside the plot rectangle (overlay local space). */
 export function isPointInsidePlotBounds(x, y, bounds) {
     return (x >= bounds.leftX &&
         x <= bounds.rightX &&

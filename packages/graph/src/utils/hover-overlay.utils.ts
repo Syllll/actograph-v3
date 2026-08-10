@@ -10,7 +10,7 @@ export function shouldRenderHoverOverlay(state: IHoverOverlayState): boolean {
   return state.interactive && !state.suppressed;
 }
 
-/** True when (x, y) lies inside the plot rectangle (pointerDashedLines local space). */
+/** True when (x, y) lies inside the plot rectangle (overlay local space). */
 export function isPointInsidePlotBounds(
   x: number,
   y: number,

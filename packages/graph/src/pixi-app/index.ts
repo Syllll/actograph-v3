@@ -6,7 +6,14 @@ import type { IObservation, IProtocol, IGraphPreferences, IProtocolItem, IPeriod
 import { filterReadingsForGraphDisplay } from '@actograph/core';
 import { getGraphPausePeriods } from '../utils/pause-periods.utils';
 import { getObservableGraphPreferences, hydrateProtocolItemsFromStringIfNeeded } from '../utils/protocol.utils';
-import { clearPatternTextureCache } from '../lib/pattern-textures';
+import { bindPatternTextureStore, unbindPatternTextureStore } from '../lib/pattern-textures';
+import { PatternTextureStore } from '../gpu/PatternTextureStore';
+import { RenderScheduler } from '../engine/RenderScheduler';
+import { DirtyRegistry } from '../engine/DirtyRegistry';
+import { GraphEngine } from '../engine/GraphEngine';
+import { ExportPipeline } from '../engine/ExportPipeline';
+import { HoverLayer } from '../layers/HoverLayer';
+import { computePlotBoundsInOverlay } from '../utils/hover-bounds.utils';
 import {
   clampViewport,
   computeFitViewport,
@@ -57,10 +64,14 @@ interface IPixiAppInitOptions {
 export class PixiApp {
   private app: Application;
   private viewport!: Container;
+  private overlayRoot!: Container;
   private plot!: Container;
   private xAxis!: xAxis;
   private yAxis!: YAxis;
   private dataArea!: DataArea;
+  private graphEngine!: GraphEngine;
+  private exportPipeline!: ExportPipeline;
+  private hoverLayer!: HoverLayer;
   private protocol: IProtocol | null = null;
   private isInteractive = true;
   private baseCanvasHeight = 0;
@@ -81,7 +92,9 @@ export class PixiApp {
   private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
   private exportInProgress = false;
   private exportQueue: Promise<unknown> = Promise.resolve();
-  private drawRafId: number | null = null;
+  private patternStore = new PatternTextureStore();
+  private renderScheduler = new RenderScheduler();
+  private drawFrameScheduled = false;
   private drawResolvers: Array<{
     resolve: () => void;
     reject: (reason?: unknown) => void;
@@ -103,11 +116,12 @@ export class PixiApp {
    */
   private forcePatternTextureClear = false;
   /**
-   * True from the moment a full draw clears axis graphics until axes are
-   * successfully stroked again. Partial paints (hover, redrawCategory, pan)
-   * must not call app.render() while this is set — they would show empty axes.
+   * Per-layer dirty/midDraw state. midDraw is true while a full draw has
+   * cleared axis graphics but not yet flushed app.render(). Partial paints
+   * (hover, redrawCategory, pan) must not call app.render() while any layer
+   * is midDraw — they would show empty axes.
    */
-  private axesGraphicsDirty = false;
+  private dirtyRegistry = new DirtyRegistry();
   private contextRestoring = false;
   private contextRestoreOuterRafId: number | null = null;
   private contextRestoreInnerRafId: number | null = null;
@@ -144,6 +158,16 @@ export class PixiApp {
 
   constructor() {
     this.app = new Application();
+    this.registerDirtyLayers();
+  }
+
+  private registerDirtyLayers(): void {
+    this.dirtyRegistry.register('axis');
+    this.dirtyRegistry.register('series');
+    this.dirtyRegistry.register('background');
+    this.dirtyRegistry.register('frieze');
+    this.dirtyRegistry.register('pause');
+    this.dirtyRegistry.register('hover');
   }
 
   /**
@@ -178,9 +202,9 @@ export class PixiApp {
       height: height,
       resolution: dpr,      // Pour les écrans HiDPI
       autoDensity: true,    // Ajuste automatiquement la densité
-      preserveDrawingBuffer: true, // Required for canvas.toDataURL() to produce non-black exports
+      preserveDrawingBuffer: false,
       // Explicit renders only: the default ticker would call app.render() every
-      // frame and bypass drawInProgress / axesGraphicsDirty guards.
+      // frame and bypass drawInProgress / midDraw guards.
       autoStart: false,
       // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
       // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
@@ -192,12 +216,19 @@ export class PixiApp {
     this.dataArea = new DataArea(this.app, this.yAxis, this.xAxis, {
       interactive: this.isInteractive,
     });
-    this.dataArea.setDrawStateCallbacks({
+    bindPatternTextureStore(this.patternStore);
+
+    this.hoverLayer = new HoverLayer(this.app, { interactive: this.isInteractive });
+    this.hoverLayer.setGraphRenderOptions(this.graphRenderOptions);
+    this.hoverLayer.setDrawStateCallbacks({
       isDrawInProgress: () => this.isDrawInProgress(),
-      isAxesGraphicsDirty: () => this.axesGraphicsDirty,
+      isUnsafeToPaint: () => this.dirtyRegistry.isAnyUnsafeToPaint(),
       isExportInProgress: () => this.exportInProgress,
       requestRender: () => this.requestRender(),
     });
+
+    this.overlayRoot = new Container();
+    this.overlayRoot.addChild(this.hoverLayer.container);
 
     this.viewport = new Container();
     this.viewport.x = 0;
@@ -210,12 +241,70 @@ export class PixiApp {
     this.plot.addChild(this.dataArea);
     this.dataArea.setPlotContainer(this.plot);
 
+    this.graphEngine = new GraphEngine({
+      app: this.app,
+      plot: this.plot,
+      dataArea: this.dataArea,
+      yAxis: this.yAxis,
+      xAxis: this.xAxis,
+      patternStore: this.patternStore,
+    });
+    this.dataArea.setCategoryPruneHandler((activeCategoryIds) => {
+      this.graphEngine.pruneStaleCategories(activeCategoryIds);
+    });
+
+    this.exportPipeline = new ExportPipeline({
+      app: this.app,
+      isInteractive: () => this.isInteractive,
+      getRequiredCanvasHeight: () => this.getRequiredCanvasHeight(),
+      enqueueDrawBody: () => this.enqueueDrawBody(),
+      setViewportTransform: (transform, options) =>
+        this.setViewportTransform(transform, options),
+      updateWorldBounds: () => this.updateWorldBounds(),
+      recalculateFitViewport: () => this.recalculateFitViewport(),
+      getWorldBounds: () => this.worldBounds,
+      getZoomState: () => this.zoomState,
+      getViewportTransform: () => ({
+        scale: this.zoomState.scale,
+        x: this.zoomState.x,
+        y: this.zoomState.y,
+      }),
+      setHoverSuppressed: (suppressed) => {
+        this.hoverLayer.setSuppressed(suppressed);
+        if (suppressed) {
+          this.hoverLayer.clear();
+        }
+      },
+    });
+
     this.viewport.addChild(this.plot);
     this.app.stage.addChild(this.viewport);
+    this.app.stage.addChild(this.overlayRoot);
+
+    this.dataArea.setHoverController(this.hoverLayer);
+    this.dataArea.setWorldToOverlay((p) =>
+      this.overlayRoot.toLocal(this.dataArea.toGlobal(p)),
+    );
+    this.hoverLayer.setBoundsDeps({
+      getPlotBoundsInOverlay: () => this.getPlotBoundsInOverlay(),
+      clientPointToOverlayLocal: (clientX, clientY) => {
+        const canvas = this.app.canvas as HTMLCanvasElement | null;
+        if (!canvas) {
+          return null;
+        }
+        const rect = canvas.getBoundingClientRect();
+        return this.overlayRoot.toLocal({
+          x: clientX - rect.left,
+          y: clientY - rect.top,
+        } as { x: number; y: number });
+      },
+      getCanvas: () => (this.app.canvas as HTMLCanvasElement | null) ?? null,
+    });
 
     this.yAxis.init();
     this.xAxis.init();
     this.dataArea.init();
+    this.hoverLayer.init();
 
     this.setupZoomAndPan();
     this.bindWebGLContextHandlers();
@@ -322,12 +411,14 @@ export class PixiApp {
    * across tab hide/show.
    */
   public prepareForResumeRefresh(): void {
-    this.dataArea.clearHoverOverlay();
+    this.renderScheduler.bumpGeneration();
+    this.hoverLayer.clear();
     this.needsPatternTextureRefresh = true;
     // Bloque requestRender() / hover jusqu'au prochain draw complet : après
     // resize(skipRender) le buffer peut encore montrer une bonne frame alors que
-    // viewport et scène ne sont plus alignés (preserveDrawingBuffer).
-    this.axesGraphicsDirty = true;
+    // viewport et scène ne sont plus alignés.
+    this.dirtyRegistry.invalidateAll('full');
+    this.dirtyRegistry.markAllMidDraw();
     // Always re-fit on resume: preserving zoom across a hidden tab often leaves
     // the camera on an empty region (axes "disappeared", one data fragment left).
     this.needsInitialFit = true;
@@ -353,7 +444,7 @@ export class PixiApp {
     if (!this.isInitialized || this.contextRestoring) {
       return;
     }
-    this.dataArea.clearHoverOverlay();
+    this.hoverLayer.clear();
     this.needsPatternTextureRefresh = true;
     this.needsInitialFit = true;
     this.wasDegenerateCanvas = true;
@@ -370,7 +461,11 @@ export class PixiApp {
    */
   public waitForIdle(): Promise<void> {
     const exportGate = this.exportInProgress ? this.exportQueue : Promise.resolve();
-    return Promise.all([this.drawChain, exportGate]).then(() => undefined);
+    return Promise.all([
+      this.drawChain,
+      exportGate,
+      this.renderScheduler.flush(),
+    ]).then(() => undefined);
   }
 
   private markDegenerateCanvasIfNeeded(): void {
@@ -403,10 +498,11 @@ export class PixiApp {
       // Cancel any restore refresh already queued: a re-loss before the
       // deferred resume must not run resize/draw on a dead GL context.
       this.cancelContextRestoreRafs();
-      this.dataArea.clearHoverOverlay();
+      this.hoverLayer.clear();
       this.needsPatternTextureRefresh = true;
       this.forcePatternTextureClear = true;
-      this.axesGraphicsDirty = true;
+      this.dirtyRegistry.invalidateAll('full');
+      this.dirtyRegistry.markAllMidDraw();
       // Force fit after restore: GPU context loss often coincides with a bad
       // or stale viewport even when CSS size still looks valid.
       this.wasDegenerateCanvas = true;
@@ -438,6 +534,7 @@ export class PixiApp {
   }
 
   public setData(observation: IObservation) {
+    this.renderScheduler.bumpGeneration();
     if (!observation.readings) {
       throw new Error('Observation must have readings');
     }
@@ -463,6 +560,8 @@ export class PixiApp {
     this.dataArea.setPausePeriods(this.pausePeriods);
     this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
     this.dataArea.setData(graphObservation);
+    this.hoverLayer.setObservation(graphObservation);
+    this.hoverLayer.setGraphRenderOptions(this.graphRenderOptions);
 
     // Mode interactif (graphe desktop) : on ne fait JAMAIS grossir le renderer
     // au-delà de la boîte CSS du canvas. Avant, `app.renderer.resize(w,
@@ -517,6 +616,7 @@ export class PixiApp {
     };
     this.xAxis.setGraphRenderOptions(this.graphRenderOptions);
     this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
+    this.hoverLayer.setGraphRenderOptions(this.graphRenderOptions);
     if (drawOptions?.redraw !== false) {
       this.scheduleDraw('renderOptions');
     }
@@ -572,20 +672,20 @@ export class PixiApp {
   }
 
   public redrawCategory(categoryId: string): void {
-    if (this.axesGraphicsDirty) {
+    if (this.dirtyRegistry.isAnyUnsafeToPaint()) {
       this.scheduleDraw('redrawCategory');
       return;
     }
-    this.dataArea.redrawCategory(categoryId);
+    this.graphEngine.redrawCategory(categoryId);
     this.requestRender();
   }
 
   public redrawObservable(observableId: string): void {
-    if (this.axesGraphicsDirty) {
+    if (this.dirtyRegistry.isAnyUnsafeToPaint()) {
       this.scheduleDraw('redrawObservable');
       return;
     }
-    this.dataArea.redrawObservable(observableId);
+    this.graphEngine.redrawObservable(observableId);
     this.requestRender();
   }
 
@@ -607,7 +707,7 @@ export class PixiApp {
     ) {
       return;
     }
-    if (this.axesGraphicsDirty) {
+    if (this.dirtyRegistry.isAnyUnsafeToPaint()) {
       this.scheduleDraw('renderGate');
       return;
     }
@@ -626,18 +726,19 @@ export class PixiApp {
   public draw(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.drawResolvers.push({ resolve, reject });
-      if (this.drawRafId !== null) {
+      if (this.drawFrameScheduled) {
         return;
       }
-      this.drawRafId = requestAnimationFrame(() => {
-        this.drawRafId = null;
-        const resolvers = this.drawResolvers;
-        this.drawResolvers = [];
+      this.drawFrameScheduled = true;
+      this.renderScheduler.request(
+        async () => {
+          this.drawFrameScheduled = false;
+          const resolvers = this.drawResolvers;
+          this.drawResolvers = [];
 
-        // Wait for export OFF drawChain, then enqueue the body. Waiting for
-        // exportQueue while already on drawChain deadlocks against export,
-        // which must also enqueue bodies on the same chain.
-        void (async () => {
+          // Wait for export OFF drawChain, then enqueue the body. Waiting for
+          // exportQueue while already on drawChain deadlocks against export,
+          // which must also enqueue bodies on the same chain.
           try {
             while (this.exportInProgress) {
               await this.exportQueue;
@@ -647,8 +748,9 @@ export class PixiApp {
           } catch (error) {
             resolvers.forEach((r) => r.reject(error));
           }
-        })();
-      });
+        },
+        { ignoreStale: true },
+      );
     });
   }
 
@@ -681,16 +783,16 @@ export class PixiApp {
     try {
       // Drop any pending hover: resuming it after a full draw was racing with
       // remount DRAW#2 (resize/watch) and painting emptied axes over a stale
-      // preserveDrawingBuffer frame on the next pointermove.
-      this.dataArea.clearHoverOverlay({ cancelPending: true });
+      // framebuffer on the next pointermove.
+      this.hoverLayer.clear({ cancelPending: true });
 
       if (this.needsPatternTextureRefresh) {
-        const hadPatterns = this.dataArea.hasPatternSprites();
-        this.dataArea.clearPatternSprites();
+        const hadPatterns = this.graphEngine.hasPatternSprites();
+        this.graphEngine.clearPatternSprites();
         // Skip cache destroy in Normal (no pattern sprites) unless WebGL
         // context loss left dead GPU textures in the shared module cache.
         if (hadPatterns || this.forcePatternTextureClear) {
-          clearPatternTextureCache();
+          this.patternStore.evict();
           this.forcePatternTextureClear = false;
         }
         this.needsPatternTextureRefresh = false;
@@ -701,12 +803,10 @@ export class PixiApp {
       this.plot.scale.set(1);
       this.plot.rotation = 0;
 
-      // Axis draw() clears graphics first — stay dirty until the full scene
+      // Axis draw() clears graphics first — stay midDraw until the full scene
       // has been rendered, so hover/pan cannot paint emptied axes.
-      this.axesGraphicsDirty = true;
-      this.yAxis.draw();
-      this.xAxis.draw();
-      this.dataArea.draw();
+      this.dirtyRegistry.markAllMidDraw();
+      this.graphEngine.prepareWorld();
 
       if (this.isInteractive) {
         this.updateWorldBounds();
@@ -733,22 +833,26 @@ export class PixiApp {
         this.updateWorldTransforms();
       }
 
-      // Always flush the framebuffer after a full draw. With
-      // preserveDrawingBuffer, skipping render leaves a stale "OK" image until
-      // the next hover render reveals emptied axes.
+      // Always flush the framebuffer after a full draw. Without an explicit
+      // render, skipping paint can leave a stale image until the next hover
+      // render reveals emptied axes.
       if (!this.isInitialized || !this.app.renderer) {
         throw new Error('PixiApp renderer unavailable at end of draw');
       }
       this.app.render();
-      this.axesGraphicsDirty = false;
+      // Success path only: scene is coherent again, partial paints are safe.
+      this.dirtyRegistry.resetAllMidDraw();
     } catch (error) {
       // Axes/data clear at the start of draw. If we fail mid-way and then let
       // hover call requestRender(), the user sees empty axes + orphan crosshair.
+      // Keep midDraw=true until a later successful full draw (same invariant as
+      // the old axesGraphicsDirty flag on failure).
       console.error('[PixiApp] Full draw failed:', error);
-      this.axesGraphicsDirty = true;
+      this.dirtyRegistry.invalidateAll('full');
+      this.dirtyRegistry.markAllMidDraw();
       this.needsInitialFit = true;
       this.needsPatternTextureRefresh = true;
-      this.dataArea.clearHoverOverlay({ cancelPending: true });
+      this.hoverLayer.clear({ cancelPending: true });
       throw error;
     } finally {
       this.drawInProgress = false;
@@ -766,10 +870,13 @@ export class PixiApp {
   }
 
   public async clear() {
+    this.renderScheduler.bumpGeneration();
     this.yAxis.clear();
     this.xAxis.clear();
     this.dataArea.clear();
-    this.axesGraphicsDirty = true;
+    this.graphEngine.clearAll();
+    this.dirtyRegistry.invalidateAll('full');
+    this.dirtyRegistry.markAllMidDraw();
   }
 
   private getCanvasSize(): { width: number; height: number } {
@@ -813,6 +920,23 @@ export class PixiApp {
     );
   }
 
+  private getPlotBoundsInOverlay() {
+    const yAxisStart = this.yAxis.getAxisStart();
+    const yAxisEnd = this.yAxis.getAxisEnd();
+    const xAxisEnd = this.xAxis.getAxisEnd();
+    if (!yAxisStart || !yAxisEnd || !xAxisEnd) {
+      return null;
+    }
+    return computePlotBoundsInOverlay({
+      yAxisStart: yAxisStart as { x: number; y: number },
+      yAxisEnd: yAxisEnd as { x: number; y: number },
+      xAxisEnd: xAxisEnd as { x: number; y: number },
+      yAxisToGlobal: (p) => this.yAxis.toGlobal(p),
+      xAxisToGlobal: (p) => this.xAxis.toGlobal(p),
+      overlayToLocal: (p) => this.overlayRoot.toLocal(p),
+    });
+  }
+
   private setViewportTransform(
     transform: { scale?: number; x?: number; y?: number },
     options?: { emitZoom?: boolean; skipRender?: boolean },
@@ -836,6 +960,9 @@ export class PixiApp {
     this.viewport.x = clamped.x;
     this.viewport.y = clamped.y;
     this.updateWorldTransforms();
+    // Pan/zoom changes world→overlay mapping; clear stale crosshair until the
+    // user moves the pointer again.
+    this.hoverLayer.clear();
 
     if (options?.emitZoom !== false) {
       this.events.emit('zoom', baseScale);
@@ -930,7 +1057,7 @@ export class PixiApp {
         evt.preventDefault();
       } else if (evt.pointerType === 'mouse') {
         this.app.canvas.style.cursor = GRAPH_CANVAS_CURSOR_IDLE;
-        this.dataArea.syncHoverDismissWithPointer(evt.clientX, evt.clientY);
+        this.hoverLayer.syncDismissWithPointer(evt.clientX, evt.clientY);
       }
     };
 
@@ -947,7 +1074,7 @@ export class PixiApp {
       this.app.canvas.style.cursor = 'default';
       // Canvas exit: Pixi hit-area pointerleave alone does not cover leaving
       // the element. syncHoverDismissWithPointer covers leave-to-axes.
-      this.dataArea.dismissHoverOverlay();
+      this.hoverLayer.dismiss();
     };
 
     // =========================================================================
@@ -1217,68 +1344,10 @@ export class PixiApp {
     }
 
     this.exportInProgress = true;
-    this.dataArea.setHoverOverlaySuppressed(true);
-    this.dataArea.clearHoverOverlay();
-
-    const originalWidth = this.app.screen.width;
-    const originalHeight = this.app.screen.height;
-    const requiredHeight = this.getRequiredCanvasHeight();
-    const exportHeight = Math.max(originalHeight, requiredHeight);
-
-    const savedViewport = {
-      scale: this.zoomState.scale,
-      x: this.zoomState.x,
-      y: this.zoomState.y,
-    };
-
-    let resizedForExport = false;
     try {
-      if (this.isInteractive) {
-        if (exportHeight !== originalHeight) {
-          this.app.renderer.resize(originalWidth, exportHeight);
-          resizedForExport = true;
-        }
-
-        this.updateWorldBounds();
-        const exportCanvasSize = {
-          width: originalWidth,
-          height: exportHeight,
-        };
-        const fitViewport = computeFitViewport(
-          this.worldBounds,
-          exportCanvasSize,
-          this.zoomState.minScale,
-          this.zoomState.maxScale,
-        );
-        // Applique aussi axisStretch (via setViewportTransform) : l'export
-        // reflète l'étirement courant, comme ce que l'utilisatrice voit à l'écran.
-        this.setViewportTransform(
-          { scale: fitViewport.scaleX, x: fitViewport.x, y: fitViewport.y },
-          { emitZoom: false, skipRender: true },
-        );
-      }
-
-      // Direct enqueue (not draw()): avoids deadlock with external draws that
-      // wait on exportQueue off-chain before enqueueing.
-      await this.enqueueDrawBody();
-      this.app.render();
-      const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-      return (this.app.canvas as HTMLCanvasElement).toDataURL(mimeType, quality);
+      return await this.exportPipeline.exportAsImage(format, quality);
     } finally {
-      try {
-        if (this.isInteractive) {
-          if (resizedForExport) {
-            this.app.renderer.resize(originalWidth, originalHeight);
-            this.updateWorldBounds();
-            this.recalculateFitViewport();
-          }
-          this.setViewportTransform(savedViewport, { emitZoom: false, skipRender: true });
-          await this.enqueueDrawBody();
-        }
-      } finally {
-        this.exportInProgress = false;
-        this.dataArea.setHoverOverlaySuppressed(false);
-      }
+      this.exportInProgress = false;
     }
   }
 
@@ -1290,10 +1359,9 @@ export class PixiApp {
     this.isInitialized = false;
 
     try {
-      if (this.drawRafId !== null) {
-        cancelAnimationFrame(this.drawRafId);
-        this.drawRafId = null;
-      }
+      this.renderScheduler.cancel();
+      this.renderScheduler.bumpGeneration();
+      this.drawFrameScheduled = false;
       this.cancelContextRestoreRafs();
       this.contextRestoring = false;
       const pendingResolvers = this.drawResolvers;
@@ -1303,8 +1371,14 @@ export class PixiApp {
       this.teardownContextHandlers?.();
 
       if (this.dataArea) {
-        this.dataArea.clearHoverOverlay();
+        this.hoverLayer.destroy();
+        this.graphEngine.clearPatternSprites();
       }
+      if (this.overlayRoot) {
+        this.overlayRoot.destroy({ children: true });
+      }
+      this.patternStore.evict();
+      unbindPatternTextureStore(this.patternStore);
 
       const canvas = this.viewCanvas;
       if (canvas && (canvas as any)._zoomPanHandlers) {
@@ -1324,7 +1398,6 @@ export class PixiApp {
       this.viewCanvas = null;
 
       this.events.removeAllListeners();
-      clearPatternTextureCache();
     } catch (error) {
       console.warn('[PixiApp] destroy cleanup failed:', error);
     }
