@@ -1,5 +1,5 @@
 import { Container } from 'pixi.js';
-import { DisplayModeEnum, isCategoryVisible, mergeGraphPreferences, } from '@actograph/core';
+import { DisplayModeEnum, mergeGraphPreferences, } from '@actograph/core';
 import { getEffectiveDisplayMode } from '../utils/category-display.utils';
 import { AxisLayer } from '../layers/AxisLayer';
 import { BackgroundLayer } from '../layers/BackgroundLayer';
@@ -8,6 +8,7 @@ import { SeriesLayer } from '../layers/SeriesLayer';
 import { PauseOverlayLayer } from '../layers/PauseOverlayLayer';
 export class GraphEngine {
     constructor(options) {
+        this.lastDrawErrors = [];
         this.dataArea = options.dataArea;
         this.yAxis = options.yAxis;
         this.xAxis = options.xAxis;
@@ -69,7 +70,14 @@ export class GraphEngine {
             getEffectiveDisplayMode,
         };
     }
+    getLastDrawErrors() {
+        return this.lastDrawErrors;
+    }
     prepareWorld() {
+        const errors = [];
+        const prepareOptions = {
+            onCategoryError: (error) => errors.push(error),
+        };
         const ctx = this.buildContext();
         // Axes first: getAxisStart/End are only set inside yAxis/xAxis.draw().
         // Checking bounds before that made the first (and every) prepareWorld
@@ -77,78 +85,43 @@ export class GraphEngine {
         this.axisLayer.prepare(ctx);
         const bounds = ctx.getAxisBounds();
         if (!bounds) {
+            this.lastDrawErrors = errors;
             return;
         }
-        for (const entry of ctx.readingsPerCategory) {
-            if (!isCategoryVisible(entry.category)) {
-                this.clearCategoryAllLayers(entry.category.id);
-            }
-        }
         this.dataArea.prepareHitArea(bounds.bottomLeft, bounds.topRight);
-        this.backgroundLayer.prepare(ctx);
-        this.friezeLayer.prepare(ctx);
-        this.seriesLayer.prepare(ctx);
+        this.backgroundLayer.prepare(ctx, prepareOptions);
+        this.friezeLayer.prepare(ctx, prepareOptions);
+        this.seriesLayer.prepare(ctx, prepareOptions);
         this.pauseLayer.prepare(ctx);
         this.backgroundLayer.commit();
+        this.friezeLayer.commit();
         this.seriesLayer.commit();
+        this.pauseLayer.commit();
+        this.lastDrawErrors = errors;
     }
+    /**
+     * Legacy teardown: destroys category graphics on the visible display buffer
+     * immediately. Not wired from PixiApp; full-paint path uses prepareWorld only.
+     */
     pruneStaleCategories(activeCategoryIds) {
         this.backgroundLayer.pruneStaleCategories(activeCategoryIds);
         this.friezeLayer.pruneStaleCategories(activeCategoryIds);
         this.seriesLayer.pruneStaleCategories(activeCategoryIds);
     }
+    /**
+     * Legacy teardown: destroys category graphics on the visible display buffer
+     * immediately. Not used by the full-paint path (prepareWorld / commit).
+     */
     clearCategoryAllLayers(categoryId) {
         this.backgroundLayer.clearCategory(categoryId);
         this.friezeLayer.clearCategory(categoryId);
         this.seriesLayer.clearCategory(categoryId);
     }
-    redrawCategory(categoryId) {
-        const ctx = this.buildContext();
-        const categoryEntry = ctx.readingsPerCategory.find((r) => r.category.id === categoryId);
-        if (!categoryEntry) {
-            return;
-        }
-        if (!isCategoryVisible(categoryEntry.category)) {
-            this.clearCategoryAllLayers(categoryId);
-            return;
-        }
-        this.clearCategoryInOtherLayers(categoryId, ctx.getEffectiveDisplayMode(categoryEntry.category));
-        switch (ctx.getEffectiveDisplayMode(categoryEntry.category)) {
-            case DisplayModeEnum.Background:
-                this.backgroundLayer.redrawCategory(categoryId, ctx);
-                break;
-            case DisplayModeEnum.Frieze:
-                this.friezeLayer.redrawCategory(categoryId, ctx);
-                break;
-            default:
-                this.seriesLayer.redrawCategory(categoryId, ctx);
-                break;
-        }
+    redrawCategory(_categoryId) {
+        this.prepareWorld();
     }
-    redrawObservable(observableId) {
-        const protocol = this.dataArea.getProtocol();
-        if (!protocol) {
-            return;
-        }
-        const prot = protocol;
-        const items = prot._items || prot.items || [];
-        if (!items.length) {
-            return;
-        }
-        let targetCategory = null;
-        for (const category of items) {
-            if (category.children) {
-                const observable = category.children.find((o) => o.id === observableId);
-                if (observable) {
-                    targetCategory = category;
-                    break;
-                }
-            }
-        }
-        if (!targetCategory) {
-            return;
-        }
-        this.redrawCategory(targetCategory.id);
+    redrawObservable(_observableId) {
+        this.prepareWorld();
     }
     hasPatternSprites() {
         return this.backgroundLayer.hasPatternSprites() || this.friezeLayer.hasPatternSprites();
@@ -163,6 +136,7 @@ export class GraphEngine {
         this.seriesLayer.clearAll();
         this.pauseLayer.clear();
     }
+    /** Legacy teardown — destroys display immediately; not used by full-paint path. */
     clearCategoryInOtherLayers(categoryId, mode) {
         if (mode !== DisplayModeEnum.Background) {
             this.backgroundLayer.clearCategory(categoryId);

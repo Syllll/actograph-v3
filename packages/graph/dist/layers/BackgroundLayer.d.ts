@@ -1,5 +1,6 @@
 import { Application, Container } from 'pixi.js';
 import type { GraphContext } from '../engine/GraphContext';
+import type { LayerPrepareOptions } from '../engine/types';
 import type { PatternTextureStore } from '../gpu/PatternTextureStore';
 import { BaseLayer } from './Layer';
 export declare class BackgroundLayer extends BaseLayer {
@@ -7,7 +8,7 @@ export declare class BackgroundLayer extends BaseLayer {
     private readonly doubleBuffer;
     private readonly graphicsStore;
     constructor(app: Application, patternStore: PatternTextureStore);
-    prepare(ctx: GraphContext): void;
+    prepare(ctx: GraphContext, options?: LayerPrepareOptions): void;
     commit(): void;
     redrawCategory(categoryId: string, ctx: GraphContext): void;
     clearCategory(categoryId: string): void;

@@ -1,5 +1,5 @@
 import type { GraphContext } from '../engine/GraphContext';
-import type { DirtyFlag, InvalidateScope, LayerId } from '../engine/types';
+import type { DirtyFlag, InvalidateScope, LayerId, LayerPrepareOptions } from '../engine/types';
 import { mergeDirtyFlags } from '../engine/types';
 
 export interface Layer {
@@ -8,7 +8,7 @@ export interface Layer {
   isDirty(): boolean;
   isUnsafeToPaint(): boolean;
   consumeDirty(): DirtyFlag;
-  prepare(ctx: GraphContext): void;
+  prepare(ctx: GraphContext, options?: LayerPrepareOptions): void;
 }
 
 export abstract class BaseLayer implements Layer {
@@ -51,5 +51,5 @@ export abstract class BaseLayer implements Layer {
     return flag;
   }
 
-  abstract prepare(ctx: GraphContext): void;
+  abstract prepare(ctx: GraphContext, options?: LayerPrepareOptions): void;
 }

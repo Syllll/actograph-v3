@@ -2,7 +2,7 @@ import { Container } from 'pixi.js';
 
 /**
  * Front/back container swap for full prepareWorld paints.
- * Partial redrawCategory updates the visible display buffer in place.
+ * Public redraw paths schedule a full prepareWorld commit; no in-place display clears.
  */
 export class LayerDoubleBuffer {
   readonly root: Container;
@@ -26,7 +26,7 @@ export class LayerDoubleBuffer {
     return this.back;
   }
 
-  commit(): void {
+  swap(): void {
     this.front.visible = false;
     this.back.visible = true;
 
@@ -35,7 +35,15 @@ export class LayerDoubleBuffer {
     this.back = previousFront;
 
     this.back.visible = false;
+  }
+
+  clearBack(): void {
     this.clearContainer(this.back);
+  }
+
+  commit(): void {
+    this.swap();
+    this.clearBack();
   }
 
   clearPaintBuffer(): void {

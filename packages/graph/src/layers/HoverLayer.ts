@@ -29,6 +29,7 @@ import {
   formatChronometerFixed,
 } from '../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../utils/chronometer.constants';
+import { safeMoveTo, safeRect } from '../utils/safe-graphics.utils';
 
 export interface HoverWorldPointerInput {
   worldX: number;
@@ -223,16 +224,14 @@ export class HoverLayer extends BaseLayer {
     );
 
     this.pointerDashedLines.clear();
-    this.pointerDashedLines
-      .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-      .moveTo(vertical.x1, vertical.y1)
-      .dashedLineTo(vertical.x2, vertical.y2)
-      .stroke();
-    this.pointerDashedLines
-      .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-      .moveTo(horizontal.x1, horizontal.y1)
-      .dashedLineTo(horizontal.x2, horizontal.y2)
-      .stroke();
+    this.pointerDashedLines.setStrokeStyle({ color: 'black', width: 1, cap: 'butt' });
+    if (safeMoveTo(this.pointerDashedLines, vertical.x1, vertical.y1)) {
+      this.pointerDashedLines.dashedLineTo(vertical.x2, vertical.y2).stroke();
+    }
+    this.pointerDashedLines.setStrokeStyle({ color: 'black', width: 1, cap: 'butt' });
+    if (safeMoveTo(this.pointerDashedLines, horizontal.x1, horizontal.y1)) {
+      this.pointerDashedLines.dashedLineTo(horizontal.x2, horizontal.y2).stroke();
+    }
 
     this.hoverOverlayVisible = true;
 
@@ -250,8 +249,9 @@ export class HoverLayer extends BaseLayer {
       const backgroundHeight = textHeight + padding * 2;
 
       this.timeLabelBackground.clear();
-      this.timeLabelBackground.rect(0, 0, backgroundWidth, backgroundHeight);
-      this.timeLabelBackground.fill({ color: 'white' });
+      safeRect(this.timeLabelBackground, 0, 0, backgroundWidth, backgroundHeight, {
+        fill: { color: 'white' },
+      });
 
       this.timeLabel.x = padding;
       this.timeLabel.y = padding;

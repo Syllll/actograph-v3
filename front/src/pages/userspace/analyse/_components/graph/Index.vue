@@ -177,6 +177,29 @@
       {{ $t('graphUi.readingsAfterLastStopWarning') }}
     </q-banner>
 
+    <q-banner
+      v-if="hasCategoryDrawErrors"
+      dense
+      rounded
+      class="graph-scope-warning q-mx-sm q-mb-xs"
+      inline-actions
+    >
+      <template #avatar>
+        <q-icon name="warning" color="warning" />
+      </template>
+      {{ $t('graphUi.categoryDrawErrorsWarning') }}
+      <template #action>
+        <q-btn
+          flat
+          dense
+          no-caps
+          color="warning"
+          :label="$t('graphUi.categoryDrawErrorsRetry')"
+          @click="methods.retryDraw"
+        />
+      </template>
+    </q-banner>
+
     <!-- 
       Composant canvas personnalisé qui sera utilisé par PixiJS pour le rendu.
       Le canvas est référencé pour être passé à PixiApp lors de l'initialisation.
@@ -211,7 +234,7 @@ import { useGraphCustomization } from '../graph-customization-drawer/use-graph-c
 import { useObservation } from 'src/composables/use-observation';
 import { observationService } from '@services/observations/index.service';
 import { useI18n } from 'vue-i18n';
-import { DEFAULT_GRAPH_COLOR, TimeDisplayFormatEnum } from '@actograph/graph';
+import { DEFAULT_GRAPH_COLOR, TimeDisplayFormatEnum, type DrawError } from '@actograph/graph';
 import {
   hasReadingsAfterLastStop as detectReadingsAfterLastStop,
   isCategoryVisible,
@@ -257,6 +280,7 @@ export default defineComponent({
 
     const state = reactive({
       zoomLevel: 1,
+      categoryDrawErrors: [] as ReadonlyArray<DrawError>,
     });
 
     // Sélection courante du panneau d'export : contenu × format, indépendants.
@@ -617,10 +641,23 @@ export default defineComponent({
           timeout: 3000,
         });
       },
+      retryDraw: () => {
+        const pixiApp = graph.sharedState.pixiApp;
+        if (!pixiApp) return;
+        pixiApp.retryDraw();
+      },
+      syncCategoryDrawErrors: () => {
+        const pixiApp = graph.sharedState.pixiApp;
+        state.categoryDrawErrors = pixiApp?.lastDrawErrors ?? [];
+      },
     };
 
     const onZoom = (newScale: number) => {
       state.zoomLevel = newScale;
+    };
+
+    const onDrawErrors = () => {
+      methods.syncCategoryDrawErrors();
     };
 
     // Watch for zoom changes from mouse wheel or buttons via PixiApp events
@@ -629,10 +666,15 @@ export default defineComponent({
       (pixiApp, oldPixiApp) => {
         if (oldPixiApp) {
           oldPixiApp.events.off('zoom', onZoom);
+          oldPixiApp.events.off('drawErrors', onDrawErrors);
         }
         if (pixiApp) {
           pixiApp.events.on('zoom', onZoom);
+          pixiApp.events.on('drawErrors', onDrawErrors);
           state.zoomLevel = pixiApp.getZoomLevel();
+          methods.syncCategoryDrawErrors();
+        } else {
+          state.categoryDrawErrors = [];
         }
       },
       { immediate: true }
@@ -642,6 +684,7 @@ export default defineComponent({
     onUnmounted(() => {
       if (graph.sharedState.pixiApp) {
         graph.sharedState.pixiApp.events.off('zoom', onZoom);
+        graph.sharedState.pixiApp.events.off('drawErrors', onDrawErrors);
       }
     });
 
@@ -701,6 +744,8 @@ export default defineComponent({
       return detectReadingsAfterLastStop(normalized);
     });
 
+    const hasCategoryDrawErrors = computed(() => state.categoryDrawErrors.length > 0);
+
     return {
       graph,
       canvasRef,
@@ -715,6 +760,7 @@ export default defineComponent({
       props,
       showSeparatorBeforeReset,
       hasReadingsAfterLastStop,
+      hasCategoryDrawErrors,
     };
   },
 });

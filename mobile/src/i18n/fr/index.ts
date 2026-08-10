@@ -48,6 +48,9 @@ export default {
   graphUi: {
     readingsAfterLastStopWarning:
       'Certains relevés sont ignorés par le graphique (orphelins entre deux sessions ou après le dernier arrêt).',
+    categoryDrawErrorsWarning:
+      'Certaines catégories n\'ont pas pu être dessinées.',
+    categoryDrawErrorsRetry: 'Réessayer',
   },
 };
 

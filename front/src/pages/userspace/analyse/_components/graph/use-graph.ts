@@ -116,9 +116,12 @@ export const useGraph = (options?: {
       });
       if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
 
-      // Réapplique l'étirement persisté (peut avoir été défini avant ready via
-      // le watch meta dans Index.vue) ; setAxisStretch déclenche le draw.
-      await pixiApp.setAxisStretch(sharedState.axisStretch);
+      // Réapplique l'étirement persisté sans draw : redrawFromObservation
+      // appelle toujours draw() après setData.
+      await pixiApp.setAxisStretch(sharedState.axisStretch, { redraw: false });
+      if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
+
+      await pixiApp.draw();
       if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
     } catch (error) {
       // Guard rail: don't break the page on transient/partial data while editing.
@@ -289,12 +292,21 @@ export const useGraph = (options?: {
         sharedState.ready = true;
 
         await redrawFromObservation(pixiApp);
+        const generationAfterRedraw = redrawGeneration;
 
         console.info('Pixi app initialized');
 
         await new Promise<void>((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
         );
+
+        if (
+          generationAfterRedraw === redrawGeneration &&
+          sharedState.pixiApp === pixiApp &&
+          sharedState.ready
+        ) {
+          await pixiApp.settleInitialLayoutFit();
+        }
       } catch (error) {
         console.error('Failed to initialize Pixi app:', error);
       } finally {

@@ -80,7 +80,7 @@ stage
   │         ├─ yAxis
   │         ├─ worldRoot    ← Background / Frieze / Series / Pause (GraphEngine)
   │         └─ DataArea     ← hit-area + état (readings), plus de paint séries
-  └─ overlayRoot            ← HoverLayer (crosshair + label temps, screen-space)
+  └─ overlayRoot            ← AxisLabelOverlay + HoverLayer (screen-space)
 ```
 
 `PixiApp` reste la façade publique. Le paint monde passe par `GraphEngine.prepareWorld()`.
@@ -89,7 +89,8 @@ stage
 
 **Zoom actuel = caméra**, pas zoom données :
 - Molette, pinch et boutons appliquent `viewport.scale` (limites 0.1×–5×) et `viewport.x/y`.
-- Les axes, labels et traits sont **dans** le viewport : ils grossissent avec le zoom.
+- Les ticks, traits et données sont **dans** le viewport : ils grossissent avec le zoom.
+- Les **labels d'axes** sont en screen-space (`AxisLabelOverlay`, dans `overlayRoot`) : ils ne grossissent pas avec le zoom caméra.
 - `updateTimeScale()` est un stub : les graduations X ne se recalculent **pas** encore selon le zoom (`pixelsPerMsec` reste basé sur la plage complète). Un vrai zoom données reste une évolution future.
 
 **Contrat draw / hover** (anti-sautes) :
@@ -103,8 +104,15 @@ stage
 8. **`DirtyRegistry` / `midDraw`** (remplace `axesGraphicsDirty`) : dès qu’un full draw commence, les layers sont `midDraw` jusqu’après `app.render()` réussi. Tant que `isAnyUnsafeToPaint()`, hover / `requestRender` / `redrawCategory` forcent un full `draw()`. Après un draw **échoué**, `midDraw` reste vrai jusqu’au prochain draw réussi.
 9. Pixi est initialisé avec **`autoStart: false`** (ticker stoppé) : aucun render hors de nos gardes.
 10. Un `draw()` en échec **reject** sa Promise ; `invalidateAll('full')` + `midDraw` conservé.
-11. Les labels Text des axes sont **destroy** lors du clear.
+11. Les labels Text des axes sont rendus par **`AxisLabelOverlay`** (screen-space, dans `overlayRoot`) ; les axes ne créent plus de `Text` dans le viewport. Clear overlay si draw échoue.
 12. **Invariant `prepareWorld`** : toujours `axisLayer.prepare()` (donc `yAxis.draw` / `xAxis.draw`) **avant** de lire `getAxisBounds()`. Sinon le premier paint sort tôt (`axisStart` encore null) et le graphe reste vide.
+13. **Géométrie safe** : strokes/rects/ellipses via `safe-graphics.utils` (no-op si NaN/Infinity) — un vertex non fini ne doit pas corrompre le batch WebGL. Séries continues : **batch strokes** (1 `stroke()` par couleur horizontale + 1 pour les verticaux), sans LOD.
+14. **Pas de LOD** : tous les segments sont dessinés ; timestamps égaux → même X (pas d’offset artificiel).
+15. **Erreurs de catégorie** : collectées dans `lastDrawErrors`, event `drawErrors` (tableau, éventuellement vide), `retryDraw()` pour relancer. Bannière UI desktop + mobile.
+16. **Charge** : pan/zoom coalescé (rAF) ; labels axes reprojetés depuis cache (pas de re-mesure à chaque move) ; `setAxisStretch` no-op si inchangé ; `resolution` plafonnée à `min(dpr, 2)`.
+17. **Fit initial** : `layoutFitPending` jusqu’à `settleInitialLayoutFit()` après stabilisation layout (splitter) — évite le canvas blanc au premier chargement (Reset n’est plus nécessaire).
+18. **Axes anti-flicker** : double-buffer display/paint (`beginPaint` / `commitPaint`) ; labels `AxisLabelOverlay` en pool (pas de destroy systématique). Series/Background déjà double-bufferés.
+19. **Contrat paint** : `redrawFromObservation` fait `setData` → `setAxisStretch(..., { redraw: false })` → **`draw()` toujours** (plus de paint déclenché uniquement via stretch).
 
 **Contrat resume / export / mutex** :
 1. **Mutex draw** : les appels `draw()` externes attendent un export **hors** de `drawChain`, puis enfilent `executeDrawBody` ; l’export appelle `enqueueDrawBody()` directement (jamais `draw()`), ce qui évite un deadlock `drawChain ↔ exportQueue`.
@@ -743,8 +751,11 @@ Disponible en mode interactif :
 Ce n’est **pas** encore un zoom données (pas de recalcul de `pixelsPerMsec` ni de fenêtre temporelle). Voir la section [Zoom, pan et contrat de rendu](#zoom-pan-et-contrat-de-rendu).
 
 Évolutions possibles :
-- Zoom données sur la timeline (`pixelsPerMsec` + ticks)
-- Chrome à taille fixe (axes/labels hors viewport scalé, ou contre-échelle)
+- Zoom données sur la timeline (`pixelsPerMsec` + ticks adaptatifs au zoom caméra)
+
+Déjà livré (contrat solidifié) :
+- Labels d’axes en screen-space (`AxisLabelOverlay`) — taille fixe, hors scale anisotrope du viewport
+- Ticks / traits / séries restent dans le viewport (scalent avec la caméra)
 
 ### Sélection (futur)
 

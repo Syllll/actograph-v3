@@ -1,5 +1,6 @@
 export { BaseLayer } from './Layer';
 export { HoverLayer } from './HoverLayer';
+export { AxisLabelOverlay } from './AxisLabelOverlay';
 export { AxisLayer } from './AxisLayer';
 export { BackgroundLayer } from './BackgroundLayer';
 export { FriezeLayer } from './FriezeLayer';

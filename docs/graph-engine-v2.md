@@ -1,7 +1,8 @@
 # Moteur de graphe v2 — architecture et plan
 
-Branche : `feat/graph-engine-v2`  
-Statut : **phases 1–4 livrées** (hors slider / annotations / highlight)  
+Branche d’origine : `feat/graph-engine-v2`  
+Solidification affichage : `fix/graph-solid-render-contract`  
+Statut : **phases 1–4 livrées** + **contrat de rendu solidifié** (hors slider / annotations / highlight)  
 Stack : **PixiJS v8** (conservé)
 
 ## Statut d’implémentation (branche)
@@ -22,13 +23,19 @@ Livré dans le code :
 - [x] `ExportPipeline` via `renderer.extract.base64` + `preserveDrawingBuffer: false`
 - [x] Double buffer front/back sur `SeriesLayer` et `BackgroundLayer` (full `prepareWorld`)
 - [x] Invariant `prepareWorld` : **axes avant bornes** (`axisLayer.prepare` puis `getAxisBounds`) — corrige le graphe vide au premier paint (`4de0b38`)
+- [x] **Safe geometry** : `utils/safe-graphics.utils.ts` (refuse NaN/Infinity avant WebGL) sur séries / fond / frise / pause / axes / hover
+- [x] **Réalité temporelle** : plus de `minVisibleSegmentPx` (timestamps égaux → même X, verticale pure ; pas de LOD)
+- [x] **Zoom anisotrope** : `anchorZoomTranslation` (molette / pinch / zoomIn / zoomOut)
+- [x] **`AxisLabelOverlay`** screen-space (comme Hover) : fin du contre-scale Text dans le viewport ; anti-collision labels X (`selectNonOverlappingLabels`) ; ticks restent en world space
+- [x] **Erreurs de draw** : `lastDrawErrors` + event `drawErrors` + `retryDraw()` ; bandeau UI graphe desktop et mobile ; clear overlay si draw échoue
 
 Dettes acceptées (non bloquantes) :
 
 - [ ] Invalidation fine : `prepareWorld` peint encore tous les world layers (DirtyRegistry prêt, routing partiel à affiner)
-- [ ] Double buffer `AxisLayer` / `FriezeLayer` / `PauseOverlayLayer` non fait
+- [ ] Double buffer `AxisLayer` / `FriezeLayer` / `PauseOverlayLayer` non fait (gate `midDraw` suffit comme boundary atomique)
 - [ ] Export resize temporaire encore utilisé pour la hauteur interactive (capture via extract, plus via `app.canvas.toDataURL`)
 - [ ] EventBus typé inter-layers minimal (communication via `GraphContext` pour l’instant)
+- [ ] Anti-collision X : emprise horizontale approximative (labels 45°)
 
 `PixiApp` reste l’API publique (façade) pour front et mobile.
 
@@ -116,13 +123,13 @@ app.stage
 │       │   ├─ SeriesLayer
 │       │   ├─ FriezeLayer
 │       │   └─ PauseOverlayLayer
-│       └─ AxisLayer        # labels éventuellement contre-scalés
+│       └─ AxisLayer        # ticks + lignes (world space)
 └─ overlayRoot              # HORS viewport (screen-space)
+    ├─ AxisLabelOverlay     # labels d'axes (taille fixe écran)
     └─ HoverLayer           # crosshair + label temps
 ```
 
-Point clé : **Hover hors du viewport**.  
-Plus de conversions fragiles, plus de `ensureCursorUiOnTop` / index magiques.  
+Point clé : **labels d'axes et hover hors du viewport** (screen-space).  
 (Les overlays futurs type annotation / UI temporelle ne sont **pas** dans le périmètre de renforcement.)
 
 ### Flux data → layout → paint

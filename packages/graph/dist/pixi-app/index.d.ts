@@ -1,5 +1,6 @@
 import { EventEmitter } from 'pixi.js';
 import type { IObservation, IProtocol, IGraphPreferences, IPeriod } from '@actograph/core';
+import type { DrawError } from '../engine/types';
 import type { IGraphRenderOptions } from '../types/graph-render-options';
 interface IPixiAppInitOptions {
     view: HTMLCanvasElement;
@@ -43,6 +44,7 @@ export declare class PixiApp {
     private graphEngine;
     private exportPipeline;
     private hoverLayer;
+    private axisLabelOverlay;
     private protocol;
     private isInteractive;
     private baseCanvasHeight;
@@ -59,6 +61,8 @@ export declare class PixiApp {
     private worldBounds;
     private fitViewport;
     private needsInitialFit;
+    /** True until the first post-mount layout settle fit completes (interactive only). */
+    private layoutFitPending;
     private pausePeriods;
     private graphRenderOptions;
     private exportInProgress;
@@ -93,8 +97,13 @@ export declare class PixiApp {
     private contextRestoring;
     private contextRestoreOuterRafId;
     private contextRestoreInnerRafId;
+    private viewportPaintRafId;
+    private pendingViewportLabelRefresh;
     /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
     events: EventEmitter<string | symbol, any>;
+    /** Erreurs de la dernière tentative de draw (catégories ou draw complet). */
+    private _lastDrawErrors;
+    get lastDrawErrors(): ReadonlyArray<DrawError>;
     private zoomState;
     /**
      * Multiplicateurs d'étirement par axe, appliqués par-dessus zoomState.scale.
@@ -122,6 +131,11 @@ export declare class PixiApp {
     resizeFromCanvas(options?: {
         skipRender?: boolean;
     }): boolean;
+    /**
+     * Re-mesure le canvas après stabilisation du layout (splitter / flex) et
+     * force un fit initial. À appeler une fois après le premier setData post-mount.
+     */
+    settleInitialLayoutFit(): Promise<void>;
     /**
      * Clears hover and marks pattern textures stale before a visibility resume refresh.
      * Forces initial fit so axes cannot stay off-canvas after a bad viewport preserved
@@ -151,9 +165,13 @@ export declare class PixiApp {
     updateObservablePreference(observableId: string, preference: Partial<IGraphPreferences>, options?: {
         redraw?: boolean;
     }): void;
-    redrawCategory(categoryId: string): void;
-    redrawObservable(observableId: string): void;
+    redrawCategory(_categoryId: string): void;
+    redrawObservable(_observableId: string): void;
     isDrawInProgress(): boolean;
+    /** Planifie un redraw complet (pas d'auto-retry en boucle). */
+    retryDraw(): void;
+    /** Emit once per draw with the full error list (empty array on success). */
+    private emitDrawErrors;
     /**
      * Renders only when the app is ready and no full draw/export is in flight.
      * If axis graphics were cleared and not yet redrawn, schedules a full draw
@@ -170,6 +188,11 @@ export declare class PixiApp {
      * Needed so hover `toGlobal`/`toLocal` (plot bounds, crosshair) stay correct.
      * Pixi 8: use getGlobalTransform() rather than a no-arg updateTransform().
      */
+    private collectAxisLabelDescriptors;
+    private syncAxisLabelOverlay;
+    private refreshAxisLabelOverlay;
+    private scheduleViewportPaint;
+    private cancelViewportPaintRaf;
     private updateWorldTransforms;
     clear(): Promise<void>;
     private getCanvasSize;
@@ -193,13 +216,16 @@ export declare class PixiApp {
     /**
      * Étirement indépendant par axe (x = temps, y = catégories), appliqué
      * par-dessus le zoom uniforme existant (pan/molette/+-, inchangé).
-     * Redessine les axes/données (labels et marqueurs recréés à chaque draw)
-     * pour que le contre-scaling anti-déformation (voir YAxis/xAxis/DataArea)
-     * soit appliqué avec la nouvelle valeur.
+     * Redessine les axes/données pour appliquer axisStretch aux marques monde
+     * (ticks, frises) ; les labels d'axe sont en screen-space (AxisLabelOverlay).
+     * Passer `{ redraw: false }` pour mettre à jour le stretch sans peindre
+     * (redrawFromObservation appelle toujours draw() après setData).
      */
     setAxisStretch(next: {
         x?: number;
         y?: number;
+    }, options?: {
+        redraw?: boolean;
     }): Promise<void>;
     getAxisStretch(): {
         x: number;

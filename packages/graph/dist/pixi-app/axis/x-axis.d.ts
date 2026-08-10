@@ -1,12 +1,15 @@
 import { Application } from 'pixi.js';
+import type { AxisLabelDescriptor } from '../../layers/AxisLabelOverlay';
 import { BaseGroup } from '../../lib/base-group';
 import type { IObservation } from '@actograph/core';
 import { YAxis } from './y-axis';
 import type { IGraphRenderOptions } from '../../types/graph-render-options';
 export declare class xAxis extends BaseGroup {
+    private displayGraphic;
+    private paintGraphic;
+    /** Cible de dessin courante (paint buffer pendant beginPaint…commitPaint). */
     private graphic;
     private readings;
-    private labelsContainer;
     private yAxis;
     private pixelsPerMsec;
     private axisStartTimeInMsec;
@@ -21,9 +24,7 @@ export declare class xAxis extends BaseGroup {
     private ticks;
     private axisStart;
     private axisEnd;
-    /** Voir YAxis.axisStretch : contre-scale les labels quand scaleX ≠ scaleY. */
-    private axisStretch;
-    setAxisStretch(stretch: {
+    setAxisStretch(_stretch: {
         x: number;
         y: number;
     }): void;
@@ -36,11 +37,12 @@ export declare class xAxis extends BaseGroup {
         y?: number | undefined;
     };
     constructor(app: Application, yAxis: YAxis);
+    beginPaint(): void;
+    commitPaint(): void;
     private getReadingTimeInMsec;
     getPosFromDateTime(dateTime: Date | string): number;
     getDateTimeFromPos(xPos: number): Date;
     clear(): void;
-    private destroyAxisLabels;
     /**
      * Met à jour le format d'affichage du temps. Ne touche ni aux bornes ni au
      * pas de temps de l'axe (calculés dans setData) : recalcule uniquement le
@@ -53,6 +55,7 @@ export declare class xAxis extends BaseGroup {
      * hors-DOM réutilisé (measureText). Fallback grossier si `document` n'est
      * pas disponible (SSR).
      */
+    private measureTextWidth;
     private measureLabelWidth;
     /**
      * Espace vertical nécessaire sous la ligne de l'axe X pour contenir
@@ -75,5 +78,6 @@ export declare class xAxis extends BaseGroup {
     private getFormatMentionText;
     setData(observation: IObservation): void;
     draw(): void;
+    getLabelDescriptors(): AxisLabelDescriptor[];
 }
 //# sourceMappingURL=x-axis.d.ts.map

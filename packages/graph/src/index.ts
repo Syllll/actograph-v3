@@ -49,3 +49,7 @@ export {
   TimeDisplayFormatEnum,
 } from '@actograph/core';
 
+export type { DrawError } from './engine/types';
+export { AxisLabelOverlay } from './layers/AxisLabelOverlay';
+export type { AxisLabelDescriptor, AxisLabelKind } from './layers/AxisLabelOverlay';
+

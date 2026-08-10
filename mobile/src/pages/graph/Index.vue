@@ -7,6 +7,21 @@
           <q-icon name="warning" size="xs" class="q-mr-xs" />
           <span>{{ $t('graphUi.readingsAfterLastStopWarning') }}</span>
         </div>
+        <div
+          v-else-if="graph.hasCategoryDrawErrors.value"
+          class="text-warning text-caption row items-center col"
+        >
+          <q-icon name="warning" size="xs" class="q-mr-xs" />
+          <span class="col">{{ $t('graphUi.categoryDrawErrorsWarning') }}</span>
+          <q-btn
+            flat
+            dense
+            no-caps
+            color="warning"
+            :label="$t('graphUi.categoryDrawErrorsRetry')"
+            @click="graph.methods.retryDraw"
+          />
+        </div>
         <div v-else-if="graph.sharedState.error" class="text-negative text-caption row items-center">
           <q-icon name="warning" size="xs" class="q-mr-xs" />
           <span>{{ graph.sharedState.error }}</span>

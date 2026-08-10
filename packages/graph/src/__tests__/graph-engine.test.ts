@@ -52,7 +52,9 @@ function createMockDataArea(): DataArea {
 
 function createMockAxis() {
   return {
+    beginPaint: jest.fn(),
     draw: jest.fn(),
+    commitPaint: jest.fn(),
     getAxisStart: () => ({ x: 0, y: 400 }),
     getAxisEnd: () => ({ x: 0, y: 0 }),
     getPosFromCategoryObservable: () => 100,
@@ -63,7 +65,9 @@ function createMockAxis() {
 
 function createMockXAxis() {
   return {
+    beginPaint: jest.fn(),
     draw: jest.fn(),
+    commitPaint: jest.fn(),
     getAxisEnd: () => ({ x: 800, y: 400 }),
     getPosFromDateTime: () => 50,
   };
@@ -78,9 +82,11 @@ describe('GraphEngine', () => {
 
     let axisStart: { x: number; y: number } | null = null;
     const yAxis = {
+      beginPaint: jest.fn(),
       draw: jest.fn(() => {
         axisStart = { x: 0, y: 400 };
       }),
+      commitPaint: jest.fn(),
       getAxisStart: () => (axisStart ? { ...axisStart } : null),
       getAxisEnd: () => (axisStart ? { x: 0, y: 0 } : null),
       getPosFromCategoryObservable: () => 100,
@@ -88,7 +94,9 @@ describe('GraphEngine', () => {
       getFriezeInfo: () => null,
     };
     const xAxis = {
+      beginPaint: jest.fn(),
       draw: jest.fn(),
+      commitPaint: jest.fn(),
       getAxisEnd: () => (axisStart ? { x: 800, y: 400 } : null),
       getPosFromDateTime: () => 50,
     };
@@ -140,6 +148,90 @@ describe('GraphEngine', () => {
     expect(yAxis.draw).toHaveBeenCalled();
     expect(xAxis.draw).toHaveBeenCalled();
     expect(engine.worldRoot.children.length).toBe(4);
+  });
+
+  it('prepareWorld does not clear invisible categories on the display buffer', () => {
+    const app = {} as Application;
+    const plot = new Container();
+    const invisibleCategory = {
+      id: 'cat-hidden',
+      name: 'Hidden',
+      type: 'category',
+      graphPreferences: { visible: false },
+      children: [],
+    };
+    const dataArea = {
+      ...createMockDataArea(),
+      getReadingsPerCategory: () => [{ category: invisibleCategory, readings: [] }],
+    } as unknown as DataArea;
+    plot.addChild(dataArea as unknown as Container);
+
+    const engine = new GraphEngine({
+      app,
+      plot,
+      dataArea,
+      yAxis: createMockAxis() as never,
+      xAxis: createMockXAxis() as never,
+      patternStore: { createTilingSprite: jest.fn(), release: jest.fn() } as never,
+    });
+
+    const clearSpy = jest.spyOn(engine, 'clearCategoryAllLayers');
+
+    engine.prepareWorld();
+
+    expect(clearSpy).not.toHaveBeenCalled();
+    clearSpy.mockRestore();
+  });
+
+  it('redrawCategory runs full prepareWorld without legacy clear', () => {
+    const app = {} as Application;
+    const plot = new Container();
+    const dataArea = createMockDataArea();
+    plot.addChild(dataArea as unknown as Container);
+
+    const engine = new GraphEngine({
+      app,
+      plot,
+      dataArea,
+      yAxis: createMockAxis() as never,
+      xAxis: createMockXAxis() as never,
+      patternStore: { createTilingSprite: jest.fn(), release: jest.fn() } as never,
+    });
+
+    const prepareSpy = jest.spyOn(engine, 'prepareWorld');
+    const clearSpy = jest.spyOn(engine, 'clearCategoryAllLayers');
+
+    engine.redrawCategory('cat-1');
+
+    expect(prepareSpy).toHaveBeenCalled();
+    expect(clearSpy).not.toHaveBeenCalled();
+
+    prepareSpy.mockRestore();
+    clearSpy.mockRestore();
+  });
+
+  it('redrawObservable runs full prepareWorld', () => {
+    const app = {} as Application;
+    const plot = new Container();
+    const dataArea = createMockDataArea();
+    plot.addChild(dataArea as unknown as Container);
+
+    const engine = new GraphEngine({
+      app,
+      plot,
+      dataArea,
+      yAxis: createMockAxis() as never,
+      xAxis: createMockXAxis() as never,
+      patternStore: { createTilingSprite: jest.fn(), release: jest.fn() } as never,
+    });
+
+    const prepareSpy = jest.spyOn(engine, 'prepareWorld');
+
+    engine.redrawObservable('obs-1');
+
+    expect(prepareSpy).toHaveBeenCalled();
+
+    prepareSpy.mockRestore();
   });
 
   it('buildContext exposes axis bounds', () => {

@@ -76,7 +76,7 @@ export function shouldSkipInContinuousDraw(
  * Returns indices where a new continuous segment starts (first DATA, then each
  * DATA after STOP without bridge). Pauses do not split segments.
  */
-export function getContinuousSegmentStartIndices(readings: IReading[]): number[] {
+export function getContinuousSegmentStartIndices(readings: readonly IReading[]): number[] {
   const firstDataIndex = readings.findIndex(
     (reading) => reading.type === ReadingTypeEnum.DATA,
   );
@@ -115,7 +115,7 @@ export function getContinuousSegmentStartIndices(readings: IReading[]): number[]
  * boundary instead of disappearing.
  */
 export function iterContinuousDataPairs(
-  readings: IReading[],
+  readings: readonly IReading[],
 ): Array<{ from: IReading; to: IReading }> {
   const starts = getContinuousSegmentStartIndices(readings);
   const pairs: Array<{ from: IReading; to: IReading }> = [];

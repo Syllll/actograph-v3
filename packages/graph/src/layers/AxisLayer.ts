@@ -11,8 +11,12 @@ export class AxisLayer extends BaseLayer {
     super('axis');
   }
 
-  prepare(_ctx: GraphContext): void {
+  prepare(_ctx: GraphContext, _options?: import('../engine/types').LayerPrepareOptions): void {
+    this.yAxis.beginPaint();
     this.yAxis.draw();
+    this.xAxis.beginPaint();
     this.xAxis.draw();
+    this.yAxis.commitPaint();
+    this.xAxis.commitPaint();
   }
 }

@@ -72,4 +72,14 @@ export function computeFitViewport(worldBounds, canvasSize, minScale, maxScale) 
 export function preserveViewportOnResize(viewport, worldBounds, canvasSize) {
     return clampViewport(viewport, worldBounds, canvasSize);
 }
+/**
+ * Keeps a world point anchored under a screen point when zoom changes with
+ * anisotropic viewport scale (baseScale * axisStretch per axis).
+ */
+export function anchorZoomTranslation(screenX, screenY, worldX, worldY, newScale, axisStretch) {
+    return {
+        x: screenX - worldX * newScale * axisStretch.x,
+        y: screenY - worldY * newScale * axisStretch.y,
+    };
+}
 //# sourceMappingURL=viewport.utils.js.map

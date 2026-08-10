@@ -1,4 +1,5 @@
 import { Application } from 'pixi.js';
+import type { AxisLabelDescriptor } from '../../layers/AxisLabelOverlay';
 import { BaseGroup } from '../../lib/base-group';
 import type { IObservation, IProtocolItem } from '@actograph/core';
 interface IPosition {
@@ -6,19 +7,23 @@ interface IPosition {
     y: number;
 }
 export declare class YAxis extends BaseGroup {
-    private readonly graphic;
+    private displayGraphic;
+    private paintGraphic;
+    /** Cible de dessin courante (paint buffer pendant beginPaint…commitPaint). */
+    private graphic;
     private ticks;
     private categories;
     private axisStart;
     private axisEnd;
     /**
-     * Étirement par axe courant (voir PixiApp.axisStretch). Sert uniquement à
-     * contre-scaler les labels pour qu'ils restent lisibles (non déformés) quand
-     * scaleX ≠ scaleY sur le viewport parent. {1,1} = comportement identique à
-     * avant (le zoom uniforme normal continue d'agrandir les labels comme avant).
+     * Étirement par axe courant (voir PixiApp.axisStretch). Utilisé pour les
+     * marques de tick et la hauteur des frises en espace monde, pas pour les
+     * labels (screen-space via AxisLabelOverlay).
      */
     private axisStretch;
     constructor(app: Application);
+    beginPaint(): void;
+    commitPaint(): void;
     setAxisStretch(stretch: {
         x: number;
         y: number;
@@ -61,14 +66,12 @@ export declare class YAxis extends BaseGroup {
      * on larger viewports.
      */
     private computeAxisOffsetX;
-    private prepareForDraw;
     private drawAxisLine;
     private drawArrow;
     private drawTicks;
     private drawNormalTick;
     private drawFriezeTick;
-    private createLabel;
-    private removeLabels;
+    getLabelDescriptors(): AxisLabelDescriptor[];
     private computeAxisLengthAndTicks;
     private getEffectiveDisplayMode;
     private convertTicksToAbsolutePositions;

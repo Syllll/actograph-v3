@@ -16,7 +16,7 @@ export declare function shouldSkipInContinuousDraw(reading: IReading, previousRe
  * Returns indices where a new continuous segment starts (first DATA, then each
  * DATA after STOP without bridge). Pauses do not split segments.
  */
-export declare function getContinuousSegmentStartIndices(readings: IReading[]): number[];
+export declare function getContinuousSegmentStartIndices(readings: readonly IReading[]): number[];
 /**
  * Consecutive DATA pairs within the same continuous segment (no bridge across
  * STOP). Pauses are ignored and do not break pairing. Used for background and
@@ -26,7 +26,7 @@ export declare function getContinuousSegmentStartIndices(readings: IReading[]): 
  * (session end or pause), so the final state is drawn through to that
  * boundary instead of disappearing.
  */
-export declare function iterContinuousDataPairs(readings: IReading[]): Array<{
+export declare function iterContinuousDataPairs(readings: readonly IReading[]): Array<{
     from: IReading;
     to: IReading;
 }>;

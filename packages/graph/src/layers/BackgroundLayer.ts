@@ -4,9 +4,12 @@ import {
   DisplayModeEnum,
   ProtocolItemActionEnum,
   ReadingTypeEnum,
+  isCategoryVisible,
   resolveGraphColor,
 } from '@actograph/core';
 import type { GraphContext } from '../engine/GraphContext';
+import type { LayerPrepareOptions } from '../engine/types';
+import { toDrawErrorMessage } from '../engine/types';
 import { CategoryGraphicsStore } from '../engine/CategoryGraphicsStore';
 import type { PatternTextureStore } from '../gpu/PatternTextureStore';
 import { BaseLayer } from './Layer';
@@ -14,6 +17,7 @@ import { LayerDoubleBuffer } from './LayerDoubleBuffer';
 import type { CategoryReadingsEntry } from '../engine/GraphContext';
 import { getBackgroundZoneForCategory } from '../utils/background-zone.utils';
 import { iterContinuousDataPairs } from '../utils/continuous-segments.utils';
+import { safeRect } from '../utils/safe-graphics.utils';
 
 export class BackgroundLayer extends BaseLayer {
   readonly container: Container;
@@ -30,7 +34,7 @@ export class BackgroundLayer extends BaseLayer {
     this.graphicsStore = new CategoryGraphicsStore(app, this.doubleBuffer.paintBuffer, patternStore);
   }
 
-  prepare(ctx: GraphContext): void {
+  prepare(ctx: GraphContext, options?: LayerPrepareOptions): void {
     const bounds = ctx.getAxisBounds();
     if (!bounds) {
       return;
@@ -51,18 +55,22 @@ export class BackgroundLayer extends BaseLayer {
 
     for (const categoryEntry of this.getBackgroundCategories(ctx)) {
       try {
-        this.drawCategoryBackground(categoryEntry, ctx, fullZoneTopY, fullZoneBottomY);
-      } catch (e) {
-        console.warn(
-          `Failed to draw background category ${categoryEntry.category.name}:`,
-          e,
-        );
+        this.drawCategoryBackground(categoryEntry, ctx, fullZoneTopY, fullZoneBottomY, options);
+      } catch (error) {
+        options?.onCategoryError?.({
+          layerId: this.id,
+          categoryId: categoryEntry.category.id,
+          categoryName: categoryEntry.category.name,
+          message: toDrawErrorMessage(error),
+        });
       }
     }
   }
 
   commit(): void {
-    this.doubleBuffer.commit();
+    this.doubleBuffer.swap();
+    this.graphicsStore.destroyRetired();
+    this.doubleBuffer.clearBack();
     this.graphicsStore.setContainer(this.doubleBuffer.paintBuffer);
   }
 
@@ -106,7 +114,9 @@ export class BackgroundLayer extends BaseLayer {
 
   private getBackgroundCategories(ctx: GraphContext): CategoryReadingsEntry[] {
     const entries = ctx.readingsPerCategory.filter(
-      (entry) => ctx.getEffectiveDisplayMode(entry.category) === DisplayModeEnum.Background,
+      (entry) =>
+        isCategoryVisible(entry.category) &&
+        ctx.getEffectiveDisplayMode(entry.category) === DisplayModeEnum.Background,
     );
     entries.sort((a, b) => {
       const aHasSupport = a.category.graphPreferences?.supportCategoryId ? 1 : 0;
@@ -121,6 +131,7 @@ export class BackgroundLayer extends BaseLayer {
     ctx: GraphContext,
     fullZoneTopY: number,
     fullZoneBottomY: number,
+    options?: LayerPrepareOptions,
   ): void {
     const category = categoryEntry.category;
     const readings = categoryEntry.readings;
@@ -145,16 +156,19 @@ export class BackgroundLayer extends BaseLayer {
     if (zoneHeight <= 0) {
       graphic.clear();
       this.graphicsStore.clearTilingSpritesForCategory(category);
-      console.warn(
-        `[BackgroundLayer] Background skipped for "${category.name}": zoneHeight=${zoneHeight}`,
-      );
+      options?.onCategoryError?.({
+        layerId: this.id,
+        categoryId: category.id,
+        categoryName: category.name,
+        message: `Background skipped: zoneHeight=${zoneHeight}`,
+      });
       return;
     }
 
     graphic.clear();
     this.graphicsStore.clearTilingSpritesForCategory(category);
 
-    for (const { from, to } of iterContinuousDataPairs([...readings])) {
+    for (const { from, to } of iterContinuousDataPairs(readings)) {
       const startX = ctx.getDateTimePos(from.dateTime);
       const endX = ctx.getDateTimePos(to.dateTime);
       const zoneWidth = endX - startX;
@@ -171,7 +185,9 @@ export class BackgroundLayer extends BaseLayer {
         BackgroundPatternEnum.Solid;
 
       if (pattern === BackgroundPatternEnum.Solid) {
-        graphic.rect(startX, zoneTopY, zoneWidth, zoneHeight).fill({ color, alpha: 0.2 });
+        safeRect(graphic, startX, zoneTopY, zoneWidth, zoneHeight, {
+          fill: { color, alpha: 0.2 },
+        });
       } else {
         const tilingSprite = this.graphicsStore.createTilingPatternSprite(
           pattern,

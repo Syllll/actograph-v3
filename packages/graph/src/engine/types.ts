@@ -1,5 +1,20 @@
 export type DirtyFlag = 'none' | 'layout' | 'data' | 'style' | 'viewport' | 'full';
 
+export interface DrawError {
+  layerId: string;
+  categoryId?: string;
+  categoryName?: string;
+  message: string;
+}
+
+export interface LayerPrepareOptions {
+  onCategoryError?: (error: DrawError) => void;
+}
+
+export function toDrawErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export type LayerId =
   | 'background'
   | 'series'

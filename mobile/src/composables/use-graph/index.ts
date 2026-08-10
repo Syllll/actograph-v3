@@ -29,7 +29,7 @@
  */
 
 import { reactive, computed, watch, onUnmounted, type Ref } from 'vue';
-import { PixiApp } from '@actograph/graph';
+import { PixiApp, type DrawError } from '@actograph/graph';
 import {
   type IMobileObservation,
   type IMobileProtocolItem,
@@ -50,6 +50,8 @@ interface GraphState {
   loading: boolean;
   /** Error message if initialization failed */
   error: string | null;
+  /** Category draw errors from the last draw */
+  categoryDrawErrors: ReadonlyArray<DrawError>;
 }
 
 /**
@@ -71,11 +73,13 @@ export function useGraph(options: UseGraphOptions) {
     ready: false,
     loading: false,
     error: null,
+    categoryDrawErrors: [],
   });
 
   // PixiApp instance for this component
   let pixiAppInstance: PixiApp | null = null;
   let destroyed = false;
+  let onDrawErrors: (() => void) | null = null;
   const chronicle = useChronicle();
   const { canvasRef } = options;
 
@@ -130,11 +134,35 @@ export function useGraph(options: UseGraphOptions) {
     }
   }
 
+  function syncCategoryDrawErrors(): void {
+    sharedState.categoryDrawErrors = pixiAppInstance?.lastDrawErrors ?? [];
+  }
+
+  function bindDrawErrorsListener(): void {
+    if (!pixiAppInstance) {
+      return;
+    }
+    unbindDrawErrorsListener();
+    onDrawErrors = () => {
+      syncCategoryDrawErrors();
+    };
+    pixiAppInstance.events.on('drawErrors', onDrawErrors);
+    syncCategoryDrawErrors();
+  }
+
+  function unbindDrawErrorsListener(): void {
+    if (pixiAppInstance && onDrawErrors) {
+      pixiAppInstance.events.off('drawErrors', onDrawErrors);
+    }
+    onDrawErrors = null;
+  }
+
   /**
    * Destroy the PixiJS application and cleanup.
    */
   function destroyGraph(): void {
     destroyed = true;
+    unbindDrawErrorsListener();
     if (pixiAppInstance) {
       try {
         pixiAppInstance.destroy();
@@ -146,6 +174,7 @@ export function useGraph(options: UseGraphOptions) {
     sharedState.ready = false;
     sharedState.loading = false;
     sharedState.error = null;
+    sharedState.categoryDrawErrors = [];
   }
 
   /**
@@ -230,6 +259,8 @@ export function useGraph(options: UseGraphOptions) {
         return;
       }
 
+      bindDrawErrorsListener();
+
       // Dessiner le graphique avec les données actuelles
       await drawGraph();
 
@@ -245,6 +276,13 @@ export function useGraph(options: UseGraphOptions) {
       // ⚠️ Important : loading=false va masquer l'overlay, révélant le graphique
       sharedState.loading = false;
     }
+  }
+
+  function retryDraw(): void {
+    if (!pixiAppInstance) {
+      return;
+    }
+    pixiAppInstance.retryDraw();
   }
 
   // Zoom controls
@@ -345,9 +383,14 @@ export function useGraph(options: UseGraphOptions) {
     destroyGraph();
   });
 
+  const hasCategoryDrawErrors = computed(
+    () => sharedState.categoryDrawErrors.length > 0,
+  );
+
   return {
     sharedState,
     hasData,
+    hasCategoryDrawErrors,
     methods: {
       initGraph,
       drawGraph,
@@ -356,6 +399,7 @@ export function useGraph(options: UseGraphOptions) {
       zoomIn,
       zoomOut,
       resetView,
+      retryDraw,
     },
   };
 }

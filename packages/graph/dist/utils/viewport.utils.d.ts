@@ -45,4 +45,15 @@ export declare function computeFitViewport(worldBounds: WorldBounds, canvasSize:
  * Re-clamps the current viewport after a canvas resize (preserves user zoom).
  */
 export declare function preserveViewportOnResize(viewport: ViewportState, worldBounds: WorldBounds, canvasSize: CanvasSize): ViewportState;
+/**
+ * Keeps a world point anchored under a screen point when zoom changes with
+ * anisotropic viewport scale (baseScale * axisStretch per axis).
+ */
+export declare function anchorZoomTranslation(screenX: number, screenY: number, worldX: number, worldY: number, newScale: number, axisStretch: {
+    x: number;
+    y: number;
+}): {
+    x: number;
+    y: number;
+};
 //# sourceMappingURL=viewport.utils.d.ts.map

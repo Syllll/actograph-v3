@@ -486,6 +486,9 @@ export default {
     discreteCategoryNormalOnly: 'Discrete categories can only be in Normal mode',
     readingsAfterLastStopWarning:
       'Some readings are ignored by the chart (orphans between sessions or after the last stop).',
+    categoryDrawErrorsWarning:
+      'Some categories could not be drawn.',
+    categoryDrawErrorsRetry: 'Retry',
     timeFormatLabel: 'Time display format',
     timeFormatAuto: 'Automatic',
     timeFormatFull: 'Full (DD.MM.YYYY hh:mm:ss:ms)',

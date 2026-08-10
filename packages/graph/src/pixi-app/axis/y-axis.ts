@@ -1,9 +1,11 @@
-import { Application, Text } from 'pixi.js';
+import { Application } from 'pixi.js';
+import type { AxisLabelDescriptor } from '../../layers/AxisLabelOverlay';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
 import type { IObservation, IProtocolItem } from '@actograph/core';
 import { DisplayModeEnum, ProtocolItemActionEnum, isCategoryVisible } from '@actograph/core';
 import { parseProtocolItems, ProtocolItem } from '../../utils/protocol.utils';
+import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
 
 // ============================================================================
 // Constants
@@ -62,23 +64,54 @@ interface IPosition {
 // ============================================================================
 
 export class YAxis extends BaseGroup {
-  private readonly graphic: BaseGraphic;
+  private displayGraphic: BaseGraphic;
+  private paintGraphic: BaseGraphic;
+  /** Cible de dessin courante (paint buffer pendant beginPaint…commitPaint). */
+  private graphic: BaseGraphic;
   private ticks: ITick[] = [];
   private categories: ProtocolItem[] = [];
   private axisStart: IPosition | null = null;
   private axisEnd: IPosition | null = null;
   /**
-   * Étirement par axe courant (voir PixiApp.axisStretch). Sert uniquement à
-   * contre-scaler les labels pour qu'ils restent lisibles (non déformés) quand
-   * scaleX ≠ scaleY sur le viewport parent. {1,1} = comportement identique à
-   * avant (le zoom uniforme normal continue d'agrandir les labels comme avant).
+   * Étirement par axe courant (voir PixiApp.axisStretch). Utilisé pour les
+   * marques de tick et la hauteur des frises en espace monde, pas pour les
+   * labels (screen-space via AxisLabelOverlay).
    */
   private axisStretch = { x: 1, y: 1 };
 
   constructor(app: Application) {
     super(app);
-    this.graphic = new BaseGraphic(this.app);
-    this.addChild(this.graphic);
+    this.displayGraphic = new BaseGraphic(this.app);
+    this.paintGraphic = new BaseGraphic(this.app);
+    this.paintGraphic.visible = false;
+    this.addChild(this.displayGraphic);
+    this.addChild(this.paintGraphic);
+    this.graphic = this.paintGraphic;
+  }
+
+  public beginPaint(): void {
+    this.graphic = this.paintGraphic;
+    this.paintGraphic.clear();
+    this.paintGraphic.x = 0;
+    this.paintGraphic.y = 0;
+    this.x = 0;
+    this.y = 0;
+    this.scale.set(1);
+    this.rotation = 0;
+    this.ticks = [];
+  }
+
+  public commitPaint(): void {
+    this.displayGraphic.visible = false;
+    this.paintGraphic.visible = true;
+
+    const previousDisplay = this.displayGraphic;
+    this.displayGraphic = this.paintGraphic;
+    this.paintGraphic = previousDisplay;
+
+    this.paintGraphic.visible = false;
+    this.paintGraphic.clear();
+    this.graphic = this.displayGraphic;
   }
 
   public setAxisStretch(stretch: { x: number; y: number }): void {
@@ -102,11 +135,7 @@ export class YAxis extends BaseGroup {
     if (!this.axisStart) {
       return false;
     }
-    const hasLabels = this.children.some((child) => child !== this.graphic);
-    if (hasLabels) {
-      return true;
-    }
-    const bounds = this.graphic.getLocalBounds();
+    const bounds = this.displayGraphic.getLocalBounds();
     return bounds.width > 0 || bounds.height > 0;
   }
 
@@ -237,8 +266,8 @@ export class YAxis extends BaseGroup {
   }
 
   public clear(): void {
-    this.removeLabels();
-    this.graphic.clear();
+    this.displayGraphic.clear();
+    this.paintGraphic.clear();
     this.ticks = [];
     this.axisStart = null;
     this.axisEnd = null;
@@ -246,8 +275,6 @@ export class YAxis extends BaseGroup {
   }
 
   public draw(): void {
-    this.prepareForDraw();
-
     const { axisLength, ticks } = this.computeAxisLengthAndTicks();
     const axisOffsetX = this.computeAxisOffsetX(ticks);
 
@@ -298,21 +325,9 @@ export class YAxis extends BaseGroup {
     return Math.max(minOffset, Math.min(maxOffset, estimatedOffset));
   }
 
-  private prepareForDraw(): void {
-    this.graphic.clear();
-    this.graphic.x = 0;
-    this.graphic.y = 0;
-    this.removeLabels();
-    this.x = 0;
-    this.y = 0;
-    this.scale.set(1);
-    this.rotation = 0;
-    this.ticks = [];
-  }
-
   private drawAxisLine(start: IPosition, end: IPosition): void {
-    this.graphic.moveTo(start.x, start.y);
-    this.graphic.lineTo(end.x, end.y);
+    safeMoveTo(this.graphic, start.x, start.y);
+    safeLineTo(this.graphic, end.x, end.y);
     this.graphic.setStrokeStyle({
       color: AXIS_CONFIG.COLOR,
       width: AXIS_CONFIG.LINE_WIDTH,
@@ -322,10 +337,10 @@ export class YAxis extends BaseGroup {
 
   private drawArrow(position: IPosition): void {
     const size = ARROW_CONFIG.SIZE;
-    this.graphic.moveTo(position.x, position.y);
-    this.graphic.lineTo(position.x + size, position.y + size);
-    this.graphic.lineTo(position.x - size, position.y + size);
-    this.graphic.lineTo(position.x, position.y);
+    safeMoveTo(this.graphic, position.x, position.y);
+    safeLineTo(this.graphic, position.x + size, position.y + size);
+    safeLineTo(this.graphic, position.x - size, position.y + size);
+    safeLineTo(this.graphic, position.x, position.y);
     this.graphic.closePath();
     this.graphic.fill({ color: AXIS_CONFIG.COLOR });
   }
@@ -343,65 +358,71 @@ export class YAxis extends BaseGroup {
     }
   }
 
-  private drawNormalTick(axisX: number, tickY: number, label: string): void {
+  private drawNormalTick(axisX: number, tickY: number, _label: string): void {
     // Contre-scale l'étirement horizontal (temps) : une graduation est une
     // marque de repère fixe, elle ne doit pas s'allonger/raccourcir quand
     // l'utilisatrice étire l'axe du temps (voir PixiApp.axisStretch).
     const tickLength = TICK_CONFIG.TICK_LENGTH / this.axisStretch.x;
-    this.graphic.moveTo(axisX - tickLength, tickY);
-    this.graphic.lineTo(axisX + tickLength, tickY);
-    this.graphic.setStrokeStyle({
-      color: TICK_CONFIG.COLOR,
-      width: TICK_CONFIG.TICK_WIDTH,
-    });
-    this.graphic.stroke();
-
-    this.createLabel(label, axisX - LABEL_CONFIG.OFFSET, tickY, false);
-  }
-
-  private drawFriezeTick(axisX: number, tickY: number, label: string): void {
-    const tickLength = TICK_CONFIG.FRIEZE_TICK_LENGTH / this.axisStretch.x;
-    this.graphic.moveTo(axisX - tickLength, tickY);
-    this.graphic.lineTo(axisX + tickLength, tickY);
-    this.graphic.setStrokeStyle({
-      color: TICK_CONFIG.COLOR,
-      width: TICK_CONFIG.TICK_WIDTH,
-    });
-    this.graphic.stroke();
-
-    this.createLabel(label, axisX - LABEL_CONFIG.OFFSET, tickY, true);
-  }
-
-  private createLabel(text: string, x: number, y: number, bold: boolean): Text {
-    const label = new Text({
-      text,
-      style: {
-        fontSize: LABEL_CONFIG.FONT_SIZE,
-        fill: LABEL_CONFIG.COLOR,
-        fontFamily: LABEL_CONFIG.FONT_FAMILY,
-        fontWeight: bold ? 'bold' : 'normal',
+    safeStrokeLine(
+      this.graphic,
+      axisX - tickLength,
+      tickY,
+      axisX + tickLength,
+      tickY,
+      {
+        color: TICK_CONFIG.COLOR,
+        width: TICK_CONFIG.TICK_WIDTH,
       },
-    });
-    label.x = x;
-    label.y = y;
-    label.anchor.set(1, 0.5);
-    label.visible = true;
-    label.alpha = 1;
-    // Contre-scale l'étirement du parent (viewport) pour garder un texte lisible
-    // et non déformé quand scaleX ≠ scaleY (voir PixiApp.axisStretch).
-    label.scale.set(1 / this.axisStretch.x, 1 / this.axisStretch.y);
-    this.addChild(label);
-    return label;
+    );
+
   }
 
-  private removeLabels(): void {
-    for (let i = this.children.length - 1; i >= 0; i--) {
-      const child = this.children[i];
-      if (child !== this.graphic) {
-        this.removeChild(child);
-        child.destroy({ children: true });
-      }
+  private drawFriezeTick(axisX: number, tickY: number, _label: string): void {
+    const tickLength = TICK_CONFIG.FRIEZE_TICK_LENGTH / this.axisStretch.x;
+    safeStrokeLine(
+      this.graphic,
+      axisX - tickLength,
+      tickY,
+      axisX + tickLength,
+      tickY,
+      {
+        color: TICK_CONFIG.COLOR,
+        width: TICK_CONFIG.TICK_WIDTH,
+      },
+    );
+
+  }
+
+  public getLabelDescriptors(): AxisLabelDescriptor[] {
+    if (!this.axisStart) {
+      return [];
     }
+
+    const axisX = this.axisStart.x;
+    const descriptors: AxisLabelDescriptor[] = [];
+
+    for (const tick of this.ticks) {
+      if (tick.pos === undefined) {
+        continue;
+      }
+
+      descriptors.push({
+        id: `y-tick-${tick.category.id}-${tick.label}`,
+        text: tick.label,
+        worldX: axisX - LABEL_CONFIG.OFFSET,
+        worldY: tick.pos,
+        angleDeg: 0,
+        anchorX: 1,
+        anchorY: 0.5,
+        fontSize: LABEL_CONFIG.FONT_SIZE,
+        fontFamily: LABEL_CONFIG.FONT_FAMILY,
+        fill: LABEL_CONFIG.COLOR,
+        fontWeight: tick.isFrieze ? 'bold' : 'normal',
+        kind: 'y-tick',
+      });
+    }
+
+    return descriptors;
   }
 
   private computeAxisLengthAndTicks(): { axisLength: number; ticks: ITick[] } {

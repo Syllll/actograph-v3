@@ -1,9 +1,11 @@
-import { BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, resolveGraphColor, } from '@actograph/core';
+import { BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, isCategoryVisible, resolveGraphColor, } from '@actograph/core';
+import { toDrawErrorMessage } from '../engine/types';
 import { CategoryGraphicsStore } from '../engine/CategoryGraphicsStore';
 import { BaseLayer } from './Layer';
 import { LayerDoubleBuffer } from './LayerDoubleBuffer';
 import { getBackgroundZoneForCategory } from '../utils/background-zone.utils';
 import { iterContinuousDataPairs } from '../utils/continuous-segments.utils';
+import { safeRect } from '../utils/safe-graphics.utils';
 export class BackgroundLayer extends BaseLayer {
     constructor(app, patternStore) {
         super('background');
@@ -11,7 +13,7 @@ export class BackgroundLayer extends BaseLayer {
         this.container = this.doubleBuffer.root;
         this.graphicsStore = new CategoryGraphicsStore(app, this.doubleBuffer.paintBuffer, patternStore);
     }
-    prepare(ctx) {
+    prepare(ctx, options) {
         const bounds = ctx.getAxisBounds();
         if (!bounds) {
             return;
@@ -28,15 +30,22 @@ export class BackgroundLayer extends BaseLayer {
         }
         for (const categoryEntry of this.getBackgroundCategories(ctx)) {
             try {
-                this.drawCategoryBackground(categoryEntry, ctx, fullZoneTopY, fullZoneBottomY);
+                this.drawCategoryBackground(categoryEntry, ctx, fullZoneTopY, fullZoneBottomY, options);
             }
-            catch (e) {
-                console.warn(`Failed to draw background category ${categoryEntry.category.name}:`, e);
+            catch (error) {
+                options?.onCategoryError?.({
+                    layerId: this.id,
+                    categoryId: categoryEntry.category.id,
+                    categoryName: categoryEntry.category.name,
+                    message: toDrawErrorMessage(error),
+                });
             }
         }
     }
     commit() {
-        this.doubleBuffer.commit();
+        this.doubleBuffer.swap();
+        this.graphicsStore.destroyRetired();
+        this.doubleBuffer.clearBack();
         this.graphicsStore.setContainer(this.doubleBuffer.paintBuffer);
     }
     redrawCategory(categoryId, ctx) {
@@ -67,7 +76,8 @@ export class BackgroundLayer extends BaseLayer {
         this.graphicsStore.clearAll();
     }
     getBackgroundCategories(ctx) {
-        const entries = ctx.readingsPerCategory.filter((entry) => ctx.getEffectiveDisplayMode(entry.category) === DisplayModeEnum.Background);
+        const entries = ctx.readingsPerCategory.filter((entry) => isCategoryVisible(entry.category) &&
+            ctx.getEffectiveDisplayMode(entry.category) === DisplayModeEnum.Background);
         entries.sort((a, b) => {
             const aHasSupport = a.category.graphPreferences?.supportCategoryId ? 1 : 0;
             const bHasSupport = b.category.graphPreferences?.supportCategoryId ? 1 : 0;
@@ -75,7 +85,7 @@ export class BackgroundLayer extends BaseLayer {
         });
         return entries;
     }
-    drawCategoryBackground(categoryEntry, ctx, fullZoneTopY, fullZoneBottomY) {
+    drawCategoryBackground(categoryEntry, ctx, fullZoneTopY, fullZoneBottomY, options) {
         const category = categoryEntry.category;
         const readings = categoryEntry.readings;
         const graphic = this.graphicsStore.getOrCreateGraphic(category);
@@ -91,12 +101,17 @@ export class BackgroundLayer extends BaseLayer {
         if (zoneHeight <= 0) {
             graphic.clear();
             this.graphicsStore.clearTilingSpritesForCategory(category);
-            console.warn(`[BackgroundLayer] Background skipped for "${category.name}": zoneHeight=${zoneHeight}`);
+            options?.onCategoryError?.({
+                layerId: this.id,
+                categoryId: category.id,
+                categoryName: category.name,
+                message: `Background skipped: zoneHeight=${zoneHeight}`,
+            });
             return;
         }
         graphic.clear();
         this.graphicsStore.clearTilingSpritesForCategory(category);
-        for (const { from, to } of iterContinuousDataPairs([...readings])) {
+        for (const { from, to } of iterContinuousDataPairs(readings)) {
             const startX = ctx.getDateTimePos(from.dateTime);
             const endX = ctx.getDateTimePos(to.dateTime);
             const zoneWidth = endX - startX;
@@ -109,7 +124,9 @@ export class BackgroundLayer extends BaseLayer {
                 category.graphPreferences?.backgroundPattern ??
                 BackgroundPatternEnum.Solid;
             if (pattern === BackgroundPatternEnum.Solid) {
-                graphic.rect(startX, zoneTopY, zoneWidth, zoneHeight).fill({ color, alpha: 0.2 });
+                safeRect(graphic, startX, zoneTopY, zoneWidth, zoneHeight, {
+                    fill: { color, alpha: 0.2 },
+                });
             }
             else {
                 const tilingSprite = this.graphicsStore.createTilingPatternSprite(pattern, color, startX, zoneTopY, zoneWidth, zoneHeight);

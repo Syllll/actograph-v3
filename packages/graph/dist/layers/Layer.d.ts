@@ -1,12 +1,12 @@
 import type { GraphContext } from '../engine/GraphContext';
-import type { DirtyFlag, InvalidateScope, LayerId } from '../engine/types';
+import type { DirtyFlag, InvalidateScope, LayerId, LayerPrepareOptions } from '../engine/types';
 export interface Layer {
     readonly id: LayerId;
     invalidate(flag: DirtyFlag, scope?: InvalidateScope): void;
     isDirty(): boolean;
     isUnsafeToPaint(): boolean;
     consumeDirty(): DirtyFlag;
-    prepare(ctx: GraphContext): void;
+    prepare(ctx: GraphContext, options?: LayerPrepareOptions): void;
 }
 export declare abstract class BaseLayer implements Layer {
     readonly id: LayerId;
@@ -20,6 +20,6 @@ export declare abstract class BaseLayer implements Layer {
     markMidDraw(): void;
     resetMidDraw(): void;
     consumeDirty(): DirtyFlag;
-    abstract prepare(ctx: GraphContext): void;
+    abstract prepare(ctx: GraphContext, options?: LayerPrepareOptions): void;
 }
 //# sourceMappingURL=Layer.d.ts.map

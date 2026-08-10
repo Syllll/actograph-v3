@@ -5,9 +5,13 @@ export class AxisLayer extends BaseLayer {
         this.yAxis = yAxis;
         this.xAxis = xAxis;
     }
-    prepare(_ctx) {
+    prepare(_ctx, _options) {
+        this.yAxis.beginPaint();
         this.yAxis.draw();
+        this.xAxis.beginPaint();
         this.xAxis.draw();
+        this.yAxis.commitPaint();
+        this.xAxis.commitPaint();
     }
 }
 //# sourceMappingURL=AxisLayer.js.map

@@ -1,8 +1,10 @@
-import { DisplayModeEnum, ProtocolItemActionEnum, ReadingTypeEnum, resolveGraphColor, } from '@actograph/core';
+import { DisplayModeEnum, ProtocolItemActionEnum, ReadingTypeEnum, isCategoryVisible, resolveGraphColor, } from '@actograph/core';
+import { toDrawErrorMessage } from '../engine/types';
 import { CategoryGraphicsStore } from '../engine/CategoryGraphicsStore';
 import { BaseLayer } from './Layer';
 import { LayerDoubleBuffer } from './LayerDoubleBuffer';
 import { getContinuousSegmentStartIndices, shouldSkipInContinuousDraw, } from '../utils/continuous-segments.utils';
+import { isFinitePoint, safeEllipse, SafeStrokeBatch, } from '../utils/safe-graphics.utils';
 export class SeriesLayer extends BaseLayer {
     constructor(app, patternStore) {
         super('series');
@@ -10,7 +12,7 @@ export class SeriesLayer extends BaseLayer {
         this.container = this.doubleBuffer.root;
         this.graphicsStore = new CategoryGraphicsStore(app, this.doubleBuffer.paintBuffer, patternStore);
     }
-    prepare(ctx) {
+    prepare(ctx, options) {
         const bounds = ctx.getAxisBounds();
         if (!bounds) {
             return;
@@ -26,13 +28,20 @@ export class SeriesLayer extends BaseLayer {
             try {
                 this.drawCategoryNormal(categoryEntry, ctx, bounds.topRight.x);
             }
-            catch (e) {
-                console.warn(`Failed to draw normal category ${categoryEntry.category.name}:`, e);
+            catch (error) {
+                options?.onCategoryError?.({
+                    layerId: this.id,
+                    categoryId: categoryEntry.category.id,
+                    categoryName: categoryEntry.category.name,
+                    message: toDrawErrorMessage(error),
+                });
             }
         }
     }
     commit() {
-        this.doubleBuffer.commit();
+        this.doubleBuffer.swap();
+        this.graphicsStore.destroyRetired();
+        this.doubleBuffer.clearBack();
         this.graphicsStore.setContainer(this.doubleBuffer.paintBuffer);
     }
     redrawCategory(categoryId, ctx) {
@@ -57,11 +66,12 @@ export class SeriesLayer extends BaseLayer {
         this.graphicsStore.clearAll();
     }
     getNormalCategories(ctx) {
-        return ctx.readingsPerCategory.filter((entry) => ctx.getEffectiveDisplayMode(entry.category) === DisplayModeEnum.Normal);
+        return ctx.readingsPerCategory.filter((entry) => isCategoryVisible(entry.category) &&
+            ctx.getEffectiveDisplayMode(entry.category) === DisplayModeEnum.Normal);
     }
     drawCategoryNormal(categoryEntry, ctx, axisEndX) {
         const category = categoryEntry.category;
-        const readings = [...categoryEntry.readings];
+        const readings = categoryEntry.readings;
         const graphic = this.graphicsStore.getOrCreateGraphic(category);
         this.graphicsStore.clearTilingSpritesForCategory(category);
         const isDiscrete = category.action === ProtocolItemActionEnum.Discrete;
@@ -71,15 +81,13 @@ export class SeriesLayer extends BaseLayer {
                 if (reading.type === ReadingTypeEnum.DATA) {
                     const xPos = ctx.getDateTimePos(reading.dateTime);
                     const yPos = ctx.getYPos(category.id, reading.name || '');
-                    if (yPos < 0) {
+                    if (yPos < 0 || !isFinitePoint(xPos, yPos)) {
                         continue;
                     }
                     const prefs = ctx.getObservablePreferences(category, reading.name || '');
                     const color = resolveGraphColor(prefs);
                     const strokeWidth = prefs?.strokeWidth ?? 4;
-                    graphic.ellipse(xPos, yPos, strokeWidth / 2 / ctx.axisStretch.x, strokeWidth / 2 / ctx.axisStretch.y);
-                    graphic.setFillStyle({ color });
-                    graphic.fill();
+                    safeEllipse(graphic, xPos, yPos, strokeWidth / 2 / ctx.axisStretch.x, strokeWidth / 2 / ctx.axisStretch.y, { fill: { color } });
                 }
             }
             return;
@@ -97,9 +105,10 @@ export class SeriesLayer extends BaseLayer {
             y: startY,
         };
         const last = { x: start.x, y: start.y };
-        const minVisibleSegmentPx = 2;
         const newSegmentIndices = new Set(getContinuousSegmentStartIndices(readings).filter((idx) => idx > 0));
         graphic.clear();
+        const horizontals = [];
+        const verticals = [];
         for (let i = 1; i < readings.length; i++) {
             const reading = readings[i];
             if (!reading) {
@@ -115,8 +124,12 @@ export class SeriesLayer extends BaseLayer {
                     continue;
                 }
                 let xPos = ctx.getDateTimePos(reading.dateTime);
-                if (xPos <= last.x) {
-                    xPos = last.x + minVisibleSegmentPx;
+                if (!Number.isFinite(xPos)) {
+                    continue;
+                }
+                // Collapsed or non-monotone timestamps: keep exact X (pure vertical).
+                if (xPos < last.x) {
+                    xPos = last.x;
                 }
                 if (xPos > axisEndX) {
                     xPos = axisEndX;
@@ -129,8 +142,11 @@ export class SeriesLayer extends BaseLayer {
                 ? -1
                 : ctx.getYPos(category.id, reading.name || '');
             let xPos = ctx.getDateTimePos(reading.dateTime);
-            if (xPos <= last.x) {
-                xPos = last.x + minVisibleSegmentPx;
+            if (!Number.isFinite(xPos)) {
+                continue;
+            }
+            if (xPos < last.x) {
+                xPos = last.x;
             }
             if (xPos > axisEndX) {
                 xPos = axisEndX;
@@ -141,27 +157,48 @@ export class SeriesLayer extends BaseLayer {
             const horizontalPrefs = ctx.getObservablePreferences(category, previousDataName || firstDataReading.name || '');
             const horizontalColor = resolveGraphColor(horizontalPrefs);
             const horizontalStrokeWidth = horizontalPrefs?.strokeWidth ?? 2;
-            graphic.moveTo(last.x, last.y);
-            graphic.lineTo(xPos, last.y);
-            graphic.setStrokeStyle({
+            horizontals.push({
+                x1: last.x,
+                y1: last.y,
+                x2: xPos,
+                y2: last.y,
                 color: horizontalColor,
                 width: horizontalStrokeWidth,
             });
-            graphic.stroke();
             if (yPos >= 0) {
-                graphic.moveTo(xPos, last.y);
-                graphic.lineTo(xPos, yPos);
-                graphic.setStrokeStyle({
-                    color: 'grey',
-                    width: 1 / ctx.axisStretch.x,
-                });
-                graphic.stroke();
+                verticals.push({ x1: xPos, y1: last.y, x2: xPos, y2: yPos });
             }
             last.x = xPos;
             if (yPos >= 0) {
                 last.y = yPos;
             }
         }
+        const horizontalGroups = new Map();
+        for (const segment of horizontals) {
+            const key = `${segment.color}|${segment.width}`;
+            const group = horizontalGroups.get(key);
+            if (group) {
+                group.push(segment);
+            }
+            else {
+                horizontalGroups.set(key, [segment]);
+            }
+        }
+        const strokeBatch = new SafeStrokeBatch(graphic);
+        const verticalStyle = { color: 'grey', width: 1 / ctx.axisStretch.x };
+        for (const segments of horizontalGroups.values()) {
+            for (const segment of segments) {
+                strokeBatch.addLine(segment.x1, segment.y1, segment.x2, segment.y2, {
+                    color: segment.color,
+                    width: segment.width,
+                });
+            }
+            strokeBatch.flush();
+        }
+        for (const segment of verticals) {
+            strokeBatch.addLine(segment.x1, segment.y1, segment.x2, segment.y2, verticalStyle);
+        }
+        strokeBatch.flush();
     }
 }
 //# sourceMappingURL=SeriesLayer.js.map

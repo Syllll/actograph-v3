@@ -1,4 +1,5 @@
-import { Application, Container, Text } from 'pixi.js';
+import { Application } from 'pixi.js';
+import type { AxisLabelDescriptor } from '../../layers/AxisLabelOverlay';
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
 import type { IReading, IObservation } from '@actograph/core';
@@ -17,6 +18,7 @@ import {
   getCalendarFixedFormatNotation,
 } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
+import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
 import type { IGraphRenderOptions } from '../../types/graph-render-options';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 
@@ -61,9 +63,11 @@ const timeSteps = {
 };
 
 export class xAxis extends BaseGroup {
+  private displayGraphic: BaseGraphic;
+  private paintGraphic: BaseGraphic;
+  /** Cible de dessin courante (paint buffer pendant beginPaint…commitPaint). */
   private graphic: BaseGraphic;
   private readings: IReading[] = [];
-  private labelsContainer: Container;
   private yAxis: YAxis;
   private pixelsPerMsec = 0;
   private axisStartTimeInMsec = 0;
@@ -86,11 +90,9 @@ export class xAxis extends BaseGroup {
   private ticks: { dateTime: Date; label: string; pos?: number }[] = [];
   private axisStart: { x: number; y: number } | null = null;
   private axisEnd: { x: number; y: number } | null = null;
-  /** Voir YAxis.axisStretch : contre-scale les labels quand scaleX ≠ scaleY. */
-  private axisStretch = { x: 1, y: 1 };
 
-  public setAxisStretch(stretch: { x: number; y: number }): void {
-    this.axisStretch = stretch;
+  public setAxisStretch(_stretch: { x: number; y: number }): void {
+    // Labels en screen-space via AxisLabelOverlay ; stretch conservé pour compat API.
   }
 
   public getAxisStart() {
@@ -104,10 +106,36 @@ export class xAxis extends BaseGroup {
   constructor(app: Application, yAxis: YAxis) {
     super(app);
     this.yAxis = yAxis;
-    this.graphic = new BaseGraphic(this.app);
-    this.addChild(this.graphic);
-    this.labelsContainer = new Container();
-    this.addChild(this.labelsContainer);
+    this.displayGraphic = new BaseGraphic(this.app);
+    this.paintGraphic = new BaseGraphic(this.app);
+    this.paintGraphic.visible = false;
+    this.addChild(this.displayGraphic);
+    this.addChild(this.paintGraphic);
+    this.graphic = this.paintGraphic;
+  }
+
+  public beginPaint(): void {
+    this.graphic = this.paintGraphic;
+    this.paintGraphic.clear();
+    this.paintGraphic.x = 0;
+    this.paintGraphic.y = 0;
+    this.x = 0;
+    this.y = 0;
+    this.scale.set(1);
+    this.rotation = 0;
+  }
+
+  public commitPaint(): void {
+    this.displayGraphic.visible = false;
+    this.paintGraphic.visible = true;
+
+    const previousDisplay = this.displayGraphic;
+    this.displayGraphic = this.paintGraphic;
+    this.paintGraphic = previousDisplay;
+
+    this.paintGraphic.visible = false;
+    this.paintGraphic.clear();
+    this.graphic = this.displayGraphic;
   }
 
   private getReadingTimeInMsec(reading: IReading): number | null {
@@ -143,7 +171,8 @@ export class xAxis extends BaseGroup {
   }
 
   public clear() {
-    this.destroyAxisLabels();
+    this.displayGraphic.clear();
+    this.paintGraphic.clear();
     this.ticks = [];
     this.pixelsPerMsec = 0;
     this.axisStartTimeInMsec = 0;
@@ -152,13 +181,6 @@ export class xAxis extends BaseGroup {
     this.maxTimeInMsec = 0;
     this.totalDurationMs = 0;
     super.clear();
-  }
-
-  private destroyAxisLabels(): void {
-    const labels = this.labelsContainer.removeChildren();
-    for (const label of labels) {
-      label.destroy({ children: true });
-    }
   }
 
   /**
@@ -182,19 +204,33 @@ export class xAxis extends BaseGroup {
    * hors-DOM réutilisé (measureText). Fallback grossier si `document` n'est
    * pas disponible (SSR).
    */
-  private measureLabelWidth(text: string): number {
+  private measureTextWidth(
+    text: string,
+    fontSize: number,
+    fontFamily: string,
+    fontStyle?: string,
+  ): number {
     if (typeof document === 'undefined') {
-      return text.length * this.styleOptions.label.fontSize * 0.6;
+      return text.length * fontSize * 0.6;
     }
     if (!xAxis.measureCanvas) {
       xAxis.measureCanvas = document.createElement('canvas');
     }
     const ctx = xAxis.measureCanvas.getContext('2d');
     if (!ctx) {
-      return text.length * this.styleOptions.label.fontSize * 0.6;
+      return text.length * fontSize * 0.6;
     }
-    ctx.font = `${this.styleOptions.label.fontSize}px ${this.styleOptions.label.fontFamily}`;
+    const stylePrefix = fontStyle ? `${fontStyle} ` : '';
+    ctx.font = `${stylePrefix}${fontSize}px ${fontFamily}`;
     return ctx.measureText(text).width;
+  }
+
+  private measureLabelWidth(text: string): number {
+    return this.measureTextWidth(
+      text,
+      this.styleOptions.label.fontSize,
+      this.styleOptions.label.fontFamily,
+    );
   }
 
   /**
@@ -362,18 +398,6 @@ export class xAxis extends BaseGroup {
   }
 
   public draw(): void {
-    this.graphic.clear();
-    this.graphic.x = 0;
-    this.graphic.y = 0;
-    this.destroyAxisLabels();
-    this.labelsContainer.x = 0;
-    this.labelsContainer.y = 0;
-
-    this.x = 0;
-    this.y = 0;
-    this.scale.set(1);
-    this.rotation = 0;
-
     const width = this.app.screen.width;
 
     const xAxisStart = this.yAxis.getAxisStart();
@@ -399,8 +423,8 @@ export class xAxis extends BaseGroup {
     }
     this.axisEnd = xAxisEnd as { x: number; y: number };
 
-    this.graphic.moveTo(xAxisStart.x, xAxisStart.y);
-    this.graphic.lineTo(xAxisEnd.x, xAxisEnd.y);
+    safeMoveTo(this.graphic, xAxisStart.x, xAxisStart.y);
+    safeLineTo(this.graphic, xAxisEnd.x, xAxisEnd.y);
 
     this.graphic.setStrokeStyle({
       color: this.styleOptions.axis.color,
@@ -409,10 +433,10 @@ export class xAxis extends BaseGroup {
 
     this.graphic.stroke();
 
-    this.graphic.moveTo(xAxisEnd.x, xAxisEnd.y);
-    this.graphic.lineTo(xAxisEnd.x - 10, xAxisEnd.y - 10);
-    this.graphic.lineTo(xAxisEnd.x - 10, xAxisEnd.y + 10);
-    this.graphic.lineTo(xAxisEnd.x, xAxisEnd.y);
+    safeMoveTo(this.graphic, xAxisEnd.x, xAxisEnd.y);
+    safeLineTo(this.graphic, xAxisEnd.x - 10, xAxisEnd.y - 10);
+    safeLineTo(this.graphic, xAxisEnd.x - 10, xAxisEnd.y + 10);
+    safeLineTo(this.graphic, xAxisEnd.x, xAxisEnd.y);
     this.graphic.closePath();
     this.graphic.fill({ color: this.styleOptions.axis.color });
 
@@ -455,72 +479,86 @@ export class xAxis extends BaseGroup {
 
       tick.pos = tickXpos;
 
-      this.graphic.moveTo(tickXpos, xAxisStart.y - 10);
-      this.graphic.lineTo(tickXpos, xAxisStart.y + 10);
-      this.graphic.setStrokeStyle({
-        color: this.styleOptions.tick.color,
-        width: this.styleOptions.tick.width,
-      });
-      this.graphic.stroke();
-
-      const label = new Text({
-        text: tick.label,
-        style: {
-          fontSize: this.styleOptions.label.fontSize,
-          fill: this.styleOptions.label.color,
-          fontFamily: this.styleOptions.label.fontFamily,
+      safeStrokeLine(
+        this.graphic,
+        tickXpos,
+        xAxisStart.y - 10,
+        tickXpos,
+        xAxisStart.y + 10,
+        {
+          color: this.styleOptions.tick.color,
+          width: this.styleOptions.tick.width,
         },
+      );
+    }
+
+    this.visible = true;
+    this.alpha = 1;
+  }
+
+  public getLabelDescriptors(): AxisLabelDescriptor[] {
+    if (!this.axisStart) {
+      return [];
+    }
+
+    const xAxisStart = this.axisStart;
+    const xAxisEnd = this.axisEnd;
+    const width = this.app.screen.width;
+    const labelOffsetFromAxis = 12;
+    const descriptors: AxisLabelDescriptor[] = [];
+
+    for (const tick of this.ticks) {
+      if (tick.pos === undefined || !tick.label) {
+        continue;
+      }
+
+      const tickTimeInMsec = new Date(tick.dateTime).getTime();
+      descriptors.push({
+        id: `x-tick-${tickTimeInMsec}`,
+        text: tick.label,
+        worldX: tick.pos,
+        worldY: xAxisStart.y + labelOffsetFromAxis,
+        angleDeg: 45,
+        anchorX: -0.05,
+        anchorY: 0,
+        fontSize: this.styleOptions.label.fontSize,
+        fontFamily: this.styleOptions.label.fontFamily,
+        fill: this.styleOptions.label.color,
+        kind: 'x-tick',
+        labelWidth: this.measureLabelWidth(tick.label),
       });
-      label.anchor.set(-0.05, 0);
-      label.angle = 45;
-      label.visible = true;
-      label.alpha = 1;
-      // Le label est incliné à 45° : contre-scaler directement le Text
-      // mélangerait rotation et échelle anisotrope sur la même matrice locale
-      // et le ferait apparaître cisaillé. On isole la contre-échelle sur un
-      // conteneur parent non-tourné : composée avec le scale anisotrope du
-      // viewport (diagonal lui aussi), elle s'annule exactement et ne laisse
-      // que la rotation, quel que soit l'étirement courant.
-      const labelWrapper = new Container();
-      labelWrapper.x = tickXpos;
-      labelWrapper.y = xAxisStart.y + 12;
-      labelWrapper.scale.set(1 / this.axisStretch.x, 1 / this.axisStretch.y);
-      labelWrapper.addChild(label);
-      this.labelsContainer.addChild(labelWrapper);
     }
 
     const formatMentionText = this.getFormatMentionText();
-    if (formatMentionText) {
-      const formatMention = new Text({
-        text: formatMentionText,
-        style: {
-          fontSize: this.styleOptions.formatMention.fontSize,
-          fill: this.styleOptions.formatMention.color,
-          fontFamily: this.styleOptions.formatMention.fontFamily,
-          fontStyle: this.styleOptions.formatMention.fontStyle,
-        },
-      });
-      // Horizontale (pas inclinée comme les labels de tick), centrée sous la
-      // flèche de fin d'axe, à la même hauteur que les labels de tick.
-      // Clamp pour éviter le débordement à droite sur un graphe étroit
-      // (ex. "(JJ.MM.AAAA hh:mn:sec:ms)" avec seulement 10% de marge).
-      formatMention.anchor.set(0.5, 0);
+    if (formatMentionText && xAxisEnd) {
+      const formatWidth = this.measureTextWidth(
+        formatMentionText,
+        this.styleOptions.formatMention.fontSize,
+        this.styleOptions.formatMention.fontFamily,
+        this.styleOptions.formatMention.fontStyle,
+      );
       const preferredX = xAxisEnd.x - 5;
-      const halfWidth = formatMention.width / 2;
-      formatMention.x = Math.min(width - halfWidth, Math.max(halfWidth, preferredX));
-      formatMention.y = xAxisStart.y + 12;
-      formatMention.angle = 0;
-      formatMention.visible = true;
-      formatMention.alpha = 1;
-      // Pas de rotation ici : contre-scale directe sans risque de cisaillement.
-      formatMention.scale.set(1 / this.axisStretch.x, 1 / this.axisStretch.y);
-      this.labelsContainer.addChild(formatMention);
+      const halfWidth = formatWidth / 2;
+      const worldX = Math.min(width - halfWidth, Math.max(halfWidth, preferredX));
+
+      descriptors.push({
+        id: 'format-mention',
+        text: formatMentionText,
+        worldX,
+        worldY: xAxisStart.y + labelOffsetFromAxis,
+        angleDeg: 0,
+        anchorX: 0.5,
+        anchorY: 0,
+        fontSize: this.styleOptions.formatMention.fontSize,
+        fontFamily: this.styleOptions.formatMention.fontFamily,
+        fill: this.styleOptions.formatMention.color,
+        fontStyle: this.styleOptions.formatMention.fontStyle,
+        kind: 'format-mention',
+        labelWidth: formatWidth,
+      });
     }
 
-    this.labelsContainer.visible = true;
-    this.labelsContainer.alpha = 1;
-    this.visible = true;
-    this.alpha = 1;
+    return descriptors;
   }
 }
 

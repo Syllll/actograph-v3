@@ -16,4 +16,7 @@ export { getGraphPausePeriods } from './utils/pause-periods.utils';
 export { DEFAULT_GRAPH_COLOR } from './lib/graph-defaults';
 export type { IObservation, IProtocol, IProtocolItem, IReading, IGraphPreferences, IPeriod, } from '@actograph/core';
 export { ObservationModeEnum, ReadingTypeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, ProtocolItemTypeEnum, TimeDisplayFormatEnum, } from '@actograph/core';
+export type { DrawError } from './engine/types';
+export { AxisLabelOverlay } from './layers/AxisLabelOverlay';
+export type { AxisLabelDescriptor, AxisLabelKind } from './layers/AxisLabelOverlay';
 //# sourceMappingURL=index.d.ts.map

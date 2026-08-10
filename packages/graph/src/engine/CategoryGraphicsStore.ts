@@ -21,6 +21,11 @@ export class CategoryGraphicsStore {
     category: ProtocolItem;
     sprites: TilingSpriteRecord[];
   }[] = [];
+  private retiredGraphics: { category: ProtocolItem; graphic: BaseGraphic }[] = [];
+  private retiredSprites: {
+    category: ProtocolItem;
+    sprites: TilingSpriteRecord[];
+  }[] = [];
 
   constructor(
     private readonly app: Application,
@@ -32,10 +37,32 @@ export class CategoryGraphicsStore {
     this.container = container;
   }
 
-  /** Reset tracked graphics/sprites and paint into a fresh back buffer. */
+  /** Paint into a back buffer; previous display objects stay alive until destroyRetired. */
   beginFullPaint(container: Container): void {
-    this.destroyAllTracked();
+    this.retiredGraphics.push(...this.graphicPerCategory);
+    this.graphicPerCategory = [];
+    this.retiredSprites.push(...this.tilingSpritesPerCategory);
+    this.tilingSpritesPerCategory = [];
     this.container = container;
+  }
+
+  /** Destroy display objects retired during the last beginFullPaint (after buffer swap). */
+  destroyRetired(): void {
+    for (const graphicEntry of this.retiredGraphics) {
+      graphicEntry.graphic.clear();
+      if (graphicEntry.graphic.parent) {
+        graphicEntry.graphic.parent.removeChild(graphicEntry.graphic);
+      }
+      graphicEntry.graphic.destroy();
+    }
+    this.retiredGraphics = [];
+
+    for (const spriteEntry of this.retiredSprites) {
+      for (const spriteRecord of spriteEntry.sprites) {
+        this.destroyTilingSpriteRecord(spriteRecord);
+      }
+    }
+    this.retiredSprites = [];
   }
 
   getOrCreateGraphic(category: ProtocolItem): BaseGraphic {
@@ -115,7 +142,9 @@ export class CategoryGraphicsStore {
   }
 
   private destroyTilingSpriteRecord(spriteRecord: TilingSpriteRecord): void {
-    this.container.removeChild(spriteRecord.sprite);
+    if (spriteRecord.sprite.parent) {
+      spriteRecord.sprite.parent.removeChild(spriteRecord.sprite);
+    }
     spriteRecord.sprite.destroy();
     this.patternStore?.release(spriteRecord.pattern, spriteRecord.color);
   }
@@ -175,5 +204,6 @@ export class CategoryGraphicsStore {
     }
     this.graphicPerCategory = [];
     this.clearAllPatternSprites();
+    this.destroyRetired();
   }
 }

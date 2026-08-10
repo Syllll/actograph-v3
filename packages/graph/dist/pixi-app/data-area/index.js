@@ -5,6 +5,7 @@ import { parseProtocolItems, hydrateProtocolItemsFromStringIfNeeded, } from '../
 import { extractSessionBoundaryReadings, mergeContinuousCategoryReadings, } from '../../utils/continuous-segments.utils';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 import { isPointInsidePlotBounds } from '../../utils/hover-overlay.utils';
+import { safeRect } from '../../utils/safe-graphics.utils';
 export class DataArea extends BaseGroup {
     setAxisStretch(stretch) {
         this.axisStretch = stretch;
@@ -41,6 +42,8 @@ export class DataArea extends BaseGroup {
         return null;
     }
     setCategoryPruneHandler(handler) {
+        // Explicit prune only; setData no longer invokes this handler (orphans
+        // are cleaned at the next full paint commit via destroyRetired).
         this.categoryPruneHandler = handler;
     }
     constructor(app, yAxis, xAxis, options) {
@@ -178,8 +181,9 @@ export class DataArea extends BaseGroup {
                 categoryEntry.readings = mergeContinuousCategoryReadings(categoryEntry.readings, sessionBoundaryReadings);
             }
         }
-        const activeCategoryIds = new Set(this.readingsPerCategory.map((entry) => entry.category.id));
-        this.categoryPruneHandler?.(activeCategoryIds);
+        // Orphan graphics stay on the display until the next full paint:
+        // beginFullPaint retires the old frame, the back buffer paints only active
+        // categories, and destroyRetired at commit cleans up.
     }
     clear() {
         super.clear();
@@ -196,8 +200,7 @@ export class DataArea extends BaseGroup {
     }
     prepareHitArea(bottomLeft, topRight) {
         this.pointerHitArea.clear();
-        this.pointerHitArea.rect(bottomLeft.x, topRight.y, topRight.x - bottomLeft.x, Math.abs(topRight.y - bottomLeft.y));
-        this.pointerHitArea.fill({ color: 'transparent', alpha: 0 });
+        safeRect(this.pointerHitArea, bottomLeft.x, topRight.y, topRight.x - bottomLeft.x, Math.abs(topRight.y - bottomLeft.y), { fill: { color: 'transparent', alpha: 0 } });
     }
     getAxisBoundsFromAxes() {
         const yAxisStart = this.yAxis.getAxisStart();

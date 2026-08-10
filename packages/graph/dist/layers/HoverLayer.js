@@ -7,6 +7,7 @@ import { computeCrosshairSegments, computeHoverTimeLabelPosition, } from '../uti
 import { isPointInsidePlotBounds, shouldRenderHoverOverlay, } from '../utils/hover-overlay.utils';
 import { formatFromDate, formatCalendarFixed, formatChronometerFixed, } from '../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../utils/chronometer.constants';
+import { safeMoveTo, safeRect } from '../utils/safe-graphics.utils';
 export class HoverLayer extends BaseLayer {
     constructor(app, options) {
         super('hover');
@@ -139,16 +140,14 @@ export class HoverLayer extends BaseLayer {
         }
         const { vertical, horizontal } = computeCrosshairSegments(overlayCursor.x, overlayCursor.y, overlayBounds);
         this.pointerDashedLines.clear();
-        this.pointerDashedLines
-            .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-            .moveTo(vertical.x1, vertical.y1)
-            .dashedLineTo(vertical.x2, vertical.y2)
-            .stroke();
-        this.pointerDashedLines
-            .setStrokeStyle({ color: 'black', width: 1, cap: 'butt' })
-            .moveTo(horizontal.x1, horizontal.y1)
-            .dashedLineTo(horizontal.x2, horizontal.y2)
-            .stroke();
+        this.pointerDashedLines.setStrokeStyle({ color: 'black', width: 1, cap: 'butt' });
+        if (safeMoveTo(this.pointerDashedLines, vertical.x1, vertical.y1)) {
+            this.pointerDashedLines.dashedLineTo(vertical.x2, vertical.y2).stroke();
+        }
+        this.pointerDashedLines.setStrokeStyle({ color: 'black', width: 1, cap: 'butt' });
+        if (safeMoveTo(this.pointerDashedLines, horizontal.x1, horizontal.y1)) {
+            this.pointerDashedLines.dashedLineTo(horizontal.x2, horizontal.y2).stroke();
+        }
         this.hoverOverlayVisible = true;
         try {
             const timeString = this.formatHoverTimeLabel(input.dateTime);
@@ -162,8 +161,9 @@ export class HoverLayer extends BaseLayer {
             const backgroundWidth = textWidth + padding * 2;
             const backgroundHeight = textHeight + padding * 2;
             this.timeLabelBackground.clear();
-            this.timeLabelBackground.rect(0, 0, backgroundWidth, backgroundHeight);
-            this.timeLabelBackground.fill({ color: 'white' });
+            safeRect(this.timeLabelBackground, 0, 0, backgroundWidth, backgroundHeight, {
+                fill: { color: 'white' },
+            });
             this.timeLabel.x = padding;
             this.timeLabel.y = padding;
             const labelPos = computeHoverTimeLabelPosition(overlayCursor.x, overlayCursor.y, backgroundWidth, backgroundHeight, overlayBounds);

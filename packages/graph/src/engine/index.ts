@@ -6,6 +6,6 @@ export type { TilingSpriteRecord } from './CategoryGraphicsStore';
 export { RenderScheduler } from './RenderScheduler';
 export type { RenderSchedulerRequestOptions } from './RenderScheduler';
 export { DirtyRegistry } from './DirtyRegistry';
-export type { DirtyFlag, InvalidateScope, LayerId, LayerRuntimeState } from './types';
+export type { DirtyFlag, InvalidateScope, LayerId, LayerRuntimeState, DrawError, LayerPrepareOptions } from './types';
 export { ExportPipeline } from './ExportPipeline';
 export type { ExportPipelineDeps } from './ExportPipeline';

@@ -5,6 +5,7 @@ import {
   computeFitViewportPosition,
   isDegenerateCanvasSize,
   preserveViewportOnResize,
+  anchorZoomTranslation,
 } from '../utils/viewport.utils';
 
 describe('viewport.utils', () => {
@@ -160,6 +161,21 @@ describe('viewport.utils', () => {
       expect(exportFit.scaleX).toBeLessThan(userZoomed.scaleX);
       expect(restored.scaleX).toBe(userZoomed.scaleX);
       expect(restored.x).not.toBe(exportFit.x);
+    });
+  });
+
+  describe('anchorZoomTranslation', () => {
+    it('accounts for axisStretch when anchoring zoom under cursor', () => {
+      const anchored = anchorZoomTranslation(400, 300, 100, 50, 2, { x: 1.5, y: 0.8 });
+      expect(anchored).toEqual({
+        x: 400 - 100 * 2 * 1.5,
+        y: 300 - 50 * 2 * 0.8,
+      });
+    });
+
+    it('matches isotropic stretch (1,1)', () => {
+      const anchored = anchorZoomTranslation(200, 150, 80, 40, 1.5, { x: 1, y: 1 });
+      expect(anchored).toEqual({ x: 200 - 120, y: 150 - 60 });
     });
   });
 

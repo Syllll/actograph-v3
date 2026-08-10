@@ -117,4 +117,25 @@ describe('CategoryGraphicsStore', () => {
     expect(destroyedGraphics.length).toBe(2);
     expect(store.findGraphic('a')).toBeNull();
   });
+
+  it('beginFullPaint keeps display graphics alive until destroyRetired', () => {
+    const app = createMockApp();
+    const displayContainer = new Container();
+    const paintContainer = new Container();
+    const store = new CategoryGraphicsStore(app, displayContainer, null);
+
+    const graphic = store.getOrCreateGraphic(makeCategory('a'));
+    expect(displayContainer.children).toContain(graphic);
+
+    store.beginFullPaint(paintContainer);
+
+    expect(destroyedGraphics).not.toContain(graphic);
+    expect(displayContainer.children).toContain(graphic);
+    expect(store.findGraphic('a')).toBeNull();
+
+    store.destroyRetired();
+
+    expect(destroyedGraphics).toContain(graphic);
+    expect(displayContainer.children).not.toContain(graphic);
+  });
 });

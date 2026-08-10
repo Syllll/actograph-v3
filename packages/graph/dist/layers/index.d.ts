@@ -2,6 +2,8 @@ export type { Layer } from './Layer';
 export { BaseLayer } from './Layer';
 export { HoverLayer } from './HoverLayer';
 export type { HoverWorldPointerInput, HoverLayerBoundsDeps } from './HoverLayer';
+export { AxisLabelOverlay } from './AxisLabelOverlay';
+export type { AxisLabelDescriptor, AxisLabelKind } from './AxisLabelOverlay';
 export { AxisLayer } from './AxisLayer';
 export { BackgroundLayer } from './BackgroundLayer';
 export { FriezeLayer } from './FriezeLayer';

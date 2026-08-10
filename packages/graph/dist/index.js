@@ -15,4 +15,5 @@ export { CHRONOMETER_T0 } from './utils/chronometer.constants';
 export { getGraphPausePeriods } from './utils/pause-periods.utils';
 export { DEFAULT_GRAPH_COLOR } from './lib/graph-defaults';
 export { ObservationModeEnum, ReadingTypeEnum, BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, ProtocolItemTypeEnum, TimeDisplayFormatEnum, } from '@actograph/core';
+export { AxisLabelOverlay } from './layers/AxisLabelOverlay';
 //# sourceMappingURL=index.js.map

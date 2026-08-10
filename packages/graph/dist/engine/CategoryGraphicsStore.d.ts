@@ -17,10 +17,14 @@ export declare class CategoryGraphicsStore {
     private readonly patternStore;
     private graphicPerCategory;
     private tilingSpritesPerCategory;
+    private retiredGraphics;
+    private retiredSprites;
     constructor(app: Application, container: Container, patternStore: PatternTextureStore | null);
     setContainer(container: Container): void;
-    /** Reset tracked graphics/sprites and paint into a fresh back buffer. */
+    /** Paint into a back buffer; previous display objects stay alive until destroyRetired. */
     beginFullPaint(container: Container): void;
+    /** Destroy display objects retired during the last beginFullPaint (after buffer swap). */
+    destroyRetired(): void;
     getOrCreateGraphic(category: ProtocolItem): BaseGraphic;
     findGraphic(categoryId: string): BaseGraphic | null;
     clearCategoryGraphic(categoryId: string): void;

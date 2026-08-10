@@ -1,3 +1,6 @@
+export function toDrawErrorMessage(error) {
+    return error instanceof Error ? error.message : String(error);
+}
 const DIRTY_FLAG_PRIORITY = {
     none: 0,
     viewport: 1,

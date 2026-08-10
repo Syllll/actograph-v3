@@ -65,6 +65,17 @@ describe('LayerDoubleBuffer', () => {
     expect(buffer.displayBuffer.visible).not.toBe(false);
     expect(buffer.paintBuffer.visible).toBe(false);
   });
+
+  it('swap does not destroy back buffer children', () => {
+    const buffer = new LayerDoubleBuffer();
+    const marker = { id: 'marker', destroy: jest.fn() };
+    buffer.paintBuffer.addChild(marker as never);
+
+    buffer.swap();
+
+    expect(buffer.displayBuffer.children).toContain(marker);
+    expect(marker.destroy).not.toHaveBeenCalled();
+  });
 });
 
 describe('SeriesLayer double buffer', () => {
@@ -90,5 +101,46 @@ describe('SeriesLayer double buffer', () => {
       (child) => (child as { visible: boolean }).visible !== false,
     ) as { children: unknown[] };
     expect(visibleBuffer).toBeDefined();
+  });
+
+  it('keeps display children when prepare throws before commit', () => {
+    const app = {} as Application;
+    const layer = new SeriesLayer(app, {
+      createTilingSprite: jest.fn(),
+      release: jest.fn(),
+    } as never);
+
+    const ctx = createMockGraphContext({
+      readingsPerCategory: [{ category, readings: [] }],
+      getEffectiveDisplayMode: () => DisplayModeEnum.Normal,
+    });
+
+    layer.prepare(ctx);
+    layer.commit();
+
+    const displayBefore = layer.container.children.find(
+      (child) => (child as { visible: boolean }).visible !== false,
+    ) as { children: unknown[] };
+    const childCountBefore = displayBefore.children.length;
+
+    const failingCtx = createMockGraphContext({
+      readingsPerCategory: [
+        {
+          category,
+          readings: [{ type: 'DATA', dateTime: new Date(), name: 'On' } as never],
+        },
+      ],
+      getEffectiveDisplayMode: () => DisplayModeEnum.Normal,
+      getYPos: () => {
+        throw new Error('draw failed');
+      },
+    });
+
+    layer.prepare(failingCtx);
+
+    const displayAfter = layer.container.children.find(
+      (child) => (child as { visible: boolean }).visible !== false,
+    ) as { children: unknown[] };
+    expect(displayAfter.children.length).toBe(childCountBefore);
   });
 });

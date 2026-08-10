@@ -26,6 +26,7 @@ import type { IGraphRenderOptions } from '../../types/graph-render-options';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 import { type IPlotBounds } from '../../utils/crosshair.utils';
 import { isPointInsidePlotBounds } from '../../utils/hover-overlay.utils';
+import { safeRect } from '../../utils/safe-graphics.utils';
 
 export interface IDataAreaHoverController {
   scheduleUpdateFromWorldPointer(input: {
@@ -109,6 +110,8 @@ export class DataArea extends BaseGroup {
   }
 
   public setCategoryPruneHandler(handler: CategoryPruneHandler | null): void {
+    // Explicit prune only; setData no longer invokes this handler (orphans
+    // are cleaned at the next full paint commit via destroyRetired).
     this.categoryPruneHandler = handler;
   }
 
@@ -286,10 +289,9 @@ export class DataArea extends BaseGroup {
       }
     }
 
-    const activeCategoryIds = new Set(
-      this.readingsPerCategory.map((entry) => entry.category.id),
-    );
-    this.categoryPruneHandler?.(activeCategoryIds);
+    // Orphan graphics stay on the display until the next full paint:
+    // beginFullPaint retires the old frame, the back buffer paints only active
+    // categories, and destroyRetired at commit cleans up.
   }
 
   public clear() {
@@ -314,13 +316,14 @@ export class DataArea extends BaseGroup {
     topRight: { x: number; y: number },
   ): void {
     this.pointerHitArea.clear();
-    this.pointerHitArea.rect(
+    safeRect(
+      this.pointerHitArea,
       bottomLeft.x,
       topRight.y,
       topRight.x - bottomLeft.x,
       Math.abs(topRight.y - bottomLeft.y),
+      { fill: { color: 'transparent', alpha: 0 } },
     );
-    this.pointerHitArea.fill({ color: 'transparent', alpha: 0 });
   }
 
   private getAxisBoundsFromAxes(): {

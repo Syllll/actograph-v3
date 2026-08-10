@@ -6,27 +6,33 @@ import {
   computePauseOverlayRects,
   DEFAULT_PAUSE_OVERLAY_STYLE,
 } from '../utils/pause-overlay.utils';
+import { safeRect } from '../utils/safe-graphics.utils';
 
 export class PauseOverlayLayer extends BaseLayer {
   readonly container: Container;
-  private readonly pauseOverlayGraphic: BaseGraphic;
+  private displayGraphic: BaseGraphic;
+  private paintGraphic: BaseGraphic;
 
   constructor(private readonly app: Application) {
     super('pause');
     this.container = new Container();
-    this.pauseOverlayGraphic = new BaseGraphic(app);
-    this.pauseOverlayGraphic.eventMode = 'none';
-    this.container.addChild(this.pauseOverlayGraphic);
+    this.displayGraphic = new BaseGraphic(app);
+    this.paintGraphic = new BaseGraphic(app);
+    this.displayGraphic.eventMode = 'none';
+    this.paintGraphic.eventMode = 'none';
+    this.paintGraphic.visible = false;
+    this.container.addChild(this.displayGraphic);
+    this.container.addChild(this.paintGraphic);
   }
 
-  prepare(ctx: GraphContext): void {
+  prepare(ctx: GraphContext, _options?: import('../engine/types').LayerPrepareOptions): void {
     const bounds = ctx.getAxisBounds();
     if (!bounds) {
       return;
     }
 
     const { bottomLeft, topRight } = bounds;
-    this.pauseOverlayGraphic.clear();
+    this.paintGraphic.clear();
 
     const rects = computePauseOverlayRects(
       [...ctx.pausePeriods],
@@ -41,16 +47,36 @@ export class PauseOverlayLayer extends BaseLayer {
     );
 
     for (const rect of rects) {
-      this.pauseOverlayGraphic
-        .rect(rect.x, rect.y, rect.width, rect.height)
-        .fill({
-          color: DEFAULT_PAUSE_OVERLAY_STYLE.color,
-          alpha: DEFAULT_PAUSE_OVERLAY_STYLE.alpha,
-        });
+      safeRect(
+        this.paintGraphic,
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height,
+        {
+          fill: {
+            color: DEFAULT_PAUSE_OVERLAY_STYLE.color,
+            alpha: DEFAULT_PAUSE_OVERLAY_STYLE.alpha,
+          },
+        },
+      );
     }
   }
 
+  commit(): void {
+    this.displayGraphic.visible = false;
+    this.paintGraphic.visible = true;
+
+    const previousDisplay = this.displayGraphic;
+    this.displayGraphic = this.paintGraphic;
+    this.paintGraphic = previousDisplay;
+
+    this.paintGraphic.visible = false;
+    this.paintGraphic.clear();
+  }
+
   clear(): void {
-    this.pauseOverlayGraphic.clear();
+    this.displayGraphic.clear();
+    this.paintGraphic.clear();
   }
 }
