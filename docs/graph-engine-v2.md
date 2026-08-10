@@ -21,6 +21,7 @@ Livré dans le code :
 - [x] `patternStore.release` à la destruction des TilingSprites
 - [x] `ExportPipeline` via `renderer.extract.base64` + `preserveDrawingBuffer: false`
 - [x] Double buffer front/back sur `SeriesLayer` et `BackgroundLayer` (full `prepareWorld`)
+- [x] Invariant `prepareWorld` : **axes avant bornes** (`axisLayer.prepare` puis `getAxisBounds`) — corrige le graphe vide au premier paint (`4de0b38`)
 
 Dettes acceptées (non bloquantes) :
 
@@ -130,18 +131,20 @@ Plus de conversions fragiles, plus de `ensureCursorUiOnTop` / index magiques.
 setData / setPrefs / resize / hover
         │
         ▼
- LayoutEngine.compute(...)  →  LayoutResult (immuable, versionné)
+ GraphContext (snapshot depuis DataArea + axes)
         │
         ▼
- GraphContext.layout = ...
- layers.invalidate(flag, scope?)
-        │
-        ▼
- RenderScheduler (1 rAF)
-   for each dirty layer (ordre z):
-     layer.prepare(ctx)     # CPU : construit back buffer, NE render PAS
-   app.render()             # 1 seul commit GPU
+ RenderScheduler (1 rAF) → executeDrawBody
+   GraphEngine.prepareWorld():
+     1. axisLayer.prepare()     # OBLIGATOIRE en premier (pose axisStart/End)
+     2. getAxisBounds()         # sinon null → graphe vide
+     3. background / frieze / series / pause.prepare()
+     4. commit() double buffer (Series, Background)
+   app.render()                 # 1 seul commit GPU
 ```
+
+**Piège** : ne jamais lire `getAxisBounds()` avant `yAxis.draw()` / `xAxis.draw()`.  
+`axisStart` n’existe qu’après le draw des axes ; un early-return laisse une scène blanche permanente.
 
 ### Contrat `Layer`
 

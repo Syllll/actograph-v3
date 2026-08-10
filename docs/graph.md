@@ -58,7 +58,7 @@ L'application PixiJS est configurée avec :
 - **Background** : Fond blanc
 - **Dimensions** : contrôlées manuellement (pas de `resizeTo` Pixi)
 - **View** : Canvas HTML fourni
-- **preserveDrawingBuffer** : activé pour les exports image
+- **preserveDrawingBuffer** : `false` (export via `renderer.extract.base64`, pas `canvas.toDataURL`)
 
 ### Formatage selon le mode
 
@@ -70,30 +70,20 @@ Le graphique s'adapte automatiquement au mode de l'observation :
 
 ### Structure du graphique
 
-Hiérarchie de scènes :
+Hiérarchie de scènes (moteur v2, voir aussi `docs/graph-engine-v2.md`) :
 
 ```
 stage
-  └─ viewport (Container)   ← scale + translation (zoom / pan caméra)
-       └─ plot
-            ├─ xAxis
-            ├─ yAxis
-            └─ DataArea
+  ├─ viewport (Container)   ← scale + translation (zoom / pan caméra)
+  │    └─ plot
+  │         ├─ xAxis
+  │         ├─ yAxis
+  │         ├─ worldRoot    ← Background / Frieze / Series / Pause (GraphEngine)
+  │         └─ DataArea     ← hit-area + état (readings), plus de paint séries
+  └─ overlayRoot            ← HoverLayer (crosshair + label temps, screen-space)
 ```
 
-```typescript
-this.yAxis = new YAxis(this.app);
-this.xAxis = new xAxis(this.app, this.yAxis);
-this.dataArea = new DataArea(this.app, this.yAxis, this.xAxis);
-
-this.viewport = new Container();
-this.plot = new Container();
-this.plot.addChild(this.xAxis);
-this.plot.addChild(this.yAxis);
-this.plot.addChild(this.dataArea);
-this.viewport.addChild(this.plot);
-this.app.stage.addChild(this.viewport);
-```
+`PixiApp` reste la façade publique. Le paint monde passe par `GraphEngine.prepareWorld()`.
 
 ### Zoom, pan et contrat de rendu
 
@@ -103,28 +93,29 @@ this.app.stage.addChild(this.viewport);
 - `updateTimeScale()` est un stub : les graduations X ne se recalculent **pas** encore selon le zoom (`pixelsPerMsec` reste basé sur la plage complète). Un vrai zoom données reste une évolution future.
 
 **Contrat draw / hover** (anti-sautes) :
-1. `draw()` coalesce via `requestAnimationFrame`, attend un export éventuel **hors** chaîne, puis enfile `executeDrawBody()` via `drawChain`.
+1. `draw()` coalesce via `RenderScheduler` (rAF), attend un export éventuel **hors** chaîne, puis enfile `executeDrawBody()` via `drawChain`.
 2. `executeDrawBody()` est **exclusif** : `drawChain` / `enqueueDrawBody` garantissent qu’aucun second draw complet ne démarre avant la fin du précédent.
 3. Pendant le draw, `drawInProgress === true` : le hover ne doit pas appeler `app.render()`.
 4. Le hover passe par `requestRender()` (no-op si draw/export en cours).
-5. Au début du draw, l’overlay hover est **annulé** (`cancelPending: true`) : on ne reprend plus automatiquement le hover après un full draw (évite la course remount Observation→Graphe où le 1er survol peignait des axes déjà clearés sur un framebuffer périmé).
-6. Après pan/zoom, `getGlobalTransform()` force la mise à jour des matrices monde (requis pour `toGlobal` / `toLocal` du crosshair). Ne pas réintroduire de nudge artificiel du type `scale ± 0.0001`.
-7. Le rendu final du draw complet appelle **toujours** `app.render()` (obligatoire avec `preserveDrawingBuffer: true`).
-8. **`axesGraphicsDirty`** : dès qu’un full draw commence (clear des axes), le flag est `true` jusqu’après `app.render()` réussi. Tant qu’il est sale, hover / `requestRender` / `redrawCategory` forcent un full `draw()` et ne peignent pas la croix sur une scène vide.
+5. Au début du draw, l’overlay hover est **annulé** (`cancelPending: true`) : on ne reprend plus automatiquement le hover après un full draw.
+6. Après pan/zoom, `getGlobalTransform()` force la mise à jour des matrices monde (requis pour le crosshair). Clear du hover au changement de viewport (rebouger la souris).
+7. Le rendu final du draw complet appelle **toujours** `app.render()`.
+8. **`DirtyRegistry` / `midDraw`** (remplace `axesGraphicsDirty`) : dès qu’un full draw commence, les layers sont `midDraw` jusqu’après `app.render()` réussi. Tant que `isAnyUnsafeToPaint()`, hover / `requestRender` / `redrawCategory` forcent un full `draw()`. Après un draw **échoué**, `midDraw` reste vrai jusqu’au prochain draw réussi.
 9. Pixi est initialisé avec **`autoStart: false`** (ticker stoppé) : aucun render hors de nos gardes.
-10. Un `draw()` en échec **reject** sa Promise ; le flag dirty reste `true`.
-11. Les labels Text des axes sont **destroy** lors du clear (évite des textures orphelines stressées par le timeLabel du hover).
+10. Un `draw()` en échec **reject** sa Promise ; `invalidateAll('full')` + `midDraw` conservé.
+11. Les labels Text des axes sont **destroy** lors du clear.
+12. **Invariant `prepareWorld`** : toujours `axisLayer.prepare()` (donc `yAxis.draw` / `xAxis.draw`) **avant** de lire `getAxisBounds()`. Sinon le premier paint sort tôt (`axisStart` encore null) et le graphe reste vide.
 
 **Contrat resume / export / mutex** :
 1. **Mutex draw** : les appels `draw()` externes attendent un export **hors** de `drawChain`, puis enfilent `executeDrawBody` ; l’export appelle `enqueueDrawBody()` directement (jamais `draw()`), ce qui évite un deadlock `drawChain ↔ exportQueue`.
-2. **`resizeFromCanvas({ skipRender?: boolean })`** : en chemin resume/refresh, appeler avec `skipRender: true` puis un seul `draw()` pour peindre. Évite un `app.render()` intermédiaire sur une scène partiellement effacée.
-3. **Canvas dégénéré** (`isDegenerateCanvasSize`, width ou height ≤ 2) : mémorisé via `wasDegenerateCanvas` ; au retour à une taille utile, `needsInitialFit = true` pour éviter un scale microscopique conservé par `preserveViewportOnResize`.
-4. **`refreshAfterResume()`** (mobile, `webglcontextrestored`) : garde `isInitialized` + `!contextRestoring` → `clearHoverOverlay` → marque `needsPatternTextureRefresh` + `needsInitialFit` → réapplication de `lastObservation` → `resizeFromCanvas({ skipRender: true })` → `scheduleDraw('resume')` (catch des rejections). Le cache motifs est vidé au début de `executeDrawBody` seulement s'il y a des sprites motifs ou après une perte WebGL (`forcePatternTextureClear`).
-5. **`refreshGraph()` desktop** (visibility resume) : retry si canvas pas encore visible → `prepareForResumeRefresh()` (force `needsInitialFit`) → `waitForIdle()` → `resizeFromCanvas({ skipRender: true })` → `redrawFromObservation()`. Un fit systématique au resume évite la caméra coincée sur une zone vide (axes hors écran + fragment de données).
-6. **`webglcontextlost`** : `preventDefault()` + `contextRestoring = true` + annulation des rAF de restore en attente + `clearHoverOverlay` + `needsPatternTextureRefresh` + `forcePatternTextureClear` + `axesGraphicsDirty` + `wasDegenerateCanvas = true`. **`webglcontextrestored`** : double rAF puis `contextRestoring = false` + `refreshAfterResume()`.
-7. **Export** : au début, hover supprimé (cancel pending) ; paints via `enqueueDrawBody` ; après `finally`, hover unsuppressed.
-8. **`waitForIdle()`** : `redrawFromObservation` / `refreshGraph` attendent la fin des draws/exports en cours avant un nouveau setData+draw.
-9. **Échec de draw** : pas de `resumeHoverAfterDraw` (évite de peindre axes clearés + crosshair orphelin) ; `axesGraphicsDirty` + `needsInitialFit` remis pour un retry.
+2. **`resizeFromCanvas({ skipRender?: boolean })`** : en chemin resume/refresh, appeler avec `skipRender: true` puis un seul `draw()` pour peindre.
+3. **Canvas dégénéré** (`isDegenerateCanvasSize`, width ou height ≤ 2) : mémorisé via `wasDegenerateCanvas` ; au retour à une taille utile, `needsInitialFit = true`.
+4. **`refreshAfterResume()`** (mobile, `webglcontextrestored`) : garde `isInitialized` + `!contextRestoring` → clear hover → marque `needsPatternTextureRefresh` + `needsInitialFit` → réapplication de `lastObservation` → `resizeFromCanvas({ skipRender: true })` → `scheduleDraw('resume')`. Le cache motifs (`PatternTextureStore` par instance) est vidé au début de `executeDrawBody` seulement s'il y a des sprites motifs ou après une perte WebGL (`forcePatternTextureClear`).
+5. **`refreshGraph()` desktop** (visibility resume) : retry si canvas pas encore visible → `prepareForResumeRefresh()` → `waitForIdle()` → `resizeFromCanvas({ skipRender: true })` → `redrawFromObservation()`.
+6. **`webglcontextlost`** : `preventDefault()` + `contextRestoring` + clear hover + `needsPatternTextureRefresh` + `forcePatternTextureClear` + `DirtyRegistry.invalidateAll('full')` + `markAllMidDraw` + `wasDegenerateCanvas`. **`webglcontextrestored`** : double rAF puis `refreshAfterResume()`.
+7. **Export** : `ExportPipeline` via `renderer.extract.base64` (pas `app.canvas.toDataURL`) ; hover supprimé pendant l’export.
+8. **`waitForIdle()`** : attend drawChain, exportQueue et `renderScheduler.flush()`.
+9. **Échec de draw** : pas de reprise auto du hover ; `midDraw` + `needsInitialFit` pour un retry.
 ## Chargement des données
 
 ### Données requises
@@ -811,7 +802,9 @@ const config = {
 
 **Séquence** : Graphe OK → Observation (démontage) → retour Graphe (affichage normal) → placer le curseur → axes/labels disparaissent.
 
-**Cause** : après remount, un 2e full draw (resize/watch) clear les axes ; avec `preserveDrawingBuffer: true` le canvas peut encore montrer l’ancienne frame « OK ». Le premier hover appelle `app.render()` et révèle la scène vidée. La reprise auto du hover après draw (`cancelPending: false`) aggravait la course.
+**Cause** : après remount, un 2e full draw (resize/watch) clear les axes ; un `app.render()` partiel (hover) pouvait révéler la scène vidée. La reprise auto du hover après draw aggravait la course.
+
+**Correctifs** : `autoStart: false`, cancel pending hover en début de draw, render final obligatoire, garde `DirtyRegistry.midDraw` (ex-`axesGraphicsDirty`) côté hover, destroy des Text d’axes. Voir aussi le moteur v2 (`docs/graph-engine-v2.md`).
 
 **Correctifs** : `autoStart: false`, `cancelPending: true` en début de draw, render final obligatoire, garde `axesGraphicsDirty` côté hover, destroy des Text d’axes.
 
