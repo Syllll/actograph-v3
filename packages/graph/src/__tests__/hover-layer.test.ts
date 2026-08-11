@@ -126,7 +126,24 @@ describe('HoverLayer', () => {
       dateTime: new Date('2024-01-01T12:00:00.000Z'),
       worldToOverlay: (p) => p,
     });
-    expect(app.render).toHaveBeenCalled();
+    expect(requestRender).toHaveBeenCalledTimes(2);
+    expect(app.render).not.toHaveBeenCalled();
+  });
+
+  it('dismiss via paintAfterCleared requests render only', () => {
+    hoverLayer.updateFromWorldPointer({
+      worldX: 400,
+      worldY: 300,
+      plotBoundsWorld: plotBounds,
+      dateTime: new Date('2024-01-01T12:00:00.000Z'),
+      worldToOverlay: (p) => p,
+    });
+    requestRender.mockClear();
+
+    hoverLayer.dismiss();
+
+    expect(requestRender).toHaveBeenCalledTimes(1);
+    expect(app.render).not.toHaveBeenCalled();
   });
 
   it('does not paint while suppressed', () => {

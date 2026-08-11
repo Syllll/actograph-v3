@@ -424,7 +424,7 @@ export class PixiApp {
         },
       );
     } else if (!options?.skipRender) {
-      this.app.render();
+      this.requestRender();
     }
     return true;
   }
@@ -835,6 +835,7 @@ export class PixiApp {
       if (this.needsPatternTextureRefresh) {
         const hadPatterns = this.graphEngine.hasPatternSprites();
         if (hadPatterns || this.forcePatternTextureClear) {
+          this.graphEngine.clearPatternSprites();
           this.patternStore.evict();
           this.forcePatternTextureClear = false;
         }

@@ -8,7 +8,11 @@ export function calculatePausePeriods(readings: IReading[]): IPeriod[] {
   const pausePeriods: IPeriod[] = [];
   let pauseStart: IReading | null = null;
 
-  for (const reading of readings) {
+  const sortedReadings = [...readings].sort(
+    (a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime(),
+  );
+
+  for (const reading of sortedReadings) {
     if (reading.type === ReadingTypeEnum.PAUSE_START) {
       pauseStart = reading;
     } else if (

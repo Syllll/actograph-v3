@@ -270,11 +270,7 @@ export class HoverLayer extends BaseLayer {
       this.timeLabelContainer.visible = false;
     }
 
-    if (this.requestRenderCallback) {
-      this.requestRenderCallback();
-    } else {
-      this.app.render();
-    }
+    this.requestRenderCallback?.();
   }
 
   public destroy(): void {
@@ -351,7 +347,7 @@ export class HoverLayer extends BaseLayer {
       this.requestRenderCallback?.();
       return;
     }
-    this.app.render();
+    this.requestRenderCallback?.();
   }
 
   private cancelPendingHoverUpdate(): void {

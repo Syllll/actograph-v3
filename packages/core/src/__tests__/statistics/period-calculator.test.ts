@@ -50,6 +50,21 @@ describe('period-calculator', () => {
       const pauses = calculatePausePeriods(readings);
       expect(pauses).toHaveLength(2);
     });
+
+    it('should sort readings by dateTime before pairing pauses', () => {
+      const readings: IReading[] = [
+        { type: ReadingTypeEnum.PAUSE_END, dateTime: new Date('2024-01-01T10:03:00') },
+        { type: ReadingTypeEnum.START, dateTime: new Date('2024-01-01T10:00:00') },
+        { type: ReadingTypeEnum.PAUSE_START, dateTime: new Date('2024-01-01T10:02:00') },
+        { type: ReadingTypeEnum.STOP, dateTime: new Date('2024-01-01T10:10:00') },
+      ];
+
+      const pauses = calculatePausePeriods(readings);
+      expect(pauses).toHaveLength(1);
+      expect(pauses[0].start).toEqual(new Date('2024-01-01T10:02:00'));
+      expect(pauses[0].end).toEqual(new Date('2024-01-01T10:03:00'));
+      expect(pauses[0].start.getTime()).toBeLessThan(pauses[0].end.getTime());
+    });
   });
 
   describe('calculatePauseOverlap', () => {

@@ -68,6 +68,32 @@ function patchPixiApp(
   Object.assign(pixiApp as unknown as Record<string, unknown>, patch);
 }
 
+function createMutableScreenMock(initialWidth = 400, initialHeight = 300) {
+  const screen = { width: initialWidth, height: initialHeight };
+  const rect = { width: initialWidth, height: initialHeight, left: 0, top: 0 };
+  const canvas = {
+    getBoundingClientRect: jest.fn(() => ({ ...rect })),
+    style: {} as CSSStyleDeclaration,
+  };
+  const resize = jest.fn((width: number, height: number) => {
+    screen.width = width;
+    screen.height = height;
+  });
+
+  return {
+    screen,
+    rect,
+    canvas,
+    app: {
+      screen,
+      canvas,
+      renderer: { resize },
+      render: jest.fn(),
+    },
+    resize,
+  };
+}
+
 function createMockDataArea(): DataArea {
   const category = {
     id: 'cat-fail',
@@ -248,6 +274,130 @@ describe('PixiApp draw error surface', () => {
 
     expect(drawErrorsHandler).toHaveBeenCalledWith(errors);
     expect(pixiApp.lastDrawErrors).toEqual(errors);
+  });
+
+  it('executeDrawBody clears pattern sprites before evicting textures', async () => {
+    const pixiApp = new PixiApp();
+    const clearPatternSprites = jest.fn();
+    const evict = jest.fn();
+    const callOrder: string[] = [];
+
+    clearPatternSprites.mockImplementation(() => {
+      callOrder.push('clearPatternSprites');
+    });
+    evict.mockImplementation(() => {
+      callOrder.push('evict');
+    });
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      contextRestoring: false,
+      app: { renderer: {}, render: jest.fn() },
+      plot: { x: 0, y: 0, scale: { set: jest.fn() }, rotation: 0 },
+      hoverLayer: { clear: jest.fn() },
+      axisLabelOverlay: { sync: jest.fn() },
+      needsPatternTextureRefresh: true,
+      forcePatternTextureClear: false,
+      patternStore: { evict },
+      isInteractive: false,
+      dirtyRegistry: {
+        markAllMidDraw: jest.fn(),
+        resetAllMidDraw: jest.fn(),
+        invalidateAll: jest.fn(),
+      },
+      graphEngine: {
+        hasPatternSprites: jest.fn(() => true),
+        clearPatternSprites,
+        prepareWorld: jest.fn(),
+        getLastDrawErrors: jest.fn(() => []),
+      },
+      updateWorldTransforms: jest.fn(),
+      syncAxisLabelOverlay: jest.fn(),
+    });
+
+    await (
+      pixiApp as unknown as { executeDrawBody: () => Promise<void> }
+    ).executeDrawBody();
+
+    expect(clearPatternSprites).toHaveBeenCalledTimes(1);
+    expect(evict).toHaveBeenCalledTimes(1);
+    expect(callOrder).toEqual(['clearPatternSprites', 'evict']);
+  });
+
+  it('executeDrawBody clears pattern sprites when forcePatternTextureClear even without sprites', async () => {
+    const pixiApp = new PixiApp();
+    const clearPatternSprites = jest.fn();
+    const evict = jest.fn();
+    const callOrder: string[] = [];
+
+    clearPatternSprites.mockImplementation(() => {
+      callOrder.push('clearPatternSprites');
+    });
+    evict.mockImplementation(() => {
+      callOrder.push('evict');
+    });
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      contextRestoring: false,
+      app: { renderer: {}, render: jest.fn() },
+      plot: { x: 0, y: 0, scale: { set: jest.fn() }, rotation: 0 },
+      hoverLayer: { clear: jest.fn() },
+      axisLabelOverlay: { sync: jest.fn() },
+      needsPatternTextureRefresh: true,
+      forcePatternTextureClear: true,
+      patternStore: { evict },
+      isInteractive: false,
+      dirtyRegistry: {
+        markAllMidDraw: jest.fn(),
+        resetAllMidDraw: jest.fn(),
+        invalidateAll: jest.fn(),
+      },
+      graphEngine: {
+        hasPatternSprites: jest.fn(() => false),
+        clearPatternSprites,
+        prepareWorld: jest.fn(),
+        getLastDrawErrors: jest.fn(() => []),
+      },
+      updateWorldTransforms: jest.fn(),
+      syncAxisLabelOverlay: jest.fn(),
+    });
+
+    await (
+      pixiApp as unknown as { executeDrawBody: () => Promise<void> }
+    ).executeDrawBody();
+
+    expect(clearPatternSprites).toHaveBeenCalledTimes(1);
+    expect(evict).toHaveBeenCalledTimes(1);
+    expect(callOrder).toEqual(['clearPatternSprites', 'evict']);
+    expect(
+      (pixiApp as unknown as { forcePatternTextureClear: boolean }).forcePatternTextureClear,
+    ).toBe(false);
+  });
+
+  it('resizeFromCanvas on non-interactive path calls requestRender not app.render', () => {
+    const pixiApp = new PixiApp();
+    const mock = createMutableScreenMock(400, 300);
+    const requestRender = jest.fn();
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      isInteractive: false,
+      exportInProgress: false,
+      wasDegenerateCanvas: false,
+      app: mock.app,
+      requestRender,
+    });
+
+    mock.rect.width = 800;
+    mock.rect.height = 600;
+
+    const didResize = pixiApp.resizeFromCanvas();
+
+    expect(didResize).toBe(true);
+    expect(mock.resize).toHaveBeenCalledWith(800, 600);
+    expect(requestRender).toHaveBeenCalledTimes(1);
+    expect(mock.app.render).not.toHaveBeenCalled();
   });
 
   it('executeDrawBody failure keeps axis labels and records full draw error', async () => {
