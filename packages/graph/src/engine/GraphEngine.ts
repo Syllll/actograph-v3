@@ -117,7 +117,11 @@ export class GraphEngine {
     return this.lastDrawErrors;
   }
 
-  prepareWorld(): void {
+  /**
+   * Rebuilds the world scene into paint buffers, then commits atomically.
+   * @returns false when axis bounds are unavailable (no commit; display unchanged).
+   */
+  prepareWorld(): boolean {
     const errors: DrawError[] = [];
     const prepareOptions = {
       onCategoryError: (error: DrawError) => errors.push(error),
@@ -133,7 +137,7 @@ export class GraphEngine {
     const bounds = ctx.getAxisBounds();
     if (!bounds) {
       this.lastDrawErrors = errors;
-      return;
+      return false;
     }
 
     this.dataArea.prepareHitArea(bounds.bottomLeft, bounds.topRight);
@@ -143,12 +147,14 @@ export class GraphEngine {
     this.seriesLayer.prepare(ctx, prepareOptions);
     this.pauseLayer.prepare(ctx);
 
+    this.axisLayer.commit();
     this.backgroundLayer.commit();
     this.friezeLayer.commit();
     this.seriesLayer.commit();
     this.pauseLayer.commit();
 
     this.lastDrawErrors = errors;
+    return true;
   }
 
   /**
@@ -171,12 +177,12 @@ export class GraphEngine {
     this.seriesLayer.clearCategory(categoryId);
   }
 
-  redrawCategory(_categoryId: string): void {
-    this.prepareWorld();
+  redrawCategory(_categoryId: string): boolean {
+    return this.prepareWorld();
   }
 
-  redrawObservable(_observableId: string): void {
-    this.prepareWorld();
+  redrawObservable(_observableId: string): boolean {
+    return this.prepareWorld();
   }
 
   hasPatternSprites(): boolean {

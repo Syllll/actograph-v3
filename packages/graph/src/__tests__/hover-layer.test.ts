@@ -174,7 +174,8 @@ describe('HoverLayer', () => {
       worldToOverlay: (p) => p,
     });
 
-    expect(requestRender).toHaveBeenCalled();
+    // midDraw/failed: skip hover (bounds may be uncommitted); no spam scheduleDraw.
+    expect(requestRender).not.toHaveBeenCalled();
     expect(app.render).not.toHaveBeenCalled();
   });
 
@@ -188,5 +189,67 @@ describe('HoverLayer', () => {
     });
     hoverLayer.clear({ cancelPending: true });
     expect(requestRender).not.toHaveBeenCalled();
+  });
+
+  it('mutates hover graphics without flush while drawInProgress', () => {
+    hoverLayer.setDrawStateCallbacks({
+      isDrawInProgress: () => true,
+      isUnsafeToPaint: () => true,
+      isExportInProgress: () => false,
+      requestRender,
+    });
+
+    hoverLayer.updateFromWorldPointer({
+      worldX: 400,
+      worldY: 300,
+      plotBoundsWorld: plotBounds,
+      dateTime: new Date('2024-01-01T12:00:00.000Z'),
+      worldToOverlay: (p) => p,
+    });
+
+    expect(requestRender).not.toHaveBeenCalled();
+    expect(app.render).not.toHaveBeenCalled();
+  });
+
+  it('dismiss during drawInProgress clears without requesting render', () => {
+    hoverLayer.setDrawStateCallbacks({
+      isDrawInProgress: () => true,
+      isUnsafeToPaint: () => true,
+      isExportInProgress: () => false,
+      requestRender,
+    });
+
+    hoverLayer.updateFromWorldPointer({
+      worldX: 400,
+      worldY: 300,
+      plotBoundsWorld: plotBounds,
+      dateTime: new Date('2024-01-01T12:00:00.000Z'),
+      worldToOverlay: (p) => p,
+    });
+    requestRender.mockClear();
+
+    hoverLayer.dismiss();
+
+    expect(requestRender).not.toHaveBeenCalled();
+  });
+
+  it('midDraw skips hover mutation and does not request render', () => {
+    hoverLayer.setDrawStateCallbacks({
+      isDrawInProgress: () => false,
+      isUnsafeToPaint: () => true,
+      isExportInProgress: () => false,
+      requestRender,
+    });
+
+    hoverLayer.updateFromWorldPointer({
+      worldX: 400,
+      worldY: 300,
+      plotBoundsWorld: plotBounds,
+      dateTime: new Date('2024-01-01T12:00:00.000Z'),
+      worldToOverlay: (p) => p,
+    });
+
+    expect(requestRender).not.toHaveBeenCalled();
+    expect(app.render).not.toHaveBeenCalled();
   });
 });

@@ -32,6 +32,13 @@ import {
   GRAPH_CANVAS_CURSOR_IDLE,
   GRAPH_CANVAS_CURSOR_PANNING,
 } from '../utils/graph-cursor.constants';
+import {
+  canPaintPartial,
+  isAuthoritativePaintReason,
+  shouldScheduleDrawOnPaintGate,
+  type PaintReason,
+  type ScenePaintState,
+} from '../utils/scene-paint.utils';
 
 interface IPixiAppInitOptions {
   view: HTMLCanvasElement;
@@ -134,6 +141,11 @@ export class PixiApp {
   private contextRestoreInnerRafId: number | null = null;
   private viewportPaintRafId: number | null = null;
   private pendingViewportLabelRefresh = false;
+  /** Scene coherence for partial WebGL paints (hover/pan). */
+  private scenePaintState: ScenePaintState = 'stable';
+  /** At most one auto-retry per failed draw until the next success. */
+  private drawFailureAutoRetryArmed = false;
+  private drawFailureAutoRetryRafId: number | null = null;
 
   /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
   public events = new EventEmitter();
@@ -336,7 +348,55 @@ export class PixiApp {
 
     // Premier rendu immédiat pour effacer le buffer WebGL (noir) avec le
     // fond blanc, avant même que les données soient dessinées.
+    this.paint('init');
+  }
+
+  /**
+   * Sole entry point for `app.render()` in PixiApp. Authoritative reasons paint
+   * when the caller guarantees scene readiness; partial reasons only when idle.
+   */
+  private paint(reason: PaintReason): void {
+    if (!this.isInitialized || !this.app.renderer) {
+      return;
+    }
+    if (
+      !isAuthoritativePaintReason(reason) &&
+      !canPaintPartial({
+        scenePaintState: this.scenePaintState,
+        drawInProgress: this.drawInProgress,
+        exportInProgress: this.exportInProgress,
+        drawQueued: this.drawFrameScheduled,
+      })
+    ) {
+      return;
+    }
     this.app.render();
+  }
+
+  private cancelDrawFailureAutoRetryRaf(): void {
+    if (this.drawFailureAutoRetryRafId !== null) {
+      cancelAnimationFrame(this.drawFailureAutoRetryRafId);
+      this.drawFailureAutoRetryRafId = null;
+    }
+  }
+
+  private scheduleDrawFailureAutoRetry(): void {
+    if (
+      this.drawFailureAutoRetryArmed ||
+      !this.isInitialized ||
+      this.contextRestoring
+    ) {
+      return;
+    }
+    this.drawFailureAutoRetryArmed = true;
+    this.cancelDrawFailureAutoRetryRaf();
+    this.drawFailureAutoRetryRafId = requestAnimationFrame(() => {
+      this.drawFailureAutoRetryRafId = null;
+      if (!this.isInitialized || this.contextRestoring) {
+        return;
+      }
+      this.scheduleDraw('autoRetry');
+    });
   }
 
   /**
@@ -724,8 +784,10 @@ export class PixiApp {
     return this.drawInProgress;
   }
 
-  /** Planifie un redraw complet (pas d'auto-retry en boucle). */
+  /** Planifie un redraw complet. Réarme l'auto-retry pour cette tentative. */
   public retryDraw(): void {
+    this.drawFailureAutoRetryArmed = false;
+    this.cancelDrawFailureAutoRetryRaf();
     this.scheduleDraw('retry');
   }
 
@@ -743,20 +805,33 @@ export class PixiApp {
    * If axis graphics were cleared and not yet redrawn, schedules a full draw
    * instead of painting the empty-axes scene (hover/pan must not "exclude" axes).
    */
-  public requestRender(): void {
+  public requestRender(reason: PaintReason = 'partial'): void {
+    if (!this.isInitialized || !this.app.renderer || this.exportInProgress) {
+      return;
+    }
+    if (this.drawInProgress) {
+      return;
+    }
+    // After a failed full draw, recovery is autoRetry (once) or explicit retryDraw.
+    // Do not let hover/pan spam scheduleDraw('renderGate') and bypass the 1× cap.
+    if (this.scenePaintState === 'failed') {
+      return;
+    }
     if (
-      !this.isInitialized ||
-      !this.app.renderer ||
-      this.drawInProgress ||
-      this.exportInProgress
+      canPaintPartial({
+        scenePaintState: this.scenePaintState,
+        drawInProgress: this.drawInProgress,
+        exportInProgress: this.exportInProgress,
+        drawQueued: this.drawFrameScheduled,
+      }) &&
+      !this.dirtyRegistry.isAnyUnsafeToPaint()
     ) {
+      this.paint(reason);
       return;
     }
-    if (this.dirtyRegistry.isAnyUnsafeToPaint()) {
+    if (shouldScheduleDrawOnPaintGate(reason)) {
       this.scheduleDraw('renderGate');
-      return;
     }
-    this.app.render();
   }
 
   private scheduleDraw(reason?: string): void {
@@ -825,6 +900,7 @@ export class PixiApp {
     }
 
     this.drawInProgress = true;
+    this.scenePaintState = 'mutating';
     this._lastDrawErrors = [];
     try {
       // Drop any pending hover: resuming it after a full draw was racing with
@@ -850,7 +926,11 @@ export class PixiApp {
       // Axis draw() clears graphics first — stay midDraw until the full scene
       // has been rendered, so hover/pan cannot paint emptied axes.
       this.dirtyRegistry.markAllMidDraw();
-      this.graphEngine.prepareWorld();
+      if (!this.graphEngine.prepareWorld()) {
+        // Axes were painted into back buffers but not committed. Do not flush
+        // or clear midDraw — keep the last coherent framebuffer visible.
+        throw new Error('prepareWorld incomplete: missing axis bounds');
+      }
 
       if (this.isInteractive) {
         this.updateWorldBounds();
@@ -885,14 +965,17 @@ export class PixiApp {
       if (!this.isInitialized || !this.app.renderer) {
         throw new Error('PixiApp renderer unavailable at end of draw');
       }
-      this.app.render();
+      this.paint('draw-complete');
       // Success path only: scene is coherent again, partial paints are safe.
       this.dirtyRegistry.resetAllMidDraw();
+      this.scenePaintState = 'stable';
+      this.drawFailureAutoRetryArmed = false;
+      this.cancelDrawFailureAutoRetryRaf();
     } catch (error) {
       // Axes/data clear at the start of draw. If we fail mid-way and then let
       // hover call requestRender(), the user sees empty axes + orphan crosshair.
       // Keep midDraw=true until a later successful full draw (same invariant as
-      // the old axesGraphicsDirty flag on failure).
+      // the old axesGraphicsDirty flag on failure). Do not paint the broken scene.
       console.error('[PixiApp] Full draw failed:', error);
       this.emitDrawErrors([
         {
@@ -902,9 +985,11 @@ export class PixiApp {
       ]);
       this.dirtyRegistry.invalidateAll('full');
       this.dirtyRegistry.markAllMidDraw();
+      this.scenePaintState = 'failed';
       this.needsInitialFit = true;
       this.needsPatternTextureRefresh = true;
       this.hoverLayer.clear({ cancelPending: true });
+      this.scheduleDrawFailureAutoRetry();
       throw error;
     } finally {
       this.drawInProgress = false;
@@ -1508,6 +1593,7 @@ export class PixiApp {
       this.drawFrameScheduled = false;
       this.cancelViewportPaintRaf();
       this.cancelContextRestoreRafs();
+      this.cancelDrawFailureAutoRetryRaf();
       this.contextRestoring = false;
       const pendingResolvers = this.drawResolvers;
       this.drawResolvers = [];

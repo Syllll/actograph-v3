@@ -147,7 +147,51 @@ describe('GraphEngine', () => {
     expect(dataArea.prepareHitArea).toHaveBeenCalled();
     expect(yAxis.draw).toHaveBeenCalled();
     expect(xAxis.draw).toHaveBeenCalled();
+    expect(yAxis.commitPaint).toHaveBeenCalled();
+    expect(xAxis.commitPaint).toHaveBeenCalled();
     expect(engine.worldRoot.children.length).toBe(4);
+  });
+
+  it('prepareWorld does not commit axes when bounds are missing', () => {
+    const app = {} as Application;
+    const plot = new Container();
+    const dataArea = createMockDataArea();
+    plot.addChild(dataArea as unknown as Container);
+
+    const yAxis = {
+      beginPaint: jest.fn(),
+      draw: jest.fn(),
+      commitPaint: jest.fn(),
+      getAxisStart: () => null,
+      getAxisEnd: () => null,
+      getPosFromCategoryObservable: () => 100,
+      getPosFromLabel: () => 100,
+      getFriezeInfo: () => null,
+    };
+    const xAxis = {
+      beginPaint: jest.fn(),
+      draw: jest.fn(),
+      commitPaint: jest.fn(),
+      getAxisEnd: () => null,
+      getPosFromDateTime: () => 50,
+    };
+
+    const engine = new GraphEngine({
+      app,
+      plot,
+      dataArea,
+      yAxis: yAxis as never,
+      xAxis: xAxis as never,
+      patternStore: { createTilingSprite: jest.fn(), release: jest.fn() } as never,
+    });
+
+    expect(engine.prepareWorld()).toBe(false);
+
+    expect(yAxis.draw).toHaveBeenCalled();
+    expect(xAxis.draw).toHaveBeenCalled();
+    expect(yAxis.commitPaint).not.toHaveBeenCalled();
+    expect(xAxis.commitPaint).not.toHaveBeenCalled();
+    expect(dataArea.prepareHitArea).not.toHaveBeenCalled();
   });
 
   it('prepareWorld does not clear invisible categories on the display buffer', () => {

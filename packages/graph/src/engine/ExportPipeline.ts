@@ -67,8 +67,8 @@ export class ExportPipeline {
         );
       }
 
+      // enqueueDrawBody paints on success via PixiApp.paint('draw-complete').
       await this.deps.enqueueDrawBody();
-      app.render();
 
       const extractFormat = format === 'jpeg' ? 'jpg' : 'png';
       return await app.renderer.extract.base64({

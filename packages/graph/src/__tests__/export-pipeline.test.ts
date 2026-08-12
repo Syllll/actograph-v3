@@ -44,6 +44,6 @@ describe('ExportPipeline', () => {
       quality: 0.92,
     });
     expect(canvasToDataURL).not.toHaveBeenCalled();
-    expect(app.render).toHaveBeenCalled();
+    expect(app.render).not.toHaveBeenCalled();
   });
 });

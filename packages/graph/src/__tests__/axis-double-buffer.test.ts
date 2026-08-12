@@ -65,7 +65,7 @@ describe('YAxis double buffer', () => {
 });
 
 describe('AxisLayer prepare', () => {
-  it('commits both axes only after both draws complete', () => {
+  it('draws both axes without committing in prepare', () => {
     const calls: string[] = [];
     const yAxis = {
       beginPaint: jest.fn(() => calls.push('y-beginPaint')),
@@ -86,9 +86,28 @@ describe('AxisLayer prepare', () => {
       'y-draw',
       'x-beginPaint',
       'x-draw',
-      'y-commitPaint',
-      'x-commitPaint',
     ]);
+    expect(yAxis.commitPaint).not.toHaveBeenCalled();
+    expect(xAxis.commitPaint).not.toHaveBeenCalled();
+  });
+
+  it('commit applies both axis buffers after prepare', () => {
+    const calls: string[] = [];
+    const yAxis = {
+      beginPaint: jest.fn(),
+      draw: jest.fn(),
+      commitPaint: jest.fn(() => calls.push('y-commitPaint')),
+    };
+    const xAxis = {
+      beginPaint: jest.fn(),
+      draw: jest.fn(),
+      commitPaint: jest.fn(() => calls.push('x-commitPaint')),
+    };
+
+    const layer = new AxisLayer(yAxis as never, xAxis as never);
+    layer.commit();
+
+    expect(calls).toEqual(['y-commitPaint', 'x-commitPaint']);
   });
 
   it('does not commit when x draw throws', () => {

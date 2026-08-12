@@ -246,6 +246,25 @@ describe('category draw errors', () => {
 });
 
 describe('PixiApp draw error surface', () => {
+  const originalRaf = globalThis.requestAnimationFrame;
+  const originalCancelRaf = globalThis.cancelAnimationFrame;
+
+  beforeEach(() => {
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+      // Do not auto-run: failure tests assert scheduling separately.
+      void cb;
+      return 1;
+    }) as typeof requestAnimationFrame;
+    globalThis.cancelAnimationFrame = ((id: number) => {
+      void id;
+    }) as typeof cancelAnimationFrame;
+  });
+
+  afterEach(() => {
+    globalThis.requestAnimationFrame = originalRaf;
+    globalThis.cancelAnimationFrame = originalCancelRaf;
+  });
+
   it('emitDrawErrors emits drawErrors with the full list (empty on success)', () => {
     const pixiApp = new PixiApp();
     const drawErrorsHandler = jest.fn();
@@ -308,7 +327,7 @@ describe('PixiApp draw error surface', () => {
       graphEngine: {
         hasPatternSprites: jest.fn(() => true),
         clearPatternSprites,
-        prepareWorld: jest.fn(),
+        prepareWorld: jest.fn(() => true),
         getLastDrawErrors: jest.fn(() => []),
       },
       updateWorldTransforms: jest.fn(),
@@ -356,7 +375,7 @@ describe('PixiApp draw error surface', () => {
       graphEngine: {
         hasPatternSprites: jest.fn(() => false),
         clearPatternSprites,
-        prepareWorld: jest.fn(),
+        prepareWorld: jest.fn(() => true),
         getLastDrawErrors: jest.fn(() => []),
       },
       updateWorldTransforms: jest.fn(),
@@ -401,14 +420,22 @@ describe('PixiApp draw error surface', () => {
   });
 
   it('executeDrawBody failure keeps axis labels and records full draw error', async () => {
+    const rafCallbacks: FrameRequestCallback[] = [];
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+      rafCallbacks.push(cb);
+      return rafCallbacks.length;
+    }) as typeof requestAnimationFrame;
+
     const pixiApp = new PixiApp();
     const axisClear = jest.fn();
     const drawErrorsHandler = jest.fn();
+    const render = jest.fn();
 
     patchPixiApp(pixiApp, {
       isInitialized: true,
       contextRestoring: false,
-      app: { renderer: {}, render: jest.fn() },
+      app: { renderer: {}, render },
       plot: { x: 0, y: 0, scale: { set: jest.fn() }, rotation: 0 },
       hoverLayer: { clear: jest.fn() },
       axisLabelOverlay: { clear: axisClear, sync: jest.fn() },
@@ -431,17 +458,198 @@ describe('PixiApp draw error surface', () => {
 
     pixiApp.events.on('drawErrors', drawErrorsHandler);
 
-    await expect(
-      (pixiApp as unknown as { executeDrawBody: () => Promise<void> }).executeDrawBody(),
-    ).rejects.toThrow('prepare failed');
+    try {
+      await expect(
+        (pixiApp as unknown as { executeDrawBody: () => Promise<void> }).executeDrawBody(),
+      ).rejects.toThrow('prepare failed');
 
-    expect(axisClear).not.toHaveBeenCalled();
-    expect(pixiApp.lastDrawErrors).toEqual([
-      { layerId: 'full', message: 'prepare failed' },
-    ]);
-    expect(drawErrorsHandler).toHaveBeenCalledWith([
-      { layerId: 'full', message: 'prepare failed' },
-    ]);
+      expect(axisClear).not.toHaveBeenCalled();
+      expect(pixiApp.lastDrawErrors).toEqual([
+        { layerId: 'full', message: 'prepare failed' },
+      ]);
+      expect(drawErrorsHandler).toHaveBeenCalledWith([
+        { layerId: 'full', message: 'prepare failed' },
+      ]);
+      expect(render).not.toHaveBeenCalled();
+    } finally {
+      globalThis.requestAnimationFrame = originalRaf;
+    }
+  });
+
+  it('executeDrawBody failure schedules a single auto-retry via rAF', async () => {
+    const rafCallbacks: FrameRequestCallback[] = [];
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+      rafCallbacks.push(cb);
+      return rafCallbacks.length;
+    }) as typeof requestAnimationFrame;
+
+    const pixiApp = new PixiApp();
+    const render = jest.fn();
+    const scheduleDraw = jest.spyOn(
+      pixiApp as unknown as { scheduleDraw: (reason?: string) => void },
+      'scheduleDraw',
+    ).mockImplementation(() => undefined);
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      contextRestoring: false,
+      app: { renderer: {}, render },
+      plot: { x: 0, y: 0, scale: { set: jest.fn() }, rotation: 0 },
+      hoverLayer: { clear: jest.fn() },
+      axisLabelOverlay: { sync: jest.fn() },
+      needsPatternTextureRefresh: false,
+      isInteractive: false,
+      dirtyRegistry: {
+        markAllMidDraw: jest.fn(),
+        resetAllMidDraw: jest.fn(),
+        invalidateAll: jest.fn(),
+      },
+      graphEngine: {
+        prepareWorld: jest.fn(() => {
+          throw new Error('prepare failed');
+        }),
+        getLastDrawErrors: jest.fn(() => []),
+        hasPatternSprites: jest.fn(() => false),
+        clearPatternSprites: jest.fn(),
+      },
+    });
+
+    try {
+      await expect(
+        (pixiApp as unknown as { executeDrawBody: () => Promise<void> }).executeDrawBody(),
+      ).rejects.toThrow('prepare failed');
+
+      expect(scheduleDraw).not.toHaveBeenCalled();
+      expect(rafCallbacks).toHaveLength(1);
+      rafCallbacks[0]?.(0);
+      expect(scheduleDraw).toHaveBeenCalledTimes(1);
+      expect(scheduleDraw).toHaveBeenCalledWith('autoRetry');
+      expect(
+        (pixiApp as unknown as { drawFailureAutoRetryArmed: boolean }).drawFailureAutoRetryArmed,
+      ).toBe(true);
+
+      // Second failure must not arm another rAF auto-retry.
+      await expect(
+        (pixiApp as unknown as { executeDrawBody: () => Promise<void> }).executeDrawBody(),
+      ).rejects.toThrow('prepare failed');
+      expect(rafCallbacks).toHaveLength(1);
+      expect(scheduleDraw).toHaveBeenCalledTimes(1);
+    } finally {
+      globalThis.requestAnimationFrame = originalRaf;
+      scheduleDraw.mockRestore();
+    }
+  });
+
+  it('executeDrawBody throws when prepareWorld returns false without painting', async () => {
+    const pixiApp = new PixiApp();
+    const render = jest.fn();
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      contextRestoring: false,
+      app: { renderer: {}, render },
+      plot: { x: 0, y: 0, scale: { set: jest.fn() }, rotation: 0 },
+      hoverLayer: { clear: jest.fn() },
+      axisLabelOverlay: { sync: jest.fn() },
+      needsPatternTextureRefresh: false,
+      isInteractive: false,
+      dirtyRegistry: {
+        markAllMidDraw: jest.fn(),
+        resetAllMidDraw: jest.fn(),
+        invalidateAll: jest.fn(),
+      },
+      graphEngine: {
+        prepareWorld: jest.fn(() => false),
+        getLastDrawErrors: jest.fn(() => []),
+        hasPatternSprites: jest.fn(() => false),
+        clearPatternSprites: jest.fn(),
+      },
+    });
+
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+      cb(0);
+      return 1;
+    }) as typeof requestAnimationFrame;
+
+    try {
+      await expect(
+        (pixiApp as unknown as { executeDrawBody: () => Promise<void> }).executeDrawBody(),
+      ).rejects.toThrow('prepareWorld incomplete: missing axis bounds');
+      expect(render).not.toHaveBeenCalled();
+      expect(
+        (pixiApp as unknown as { scenePaintState: string }).scenePaintState,
+      ).toBe('failed');
+    } finally {
+      globalThis.requestAnimationFrame = originalRaf;
+    }
+  });
+
+  it('executeDrawBody success resets auto-retry and paints via paint()', async () => {
+    const pixiApp = new PixiApp();
+    const render = jest.fn();
+    const paint = jest.fn();
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      contextRestoring: false,
+      drawFailureAutoRetryArmed: true,
+      app: { renderer: {}, render },
+      plot: { x: 0, y: 0, scale: { set: jest.fn() }, rotation: 0 },
+      hoverLayer: { clear: jest.fn() },
+      axisLabelOverlay: { sync: jest.fn() },
+      needsPatternTextureRefresh: false,
+      isInteractive: false,
+      dirtyRegistry: {
+        markAllMidDraw: jest.fn(),
+        resetAllMidDraw: jest.fn(),
+        invalidateAll: jest.fn(),
+      },
+      graphEngine: {
+        prepareWorld: jest.fn(() => true),
+        getLastDrawErrors: jest.fn(() => []),
+        hasPatternSprites: jest.fn(() => false),
+        clearPatternSprites: jest.fn(),
+      },
+      updateWorldTransforms: jest.fn(),
+      syncAxisLabelOverlay: jest.fn(),
+      paint,
+    });
+
+    await (
+      pixiApp as unknown as { executeDrawBody: () => Promise<void> }
+    ).executeDrawBody();
+
+    expect(paint).toHaveBeenCalledWith('draw-complete');
+    expect(render).not.toHaveBeenCalled();
+    expect(
+      (pixiApp as unknown as { drawFailureAutoRetryArmed: boolean }).drawFailureAutoRetryArmed,
+    ).toBe(false);
+  });
+
+  it('requestRender paints via paint() when scene is stable', () => {
+    const pixiApp = new PixiApp();
+    const paint = jest.fn();
+    const render = jest.fn();
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      scenePaintState: 'stable',
+      drawInProgress: false,
+      exportInProgress: false,
+      drawFrameScheduled: false,
+      app: { renderer: {}, render },
+      dirtyRegistry: {
+        isAnyUnsafeToPaint: () => false,
+      },
+      paint,
+    });
+
+    pixiApp.requestRender();
+
+    expect(paint).toHaveBeenCalledWith('partial');
+    expect(render).not.toHaveBeenCalled();
   });
 
   it('retryDraw schedules a full draw via scheduleDraw', () => {
@@ -528,6 +736,7 @@ describe('PixiApp draw error surface', () => {
       app: { renderer: {}, render },
       drawInProgress: false,
       exportInProgress: false,
+      scenePaintState: 'stable',
       dirtyRegistry: {
         isAnyUnsafeToPaint: () => true,
       },
@@ -537,6 +746,54 @@ describe('PixiApp draw error surface', () => {
 
     expect(render).not.toHaveBeenCalled();
     expect(scheduleDraw).toHaveBeenCalledWith('renderGate');
+    scheduleDraw.mockRestore();
+  });
+
+  it('requestRender does not schedule draw while scenePaintState is failed', () => {
+    const pixiApp = new PixiApp();
+    const render = jest.fn();
+    const scheduleDraw = jest.spyOn(
+      pixiApp as unknown as { scheduleDraw: (reason?: string) => void },
+      'scheduleDraw',
+    ).mockImplementation(() => undefined);
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      app: { renderer: {}, render },
+      drawInProgress: false,
+      exportInProgress: false,
+      scenePaintState: 'failed',
+      dirtyRegistry: {
+        isAnyUnsafeToPaint: () => true,
+      },
+    });
+
+    pixiApp.requestRender();
+    pixiApp.requestRender();
+
+    expect(render).not.toHaveBeenCalled();
+    expect(scheduleDraw).not.toHaveBeenCalled();
+    scheduleDraw.mockRestore();
+  });
+
+  it('retryDraw rearms auto-retry then schedules draw', () => {
+    const pixiApp = new PixiApp();
+    const scheduleDraw = jest.spyOn(
+      pixiApp as unknown as { scheduleDraw: (reason?: string) => void },
+      'scheduleDraw',
+    ).mockImplementation(() => undefined);
+
+    patchPixiApp(pixiApp, {
+      drawFailureAutoRetryArmed: true,
+      drawFailureAutoRetryRafId: 42,
+    });
+
+    pixiApp.retryDraw();
+
+    expect(
+      (pixiApp as unknown as { drawFailureAutoRetryArmed: boolean }).drawFailureAutoRetryArmed,
+    ).toBe(false);
+    expect(scheduleDraw).toHaveBeenCalledWith('retry');
     scheduleDraw.mockRestore();
   });
 

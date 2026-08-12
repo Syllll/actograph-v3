@@ -16,6 +16,9 @@ export class AxisLayer extends BaseLayer {
     this.yAxis.draw();
     this.xAxis.beginPaint();
     this.xAxis.draw();
+  }
+
+  commit(): void {
     this.yAxis.commitPaint();
     this.xAxis.commitPaint();
   }
