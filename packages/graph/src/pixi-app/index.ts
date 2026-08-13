@@ -34,6 +34,7 @@ import {
 } from '../utils/graph-cursor.constants';
 import {
   canPaintPartial,
+  canPaintResizePresent,
   isAuthoritativePaintReason,
   shouldScheduleDrawOnPaintGate,
   type PaintReason,
@@ -141,6 +142,16 @@ export class PixiApp {
   private contextRestoreInnerRafId: number | null = null;
   private viewportPaintRafId: number | null = null;
   private pendingViewportLabelRefresh = false;
+  /**
+   * Resize observed while executeDrawBody was mutating. Applied at the start
+   * of the next draw (or in `finally` if it arrived mid-draw).
+   */
+  private pendingCanvasResize = false;
+  /**
+   * After `renderer.resize()` / WebGL restore, Text GPU textures can go stale
+   * (Windows/ANGLE). Next full label sync recreates the pool.
+   */
+  private needsLabelTextureRefresh = false;
   /** Scene coherence for partial WebGL paints (hover/pan). */
   private scenePaintState: ScenePaintState = 'stable';
   /** At most one auto-retry per failed draw until the next success. */
@@ -256,6 +267,7 @@ export class PixiApp {
     });
 
     this.axisLabelOverlay = new AxisLabelOverlay();
+    this.axisLabelOverlay.setViewportSize(width);
     this.axisLabelOverlay.setProjectors({
       worldToOverlay: (p) => this.overlayRoot.toLocal(this.plot.toGlobal(p)),
     });
@@ -306,6 +318,8 @@ export class PixiApp {
           this.hoverLayer.clear();
         }
       },
+      resizeRenderer: (width, height) => this.resizeRenderer(width, height),
+      presentCommittedScene: () => this.presentCommittedScene(),
     });
 
     this.viewport.addChild(this.plot);
@@ -353,14 +367,30 @@ export class PixiApp {
 
   /**
    * Sole entry point for `app.render()` in PixiApp. Authoritative reasons paint
-   * when the caller guarantees scene readiness; partial reasons only when idle.
+   * when the caller guarantees scene readiness; `resize` refills the default
+   * framebuffer from the last committed scene; partial reasons only when idle.
    */
   private paint(reason: PaintReason): void {
     if (!this.isInitialized || !this.app.renderer) {
       return;
     }
+    if (isAuthoritativePaintReason(reason)) {
+      this.app.render();
+      return;
+    }
+    if (reason === 'resize') {
+      if (
+        canPaintResizePresent({
+          scenePaintState: this.scenePaintState,
+          drawInProgress: this.drawInProgress,
+          exportInProgress: this.exportInProgress,
+        })
+      ) {
+        this.app.render();
+      }
+      return;
+    }
     if (
-      !isAuthoritativePaintReason(reason) &&
       !canPaintPartial({
         scenePaintState: this.scenePaintState,
         drawInProgress: this.drawInProgress,
@@ -401,18 +431,56 @@ export class PixiApp {
 
   /**
    * Resize the renderer to match the current CSS size of the canvas element.
-   * @param options.skipRender - When true, updates layout/viewport without painting
-   *   (caller should follow with a single `draw()`).
+   * Interactive path: updates layout, reprojects existing labels, presents the
+   * last committed scene into the new framebuffer (Windows/ANGLE clears it on
+   * resize), then the caller should coalesce a full `draw()`.
+   * @param options.skipRender - Non-interactive: skip `requestRender()`.
+   *   Interactive present still runs (cheap framebuffer refill).
    */
   public resizeFromCanvas(options?: { skipRender?: boolean }): boolean {
-    // Le renderer n'existe pas tant que init() n'a pas abouti (ou après destroy).
-    // Accéder à app.canvas/renderer avant cela lèverait une exception.
-    if (!this.isInitialized || !this.app.renderer || this.exportInProgress) {
+    if (!this.isInitialized || !this.app.renderer) {
       return false;
     }
 
+    if (this.exportInProgress || this.shouldDeferCanvasResize()) {
+      this.pendingCanvasResize = true;
+      return false;
+    }
+
+    const didResize = this.applyCanvasResizeFromDom({
+      present: this.isInteractive,
+      skipRender: options?.skipRender,
+    });
+    if (didResize) {
+      this.pendingCanvasResize = false;
+    }
+    return didResize;
+  }
+
+  /** True when a splitter/window resize arrived during draw/export and is not applied yet. */
+  public hasPendingCanvasResize(): boolean {
+    return this.pendingCanvasResize;
+  }
+
+  private shouldDeferCanvasResize(): boolean {
+    return (
+      this.contextRestoring ||
+      this.drawInProgress ||
+      this.scenePaintState === 'mutating' ||
+      this.scenePaintState === 'failed'
+    );
+  }
+
+  /**
+   * Applies the current CSS canvas size to the renderer. Does not defer:
+   * callers must have checked `shouldDeferCanvasResize` or be inside a draw.
+   */
+  private applyCanvasResizeFromDom(options: {
+    present: boolean;
+    skipRender?: boolean;
+  }): boolean {
     const canvas = this.app.canvas as HTMLCanvasElement | null;
-    if (!canvas) {
+    if (!canvas || !this.app.renderer) {
       return false;
     }
 
@@ -462,7 +530,9 @@ export class PixiApp {
       return false;
     }
 
-    this.app.renderer.resize(width, height);
+    this.resizeRenderer(width, height);
+    this.axisLabelOverlay?.setViewportSize(width);
+
     if (this.isInteractive) {
       this.updateWorldBounds();
       this.recalculateFitViewport();
@@ -480,13 +550,83 @@ export class PixiApp {
         { scale: this.zoomState.scale, x: clamped.x, y: clamped.y },
         {
           emitZoom: false,
-          skipRender: options?.skipRender,
+          skipRender: true,
+          skipLabelRefresh: true,
         },
       );
-    } else if (!options?.skipRender) {
+      // Reproject existing Text objects to the clamped viewport before present.
+      // GPU texture recreate stays deferred (`needsLabelTextureRefresh`).
+      this.refreshAxisLabelOverlay();
+      if (options.present) {
+        this.presentAfterResize();
+      }
+    } else if (!options.skipRender) {
       this.requestRender();
     }
     return true;
+  }
+
+  /**
+   * Every GPU resize must mark label textures stale (Windows/ANGLE) and cancel
+   * a pan/zoom rAF that would paint into the cleared buffer.
+   */
+  private resizeRenderer(width: number, height: number): void {
+    this.app.renderer.resize(width, height);
+    this.needsLabelTextureRefresh = true;
+    this.cancelViewportPaintRaf();
+  }
+
+  /**
+   * Refill the default framebuffer after `renderer.resize()`. Does not rebuild
+   * the scene; a coalesced full draw should follow for layout-correct axes.
+   */
+  private presentAfterResize(): void {
+    this.paint('resize');
+  }
+
+  /** Authoritative present (export grow/restore) — ignores exportInProgress. */
+  private presentCommittedScene(): void {
+    this.paint('export');
+  }
+
+  /**
+   * Applies a resize that arrived while a full draw was mutating.
+   * @returns true when the renderer size actually changed.
+   */
+  private flushPendingCanvasResize(options: { present: boolean }): boolean {
+    if (!this.pendingCanvasResize) {
+      return false;
+    }
+    const didResize = this.applyCanvasResizeFromDom({
+      present: options.present,
+      skipRender: true,
+    });
+    if (didResize) {
+      this.pendingCanvasResize = false;
+      return true;
+    }
+    // Same-size / absurd: nothing left to apply. Degenerate: keep pending so a
+    // later draw retries once the layout has a real box.
+    if (!this.wasDegenerateCanvas) {
+      this.pendingCanvasResize = false;
+    }
+    return false;
+  }
+
+  private consumePendingCanvasResizeAfterIdle(): void {
+    if (this.exportInProgress || !this.pendingCanvasResize) {
+      return;
+    }
+    // Failed/mutating: resize now would clear the framebuffer with no present.
+    // Keep pending for executeDrawBody (same turn as the rebuild).
+    if (this.scenePaintState !== 'stable' || this.drawInProgress) {
+      this.scheduleDraw('pending-resize');
+      return;
+    }
+    const didResize = this.flushPendingCanvasResize({ present: true });
+    if (didResize) {
+      this.scheduleDraw('pending-resize');
+    }
   }
 
   /**
@@ -513,9 +653,9 @@ export class PixiApp {
     this.renderScheduler.bumpGeneration();
     this.hoverLayer.clear();
     this.needsPatternTextureRefresh = true;
+    this.needsLabelTextureRefresh = true;
     // Bloque requestRender() / hover jusqu'au prochain draw complet : après
-    // resize(skipRender) le buffer peut encore montrer une bonne frame alors que
-    // viewport et scène ne sont plus alignés.
+    // resize le framebuffer est invalidé et viewport/scène ne sont plus alignés.
     this.dirtyRegistry.invalidateAll('full');
     this.dirtyRegistry.markAllMidDraw();
     // Always re-fit on resume: preserving zoom across a hidden tab often leaves
@@ -546,6 +686,7 @@ export class PixiApp {
     }
     this.hoverLayer.clear();
     this.needsPatternTextureRefresh = true;
+    this.needsLabelTextureRefresh = true;
     this.needsInitialFit = true;
     this.layoutFitPending = true;
     this.wasDegenerateCanvas = true;
@@ -602,6 +743,7 @@ export class PixiApp {
       this.hoverLayer.clear();
       this.needsPatternTextureRefresh = true;
       this.forcePatternTextureClear = true;
+      this.needsLabelTextureRefresh = true;
       this.dirtyRegistry.invalidateAll('full');
       this.dirtyRegistry.markAllMidDraw();
       // Force fit after restore: GPU context loss often coincides with a bad
@@ -690,7 +832,7 @@ export class PixiApp {
     const currentHeight = this.app.screen.height;
     const targetHeight = Math.max(this.baseCanvasHeight, requiredHeight);
     if (targetHeight !== currentHeight) {
-      this.app.renderer.resize(currentWidth, targetHeight);
+      this.resizeRenderer(currentWidth, targetHeight);
     }
 
     const canvasParent = this.app.canvas?.parentElement as HTMLElement | null;
@@ -899,6 +1041,16 @@ export class PixiApp {
       return;
     }
 
+    // Apply a deferred splitter resize while the last committed scene is still
+    // stable, so present can refill the framebuffer before beginPaint.
+    // On a failed scene the last frame is not presentable: resize without
+    // present, then rebuild in this same turn.
+    if (!this.exportInProgress) {
+      this.flushPendingCanvasResize({
+        present: this.scenePaintState === 'stable',
+      });
+    }
+
     this.drawInProgress = true;
     this.scenePaintState = 'mutating';
     this._lastDrawErrors = [];
@@ -993,6 +1145,7 @@ export class PixiApp {
       throw error;
     } finally {
       this.drawInProgress = false;
+      this.consumePendingCanvasResizeAfterIdle();
       // Do not resumeHoverAfterDraw: user must move again after a full redraw.
     }
   }
@@ -1007,11 +1160,15 @@ export class PixiApp {
   }
 
   private syncAxisLabelOverlay(): void {
-    this.axisLabelOverlay.sync(this.collectAxisLabelDescriptors());
+    this.axisLabelOverlay.setViewportSize(this.app.screen.width);
+    this.axisLabelOverlay.sync(this.collectAxisLabelDescriptors(), {
+      recreate: this.needsLabelTextureRefresh,
+    });
+    this.needsLabelTextureRefresh = false;
   }
 
   private refreshAxisLabelOverlay(): void {
-    this.axisLabelOverlay.syncPositions();
+    this.axisLabelOverlay?.syncPositions();
   }
 
   private scheduleViewportPaint(includeLabelRefresh: boolean): void {
@@ -1576,6 +1733,7 @@ export class PixiApp {
       return await this.exportPipeline.exportAsImage(format, quality);
     } finally {
       this.exportInProgress = false;
+      this.consumePendingCanvasResizeAfterIdle();
     }
   }
 

@@ -126,6 +126,12 @@ export class xAxis extends BaseGroup {
   }
 
   public commitPaint(): void {
+    if (!this.hasPaintContent()) {
+      this.paintGraphic.clear();
+      this.graphic = this.displayGraphic;
+      return;
+    }
+
     this.displayGraphic.visible = false;
     this.paintGraphic.visible = true;
 
@@ -136,6 +142,12 @@ export class xAxis extends BaseGroup {
     this.paintGraphic.visible = false;
     this.paintGraphic.clear();
     this.graphic = this.displayGraphic;
+  }
+
+  /** True when the back buffer has stroke geometry ready to swap in. */
+  public hasPaintContent(): boolean {
+    const bounds = this.paintGraphic.getLocalBounds();
+    return bounds.width > 0 || bounds.height > 0;
   }
 
   private getReadingTimeInMsec(reading: IReading): number | null {
@@ -503,7 +515,6 @@ export class xAxis extends BaseGroup {
 
     const xAxisStart = this.axisStart;
     const xAxisEnd = this.axisEnd;
-    const width = this.app.screen.width;
     const labelOffsetFromAxis = 12;
     const descriptors: AxisLabelDescriptor[] = [];
 
@@ -537,14 +548,10 @@ export class xAxis extends BaseGroup {
         this.styleOptions.formatMention.fontFamily,
         this.styleOptions.formatMention.fontStyle,
       );
-      const preferredX = xAxisEnd.x - 5;
-      const halfWidth = formatWidth / 2;
-      const worldX = Math.min(width - halfWidth, Math.max(halfWidth, preferredX));
-
       descriptors.push({
         id: 'format-mention',
         text: formatMentionText,
-        worldX,
+        worldX: xAxisEnd.x - 5,
         worldY: xAxisStart.y + labelOffsetFromAxis,
         angleDeg: 0,
         anchorX: 0.5,

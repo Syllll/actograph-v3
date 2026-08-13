@@ -27,6 +27,8 @@ export interface ExportPipelineDeps {
         y: number;
     };
     setHoverSuppressed: (suppressed: boolean) => void;
+    resizeRenderer: (width: number, height: number) => void;
+    presentCommittedScene: () => void;
 }
 /**
  * Captures the rendered stage via renderer.extract (not app.canvas.toDataURL).

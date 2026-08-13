@@ -39,6 +39,8 @@ export declare class xAxis extends BaseGroup {
     constructor(app: Application, yAxis: YAxis);
     beginPaint(): void;
     commitPaint(): void;
+    /** True when the back buffer has stroke geometry ready to swap in. */
+    hasPaintContent(): boolean;
     private getReadingTimeInMsec;
     getPosFromDateTime(dateTime: Date | string): number;
     getDateTimeFromPos(xPos: number): Date;

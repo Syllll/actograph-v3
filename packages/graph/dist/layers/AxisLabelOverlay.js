@@ -5,15 +5,19 @@ export class AxisLabelOverlay {
         this.worldToOverlay = null;
         this.labelById = new Map();
         this.lastDescriptors = [];
+        this.viewportWidth = 0;
         this.container = new Container();
         this.container.eventMode = 'none';
     }
     setProjectors(projectors) {
         this.worldToOverlay = projectors.worldToOverlay;
     }
-    sync(descriptors) {
+    setViewportSize(width) {
+        this.viewportWidth = width;
+    }
+    sync(descriptors, options) {
         this.lastDescriptors = descriptors;
-        this.applyDescriptors(descriptors, { recreate: false });
+        this.applyDescriptors(descriptors, { recreate: options?.recreate ?? false });
     }
     syncPositions() {
         this.applyDescriptors(this.lastDescriptors, { recreate: false });
@@ -28,9 +32,15 @@ export class AxisLabelOverlay {
     }
     clearLabels() {
         for (const text of this.labelById.values()) {
-            text.destroy();
+            this.destroyLabel(text);
         }
         this.labelById.clear();
+    }
+    destroyLabel(text) {
+        if (text.parent === this.container) {
+            this.container.removeChild(text);
+        }
+        text.destroy();
     }
     applyDescriptors(descriptors, options) {
         if (!this.worldToOverlay) {
@@ -41,7 +51,7 @@ export class AxisLabelOverlay {
             if (!descriptorIds.has(id)) {
                 const orphan = this.labelById.get(id);
                 if (orphan) {
-                    orphan.destroy();
+                    this.destroyLabel(orphan);
                 }
                 this.labelById.delete(id);
             }
@@ -55,14 +65,11 @@ export class AxisLabelOverlay {
                 }
                 continue;
             }
-            const overlayPos = this.worldToOverlay({
-                x: descriptor.worldX,
-                y: descriptor.worldY,
-            });
+            const overlayPos = this.projectDescriptor(descriptor);
             let text = this.labelById.get(descriptor.id);
             if (!text || options.recreate) {
                 if (text) {
-                    text.destroy();
+                    this.destroyLabel(text);
                 }
                 text = this.createText(descriptor);
                 this.labelById.set(descriptor.id, text);
@@ -77,6 +84,20 @@ export class AxisLabelOverlay {
             text.anchor.set(descriptor.anchorX, descriptor.anchorY);
             text.visible = true;
         }
+    }
+    projectDescriptor(descriptor) {
+        const overlayPos = this.worldToOverlay({
+            x: descriptor.worldX,
+            y: descriptor.worldY,
+        });
+        if (descriptor.kind !== 'format-mention' || this.viewportWidth <= 0) {
+            return overlayPos;
+        }
+        const halfWidth = (descriptor.labelWidth ?? descriptor.text.length * descriptor.fontSize * 0.6) / 2;
+        return {
+            x: Math.min(this.viewportWidth - halfWidth, Math.max(halfWidth, overlayPos.x)),
+            y: overlayPos.y,
+        };
     }
     computeVisibleXTickIds(descriptors) {
         if (!this.worldToOverlay) {

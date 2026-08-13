@@ -2,6 +2,7 @@ import { EventEmitter } from 'pixi.js';
 import type { IObservation, IProtocol, IGraphPreferences, IPeriod } from '@actograph/core';
 import type { DrawError } from '../engine/types';
 import type { IGraphRenderOptions } from '../types/graph-render-options';
+import { type PaintReason } from '../utils/scene-paint.utils';
 interface IPixiAppInitOptions {
     view: HTMLCanvasElement;
     interactive?: boolean;
@@ -99,6 +100,21 @@ export declare class PixiApp {
     private contextRestoreInnerRafId;
     private viewportPaintRafId;
     private pendingViewportLabelRefresh;
+    /**
+     * Resize observed while executeDrawBody was mutating. Applied at the start
+     * of the next draw (or in `finally` if it arrived mid-draw).
+     */
+    private pendingCanvasResize;
+    /**
+     * After `renderer.resize()` / WebGL restore, Text GPU textures can go stale
+     * (Windows/ANGLE). Next full label sync recreates the pool.
+     */
+    private needsLabelTextureRefresh;
+    /** Scene coherence for partial WebGL paints (hover/pan). */
+    private scenePaintState;
+    /** At most one auto-retry per failed draw until the next success. */
+    private drawFailureAutoRetryArmed;
+    private drawFailureAutoRetryRafId;
     /** Émetteur d'événements pour notifier les changements d'état (ex: zoom) */
     events: EventEmitter<string | symbol, any>;
     /** Erreurs de la dernière tentative de draw (catégories ou draw complet). */
@@ -124,13 +140,50 @@ export declare class PixiApp {
      */
     init(options: IPixiAppInitOptions): Promise<void>;
     /**
+     * Sole entry point for `app.render()` in PixiApp. Authoritative reasons paint
+     * when the caller guarantees scene readiness; `resize` refills the default
+     * framebuffer from the last committed scene; partial reasons only when idle.
+     */
+    private paint;
+    private cancelDrawFailureAutoRetryRaf;
+    private scheduleDrawFailureAutoRetry;
+    /**
      * Resize the renderer to match the current CSS size of the canvas element.
-     * @param options.skipRender - When true, updates layout/viewport without painting
-     *   (caller should follow with a single `draw()`).
+     * Interactive path: updates layout, reprojects existing labels, presents the
+     * last committed scene into the new framebuffer (Windows/ANGLE clears it on
+     * resize), then the caller should coalesce a full `draw()`.
+     * @param options.skipRender - Non-interactive: skip `requestRender()`.
+     *   Interactive present still runs (cheap framebuffer refill).
      */
     resizeFromCanvas(options?: {
         skipRender?: boolean;
     }): boolean;
+    /** True when a splitter/window resize arrived during draw/export and is not applied yet. */
+    hasPendingCanvasResize(): boolean;
+    private shouldDeferCanvasResize;
+    /**
+     * Applies the current CSS canvas size to the renderer. Does not defer:
+     * callers must have checked `shouldDeferCanvasResize` or be inside a draw.
+     */
+    private applyCanvasResizeFromDom;
+    /**
+     * Every GPU resize must mark label textures stale (Windows/ANGLE) and cancel
+     * a pan/zoom rAF that would paint into the cleared buffer.
+     */
+    private resizeRenderer;
+    /**
+     * Refill the default framebuffer after `renderer.resize()`. Does not rebuild
+     * the scene; a coalesced full draw should follow for layout-correct axes.
+     */
+    private presentAfterResize;
+    /** Authoritative present (export grow/restore) — ignores exportInProgress. */
+    private presentCommittedScene;
+    /**
+     * Applies a resize that arrived while a full draw was mutating.
+     * @returns true when the renderer size actually changed.
+     */
+    private flushPendingCanvasResize;
+    private consumePendingCanvasResizeAfterIdle;
     /**
      * Re-mesure le canvas après stabilisation du layout (splitter / flex) et
      * force un fit initial. À appeler une fois après le premier setData post-mount.
@@ -168,7 +221,7 @@ export declare class PixiApp {
     redrawCategory(_categoryId: string): void;
     redrawObservable(_observableId: string): void;
     isDrawInProgress(): boolean;
-    /** Planifie un redraw complet (pas d'auto-retry en boucle). */
+    /** Planifie un redraw complet. Réarme l'auto-retry pour cette tentative. */
     retryDraw(): void;
     /** Emit once per draw with the full error list (empty array on success). */
     private emitDrawErrors;
@@ -177,7 +230,7 @@ export declare class PixiApp {
      * If axis graphics were cleared and not yet redrawn, schedules a full draw
      * instead of painting the empty-axes scene (hover/pan must not "exclude" axes).
      */
-    requestRender(): void;
+    requestRender(reason?: PaintReason): void;
     private scheduleDraw;
     draw(): Promise<void>;
     /** Queues an exclusive full redraw on drawChain (used by draw + export). */

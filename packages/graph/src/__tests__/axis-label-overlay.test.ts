@@ -6,14 +6,25 @@ jest.mock('pixi.js', () => {
     y = 0;
     angle = 0;
     text = '';
+    parent: MockDisplayObject | null = null;
     anchor = { x: 0, y: 0, set: jest.fn() };
     style: Record<string, unknown> = {};
-    children: unknown[] = [];
-    addChild(child: unknown) {
+    children: MockDisplayObject[] = [];
+    addChild(child: MockDisplayObject) {
+      child.parent = this;
       this.children.push(child);
       return child;
     }
-    destroy() {}
+    removeChild(child: MockDisplayObject) {
+      this.children = this.children.filter((c) => c !== child);
+      if (child.parent === this) {
+        child.parent = null;
+      }
+      return child;
+    }
+    destroy() {
+      this.parent?.removeChild(this);
+    }
   }
 
   class MockText extends MockDisplayObject {
@@ -169,6 +180,25 @@ describe('AxisLabelOverlay', () => {
     createTextSpy.mockRestore();
   });
 
+  it('recreate option replaces pooled Text instances', () => {
+    const descriptors = [
+      makeDescriptor({
+        id: 'y-1',
+        kind: 'y-tick',
+        worldX: 10,
+        worldY: 20,
+      }),
+    ];
+
+    overlay.sync(descriptors);
+    const first = overlay.container.children[0];
+
+    overlay.sync(descriptors, { recreate: true });
+
+    expect(overlay.container.children.length).toBe(1);
+    expect(overlay.container.children[0]).not.toBe(first);
+  });
+
   it('syncPositions after clear does not recreate labels', () => {
     overlay.sync([
       makeDescriptor({
@@ -179,10 +209,27 @@ describe('AxisLabelOverlay', () => {
       }),
     ]);
 
-    const childCountAfterSync = overlay.container.children.length;
     overlay.clear();
     overlay.syncPositions();
 
-    expect(overlay.container.children.length).toBe(childCountAfterSync);
+    expect(overlay.container.children.length).toBe(0);
+  });
+
+  it('clamps format-mention labels to the overlay viewport width', () => {
+    overlay.setViewportSize(100);
+    overlay.sync([
+      makeDescriptor({
+        id: 'format-mention',
+        kind: 'format-mention',
+        worldX: 80,
+        worldY: 10,
+        labelWidth: 40,
+        anchorX: 0.5,
+      }),
+    ]);
+
+    const text = overlay.container.children[0] as Text;
+    // world 80 → overlay 160 with the *2 projector; clamp to viewport 100 - 20.
+    expect(text.x).toBe(80);
   });
 });

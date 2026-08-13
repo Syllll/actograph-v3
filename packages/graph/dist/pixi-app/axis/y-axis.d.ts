@@ -36,6 +36,8 @@ export declare class YAxis extends BaseGroup {
      * plot bounds (a stale framebuffer can hide the mismatch until hover).
      */
     hasDrawnContent(): boolean;
+    /** True when the back buffer has stroke geometry ready to swap in. */
+    hasPaintContent(): boolean;
     getPosFromLabel(label: string): number;
     getPosFromCategoryObservable(categoryId: string, observableName: string): number;
     getFriezeInfo(categoryId: string): {

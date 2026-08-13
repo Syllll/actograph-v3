@@ -43,6 +43,8 @@ const sharedState = shallowReactive({
 
 /** Debounce partagé : Index (watches) et drawer coalescent ensemble. */
 let scheduledRedrawId: ReturnType<typeof setTimeout> | null = null;
+/** Debounce du draw après resize canvas (present immédiat, rebuild 50 ms plus tard). */
+let scheduledResizeDrawId: ReturnType<typeof setTimeout> | null = null;
 /** Invalide un setData/draw dépassé si un redraw plus récent a démarré. */
 let redrawGeneration = 0;
 /**
@@ -57,13 +59,18 @@ const clearScheduledRedraw = (): void => {
     clearTimeout(scheduledRedrawId);
     scheduledRedrawId = null;
   }
+  if (scheduledResizeDrawId !== null) {
+    clearTimeout(scheduledResizeDrawId);
+    scheduledResizeDrawId = null;
+  }
 };
 
 /**
  * Composable Vue pour gérer le graphique d'activité avec PixiJS.
  *
  * Contrat de redraw :
- * - Full (setData + draw) : chargement obs, relevés, protocole structurel, rollback, resize
+ * - Full (setData + draw) : chargement obs, relevés, protocole structurel, rollback
+ * - Resize canvas (draw seul) : splitter / fenêtre ; present immédiat dans PixiApp
  * - Partiel (setProtocol + redrawCategory/Observable) : prefs visuelles optimistes,
  *   enveloppées dans runWithoutScheduledRedraw pour ne pas déclencher le watch
  *
@@ -179,10 +186,13 @@ export const useGraph = (options?: {
    * par le composant graph/Index.vue.
    */
   const setTimeDisplayFormat = (format: TimeDisplayFormatEnum): void => {
+    const previous = sharedState.graphRenderOptions.timeDisplayFormat;
     sharedState.graphRenderOptions = {
       ...sharedState.graphRenderOptions,
       timeDisplayFormat: format,
     };
+    if (previous === format) return;
+    if (observation.sharedState.loading) return;
     if (sharedState.ready && sharedState.pixiApp) {
       sharedState.pixiApp.setGraphRenderOptions(sharedState.graphRenderOptions);
     }
@@ -194,10 +204,15 @@ export const useGraph = (options?: {
    * (observation.meta.graphXStretch/graphYCompact) est gérée par graph/Index.vue.
    */
   const setAxisStretch = (next: { x?: number; y?: number }): void => {
-    sharedState.axisStretch = {
+    const resolved = {
       x: next.x ?? sharedState.axisStretch.x,
       y: next.y ?? sharedState.axisStretch.y,
     };
+    const unchanged =
+      resolved.x === sharedState.axisStretch.x && resolved.y === sharedState.axisStretch.y;
+    sharedState.axisStretch = resolved;
+    if (unchanged) return;
+    if (observation.sharedState.loading) return;
     if (sharedState.ready && sharedState.pixiApp) {
       void sharedState.pixiApp.setAxisStretch(next);
     }
@@ -218,8 +233,8 @@ export const useGraph = (options?: {
     const pixiApp = sharedState.pixiApp;
     clearScheduledRedraw();
     pixiApp.prepareForResumeRefresh();
-    // Wait for any in-flight export/draw before resize: resizeFromCanvas no-ops
-    // while exportInProgress, and a skipped resize would leave a stale viewport.
+    // Wait for in-flight export/draw before resize. A resize during export is
+    // deferred (`pendingCanvasResize`) and flushed when export ends.
     void (async () => {
       try {
         await pixiApp.waitForIdle();
@@ -248,16 +263,22 @@ export const useGraph = (options?: {
     if (!sharedState.ready || !sharedState.pixiApp) {
       return;
     }
-    const didResize = sharedState.pixiApp.resizeFromCanvas({ skipRender: true });
-    if (didResize) {
-      // Coalescé (comme scheduleRedraw) : un drag de volet ou un relayout de
-      // splitter émet une rafale de resize (ResizeObserver). Un redraw complet
-      // immédiat par tick faisait s'enchaîner/se chevaucher des cycles
-      // setData+draw concurrents, laissant l'état des axes/labels incohérent
-      // (labels manquants ou d'une autre catégorie) une fois la rafale
-      // terminée. On ne redessine donc qu'une fois, 50 ms après le dernier
-      // resize.
-      scheduleRedraw();
+    const pixiApp = sharedState.pixiApp;
+    const didResize = pixiApp.resizeFromCanvas({ skipRender: true });
+    if (didResize || pixiApp.hasPendingCanvasResize()) {
+      // Present (ou file) déjà géré dans PixiApp. On rebuild 50 ms après le
+      // dernier tick de splitter : un prepareWorld par frame pendant le drag
+      // est inutile, les données n'ont pas changé.
+      if (scheduledResizeDrawId !== null) {
+        clearTimeout(scheduledResizeDrawId);
+      }
+      scheduledResizeDrawId = setTimeout(() => {
+        scheduledResizeDrawId = null;
+        if (!sharedState.ready || sharedState.pixiApp !== pixiApp) return;
+        void pixiApp.draw().catch((error) => {
+          console.warn('[use-graph] resize draw failed:', error);
+        });
+      }, 50);
     }
   };
 

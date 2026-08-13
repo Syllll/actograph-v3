@@ -65,6 +65,11 @@ export class YAxis extends BaseGroup {
         this.ticks = [];
     }
     commitPaint() {
+        if (!this.hasPaintContent()) {
+            this.paintGraphic.clear();
+            this.graphic = this.displayGraphic;
+            return;
+        }
         this.displayGraphic.visible = false;
         this.paintGraphic.visible = true;
         const previousDisplay = this.displayGraphic;
@@ -93,6 +98,11 @@ export class YAxis extends BaseGroup {
             return false;
         }
         const bounds = this.displayGraphic.getLocalBounds();
+        return bounds.width > 0 || bounds.height > 0;
+    }
+    /** True when the back buffer has stroke geometry ready to swap in. */
+    hasPaintContent() {
+        const bounds = this.paintGraphic.getLocalBounds();
         return bounds.width > 0 || bounds.height > 0;
     }
     getPosFromLabel(label) {

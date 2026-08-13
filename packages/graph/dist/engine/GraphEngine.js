@@ -73,6 +73,10 @@ export class GraphEngine {
     getLastDrawErrors() {
         return this.lastDrawErrors;
     }
+    /**
+     * Rebuilds the world scene into paint buffers, then commits atomically.
+     * @returns false when axis bounds are unavailable (no commit; display unchanged).
+     */
     prepareWorld() {
         const errors = [];
         const prepareOptions = {
@@ -86,18 +90,20 @@ export class GraphEngine {
         const bounds = ctx.getAxisBounds();
         if (!bounds) {
             this.lastDrawErrors = errors;
-            return;
+            return false;
         }
         this.dataArea.prepareHitArea(bounds.bottomLeft, bounds.topRight);
         this.backgroundLayer.prepare(ctx, prepareOptions);
         this.friezeLayer.prepare(ctx, prepareOptions);
         this.seriesLayer.prepare(ctx, prepareOptions);
         this.pauseLayer.prepare(ctx);
+        this.axisLayer.commit();
         this.backgroundLayer.commit();
         this.friezeLayer.commit();
         this.seriesLayer.commit();
         this.pauseLayer.commit();
         this.lastDrawErrors = errors;
+        return true;
     }
     /**
      * Legacy teardown: destroys category graphics on the visible display buffer
@@ -118,10 +124,10 @@ export class GraphEngine {
         this.seriesLayer.clearCategory(categoryId);
     }
     redrawCategory(_categoryId) {
-        this.prepareWorld();
+        return this.prepareWorld();
     }
     redrawObservable(_observableId) {
-        this.prepareWorld();
+        return this.prepareWorld();
     }
     hasPatternSprites() {
         return this.backgroundLayer.hasPatternSprites() || this.friezeLayer.hasPatternSprites();

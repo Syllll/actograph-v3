@@ -3,7 +3,7 @@
     Conteneur principal du graphique d'activité.
     Utilise la classe "fit" pour occuper tout l'espace disponible.
   -->
-  <div class="fit column">
+  <div class="fit column graph-shell">
     <!-- Header avec contrôles de zoom -->
     <div class="graph-header row items-center justify-end q-pa-sm">
       <div class="zoom-controls row items-center q-gutter-sm">
@@ -697,6 +697,7 @@ export default defineComponent({
     watch(
       () => observation.sharedState.currentObservation?.meta?.timeDisplayFormat,
       (formatFromMeta) => {
+        if (!observation.sharedState.currentObservation) return;
         const isValidFormat =
           typeof formatFromMeta === 'string' &&
           (Object.values(TimeDisplayFormatEnum) as string[]).includes(formatFromMeta);
@@ -719,6 +720,7 @@ export default defineComponent({
         observation.sharedState.currentObservation?.meta?.graphYCompact,
       ] as const,
       ([xFromMeta, yFromMeta]) => {
+        if (!observation.sharedState.currentObservation) return;
         const nextX = typeof xFromMeta === 'number' && Number.isFinite(xFromMeta) ? xFromMeta : 1;
         const nextY = typeof yFromMeta === 'number' && Number.isFinite(yFromMeta) ? yFromMeta : 1;
         axisStretch.x = nextX;
@@ -767,6 +769,11 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+.graph-shell {
+  min-height: 0;
+  min-width: 0;
+}
+
 .graph-header {
   flex-shrink: 0;
   background-color: rgba(255, 255, 255, 0.95);

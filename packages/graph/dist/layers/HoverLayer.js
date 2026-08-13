@@ -115,13 +115,11 @@ export class HoverLayer extends BaseLayer {
         this.scheduleHoverUpdate();
     }
     updateFromWorldPointer(input) {
-        if (this.drawInProgressGate?.() || this.exportInProgressGate?.()) {
+        if (this.exportInProgressGate?.()) {
             return;
         }
-        if (this.unsafeToPaintGate?.()) {
-            this.requestRenderCallback?.();
-            return;
-        }
+        const drawInProgress = this.drawInProgressGate?.() ?? false;
+        const unsafeToPaint = this.unsafeToPaintGate?.() ?? false;
         if (!shouldRenderHoverOverlay({
             interactive: this.graphInteractionEnabled,
             suppressed: this.hoverOverlaySuppressed,
@@ -138,6 +136,21 @@ export class HoverLayer extends BaseLayer {
             this.dismiss();
             return;
         }
+        // midDraw/failed: axis metadata may already reflect an uncommitted prepare
+        // while the framebuffer still shows the previous commit — skip hover to
+        // avoid a wrong crosshair. Recovery is auto-retry / retryDraw / resume draw.
+        if (unsafeToPaint && !drawInProgress) {
+            return;
+        }
+        // During an in-flight full draw, overlay Graphics may update without a
+        // partial flush; the success paint() includes them (or clear() wiped them).
+        this.paintHoverGraphics(input, overlayCursor, overlayBounds);
+        if (drawInProgress) {
+            return;
+        }
+        this.requestRenderCallback?.();
+    }
+    paintHoverGraphics(input, overlayCursor, overlayBounds) {
         const { vertical, horizontal } = computeCrosshairSegments(overlayCursor.x, overlayCursor.y, overlayBounds);
         this.pointerDashedLines.clear();
         this.pointerDashedLines.setStrokeStyle({ color: 'black', width: 1, cap: 'butt' });
@@ -173,12 +186,6 @@ export class HoverLayer extends BaseLayer {
         }
         catch {
             this.timeLabelContainer.visible = false;
-        }
-        if (this.requestRenderCallback) {
-            this.requestRenderCallback();
-        }
-        else {
-            this.app.render();
         }
     }
     destroy() {
@@ -236,14 +243,13 @@ export class HoverLayer extends BaseLayer {
         return isPointInsidePlotBounds(overlayLocal.x, overlayLocal.y, bounds);
     }
     paintAfterCleared() {
-        if (this.drawInProgressGate?.() || this.exportInProgressGate?.() || !this.app.renderer) {
+        if (this.exportInProgressGate?.() || !this.app.renderer) {
             return;
         }
-        if (this.unsafeToPaintGate?.()) {
-            this.requestRenderCallback?.();
+        if (this.drawInProgressGate?.()) {
             return;
         }
-        this.app.render();
+        this.requestRenderCallback?.();
     }
     cancelPendingHoverUpdate() {
         if (this.hoverRafId !== null) {
@@ -260,7 +266,7 @@ export class HoverLayer extends BaseLayer {
     }
     onHoverRaf() {
         this.hoverRafId = null;
-        if (this.drawInProgressGate?.() || this.exportInProgressGate?.()) {
+        if (this.exportInProgressGate?.()) {
             if (this.pendingWorldPointer) {
                 this.scheduleHoverUpdate();
             }
@@ -269,12 +275,6 @@ export class HoverLayer extends BaseLayer {
         const pending = this.pendingWorldPointer;
         this.pendingWorldPointer = null;
         if (pending) {
-            if (this.unsafeToPaintGate?.()) {
-                this.pendingWorldPointer = pending;
-                this.requestRenderCallback?.();
-                this.scheduleHoverUpdate();
-                return;
-            }
             this.updateFromWorldPointer(pending);
         }
     }

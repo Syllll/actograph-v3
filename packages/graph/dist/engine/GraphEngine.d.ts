@@ -28,7 +28,11 @@ export declare class GraphEngine {
     constructor(options: GraphEngineOptions);
     buildContext(): GraphContext;
     getLastDrawErrors(): ReadonlyArray<DrawError>;
-    prepareWorld(): void;
+    /**
+     * Rebuilds the world scene into paint buffers, then commits atomically.
+     * @returns false when axis bounds are unavailable (no commit; display unchanged).
+     */
+    prepareWorld(): boolean;
     /**
      * Legacy teardown: destroys category graphics on the visible display buffer
      * immediately. Not wired from PixiApp; full-paint path uses prepareWorld only.
@@ -39,8 +43,8 @@ export declare class GraphEngine {
      * immediately. Not used by the full-paint path (prepareWorld / commit).
      */
     clearCategoryAllLayers(categoryId: string): void;
-    redrawCategory(_categoryId: string): void;
-    redrawObservable(_observableId: string): void;
+    redrawCategory(_categoryId: string): boolean;
+    redrawObservable(_observableId: string): boolean;
     hasPatternSprites(): boolean;
     clearPatternSprites(): void;
     clearAll(): void;

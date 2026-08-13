@@ -1,5 +1,6 @@
 import {
   canPaintPartial,
+  canPaintResizePresent,
   isAuthoritativePaintReason,
   shouldScheduleDrawOnPaintGate,
 } from '../utils/scene-paint.utils';
@@ -16,6 +17,7 @@ describe('scene-paint.utils', () => {
       expect(isAuthoritativePaintReason('hover')).toBe(false);
       expect(isAuthoritativePaintReason('partial')).toBe(false);
       expect(isAuthoritativePaintReason('leave')).toBe(false);
+      expect(isAuthoritativePaintReason('resize')).toBe(false);
     });
   });
 
@@ -50,11 +52,37 @@ describe('scene-paint.utils', () => {
       expect(shouldScheduleDrawOnPaintGate('partial')).toBe(true);
     });
 
-    it('does not schedule for leave or authoritative reasons', () => {
+    it('does not schedule for leave, resize present, or authoritative reasons', () => {
       expect(shouldScheduleDrawOnPaintGate('leave')).toBe(false);
+      expect(shouldScheduleDrawOnPaintGate('resize')).toBe(false);
       expect(shouldScheduleDrawOnPaintGate('init')).toBe(false);
       expect(shouldScheduleDrawOnPaintGate('draw-complete')).toBe(false);
       expect(shouldScheduleDrawOnPaintGate('export')).toBe(false);
+    });
+  });
+
+  describe('canPaintResizePresent', () => {
+    const stableIdle = {
+      scenePaintState: 'stable' as const,
+      drawInProgress: false,
+      exportInProgress: false,
+    };
+
+    it('allows a framebuffer refill on a stable idle scene', () => {
+      expect(canPaintResizePresent(stableIdle)).toBe(true);
+    });
+
+    it('refuses when mutating, failed, drawing, or exporting', () => {
+      expect(canPaintResizePresent({ ...stableIdle, scenePaintState: 'mutating' })).toBe(
+        false,
+      );
+      expect(canPaintResizePresent({ ...stableIdle, scenePaintState: 'failed' })).toBe(
+        false,
+      );
+      expect(canPaintResizePresent({ ...stableIdle, drawInProgress: true })).toBe(false);
+      expect(canPaintResizePresent({ ...stableIdle, exportInProgress: true })).toBe(
+        false,
+      );
     });
   });
 });

@@ -8,20 +8,40 @@ jest.mock('pixi.js', () => {
     rotation = 0;
     children: unknown[] = [];
     scale = { set: jest.fn() };
+    bounds = { width: 10, height: 10 };
     addChild(child: unknown) {
       this.children.push(child);
       return child;
     }
     destroy() {}
-    clear = jest.fn().mockReturnThis();
-    closePath = jest.fn().mockReturnThis();
-    fill = jest.fn().mockReturnThis();
-    setStrokeStyle = jest.fn().mockReturnThis();
-    moveTo = jest.fn().mockReturnThis();
-    lineTo = jest.fn().mockReturnThis();
-    stroke = jest.fn().mockReturnThis();
+    clear() {
+      this.bounds = { width: 0, height: 0 };
+      return this;
+    }
+    closePath() {
+      return this;
+    }
+    fill() {
+      this.bounds = { width: 10, height: 10 };
+      return this;
+    }
+    setStrokeStyle() {
+      return this;
+    }
+    moveTo() {
+      this.bounds = { width: 10, height: 10 };
+      return this;
+    }
+    lineTo() {
+      this.bounds = { width: 10, height: 10 };
+      return this;
+    }
+    stroke() {
+      this.bounds = { width: 10, height: 10 };
+      return this;
+    }
     getLocalBounds() {
-      return { width: 10, height: 10 };
+      return this.bounds;
     }
   }
 
@@ -61,6 +81,41 @@ describe('YAxis double buffer', () => {
 
     expect(displayClearSpy).not.toHaveBeenCalled();
     expect(paintClearSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('commitPaint does not swap when the paint buffer has no geometry', () => {
+    const app = createMockApp();
+    const yAxis = new YAxis(app);
+
+    const graphics = yAxis.children.filter(
+      (child): child is BaseGraphic => child instanceof BaseGraphic,
+    );
+    const displayGraphic = graphics.find((child) => child.visible)!;
+    const paintGraphic = graphics.find((child) => !child.visible)!;
+
+    yAxis.beginPaint();
+    yAxis.commitPaint();
+
+    expect(displayGraphic.visible).toBe(true);
+    expect(paintGraphic.visible).toBe(false);
+  });
+
+  it('commitPaint swaps when the paint buffer has geometry', () => {
+    const app = createMockApp();
+    const yAxis = new YAxis(app);
+
+    const graphics = yAxis.children.filter(
+      (child): child is BaseGraphic => child instanceof BaseGraphic,
+    );
+    const displayGraphic = graphics.find((child) => child.visible)!;
+    const paintGraphic = graphics.find((child) => !child.visible)!;
+
+    yAxis.beginPaint();
+    paintGraphic.moveTo(0, 0);
+    yAxis.commitPaint();
+
+    expect(displayGraphic.visible).toBe(false);
+    expect(paintGraphic.visible).toBe(true);
   });
 });
 

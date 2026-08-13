@@ -102,6 +102,12 @@ export class YAxis extends BaseGroup {
   }
 
   public commitPaint(): void {
+    if (!this.hasPaintContent()) {
+      this.paintGraphic.clear();
+      this.graphic = this.displayGraphic;
+      return;
+    }
+
     this.displayGraphic.visible = false;
     this.paintGraphic.visible = true;
 
@@ -136,6 +142,12 @@ export class YAxis extends BaseGroup {
       return false;
     }
     const bounds = this.displayGraphic.getLocalBounds();
+    return bounds.width > 0 || bounds.height > 0;
+  }
+
+  /** True when the back buffer has stroke geometry ready to swap in. */
+  public hasPaintContent(): boolean {
+    const bounds = this.paintGraphic.getLocalBounds();
     return bounds.width > 0 || bounds.height > 0;
   }
 

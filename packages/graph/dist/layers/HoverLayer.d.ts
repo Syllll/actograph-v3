@@ -68,6 +68,7 @@ export declare class HoverLayer extends BaseLayer {
     syncDismissWithPointer(clientX: number, clientY: number): void;
     scheduleUpdateFromWorldPointer(input: HoverWorldPointerInput): void;
     updateFromWorldPointer(input: HoverWorldPointerInput): void;
+    private paintHoverGraphics;
     destroy(): void;
     private formatHoverTimeLabel;
     private isClientPointInsidePlot;

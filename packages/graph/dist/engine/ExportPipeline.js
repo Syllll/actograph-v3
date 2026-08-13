@@ -21,7 +21,7 @@ export class ExportPipeline {
         try {
             if (isInteractive()) {
                 if (exportHeight !== originalHeight) {
-                    app.renderer.resize(originalWidth, exportHeight);
+                    this.deps.resizeRenderer(originalWidth, exportHeight);
                     resizedForExport = true;
                 }
                 this.deps.updateWorldBounds();
@@ -32,9 +32,12 @@ export class ExportPipeline {
                 const zoomState = this.deps.getZoomState();
                 const fitViewport = computeFitViewport(this.deps.getWorldBounds(), exportCanvasSize, zoomState.minScale, zoomState.maxScale);
                 this.deps.setViewportTransform({ scale: fitViewport.scaleX, x: fitViewport.x, y: fitViewport.y }, { emitZoom: false, skipRender: true });
+                // renderer.resize clears the default framebuffer (Windows/ANGLE).
+                // Present before the async draw so the CSS box is not left empty.
+                this.deps.presentCommittedScene();
             }
+            // enqueueDrawBody paints on success via PixiApp.paint('draw-complete').
             await this.deps.enqueueDrawBody();
-            app.render();
             const extractFormat = format === 'jpeg' ? 'jpg' : 'png';
             return await app.renderer.extract.base64({
                 target: app.stage,
@@ -46,11 +49,12 @@ export class ExportPipeline {
             try {
                 if (isInteractive()) {
                     if (resizedForExport) {
-                        app.renderer.resize(originalWidth, originalHeight);
+                        this.deps.resizeRenderer(originalWidth, originalHeight);
                         this.deps.updateWorldBounds();
                         this.deps.recalculateFitViewport();
                     }
                     this.deps.setViewportTransform(savedViewport, { emitZoom: false, skipRender: true });
+                    this.deps.presentCommittedScene();
                     await this.deps.enqueueDrawBody();
                 }
             }

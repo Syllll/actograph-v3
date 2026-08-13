@@ -31,6 +31,7 @@ export class AxisLabelOverlay {
   private worldToOverlay: AxisLabelOverlayProjectors['worldToOverlay'] | null = null;
   private readonly labelById = new Map<string, Text>();
   private lastDescriptors: AxisLabelDescriptor[] = [];
+  private viewportWidth = 0;
 
   constructor() {
     this.container = new Container();
@@ -41,9 +42,16 @@ export class AxisLabelOverlay {
     this.worldToOverlay = projectors.worldToOverlay;
   }
 
-  public sync(descriptors: AxisLabelDescriptor[]): void {
+  public setViewportSize(width: number): void {
+    this.viewportWidth = width;
+  }
+
+  public sync(
+    descriptors: AxisLabelDescriptor[],
+    options?: { recreate?: boolean },
+  ): void {
     this.lastDescriptors = descriptors;
-    this.applyDescriptors(descriptors, { recreate: false });
+    this.applyDescriptors(descriptors, { recreate: options?.recreate ?? false });
   }
 
   public syncPositions(): void {
@@ -62,9 +70,16 @@ export class AxisLabelOverlay {
 
   private clearLabels(): void {
     for (const text of this.labelById.values()) {
-      text.destroy();
+      this.destroyLabel(text);
     }
     this.labelById.clear();
+  }
+
+  private destroyLabel(text: Text): void {
+    if (text.parent === this.container) {
+      this.container.removeChild(text);
+    }
+    text.destroy();
   }
 
   private applyDescriptors(
@@ -81,7 +96,7 @@ export class AxisLabelOverlay {
       if (!descriptorIds.has(id)) {
         const orphan = this.labelById.get(id);
         if (orphan) {
-          orphan.destroy();
+          this.destroyLabel(orphan);
         }
         this.labelById.delete(id);
       }
@@ -98,15 +113,12 @@ export class AxisLabelOverlay {
         continue;
       }
 
-      const overlayPos = this.worldToOverlay({
-        x: descriptor.worldX,
-        y: descriptor.worldY,
-      });
+      const overlayPos = this.projectDescriptor(descriptor);
 
       let text = this.labelById.get(descriptor.id);
       if (!text || options.recreate) {
         if (text) {
-          text.destroy();
+          this.destroyLabel(text);
         }
         text = this.createText(descriptor);
         this.labelById.set(descriptor.id, text);
@@ -121,6 +133,22 @@ export class AxisLabelOverlay {
       text.anchor.set(descriptor.anchorX, descriptor.anchorY);
       text.visible = true;
     }
+  }
+
+  private projectDescriptor(descriptor: AxisLabelDescriptor): { x: number; y: number } {
+    const overlayPos = this.worldToOverlay!({
+      x: descriptor.worldX,
+      y: descriptor.worldY,
+    });
+    if (descriptor.kind !== 'format-mention' || this.viewportWidth <= 0) {
+      return overlayPos;
+    }
+    const halfWidth =
+      (descriptor.labelWidth ?? descriptor.text.length * descriptor.fontSize * 0.6) / 2;
+    return {
+      x: Math.min(this.viewportWidth - halfWidth, Math.max(halfWidth, overlayPos.x)),
+      y: overlayPos.y,
+    };
   }
 
   private computeVisibleXTickIds(descriptors: AxisLabelDescriptor[]): Set<string> {

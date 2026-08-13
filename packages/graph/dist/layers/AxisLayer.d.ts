@@ -7,5 +7,6 @@ export declare class AxisLayer extends BaseLayer {
     private readonly xAxis;
     constructor(yAxis: YAxis, xAxis: xAxis);
     prepare(_ctx: GraphContext, _options?: import('../engine/types').LayerPrepareOptions): void;
+    commit(): void;
 }
 //# sourceMappingURL=AxisLayer.d.ts.map

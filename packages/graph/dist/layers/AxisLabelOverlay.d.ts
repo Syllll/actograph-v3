@@ -32,14 +32,20 @@ export declare class AxisLabelOverlay {
     private worldToOverlay;
     private readonly labelById;
     private lastDescriptors;
+    private viewportWidth;
     constructor();
     setProjectors(projectors: AxisLabelOverlayProjectors): void;
-    sync(descriptors: AxisLabelDescriptor[]): void;
+    setViewportSize(width: number): void;
+    sync(descriptors: AxisLabelDescriptor[], options?: {
+        recreate?: boolean;
+    }): void;
     syncPositions(): void;
     clear(): void;
     destroy(): void;
     private clearLabels;
+    private destroyLabel;
     private applyDescriptors;
+    private projectDescriptor;
     private computeVisibleXTickIds;
     private createText;
     private updateTextContent;
