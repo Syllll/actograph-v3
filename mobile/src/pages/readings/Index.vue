@@ -153,8 +153,8 @@ import { toAbsoluteTimeString } from '@utils/date-time';
 const TYPE_LABELS: Record<ReadingType, string> = {
   START: 'Début',
   STOP: 'Fin',
-  PAUSE_START: 'Pause ▶',
-  PAUSE_END: 'Pause ■',
+  PAUSE_START: 'Déb pause',
+  PAUSE_END: 'Fin pause',
   DATA: 'Data',
 };
 

@@ -52,7 +52,8 @@ async function copyProtocolTree(
       category.name,
       i,
       category.action || 'continuous',
-      category.meta ?? null
+      category.meta ?? null,
+      category.color,
     );
 
     if (category.display_mode || category.background_pattern) {
@@ -69,13 +70,15 @@ async function copyProtocolTree(
         newCategory.id,
         observable.name,
         observable.color,
-        observable.sort_order ?? j
+        observable.sort_order ?? j,
+        observable.action,
       );
 
-      if (observable.display_mode || observable.background_pattern) {
+      if (observable.display_mode || observable.background_pattern || observable.meta) {
         await protocolRepository.updateItem(newObservable.id, {
           display_mode: observable.display_mode,
           background_pattern: observable.background_pattern,
+          meta: observable.meta ?? undefined,
         });
       }
     }

@@ -20,11 +20,17 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
    * BaseRepository.update() adds updated_at automatically, which would crash.
    */
   override async update(id: number, data: Partial<Omit<IReadingEntity, 'id' | 'created_at'>>): Promise<IReadingEntity | null> {
-    const columns = Object.keys(data);
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        updates[key] = value;
+      }
+    }
+    const columns = Object.keys(updates);
     if (columns.length === 0) return this.findById(id);
 
     const setClause = columns.map((col) => `${col} = ?`).join(', ');
-    const values = [...Object.values(data), id];
+    const values = [...Object.values(updates), id];
 
     const sql = `UPDATE ${this.tableName} SET ${setClause} WHERE id = ?`;
     await sqliteService.run(sql, values);

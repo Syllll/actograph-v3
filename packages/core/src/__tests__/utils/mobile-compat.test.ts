@@ -96,4 +96,17 @@ describe('mobile-compat', () => {
       strokeWidth: 3,
     });
   });
+
+  it('accepte un graphSupportCategoryId numérique depuis SQLite', () => {
+    const converted = convertMobileProtocolItems([
+      {
+        id: 1,
+        name: 'Catégorie',
+        type: 'category',
+        meta: { graphSupportCategoryId: 42 },
+      },
+    ]);
+
+    expect(converted[0].graphPreferences?.supportCategoryId).toBe('42');
+  });
 });

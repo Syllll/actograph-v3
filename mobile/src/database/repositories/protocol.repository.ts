@@ -238,17 +238,20 @@ export class ProtocolRepository extends BaseRepository<IProtocolEntity> {
     itemId: number,
     data: Partial<Pick<IProtocolItemEntity, 'name' | 'color' | 'action' | 'display_mode' | 'background_pattern' | 'sort_order' | 'meta'>>
   ): Promise<IProtocolItemEntity | null> {
-    // Préparer les mises à jour
-    const updates: Record<string, unknown> = { 
-      ...data, 
-      updated_at: new Date().toISOString() 
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
     };
-    
-    // Sérialiser meta en JSON si présent
+
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        updates[key] = value;
+      }
+    }
+
     if (data.meta !== undefined) {
       updates.meta = data.meta ? JSON.stringify(data.meta) : null;
     }
-    
+
     const columns = Object.keys(updates);
     const setClause = columns.map((col) => `${col} = ?`).join(', ');
     const values = [...Object.values(updates), itemId];

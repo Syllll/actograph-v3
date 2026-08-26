@@ -249,10 +249,13 @@ export function convertMobileProtocolItems(items: IMobileProtocolItem[]): IProto
       typeof meta?.[MOBILE_GRAPH_STROKE_WIDTH_META_KEY] === 'number'
         ? (meta[MOBILE_GRAPH_STROKE_WIDTH_META_KEY] as number)
         : undefined;
+    const rawSupportCategoryId = meta?.[MOBILE_GRAPH_SUPPORT_CATEGORY_ID_META_KEY];
     const supportCategoryId =
-      typeof meta?.[MOBILE_GRAPH_SUPPORT_CATEGORY_ID_META_KEY] === 'string'
-        ? (meta[MOBILE_GRAPH_SUPPORT_CATEGORY_ID_META_KEY] as string)
-        : undefined;
+      typeof rawSupportCategoryId === 'string' && rawSupportCategoryId.length > 0
+        ? rawSupportCategoryId
+        : typeof rawSupportCategoryId === 'number' && Number.isFinite(rawSupportCategoryId)
+          ? String(rawSupportCategoryId)
+          : undefined;
 
     const graphPreferences: IGraphPreferences | undefined =
       item.display_mode || item.background_pattern || item.color || strokeWidth !== undefined || supportCategoryId

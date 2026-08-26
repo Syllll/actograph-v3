@@ -1,4 +1,12 @@
-import { reactive, computed, onScopeDispose } from 'vue';
+import { reactive, computed } from 'vue';
+import { App } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import {
+  convertMobileReadings,
+  getActiveRecordingElapsedMs,
+  isRecordingActiveFromReadings,
+  isRecordingPausedFromReadings,
+} from '@actograph/core';
 import { observationService } from '@services/observation.service';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
 import type { IReadingEntity } from '@database/repositories/reading.repository';
@@ -39,17 +47,27 @@ const sharedState = reactive<ChronicleState>({
 });
 
 let timerInterval: number | null = null;
+let resumeListenerAttached = false;
+
+function clearTimerInterval(): void {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function getCoreReadings() {
+  return convertMobileReadings(sharedState.currentReadings);
+}
 
 export const useChronicle = () => {
   const hasChronicle = computed(() => !!sharedState.currentChronicle);
   const hasReadings = computed(() => sharedState.currentReadings.length > 0);
 
-  // Check if current observation is in Calendar mode
-  const isCalendarMode = computed(() => 
+  const isCalendarMode = computed(() =>
     sharedState.currentChronicle?.mode === 'Calendar'
   );
 
-  // Unified formatted time display
   const formattedTime = computed(() => {
     if (sharedState.isPaused) {
       return '⏸ EN PAUSE';
@@ -58,18 +76,16 @@ export const useChronicle = () => {
       return isCalendarMode.value ? '--:--:--' : '00:00:00.000';
     }
     if (isCalendarMode.value) {
-      // Calendar mode: show current time HH:mm:ss
       const now = sharedState.currentDate || new Date();
       return toAbsoluteTimeString(now, false);
-    } else {
-      // Chronometer mode: show elapsed time HH:mm:ss.mmm
-      const seconds = sharedState.elapsedTime;
-      const h = Math.floor(seconds / 3600);
-      const m = Math.floor((seconds % 3600) / 60);
-      const s = Math.floor(seconds % 60);
-      const ms = Math.floor((seconds % 1) * 1000);
-      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
     }
+
+    const seconds = sharedState.elapsedTime;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 1000);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
   });
 
   const methods = {
@@ -86,11 +102,12 @@ export const useChronicle = () => {
           sharedState.currentChronicle = data.observation as IChronicleObservation;
           sharedState.currentProtocol = data.protocol;
           sharedState.currentReadings = data.readings;
+          methods.syncRecordingStateFromReadings();
         } else {
-          // Reset state if chronicle not found
           sharedState.currentChronicle = null;
           sharedState.currentProtocol = [];
           sharedState.currentReadings = [];
+          methods.stopTimer();
         }
       } finally {
         sharedState.loading = false;
@@ -116,19 +133,52 @@ export const useChronicle = () => {
       methods.stopTimer();
     },
 
-    // Timer methods
+    /**
+     * Restore isPlaying / isPaused / elapsedTime from persisted readings.
+     * Needed after reload, chronicle switch, or returning from background.
+     */
+    syncRecordingStateFromReadings: () => {
+      const coreReadings = getCoreReadings();
+      const recording = isRecordingActiveFromReadings(coreReadings);
+      const paused = isRecordingPausedFromReadings(coreReadings);
+
+      if (!recording) {
+        if (timerInterval || sharedState.isPlaying || sharedState.isPaused) {
+          methods.stopTimer();
+        }
+        return;
+      }
+
+      sharedState.elapsedTime = getActiveRecordingElapsedMs(coreReadings) / 1000;
+      sharedState.currentDate = new Date();
+
+      if (paused) {
+        clearTimerInterval();
+        sharedState.isPlaying = false;
+        sharedState.isPaused = true;
+        return;
+      }
+
+      methods.startTimer();
+    },
+
     startTimer: () => {
-      if (timerInterval) return;
+      clearTimerInterval();
+
+      const coreReadings = getCoreReadings();
+      if (
+        isRecordingActiveFromReadings(coreReadings) &&
+        !isRecordingPausedFromReadings(coreReadings)
+      ) {
+        sharedState.elapsedTime = getActiveRecordingElapsedMs(coreReadings) / 1000;
+      }
 
       const startTime = Date.now() - sharedState.elapsedTime * 1000;
       sharedState.isPlaying = true;
       sharedState.isPaused = false;
       sharedState.currentDate = new Date();
 
-      // Use different intervals based on mode:
-      // - Calendar mode: update every 1000ms (seconds precision)
-      // - Chronometer mode: update every 10ms (milliseconds precision)
-      const interval = isCalendarMode.value ? 1000 : 10;
+      const interval = sharedState.currentChronicle?.mode === 'Calendar' ? 1000 : 10;
 
       timerInterval = window.setInterval(() => {
         sharedState.elapsedTime = (Date.now() - startTime) / 1000;
@@ -137,19 +187,13 @@ export const useChronicle = () => {
     },
 
     pauseTimer: () => {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
+      clearTimerInterval();
       sharedState.isPlaying = false;
       sharedState.isPaused = true;
     },
 
     stopTimer: () => {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
+      clearTimerInterval();
       sharedState.isPlaying = false;
       sharedState.isPaused = false;
       sharedState.elapsedTime = 0;
@@ -164,7 +208,6 @@ export const useChronicle = () => {
       }
     },
 
-    // Recording methods
     startRecording: async (initialContinuousObservableNames: string[] = []) => {
       if (!sharedState.currentChronicle) return;
       await observationService.startRecording(
@@ -179,11 +222,9 @@ export const useChronicle = () => {
       if (!sharedState.currentChronicle) return;
       await observationService.stopRecording(sharedState.currentChronicle.id);
       methods.stopTimer();
-      // Silently auto-correct readings (baguette magique)
       try {
         await autoCorrectReadings(sharedState.currentChronicle.id);
       } catch (error) {
-        // Silently ignore errors during auto-correction
         console.error('Error during auto-correction:', error);
       }
       await methods.refreshReadings();
@@ -229,13 +270,30 @@ export const useChronicle = () => {
     },
   };
 
-  // Cleanup timer when the effect scope is disposed (component unmount)
-  onScopeDispose(() => {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
+  if (!resumeListenerAttached) {
+    resumeListenerAttached = true;
+
+    const syncIfVisible = () => {
+      if (!sharedState.currentChronicle) return;
+      methods.syncRecordingStateFromReadings();
+    };
+
+    if (Capacitor.isNativePlatform()) {
+      void App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) {
+          syncIfVisible();
+        }
+      });
     }
-  });
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          syncIfVisible();
+        }
+      });
+    }
+  }
 
   return {
     sharedState,
@@ -246,4 +304,3 @@ export const useChronicle = () => {
     methods,
   };
 };
-

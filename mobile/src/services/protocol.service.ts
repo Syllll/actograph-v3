@@ -75,14 +75,18 @@ class ProtocolService {
    * Update a protocol item
    */
   async updateItem(itemId: number, data: IUpdateProtocolItemInput): Promise<IProtocolItemEntity | null> {
-    return protocolRepository.updateItem(itemId, {
-      name: data.name,
-      color: data.color,
-      action: data.action,
-      display_mode: data.displayMode,
-      background_pattern: data.backgroundPattern,
-      sort_order: data.sortOrder,
-    });
+    const updates: Partial<
+      Pick<IProtocolItemEntity, 'name' | 'color' | 'action' | 'display_mode' | 'background_pattern' | 'sort_order'>
+    > = {};
+
+    if (data.name !== undefined) updates.name = data.name;
+    if (data.color !== undefined) updates.color = data.color;
+    if (data.action !== undefined) updates.action = data.action;
+    if (data.displayMode !== undefined) updates.display_mode = data.displayMode;
+    if (data.backgroundPattern !== undefined) updates.background_pattern = data.backgroundPattern;
+    if (data.sortOrder !== undefined) updates.sort_order = data.sortOrder;
+
+    return protocolRepository.updateItem(itemId, updates);
   }
 
   /**

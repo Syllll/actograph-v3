@@ -54,6 +54,7 @@ class SQLiteService {
       }
 
       await this.db.open();
+      await this.db.execute('PRAGMA foreign_keys = ON');
 
       // Run migrations
       await this.runMigrations();
@@ -107,6 +108,28 @@ class SQLiteService {
     }
 
     console.log('Database migrations completed. Current version: 3');
+  }
+
+  /**
+   * Capacitor SQLite returns PRAGMA table_info rows as objects ({ name })
+   * or, on some platforms, as positional arrays (cid, name, type, ...).
+   */
+  private async hasColumn(tableName: string, columnName: string): Promise<boolean> {
+    if (!this.db) {
+      return false;
+    }
+
+    const tableInfo = await this.db.query(`PRAGMA table_info(${tableName})`);
+    return (tableInfo.values ?? []).some((row: unknown) => {
+      if (Array.isArray(row)) {
+        return row[1] === columnName;
+      }
+      if (row && typeof row === 'object') {
+        const name = (row as { name?: unknown }).name;
+        return name === columnName;
+      }
+      return false;
+    });
   }
 
   /**
@@ -190,13 +213,7 @@ class SQLiteService {
     if (!this.db) return;
 
     try {
-      // Vérifier si la colonne existe déjà (idempotence)
-      const tableInfo = await this.db.query('PRAGMA table_info(protocol_items)');
-      const hasMetaColumn = tableInfo.values?.some(
-        (row: unknown[]) => row[1] === 'meta'
-      );
-
-      if (!hasMetaColumn) {
+      if (!(await this.hasColumn('protocol_items', 'meta'))) {
         await this.db.execute('ALTER TABLE protocol_items ADD COLUMN meta TEXT');
         console.log('Migration 002: Added meta column to protocol_items');
       } else {
@@ -220,12 +237,7 @@ class SQLiteService {
     if (!this.db) return;
 
     try {
-      const tableInfo = await this.db.query('PRAGMA table_info(observations)');
-      const hasMetaColumn = tableInfo.values?.some(
-        (row: unknown[]) => row[1] === 'meta'
-      );
-
-      if (!hasMetaColumn) {
+      if (!(await this.hasColumn('observations', 'meta'))) {
         await this.db.execute('ALTER TABLE observations ADD COLUMN meta TEXT');
         console.log('Migration 003: Added meta column to observations');
       } else {

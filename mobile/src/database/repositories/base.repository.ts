@@ -48,7 +48,12 @@ export abstract class BaseRepository<T extends IBaseEntity> {
    * Update an entity
    */
   async update(id: number, data: Partial<Omit<T, 'id' | 'created_at'>>): Promise<T | null> {
-    const updates = { ...data, updated_at: new Date().toISOString() };
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        updates[key] = value;
+      }
+    }
     const columns = Object.keys(updates);
     const setClause = columns.map((col) => `${col} = ?`).join(', ');
     const values = [...Object.values(updates), id];

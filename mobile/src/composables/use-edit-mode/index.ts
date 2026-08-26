@@ -307,6 +307,8 @@ export function useEditMode() {
       sharedState.isEditing = false;
       sharedState.isDragging = false;
       sharedState.draggingCategoryId = null;
+      sharedState.isResizing = false;
+      sharedState.resizingCategoryId = null;
     },
 
     /**
@@ -319,6 +321,8 @@ export function useEditMode() {
       sharedState.isEditing = false;
       sharedState.isDragging = false;
       sharedState.draggingCategoryId = null;
+      sharedState.isResizing = false;
+      sharedState.resizingCategoryId = null;
       sharedState.hasUnsavedChanges = false;
     },
 

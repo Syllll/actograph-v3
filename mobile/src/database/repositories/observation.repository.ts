@@ -153,6 +153,41 @@ export class ObservationRepository extends SoftDeleteRepository<IObservationEnti
   }
 
   /**
+   * Permanent delete: remove readings/protocol first.
+   * SQLite foreign keys are off unless PRAGMA foreign_keys is enabled,
+   * so ON DELETE CASCADE cannot be relied on alone.
+   */
+  override async hardDelete(id: number): Promise<boolean> {
+    const protocols = await sqliteService.query<{ id: number }>(
+      'SELECT id FROM protocols WHERE observation_id = ?',
+      [id],
+    );
+
+    const statements: { statement: string; values?: unknown[] }[] = [
+      { statement: 'DELETE FROM readings WHERE observation_id = ?', values: [id] },
+    ];
+
+    for (const protocol of protocols) {
+      statements.push({
+        statement: 'DELETE FROM protocol_items WHERE protocol_id = ?',
+        values: [protocol.id],
+      });
+      statements.push({
+        statement: 'DELETE FROM protocols WHERE id = ?',
+        values: [protocol.id],
+      });
+    }
+
+    statements.push({
+      statement: 'DELETE FROM observations WHERE id = ?',
+      values: [id],
+    });
+
+    await sqliteService.executeTransaction(statements);
+    return true;
+  }
+
+  /**
    * Create observation with protocol
    */
   async createWithProtocol(
