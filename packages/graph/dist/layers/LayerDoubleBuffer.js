@@ -1,4 +1,5 @@
 import { Container } from 'pixi.js';
+import { isPixiDestroyed } from '../utils/display-object.utils';
 /**
  * Front/back container swap for full prepareWorld paints.
  * Public redraw paths schedule a full prepareWorld commit; no in-place display clears.
@@ -39,7 +40,9 @@ export class LayerDoubleBuffer {
     clearContainer(target) {
         for (const child of [...target.children]) {
             target.removeChild(child);
-            child.destroy({ children: true });
+            if (typeof child.destroy === 'function' && !isPixiDestroyed(child)) {
+                child.destroy({ children: true });
+            }
         }
     }
 }

@@ -15,6 +15,7 @@ export declare class RenderScheduler {
     bumpGeneration(): number;
     getGeneration(): number;
     request(task: RenderTask, options?: RenderSchedulerRequestOptions): void;
+    /** Resolves when the queue is idle, including frames requested during the current run. */
     flush(): Promise<void>;
     cancel(): void;
     private scheduleFrame;

@@ -1576,10 +1576,29 @@ export class PixiApp {
     // Future: implémenter l'ajustement dynamique des graduations
   }
 
+  /**
+   * Canvas only after init() has created the renderer. PixiJS v8 `app.canvas`
+   * reads `renderer.canvas` and throws if accessed earlier.
+   */
+  private getInitializedCanvas(): HTMLCanvasElement | null {
+    if (!this.isInitialized || this.isDestroyed) {
+      return null;
+    }
+    if (this.viewCanvas) {
+      return this.viewCanvas;
+    }
+    if (!this.app.renderer) {
+      return null;
+    }
+    return (this.app.canvas as HTMLCanvasElement | undefined) ?? null;
+  }
+
   public zoomIn() {
     if (!this.isInteractive) return;
+    const canvas = this.getInitializedCanvas();
+    if (!canvas) return;
     // Utiliser le centre de l'écran visible (viewport) plutôt que le centre du canvas bitmap
-    const rect = this.app.canvas.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect();
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
     const worldPos = this.viewport.toLocal({ x: centerX, y: centerY } as any);
@@ -1604,8 +1623,10 @@ export class PixiApp {
 
   public zoomOut() {
     if (!this.isInteractive) return;
+    const canvas = this.getInitializedCanvas();
+    if (!canvas) return;
     // Utiliser le centre de l'écran visible (viewport) plutôt que le centre du canvas bitmap
-    const rect = this.app.canvas.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect();
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
     const worldPos = this.viewport.toLocal({ x: centerX, y: centerY } as any);
@@ -1629,7 +1650,7 @@ export class PixiApp {
   }
 
   public resetView(): Promise<void> {
-    if (!this.isInteractive) {
+    if (!this.isInteractive || !this.isInitialized) {
       return Promise.resolve();
     }
     this.axisStretch.x = 1;

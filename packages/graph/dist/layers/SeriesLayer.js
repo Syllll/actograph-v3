@@ -17,8 +17,7 @@ export class SeriesLayer extends BaseLayer {
         if (!bounds) {
             return;
         }
-        this.doubleBuffer.clearPaintBuffer();
-        this.graphicsStore.beginFullPaint(this.doubleBuffer.paintBuffer);
+        this.graphicsStore.beginPaintCycle(this.doubleBuffer.paintBuffer, () => this.doubleBuffer.clearPaintBuffer());
         for (const categoryEntry of ctx.readingsPerCategory) {
             if (ctx.getEffectiveDisplayMode(categoryEntry.category) !== DisplayModeEnum.Normal) {
                 this.graphicsStore.clearCategoryGraphic(categoryEntry.category.id);
@@ -40,7 +39,7 @@ export class SeriesLayer extends BaseLayer {
     }
     commit() {
         this.doubleBuffer.swap();
-        this.graphicsStore.destroyRetired();
+        this.graphicsStore.finalizeCommit();
         this.doubleBuffer.clearBack();
         this.graphicsStore.setContainer(this.doubleBuffer.paintBuffer);
     }

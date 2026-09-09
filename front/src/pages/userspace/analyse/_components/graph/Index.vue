@@ -14,7 +14,7 @@
           icon="add"
           color="grey-8"
           @click="methods.zoomIn"
-          :disable="state.zoomLevel >= 5"
+          :disable="graphControlsDisabled || state.zoomLevel >= 5"
         >
           <q-tooltip>{{ $t('graphUi.tooltipZoomIn') }}</q-tooltip>
         </q-btn>
@@ -25,7 +25,7 @@
           icon="remove"
           color="grey-8"
           @click="methods.zoomOut"
-          :disable="state.zoomLevel <= 0.1"
+          :disable="graphControlsDisabled || state.zoomLevel <= 0.1"
         >
           <q-tooltip>{{ $t('graphUi.tooltipZoomOut') }}</q-tooltip>
         </q-btn>
@@ -36,6 +36,7 @@
           dense
           icon="restart_alt"
           color="grey-8"
+          :disable="graphControlsDisabled"
           @click="methods.resetView"
         >
           <q-tooltip>{{ $t('graphUi.tooltipResetView') }}</q-tooltip>
@@ -245,6 +246,7 @@ import {
 } from '@services/observations/protocol-graph-preferences.utils';
 import StudentWatermark from '@components/student-watermark/Index.vue';
 import { payloadFromImageDataUrl } from 'src/utils/image-data-url';
+import { mergeMetaIfSameObservation } from 'src/utils/observation-meta-update';
 
 /**
  * Composant principal du graphique d'activité.
@@ -350,28 +352,31 @@ export default defineComponent({
 
     const methods = {
       zoomIn: () => {
-        if (graph.sharedState.pixiApp) {
-          graph.sharedState.pixiApp.zoomIn();
-          // Mettre à jour le zoom level immédiatement après l'action
-          state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
+        if (!graph.sharedState.ready || !graph.sharedState.pixiApp) {
+          return;
         }
+        graph.sharedState.pixiApp.zoomIn();
+        // Mettre à jour le zoom level immédiatement après l'action
+        state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
       },
       zoomOut: () => {
-        if (graph.sharedState.pixiApp) {
-          graph.sharedState.pixiApp.zoomOut();
-          // Mettre à jour le zoom level immédiatement après l'action
-          state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
+        if (!graph.sharedState.ready || !graph.sharedState.pixiApp) {
+          return;
         }
+        graph.sharedState.pixiApp.zoomOut();
+        // Mettre à jour le zoom level immédiatement après l'action
+        state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
       },
       resetView: async () => {
+        if (!graph.sharedState.ready || !graph.sharedState.pixiApp) {
+          return;
+        }
         axisStretch.x = 1;
         axisStretch.y = 1;
         graph.setAxisStretch({ x: 1, y: 1 }, { redraw: false });
-        if (graph.sharedState.pixiApp) {
-          graph.clearScheduledRedraw();
-          await graph.sharedState.pixiApp.resetView();
-          state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
-        }
+        graph.clearScheduledRedraw();
+        await graph.sharedState.pixiApp.resetView();
+        state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         void methods.persistAxisStretch({ x: 1, y: 1 });
       },
       setTimeDisplayFormat: (format: TimeDisplayFormatEnum) => {
@@ -396,11 +401,13 @@ export default defineComponent({
           const updated = await observationService.update(current.id, {
             meta: { timeDisplayFormat: format },
           });
-          if (updated?.meta) {
-            observation.sharedState.currentObservation = {
-              ...observation.sharedState.currentObservation,
-              meta: updated.meta,
-            } as typeof observation.sharedState.currentObservation;
+          const next = mergeMetaIfSameObservation(
+            observation.sharedState.currentObservation,
+            current.id,
+            updated?.meta,
+          );
+          if (next) {
+            observation.sharedState.currentObservation = next as typeof observation.sharedState.currentObservation;
           }
         } catch (error) {
           console.error('Failed to persist timeDisplayFormat to observation meta:', error);
@@ -438,11 +445,13 @@ export default defineComponent({
           const updated = await observationService.update(current.id, {
             meta: { graphXStretch: next.x, graphYCompact: next.y },
           });
-          if (updated?.meta) {
-            observation.sharedState.currentObservation = {
-              ...observation.sharedState.currentObservation,
-              meta: updated.meta,
-            } as typeof observation.sharedState.currentObservation;
+          const merged = mergeMetaIfSameObservation(
+            observation.sharedState.currentObservation,
+            current.id,
+            updated?.meta,
+          );
+          if (merged) {
+            observation.sharedState.currentObservation = merged as typeof observation.sharedState.currentObservation;
           }
         } catch (error) {
           console.error('Failed to persist axis stretch to observation meta:', error);
@@ -800,6 +809,10 @@ export default defineComponent({
       { immediate: true }
     );
 
+    const graphControlsDisabled = computed(
+      () => !graph.sharedState.ready || graph.sharedState.loading,
+    );
+
     // Computed property pour déterminer si le séparateur avant le reset est nécessaire
     const showSeparatorBeforeReset = computed(() => {
       // Le séparateur est nécessaire seulement s'il y a des boutons de zoom avant le reset
@@ -830,6 +843,7 @@ export default defineComponent({
       methods,
       customization,
       props,
+      graphControlsDisabled,
       showSeparatorBeforeReset,
       hasReadingsAfterLastStop,
       hasCategoryDrawErrors,

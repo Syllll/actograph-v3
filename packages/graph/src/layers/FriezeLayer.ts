@@ -38,8 +38,9 @@ export class FriezeLayer extends BaseLayer {
       return;
     }
 
-    this.doubleBuffer.clearPaintBuffer();
-    this.graphicsStore.beginFullPaint(this.doubleBuffer.paintBuffer);
+    this.graphicsStore.beginPaintCycle(this.doubleBuffer.paintBuffer, () =>
+      this.doubleBuffer.clearPaintBuffer(),
+    );
 
     for (const categoryEntry of ctx.readingsPerCategory) {
       if (ctx.getEffectiveDisplayMode(categoryEntry.category) !== DisplayModeEnum.Frieze) {
@@ -63,7 +64,7 @@ export class FriezeLayer extends BaseLayer {
 
   commit(): void {
     this.doubleBuffer.swap();
-    this.graphicsStore.destroyRetired();
+    this.graphicsStore.finalizeCommit();
     this.doubleBuffer.clearBack();
     this.graphicsStore.setContainer(this.doubleBuffer.paintBuffer);
   }

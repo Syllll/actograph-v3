@@ -25,6 +25,7 @@ export class RenderScheduler {
         });
         this.scheduleFrame();
     }
+    /** Resolves when the queue is idle, including frames requested during the current run. */
     flush() {
         if (!this.pending && !this.running && this.queue.length === 0) {
             return Promise.resolve();
@@ -87,11 +88,13 @@ export class RenderScheduler {
         }
         finally {
             this.running = false;
-            this.resolveFlushWaiters();
             const shouldReschedule = this.needsReschedule || this.queue.length > 0;
             this.needsReschedule = false;
             if (shouldReschedule) {
                 this.scheduleFrame();
+            }
+            else {
+                this.resolveFlushWaiters();
             }
         }
     }

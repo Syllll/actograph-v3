@@ -27,9 +27,16 @@ jest.mock('pixi.js', () => {
       return child;
     }
     destroy() {
+      this.destroyed = true;
       destroyedGraphics.push(this);
     }
-    clear = jest.fn().mockReturnThis();
+    destroyed = false;
+    clear() {
+      if (this.destroyed) {
+        throw new TypeError("Cannot read properties of null (reading 'clear')");
+      }
+      return this;
+    }
     rect = jest.fn().mockReturnThis();
     fill = jest.fn().mockReturnThis();
     ellipse = jest.fn().mockReturnThis();
@@ -137,5 +144,49 @@ describe('CategoryGraphicsStore', () => {
 
     expect(destroyedGraphics).toContain(graphic);
     expect(displayContainer.children).not.toContain(graphic);
+  });
+
+  it('discards uncommitted paint so a retry does not clear() destroyed graphics', () => {
+    const app = createMockApp();
+    const displayContainer = new Container();
+    const paintContainer = new Container();
+    const store = new CategoryGraphicsStore(app, displayContainer, null);
+    const category = makeCategory('a');
+
+    const displayGraphic = store.getOrCreateGraphic(category);
+    store.beginFullPaint(paintContainer);
+    const uncommittedGraphic = store.getOrCreateGraphic(category);
+
+    for (const child of [...paintContainer.children]) {
+      paintContainer.removeChild(child);
+      (child as { destroy: (options?: unknown) => void }).destroy({ children: true });
+    }
+    expect((uncommittedGraphic as { destroyed?: boolean }).destroyed).toBe(true);
+
+    expect(() => {
+      store.beginPaintCycle(paintContainer, () => {
+        for (const child of [...paintContainer.children]) {
+          paintContainer.removeChild(child);
+          (child as { destroy: (options?: unknown) => void }).destroy({ children: true });
+        }
+      });
+      store.getOrCreateGraphic(category);
+      store.finalizeCommit();
+    }).not.toThrow();
+
+    expect(destroyedGraphics).toContain(displayGraphic);
+    expect(store.findGraphic('a')).not.toBeNull();
+  });
+
+  it('discardUncommittedPaint does not destroy committed display graphics', () => {
+    const app = createMockApp();
+    const container = new Container();
+    const store = new CategoryGraphicsStore(app, container, null);
+    const graphic = store.getOrCreateGraphic(makeCategory('a'));
+
+    store.discardUncommittedPaint();
+
+    expect(destroyedGraphics).not.toContain(graphic);
+    expect(store.findGraphic('a')).toBe(graphic);
   });
 });

@@ -200,6 +200,35 @@ describe('RenderScheduler', () => {
     expect(maxConcurrent).toBe(1);
   });
 
+  it('does not resolve flush until follow-up frames queued during the current run complete', async () => {
+    const scheduler = new RenderScheduler();
+    const runs: number[] = [];
+
+    scheduler.request(async () => {
+      runs.push(1);
+      await Promise.resolve();
+      scheduler.request(() => {
+        runs.push(2);
+      });
+    });
+
+    let flushed = false;
+    const flushPromise = scheduler.flush().then(() => {
+      flushed = true;
+    });
+
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(runs).toEqual([1]);
+    expect(flushed).toBe(false);
+
+    await jest.runAllTimersAsync();
+    await flushPromise;
+
+    expect(runs).toEqual([1, 2]);
+    expect(flushed).toBe(true);
+  });
+
   it('uses requestAnimationFrame when available', async () => {
     const raf = jest.fn((cb: FrameRequestCallback) => {
       cb(0);

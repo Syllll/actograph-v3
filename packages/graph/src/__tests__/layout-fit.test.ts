@@ -222,6 +222,7 @@ describe('PixiApp layout fit pending', () => {
     const dataAreaSetAxisStretch = jest.fn();
 
     patchPixiApp(pixiApp, {
+      isInitialized: true,
       isInteractive: true,
       layoutFitPending: true,
       axisStretch: { x: 2, y: 0.5, minStretch: 0.25, maxStretch: 4 },

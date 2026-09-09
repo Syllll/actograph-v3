@@ -71,9 +71,10 @@ export function getContinuousSegmentStartIndices(readings) {
  * STOP). Pauses are ignored and do not break pairing. Used for background and
  * frieze rendering.
  *
- * The last DATA of a segment is also paired with the segment's closing STOP
- * (session end or pause), so the final state is drawn through to that
- * boundary instead of disappearing.
+ * The last DATA of a segment is also paired with the first STOP after it
+ * (the stop that actually ends the activity). Later consecutive STOPs from
+ * other sessions are ignored, matching shouldSkipConsecutiveStop on the
+ * normal trace.
  */
 export function iterContinuousDataPairs(readings) {
     const starts = getContinuousSegmentStartIndices(readings);
@@ -87,11 +88,20 @@ export function iterContinuousDataPairs(readings) {
             pairs.push({ from: dataInSegment[i], to: dataInSegment[i + 1] });
         }
         const lastData = dataInSegment[dataInSegment.length - 1];
-        const boundary = [...segmentReadings]
-            .reverse()
-            .find((reading) => reading.type === ReadingTypeEnum.STOP);
-        if (lastData && boundary) {
-            pairs.push({ from: lastData, to: boundary });
+        if (lastData) {
+            let lastDataIndex = -1;
+            for (let i = segmentReadings.length - 1; i >= 0; i--) {
+                if (segmentReadings[i]?.type === ReadingTypeEnum.DATA) {
+                    lastDataIndex = i;
+                    break;
+                }
+            }
+            const boundary = segmentReadings
+                .slice(lastDataIndex + 1)
+                .find((reading) => reading.type === ReadingTypeEnum.STOP);
+            if (boundary) {
+                pairs.push({ from: lastData, to: boundary });
+            }
         }
     }
     return pairs;

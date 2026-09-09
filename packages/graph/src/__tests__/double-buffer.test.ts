@@ -2,24 +2,38 @@ jest.mock('pixi.js', () => {
   class MockDisplayObject {
     eventMode = 'auto';
     visible = true;
+    destroyed = false;
+    parent: MockDisplayObject | null = null;
     children: unknown[] = [];
     addChild(child: MockDisplayObject) {
+      child.parent = this;
       this.children.push(child);
       return child;
     }
-    addChildAt(child: unknown, index: number) {
+    addChildAt(child: MockDisplayObject, index: number) {
+      child.parent = this;
       this.children.splice(index, 0, child);
       return child;
     }
-    removeChild(child: unknown) {
+    removeChild(child: MockDisplayObject) {
       const idx = this.children.indexOf(child);
       if (idx >= 0) {
         this.children.splice(idx, 1);
       }
+      if (child.parent === this) {
+        child.parent = null;
+      }
       return child;
     }
-    destroy() {}
-    clear = jest.fn().mockReturnThis();
+    destroy() {
+      this.destroyed = true;
+    }
+    clear() {
+      if (this.destroyed) {
+        throw new TypeError("Cannot read properties of null (reading 'clear')");
+      }
+      return this;
+    }
     rect = jest.fn().mockReturnThis();
     fill = jest.fn().mockReturnThis();
     ellipse = jest.fn().mockReturnThis();
@@ -142,5 +156,32 @@ describe('SeriesLayer double buffer', () => {
       (child) => (child as { visible: boolean }).visible !== false,
     ) as { children: unknown[] };
     expect(displayAfter.children.length).toBe(childCountBefore);
+  });
+
+  it('retries prepare after an uncommitted paint without clear() on destroyed graphics', () => {
+    const app = {} as Application;
+    const layer = new SeriesLayer(app, {
+      createTilingSprite: jest.fn(),
+      release: jest.fn(),
+    } as never);
+
+    const ctx = createMockGraphContext({
+      readingsPerCategory: [{ category, readings: [] }],
+      getEffectiveDisplayMode: () => DisplayModeEnum.Normal,
+    });
+
+    layer.prepare(ctx);
+    layer.commit();
+
+    const interruptedCtx = createMockGraphContext({
+      readingsPerCategory: [{ category, readings: [] }],
+      getEffectiveDisplayMode: () => DisplayModeEnum.Normal,
+    });
+    layer.prepare(interruptedCtx);
+
+    expect(() => {
+      layer.prepare(ctx);
+      layer.commit();
+    }).not.toThrow();
   });
 });

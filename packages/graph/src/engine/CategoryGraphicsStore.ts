@@ -5,6 +5,7 @@ import { createTilingPatternSprite } from '../lib/pattern-textures';
 import type { PatternTextureStore } from '../gpu/PatternTextureStore';
 import type { ProtocolItem } from '../utils/protocol.utils';
 import { pruneStaleCategoryEntries } from '../utils/category-graphics.utils';
+import { isPixiDestroyed } from '../utils/display-object.utils';
 
 export interface TilingSpriteRecord {
   sprite: TilingSprite;
@@ -26,6 +27,8 @@ export class CategoryGraphicsStore {
     category: ProtocolItem;
     sprites: TilingSpriteRecord[];
   }[] = [];
+  /** True after beginFullPaint until finalizeCommit or discardUncommittedPaint. */
+  private paintUncommitted = false;
 
   constructor(
     private readonly app: Application,
@@ -37,6 +40,18 @@ export class CategoryGraphicsStore {
     this.container = container;
   }
 
+  /**
+   * Discard any uncommitted back-buffer paint, then clear the paint container
+   * and retire the current display objects. Call this at the start of prepare
+   * so a previous prepare that never committed cannot leave destroyed objects
+   * in the registry.
+   */
+  beginPaintCycle(paintBuffer: Container, clearPaintBuffer: () => void): void {
+    this.discardUncommittedPaint();
+    clearPaintBuffer();
+    this.beginFullPaint(paintBuffer);
+  }
+
   /** Paint into a back buffer; previous display objects stay alive until destroyRetired. */
   beginFullPaint(container: Container): void {
     this.retiredGraphics.push(...this.graphicPerCategory);
@@ -44,25 +59,42 @@ export class CategoryGraphicsStore {
     this.retiredSprites.push(...this.tilingSpritesPerCategory);
     this.tilingSpritesPerCategory = [];
     this.container = container;
+    this.paintUncommitted = true;
+  }
+
+  /**
+   * Destroy graphics from a prepare that never reached commit, and drop them
+   * from the active registry before the paint buffer is cleared.
+   */
+  discardUncommittedPaint(): void {
+    if (!this.paintUncommitted) {
+      return;
+    }
+    this.destroyActivePaintObjects();
+    this.paintUncommitted = false;
   }
 
   /** Destroy display objects retired during the last beginFullPaint (after buffer swap). */
   destroyRetired(): void {
-    for (const graphicEntry of this.retiredGraphics) {
-      graphicEntry.graphic.clear();
-      if (graphicEntry.graphic.parent) {
-        graphicEntry.graphic.parent.removeChild(graphicEntry.graphic);
-      }
-      graphicEntry.graphic.destroy();
-    }
+    const graphics = this.retiredGraphics;
     this.retiredGraphics = [];
+    for (const graphicEntry of graphics) {
+      this.destroyGraphicSafe(graphicEntry.graphic);
+    }
 
-    for (const spriteEntry of this.retiredSprites) {
+    const sprites = this.retiredSprites;
+    this.retiredSprites = [];
+    for (const spriteEntry of sprites) {
       for (const spriteRecord of spriteEntry.sprites) {
         this.destroyTilingSpriteRecord(spriteRecord);
       }
     }
-    this.retiredSprites = [];
+  }
+
+  /** After buffer swap: drop retired display objects and mark the new paint as committed. */
+  finalizeCommit(): void {
+    this.destroyRetired();
+    this.paintUncommitted = false;
   }
 
   getOrCreateGraphic(category: ProtocolItem): BaseGraphic {
@@ -83,7 +115,9 @@ export class CategoryGraphicsStore {
 
   clearCategoryGraphic(categoryId: string): void {
     const graphicEntry = this.graphicPerCategory.find((g) => g.category.id === categoryId);
-    graphicEntry?.graphic.clear();
+    if (graphicEntry && !isPixiDestroyed(graphicEntry.graphic)) {
+      graphicEntry.graphic.clear();
+    }
     this.clearTilingSpritesForCategoryId(categoryId);
   }
 
@@ -142,11 +176,45 @@ export class CategoryGraphicsStore {
   }
 
   private destroyTilingSpriteRecord(spriteRecord: TilingSpriteRecord): void {
-    if (spriteRecord.sprite.parent) {
-      spriteRecord.sprite.parent.removeChild(spriteRecord.sprite);
+    const sprite = spriteRecord.sprite;
+    if (!isPixiDestroyed(sprite)) {
+      if (sprite.parent) {
+        sprite.parent.removeChild(sprite);
+      }
+      if (!isPixiDestroyed(sprite)) {
+        sprite.destroy({ children: true });
+      }
     }
-    spriteRecord.sprite.destroy();
     this.patternStore?.release(spriteRecord.pattern, spriteRecord.color);
+  }
+
+  private destroyGraphicSafe(graphic: BaseGraphic): void {
+    if (isPixiDestroyed(graphic)) {
+      return;
+    }
+    graphic.clear();
+    if (graphic.parent) {
+      graphic.parent.removeChild(graphic);
+    }
+    if (!isPixiDestroyed(graphic)) {
+      graphic.destroy({ children: true });
+    }
+  }
+
+  private destroyActivePaintObjects(): void {
+    const graphics = this.graphicPerCategory;
+    this.graphicPerCategory = [];
+    for (const graphicEntry of graphics) {
+      this.destroyGraphicSafe(graphicEntry.graphic);
+    }
+
+    const sprites = this.tilingSpritesPerCategory;
+    this.tilingSpritesPerCategory = [];
+    for (const spriteEntry of sprites) {
+      for (const spriteRecord of spriteEntry.sprites) {
+        this.destroyTilingSpriteRecord(spriteRecord);
+      }
+    }
   }
 
   pruneStaleCategoryGraphics(activeCategoryIds: Set<string>): void {
@@ -155,9 +223,7 @@ export class CategoryGraphicsStore {
       activeCategoryIds,
     );
     for (const entry of orphanGraphics) {
-      entry.graphic.clear();
-      this.container.removeChild(entry.graphic);
-      entry.graphic.destroy();
+      this.destroyGraphicSafe(entry.graphic);
     }
     this.graphicPerCategory = this.graphicPerCategory.filter((entry) =>
       activeCategoryIds.has(entry.category.id),
@@ -195,15 +261,8 @@ export class CategoryGraphicsStore {
   }
 
   private destroyAllTracked(): void {
-    for (const graphicEntry of this.graphicPerCategory) {
-      graphicEntry.graphic.clear();
-      if (graphicEntry.graphic.parent) {
-        graphicEntry.graphic.parent.removeChild(graphicEntry.graphic);
-      }
-      graphicEntry.graphic.destroy();
-    }
-    this.graphicPerCategory = [];
-    this.clearAllPatternSprites();
+    this.destroyActivePaintObjects();
+    this.paintUncommitted = false;
     this.destroyRetired();
   }
 }

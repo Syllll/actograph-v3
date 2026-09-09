@@ -229,6 +229,53 @@ describe('continuous-segments.utils', () => {
       expect(pairs).toHaveLength(1);
       expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:15:00Z'));
     });
+
+    it('extends to the first STOP after last DATA across a pause interval', () => {
+      const readings = [
+        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:00:00Z') }),
+        mk({ type: ReadingTypeEnum.PAUSE_START, dateTime: new Date('2024-01-01T10:05:00Z') }),
+        mk({ type: ReadingTypeEnum.PAUSE_END, dateTime: new Date('2024-01-01T10:08:00Z') }),
+        mk({ type: ReadingTypeEnum.STOP, dateTime: new Date('2024-01-01T10:10:00Z') }),
+      ];
+
+      const pairs = iterContinuousDataPairs(readings);
+
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0]?.from.dateTime).toEqual(new Date('2024-01-01T10:00:00Z'));
+      expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:10:00Z'));
+    });
+
+    it('extends to the first closing STOP, not a later consecutive STOP', () => {
+      const readings = [
+        mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:00:00Z') }),
+        mk({ type: ReadingTypeEnum.STOP, dateTime: new Date('2024-01-01T10:10:00Z') }),
+        mk({ type: ReadingTypeEnum.STOP, dateTime: new Date('2024-01-01T10:30:00Z') }),
+      ];
+
+      const pairs = iterContinuousDataPairs(readings);
+
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0]?.from.dateTime).toEqual(new Date('2024-01-01T10:00:00Z'));
+      expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:10:00Z'));
+    });
+
+    it('uses the first STOP after last DATA when a later session has no category data', () => {
+      const data = mk({ type: ReadingTypeEnum.DATA, dateTime: new Date('2024-01-01T10:00:00Z') });
+      const stopSession1 = mk({
+        type: ReadingTypeEnum.STOP,
+        dateTime: new Date('2024-01-01T10:10:00Z'),
+      });
+      const stopSession2 = mk({
+        type: ReadingTypeEnum.STOP,
+        dateTime: new Date('2024-01-01T10:30:00Z'),
+      });
+      const merged = mergeContinuousCategoryReadings([data], [stopSession1, stopSession2]);
+
+      const pairs = iterContinuousDataPairs(merged);
+
+      expect(pairs).toHaveLength(1);
+      expect(pairs[0]?.to.dateTime).toEqual(new Date('2024-01-01T10:10:00Z'));
+    });
   });
 
   describe('setData pipeline simulation', () => {

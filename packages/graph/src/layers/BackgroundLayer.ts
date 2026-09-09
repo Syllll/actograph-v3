@@ -40,8 +40,9 @@ export class BackgroundLayer extends BaseLayer {
       return;
     }
 
-    this.doubleBuffer.clearPaintBuffer();
-    this.graphicsStore.beginFullPaint(this.doubleBuffer.paintBuffer);
+    this.graphicsStore.beginPaintCycle(this.doubleBuffer.paintBuffer, () =>
+      this.doubleBuffer.clearPaintBuffer(),
+    );
 
     const { bottomLeft, topRight } = bounds;
     const fullZoneTopY = topRight.y;
@@ -69,7 +70,7 @@ export class BackgroundLayer extends BaseLayer {
 
   commit(): void {
     this.doubleBuffer.swap();
-    this.graphicsStore.destroyRetired();
+    this.graphicsStore.finalizeCommit();
     this.doubleBuffer.clearBack();
     this.graphicsStore.setContainer(this.doubleBuffer.paintBuffer);
   }

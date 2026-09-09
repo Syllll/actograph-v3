@@ -22,9 +22,10 @@ export declare function getContinuousSegmentStartIndices(readings: readonly IRea
  * STOP). Pauses are ignored and do not break pairing. Used for background and
  * frieze rendering.
  *
- * The last DATA of a segment is also paired with the segment's closing STOP
- * (session end or pause), so the final state is drawn through to that
- * boundary instead of disappearing.
+ * The last DATA of a segment is also paired with the first STOP after it
+ * (the stop that actually ends the activity). Later consecutive STOPs from
+ * other sessions are ignored, matching shouldSkipConsecutiveStop on the
+ * normal trace.
  */
 export declare function iterContinuousDataPairs(readings: readonly IReading[]): Array<{
     from: IReading;
