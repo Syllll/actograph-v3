@@ -20,11 +20,12 @@ export declare class xAxis extends BaseGroup {
     /** Total duration in ms for adaptive label formatting (Bug 3.9) */
     private totalDurationMs;
     private graphRenderOptions;
+    private axisStretch;
     private styleOptions;
     private ticks;
     private axisStart;
     private axisEnd;
-    setAxisStretch(_stretch: {
+    setAxisStretch(stretch: {
         x: number;
         y: number;
     }): void;

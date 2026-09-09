@@ -1,11 +1,12 @@
 import { InternalServerErrorException } from '@nestjs/common';
-import { LicenseResponse, SecurityService } from './index.service';
+import { SecurityService } from './index.service';
 import { getConfigPath } from 'config/path';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getMode } from 'config/mode';
 import * as os from 'os';
 import { LicenseService } from '../license/license.service';
+import { isLicenseServerUnreachable } from '../license-server-error';
 import {
   DateModeEnum,
   License,
@@ -104,21 +105,28 @@ export class Electron {
       );
     }
 
-    try {
-      // Try to fetch a reliable external resource
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    const apiBase = (process.env.ACTOGRAPH_API || '').replace(/\/$/, '');
+    if (!apiBase) {
+      return false;
+    }
 
-      const response = await fetch('https://www.google.com', {
-        method: 'HEAD',
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    try {
+      // Probe the licence host, not a third-party site (Google can be blocked
+      // while ActoGraph is reachable, and the reverse is also common).
+      // Any HTTP response means the host is reachable — 401/404 still count as online.
+      // GET rather than HEAD: some licence hosts reject HEAD and would look
+      // offline even though POST /license works. Abort at 5s limits the cost.
+      await fetch(apiBase, {
+        method: 'GET',
         signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
-      return response.ok;
-    } catch (error) {
-      // If fetch fails, we assume there's no internet connection
+      return true;
+    } catch {
       return false;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -155,28 +163,11 @@ export class Electron {
     }
 
     const hasInternetConnection = await this.checkInternetConnection();
-    // If we don't have an internet connection, we can't check the license
     if (!hasInternetConnection) {
-      const license = await this._licenseService.findEnabledLicenseByUserId(
-        options.userId,
-      );
-      if (!license) {
-        throw new InternalServerErrorException(
-          'No internet connection and no license found on your computer.',
-        );
-      }
-
-      const r = license.isValid();
-      if (!r.valid) {
-        throw new InternalServerErrorException(
-          `No internet connection and the license on your computed is invalid: ${r.message}`,
-        );
-      }
-
-      return license;
+      return this.loadStoredLicenseOrThrow(options.userId);
     }
-    // If we have an internet connection, we can check the license
-    else {
+
+    try {
       const key = licenseFileData.key;
       const responseData =
         await this._securityService.checkKeyOnActoGraphWebsiteServer(key);
@@ -202,7 +193,32 @@ export class Electron {
       }
 
       return license;
+    } catch (error: unknown) {
+      if (isLicenseServerUnreachable(error)) {
+        return this.loadStoredLicenseOrThrow(options.userId);
+      }
+      throw error;
     }
+  }
+
+  private async loadStoredLicenseOrThrow(userId: number): Promise<License> {
+    const license = await this._licenseService.findEnabledLicenseByUserId(
+      userId,
+    );
+    if (!license) {
+      throw new InternalServerErrorException(
+        'No internet connection and no license found on your computer.',
+      );
+    }
+
+    const r = license.isValid();
+    if (!r.valid) {
+      throw new InternalServerErrorException(
+        `No internet connection and the license on your computer is invalid: ${r.message}`,
+      );
+    }
+
+    return license;
   }
 
   public async activateLicense(key: string): Promise<boolean> {

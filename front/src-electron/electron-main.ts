@@ -46,6 +46,13 @@ let isRestartingBackend = false;
 let intentionalBackendKill = false;
 let isAppQuitting = false;
 let backendEnsurePromise: Promise<boolean> | null = null;
+let recreatingMainWindow = false;
+let lastServerStatus: {
+  status: string;
+  message: string;
+  progress?: number;
+  serverPort?: number;
+} | null = null;
 const BACKEND_HEALTH_TIMEOUT_MS = 10_000;
 const BACKEND_STARTUP_TIMEOUT_MS = 60_000;
 const publicFolder = path.resolve(
@@ -364,13 +371,19 @@ function createBackgroundProcess(port: number): Promise<void> {
   });
 }
 
-function notifyBackendStatus(status: string, message: string) {
+function notifyBackendStatus(
+  status: string,
+  message: string,
+  extra?: { progress?: number }
+) {
+  lastServerStatus = {
+    status,
+    message,
+    serverPort,
+    ...extra,
+  };
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('server-status', {
-      status,
-      message,
-      serverPort,
-    });
+    mainWindow.webContents.send('server-status', lastServerStatus);
   }
 }
 
@@ -512,12 +525,7 @@ app.whenReady().then(async () => {
   if (process.env.PROD) {
     // Notify renderer that we're starting the server
     // Note: With the bundled API, no extraction is needed anymore - instant startup!
-    if (mainWindow) {
-      mainWindow.webContents.send('server-status', {
-        status: 'starting-server',
-        message: 'Démarrage du serveur...',
-      });
-    }
+    notifyBackendStatus('starting-server', 'Démarrage du serveur...');
 
     // We try to start the backend several times, in case it does not work (windows...)
     let backendStarted = false;
@@ -543,13 +551,12 @@ app.whenReady().then(async () => {
       }
     }
 
-    // Notify renderer that app is ready
-    if (mainWindow) {
-      mainWindow.webContents.send('server-status', {
-        status: 'ready',
-        message: 'Application prête !',
-        serverPort: serverPort,
-      });
+    // Notify renderer that app is ready — only if the backend actually started.
+    if (backendStarted) {
+      notifyBackendStatus('ready', 'Application prête !');
+    } else {
+      log.error('Backend failed to start after 3 attempts');
+      notifyBackendStatus('error', 'Impossible de démarrer le serveur local.');
     }
 
     setupPowerMonitor();
@@ -563,9 +570,30 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (mainWindow === undefined) {
-    createWindow();
+  if (mainWindow !== undefined || recreatingMainWindow) {
+    return;
   }
+  recreatingMainWindow = true;
+  void (async () => {
+    try {
+      let backendOk = true;
+      if (process.env.PROD) {
+        backendOk = await ensureBackendRunning();
+      }
+      if (mainWindow === undefined) {
+        await createWindow();
+      }
+      if (process.env.PROD) {
+        if (backendOk) {
+          notifyBackendStatus('ready', 'Application prête !');
+        } else {
+          notifyBackendStatus('error', 'Impossible de démarrer le serveur local.');
+        }
+      }
+    } finally {
+      recreatingMainWindow = false;
+    }
+  })();
 });
 
 app.on('before-quit', () => {
@@ -599,6 +627,10 @@ process.on('uncaughtException', (error) => {
 ipcMain.handle('ensure-backend', async () => {
   const ok = await ensureBackendRunning();
   return { ok };
+});
+
+ipcMain.handle('get-server-status', async () => {
+  return lastServerStatus;
 });
 
 ipcMain.handle('exit', (event, arg) => {
@@ -876,9 +908,13 @@ ipcMain.handle('show-save-dialog', async (event, options: {
   return result;
 });
 
-ipcMain.handle('write-file', async (event, filePath: string, data: string) => {
+ipcMain.handle('write-file', async (event, filePath: string, data: string, options?: { encoding?: 'utf8' | 'base64' }) => {
   try {
-    fs.writeFileSync(filePath, data, 'utf8');
+    if (options?.encoding === 'base64') {
+      fs.writeFileSync(filePath, Buffer.from(data, 'base64'));
+    } else {
+      fs.writeFileSync(filePath, data, 'utf8');
+    }
     return { success: true };
   } catch (error) {
     log.error('Error writing file:', error);

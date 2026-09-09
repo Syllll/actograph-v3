@@ -491,6 +491,13 @@ export default defineComponent({
           return;
         }
         if (!computedState.canRecordReading.value) {
+          if (!computedState.isRecordingStarted.value) {
+            $q.notify({
+              type: 'warning',
+              message: t('observation.startBeforeRecording'),
+              timeout: 2500,
+            });
+          }
           return;
         }
 

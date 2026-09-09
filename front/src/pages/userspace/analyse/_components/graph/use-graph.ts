@@ -203,7 +203,10 @@ export const useGraph = (options?: {
    * zoom uniforme existant. La persistance par chronique
    * (observation.meta.graphXStretch/graphYCompact) est gérée par graph/Index.vue.
    */
-  const setAxisStretch = (next: { x?: number; y?: number }): void => {
+  const setAxisStretch = (
+    next: { x?: number; y?: number },
+    options?: { redraw?: boolean },
+  ): void => {
     const resolved = {
       x: next.x ?? sharedState.axisStretch.x,
       y: next.y ?? sharedState.axisStretch.y,
@@ -214,7 +217,9 @@ export const useGraph = (options?: {
     if (unchanged) return;
     if (observation.sharedState.loading) return;
     if (sharedState.ready && sharedState.pixiApp) {
-      void sharedState.pixiApp.setAxisStretch(next);
+      void sharedState.pixiApp.setAxisStretch(next, {
+        redraw: options?.redraw !== false,
+      });
     }
   };
 

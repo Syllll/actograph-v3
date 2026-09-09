@@ -214,18 +214,34 @@ describe('PixiApp layout fit pending', () => {
     resizeFromCanvas.mockRestore();
   });
 
-  it('resetView clears layoutFitPending after draw', async () => {
+  it('resetView restores default axis stretch, requests a fit, then clears layoutFitPending', async () => {
     const pixiApp = new PixiApp();
     const draw = jest.fn().mockResolvedValue(undefined);
+    const yAxisSetAxisStretch = jest.fn();
+    const xAxisSetAxisStretch = jest.fn();
+    const dataAreaSetAxisStretch = jest.fn();
 
     patchPixiApp(pixiApp, {
       isInteractive: true,
       layoutFitPending: true,
+      axisStretch: { x: 2, y: 0.5, minStretch: 0.25, maxStretch: 4 },
+      yAxis: { setAxisStretch: yAxisSetAxisStretch },
+      xAxis: { setAxisStretch: xAxisSetAxisStretch },
+      dataArea: { setAxisStretch: dataAreaSetAxisStretch },
       draw,
     });
 
     await pixiApp.resetView();
 
+    expect(
+      (pixiApp as unknown as { axisStretch: { x: number; y: number } }).axisStretch,
+    ).toEqual(expect.objectContaining({ x: 1, y: 1 }));
+    expect(yAxisSetAxisStretch).toHaveBeenCalledWith({ x: 1, y: 1 });
+    expect(xAxisSetAxisStretch).toHaveBeenCalledWith({ x: 1, y: 1 });
+    expect(dataAreaSetAxisStretch).toHaveBeenCalledWith({ x: 1, y: 1 });
+    expect(
+      (pixiApp as unknown as { needsInitialFit: boolean }).needsInitialFit,
+    ).toBe(true);
     expect(draw).toHaveBeenCalledTimes(1);
     expect(
       (pixiApp as unknown as { layoutFitPending: boolean }).layoutFitPending,

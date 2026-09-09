@@ -244,6 +244,7 @@ import {
   resolveGraphColor,
 } from '@services/observations/protocol-graph-preferences.utils';
 import StudentWatermark from '@components/student-watermark/Index.vue';
+import { payloadFromImageDataUrl } from 'src/utils/image-data-url';
 
 /**
  * Composant principal du graphique d'activité.
@@ -363,11 +364,15 @@ export default defineComponent({
         }
       },
       resetView: async () => {
+        axisStretch.x = 1;
+        axisStretch.y = 1;
+        graph.setAxisStretch({ x: 1, y: 1 }, { redraw: false });
         if (graph.sharedState.pixiApp) {
           graph.clearScheduledRedraw();
           await graph.sharedState.pixiApp.resetView();
           state.zoomLevel = graph.sharedState.pixiApp.getZoomLevel();
         }
+        void methods.persistAxisStretch({ x: 1, y: 1 });
       },
       setTimeDisplayFormat: (format: TimeDisplayFormatEnum) => {
         timeDisplayFormat.value = format;
@@ -624,8 +629,27 @@ export default defineComponent({
         const safeName = (observationName.replace(/[<>:"/\\|?*]/g, '-').trim() || 'graph').slice(0, 100);
         const ext = format === 'jpeg' ? 'jpg' : 'png';
         const kindSuffix = kind === 'combined' ? 'graph-legend' : kind;
+        const fileName = `${safeName}-${kindSuffix}.${ext}`;
+
+        const electronResult = await methods.saveImageViaElectron(dataUrl, fileName, format);
+        if (electronResult === 'cancelled') {
+          return;
+        }
+        if (electronResult === 'saved') {
+          const whatLabel =
+            kind === 'graph' ? t('graphUi.exportContentGraph')
+            : kind === 'legend' ? t('graphUi.exportContentLegend')
+            : t('graphUi.exportContentCombined');
+          $q.notify({
+            type: 'positive',
+            message: t('graphUi.exportedFormat', { what: whatLabel, format: format.toUpperCase() }),
+            timeout: 3000,
+          });
+          return;
+        }
+
         const link = document.createElement('a');
-        link.download = `${safeName}-${kindSuffix}.${ext}`;
+        link.download = fileName;
         link.href = dataUrl;
         document.body.appendChild(link);
         link.click();
@@ -640,6 +664,52 @@ export default defineComponent({
           message: t('graphUi.exportedFormat', { what: whatLabel, format: format.toUpperCase() }),
           timeout: 3000,
         });
+      },
+      saveImageViaElectron: async (
+        dataUrl: string,
+        fileName: string,
+        format: 'png' | 'jpeg',
+      ): Promise<'saved' | 'cancelled' | 'unavailable'> => {
+        if (!window.api?.showSaveDialog || !window.api.writeFile) {
+          return 'unavailable';
+        }
+        const base64 = payloadFromImageDataUrl(dataUrl);
+        if (!base64) {
+          return 'unavailable';
+        }
+        const ext = format === 'jpeg' ? 'jpg' : 'png';
+        try {
+          const dialogResult = await window.api.showSaveDialog({
+            defaultPath: fileName,
+            filters: [
+              { name: format.toUpperCase(), extensions: [ext] },
+              { name: t('dialogs.createObservation.allFiles'), extensions: ['*'] },
+            ],
+          });
+          if (dialogResult.canceled || !dialogResult.filePath) {
+            return 'cancelled';
+          }
+          const writeResult = await window.api.writeFile(
+            dialogResult.filePath,
+            base64,
+            { encoding: 'base64' },
+          );
+          if (!writeResult.success) {
+            $q.notify({
+              type: 'negative',
+              message: t('graphUi.exportSaveFailed'),
+            });
+            return 'cancelled';
+          }
+          return 'saved';
+        } catch (error) {
+          console.error('Graph image export failed:', error);
+          $q.notify({
+            type: 'negative',
+            message: t('graphUi.exportSaveFailed'),
+          });
+          return 'cancelled';
+        }
       },
       retryDraw: () => {
         const pixiApp = graph.sharedState.pixiApp;

@@ -19,6 +19,7 @@ import {
 } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
+import { worldTickLengthForStretch } from '../../utils/tick-stretch.utils';
 import type { IGraphRenderOptions } from '../../types/graph-render-options';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 
@@ -79,9 +80,11 @@ export class xAxis extends BaseGroup {
   private totalDurationMs = 0;
   private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
 
+  private axisStretch = { x: 1, y: 1 };
+
   private styleOptions = {
     axis: { color: 'black', width: 2 },
-    tick: { color: 'black', width: 1 },
+    tick: { color: 'black', width: 1, length: 10 },
     label: { color: 'black', fontSize: 12, fontFamily: 'Arial' },
     /** Mention de format sous la flèche de fin d'axe (ex. "(hh:mn:sec)") — voir getFormatMentionText(). */
     formatMention: { color: '#666666', fontSize: 11, fontFamily: 'Arial', fontStyle: 'italic' as const },
@@ -91,8 +94,8 @@ export class xAxis extends BaseGroup {
   private axisStart: { x: number; y: number } | null = null;
   private axisEnd: { x: number; y: number } | null = null;
 
-  public setAxisStretch(_stretch: { x: number; y: number }): void {
-    // Labels en screen-space via AxisLabelOverlay ; stretch conservé pour compat API.
+  public setAxisStretch(stretch: { x: number; y: number }): void {
+    this.axisStretch = { x: stretch.x, y: stretch.y };
   }
 
   public getAxisStart() {
@@ -491,12 +494,19 @@ export class xAxis extends BaseGroup {
 
       tick.pos = tickXpos;
 
+      // Contre-scale l'étirement vertical : une graduation X est une marque
+      // verticale en coordonnées monde, elle ne doit pas s'allonger quand
+      // l'axe Y (catégories) est étiré. Même principe que YAxis / stretch.x.
+      const tickLength = worldTickLengthForStretch(
+        this.styleOptions.tick.length,
+        this.axisStretch.y,
+      );
       safeStrokeLine(
         this.graphic,
         tickXpos,
-        xAxisStart.y - 10,
+        xAxisStart.y - tickLength,
         tickXpos,
-        xAxisStart.y + 10,
+        xAxisStart.y + tickLength,
         {
           color: this.styleOptions.tick.color,
           width: this.styleOptions.tick.width,

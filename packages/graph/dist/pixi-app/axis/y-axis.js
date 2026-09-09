@@ -3,6 +3,7 @@ import { BaseGraphic } from '../../lib/base-graphic';
 import { DisplayModeEnum, ProtocolItemActionEnum, isCategoryVisible } from '@actograph/core';
 import { parseProtocolItems } from '../../utils/protocol.utils';
 import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
+import { worldTickLengthForStretch } from '../../utils/tick-stretch.utils';
 // ============================================================================
 // Constants
 // ============================================================================
@@ -280,14 +281,14 @@ export class YAxis extends BaseGroup {
         // Contre-scale l'étirement horizontal (temps) : une graduation est une
         // marque de repère fixe, elle ne doit pas s'allonger/raccourcir quand
         // l'utilisatrice étire l'axe du temps (voir PixiApp.axisStretch).
-        const tickLength = TICK_CONFIG.TICK_LENGTH / this.axisStretch.x;
+        const tickLength = worldTickLengthForStretch(TICK_CONFIG.TICK_LENGTH, this.axisStretch.x);
         safeStrokeLine(this.graphic, axisX - tickLength, tickY, axisX + tickLength, tickY, {
             color: TICK_CONFIG.COLOR,
             width: TICK_CONFIG.TICK_WIDTH,
         });
     }
     drawFriezeTick(axisX, tickY, _label) {
-        const tickLength = TICK_CONFIG.FRIEZE_TICK_LENGTH / this.axisStretch.x;
+        const tickLength = worldTickLengthForStretch(TICK_CONFIG.FRIEZE_TICK_LENGTH, this.axisStretch.x);
         safeStrokeLine(this.graphic, axisX - tickLength, tickY, axisX + tickLength, tickY, {
             color: TICK_CONFIG.COLOR,
             width: TICK_CONFIG.TICK_WIDTH,

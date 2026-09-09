@@ -21,7 +21,8 @@ declare global {
       }) => Promise<{ canceled: boolean; filePath?: string }>;
       writeFile: (
         filePath: string,
-        data: string
+        data: string,
+        options?: { encoding?: 'utf8' | 'base64' }
       ) => Promise<{ success: boolean; error?: string }>;
       showOpenDialog: (options: {
         defaultPath?: string;
@@ -54,6 +55,12 @@ declare global {
         error?: string;
       }>;
       getActographFolder: () => Promise<string>;
+      getServerStatus: () => Promise<{
+        status: string;
+        message: string;
+        progress?: number;
+        serverPort?: number;
+      } | null>;
       getAutosaveFolder: () => Promise<string>;
       listAutosaveFiles: () => Promise<{
         success: boolean;

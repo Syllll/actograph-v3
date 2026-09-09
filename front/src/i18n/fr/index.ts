@@ -191,6 +191,8 @@ export default {
     pausedBadge: 'En pause',
     pausedOverlayTitle: 'En pause',
     pausedOverlaySubtitle: 'Relevés verrouillés jusqu\'à la reprise',
+    startBeforeRecording:
+      'Démarrez l\'observation (lecture / START) avant d\'enregistrer un relevé.',
     noProtocolLoadedTitle: 'Aucun protocole chargé',
     noProtocolLoadedHint:
       'Veuillez sélectionner une observation pour afficher son protocole.',
@@ -461,6 +463,7 @@ export default {
     noLegendToExport: 'Aucune légende disponible à exporter',
     legendImageFailed: 'Impossible de générer l\'image de légende',
     exportedFormat: 'Export {what} réussi ({format})',
+    exportSaveFailed: 'Impossible d\'enregistrer l\'image',
     protocolLoadError: 'Erreur lors du chargement du protocole',
     prefsUpdateFailed: 'Erreur lors de la mise à jour des préférences',
     patternDots: 'Pointillés',

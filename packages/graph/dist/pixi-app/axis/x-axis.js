@@ -4,6 +4,7 @@ import { getGraphDisplayTimeBounds, ObservationModeEnum, ReadingTypeEnum, TimeDi
 import { formatAxisLabel, formatChronoAxisLabel, formatCalendarFixed, formatChronometerFixed, getCalendarFixedFormatNotation, } from '../../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
+import { worldTickLengthForStretch } from '../../utils/tick-stretch.utils';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 const timeSteps = {
     '10ms': 10,
@@ -45,8 +46,8 @@ const timeSteps = {
     '20y': 24 * 60 * 60 * 365 * 20 * 1000,
 };
 export class xAxis extends BaseGroup {
-    setAxisStretch(_stretch) {
-        // Labels en screen-space via AxisLabelOverlay ; stretch conservé pour compat API.
+    setAxisStretch(stretch) {
+        this.axisStretch = { x: stretch.x, y: stretch.y };
     }
     getAxisStart() {
         return { ...this.axisStart };
@@ -66,9 +67,10 @@ export class xAxis extends BaseGroup {
         /** Total duration in ms for adaptive label formatting (Bug 3.9) */
         this.totalDurationMs = 0;
         this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
+        this.axisStretch = { x: 1, y: 1 };
         this.styleOptions = {
             axis: { color: 'black', width: 2 },
-            tick: { color: 'black', width: 1 },
+            tick: { color: 'black', width: 1, length: 10 },
             label: { color: 'black', fontSize: 12, fontFamily: 'Arial' },
             /** Mention de format sous la flèche de fin d'axe (ex. "(hh:mn:sec)") — voir getFormatMentionText(). */
             formatMention: { color: '#666666', fontSize: 11, fontFamily: 'Arial', fontStyle: 'italic' },
@@ -397,7 +399,11 @@ export class xAxis extends BaseGroup {
                 continue;
             }
             tick.pos = tickXpos;
-            safeStrokeLine(this.graphic, tickXpos, xAxisStart.y - 10, tickXpos, xAxisStart.y + 10, {
+            // Contre-scale l'étirement vertical : une graduation X est une marque
+            // verticale en coordonnées monde, elle ne doit pas s'allonger quand
+            // l'axe Y (catégories) est étiré. Même principe que YAxis / stretch.x.
+            const tickLength = worldTickLengthForStretch(this.styleOptions.tick.length, this.axisStretch.y);
+            safeStrokeLine(this.graphic, tickXpos, xAxisStart.y - tickLength, tickXpos, xAxisStart.y + tickLength, {
                 color: this.styleOptions.tick.color,
                 width: this.styleOptions.tick.width,
             });

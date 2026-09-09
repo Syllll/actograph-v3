@@ -14,6 +14,7 @@ import * as path from 'path';
 import { Electron } from './electron';
 import { LicenseService } from '../license/license.service';
 import { LicenseTypeEnum } from '@core/security/entities/license.entity';
+import { licenseServerErrorToException } from '../license-server-error';
 
 interface LicenseOwner {
   id: number;
@@ -58,17 +59,8 @@ export class SecurityService {
         key: key,
         password: process.env.ACTOGRAPH_API_PASSWORD,
       });
-    } catch (error: any) {
-      // If the server do not respond, return server not available
-      if (error.response.status === 502) {
-        throw new BadRequestException('Server not available');
-      } else if (error.response.status === 401) {
-        throw new BadRequestException('Invalid key');
-      } else if (error.response.status === 404) {
-        throw new BadRequestException('Page not accessible');
-      } else {
-        throw new BadRequestException('Unknown error when checking licence.');
-      }
+    } catch (error: unknown) {
+      throw licenseServerErrorToException(error);
     }
     const responseData = response.data;
     if (responseData.message) {

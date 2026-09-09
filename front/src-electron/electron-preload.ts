@@ -28,6 +28,7 @@ const validChannels = [
   'server-status', // For showing server startup status
   'app-resume', // System resume from sleep
   'ensure-backend', // Restart API subprocess if needed
+  'get-server-status',
   'log-renderer-error',
 ];
 
@@ -75,11 +76,11 @@ contextBridge.exposeInMainWorld('api', {
       filePath?: string;
     }>;
   },
-  writeFile: (filePath: string, data: string): Promise<{
+  writeFile: (filePath: string, data: string, options?: { encoding?: 'utf8' | 'base64' }): Promise<{
     success: boolean;
     error?: string;
   }> => {
-    return ipcRenderer.invoke('write-file', filePath, data) as Promise<{
+    return ipcRenderer.invoke('write-file', filePath, data, options) as Promise<{
       success: boolean;
       error?: string;
     }>;
@@ -152,6 +153,19 @@ contextBridge.exposeInMainWorld('api', {
   },
   getActographFolder: (): Promise<string> => {
     return ipcRenderer.invoke('get-actograph-folder') as Promise<string>;
+  },
+  getServerStatus: (): Promise<{
+    status: string;
+    message: string;
+    progress?: number;
+    serverPort?: number;
+  } | null> => {
+    return ipcRenderer.invoke('get-server-status') as Promise<{
+      status: string;
+      message: string;
+      progress?: number;
+      serverPort?: number;
+    } | null>;
   },
   getAutosaveFolder: (): Promise<string> => {
     return ipcRenderer.invoke('get-autosave-folder') as Promise<string>;

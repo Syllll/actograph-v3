@@ -188,6 +188,8 @@ export default {
     pausedBadge: 'Paused',
     pausedOverlayTitle: 'Paused',
     pausedOverlaySubtitle: 'Readings locked until resumed',
+    startBeforeRecording:
+      'Start the observation (play / START) before recording a reading.',
     noProtocolLoadedTitle: 'No protocol loaded',
     noProtocolLoadedHint:
       'Select an observation to display its protocol.',
@@ -454,6 +456,7 @@ export default {
     noLegendToExport: 'No legend available to export',
     legendImageFailed: 'Could not generate the legend image',
     exportedFormat: '{what} exported as {format}',
+    exportSaveFailed: 'Could not save the image',
     protocolLoadError: 'Error loading protocol',
     prefsUpdateFailed: 'Error updating preferences',
     patternDots: 'Dots',

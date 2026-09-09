@@ -1,0 +1,1 @@
+{"version":3,"file":"tick-stretch.utils.js","sourceRoot":"","sources":["../../src/utils/tick-stretch.utils.ts"],"names":[],"mappings":"AAAA,kFAAkF;AAClF,MAAM,UAAU,yBAAyB,CACvC,UAAkB,EAClB,OAAe;IAEf,MAAM,WAAW,GAAG,MAAM,CAAC,QAAQ,CAAC,OAAO,CAAC,IAAI,OAAO,GAAG,CAAC,CAAC,CAAC,CAAC,OAAO,CAAC,CAAC,CAAC,CAAC,CAAC;IAC1E,OAAO,UAAU,GAAG,WAAW,CAAC;AAClC,CAAC"}

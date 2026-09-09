@@ -1632,6 +1632,12 @@ export class PixiApp {
     if (!this.isInteractive) {
       return Promise.resolve();
     }
+    this.axisStretch.x = 1;
+    this.axisStretch.y = 1;
+    const stretch = { x: 1, y: 1 };
+    this.yAxis?.setAxisStretch(stretch);
+    this.xAxis?.setAxisStretch(stretch);
+    this.dataArea?.setAxisStretch(stretch);
     this.needsInitialFit = true;
     return this.draw().then(() => {
       this.layoutFitPending = false;

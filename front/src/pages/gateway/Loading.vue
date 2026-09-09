@@ -68,6 +68,44 @@ export default defineComponent({
       extractionProgress: 0,
     });
 
+    let appliedStatusFromEvent = false;
+
+    const applyServerStatus = (data: {
+      status: string;
+      message: string;
+      progress?: number;
+      serverPort?: number;
+    }) => {
+      switch (data.status) {
+        case 'extracting':
+          state.isExtracting = true;
+          state.extractionMessage = data.message;
+          if (data.progress !== undefined) {
+            state.extractionProgress = data.progress;
+          }
+          break;
+        case 'completed':
+          state.extractionMessage = data.message;
+          state.extractionProgress = 100;
+          break;
+        case 'starting-server':
+          state.extractionMessage = data.message;
+          state.extractionProgress = 100;
+          break;
+        case 'backend-ready':
+        case 'ready':
+          state.isExtracting = false;
+          state.extractionMessage = data.message;
+          break;
+        case 'backend-error':
+        case 'error':
+          state.isExtracting = false;
+          state.loading = false;
+          state.error = data.message;
+          break;
+      }
+    };
+
     // Listen for first-launch extraction events from Electron
     const setupExtractionListener = () => {
       if (process.env.MODE === 'electron' && window.api) {
@@ -78,32 +116,8 @@ export default defineComponent({
           serverPort?: number;
         }) => {
           console.log('First-launch extraction event:', data);
-          
-          switch (data.status) {
-            case 'extracting':
-              state.isExtracting = true;
-              state.extractionMessage = data.message;
-              if (data.progress !== undefined) {
-                state.extractionProgress = data.progress;
-              }
-              break;
-            case 'completed':
-              state.extractionMessage = data.message;
-              state.extractionProgress = 100;
-              break;
-            case 'starting-server':
-              state.extractionMessage = data.message;
-              state.extractionProgress = 100;
-              break;
-            case 'ready':
-              state.isExtracting = false;
-              state.extractionMessage = data.message;
-              break;
-            case 'error':
-              state.isExtracting = false;
-              state.error = data.message;
-              break;
-          }
+          appliedStatusFromEvent = true;
+          applyServerStatus(data);
         });
       }
     };
@@ -111,6 +125,19 @@ export default defineComponent({
     onMounted(async () => {
       // Setup listener for extraction events
       setupExtractionListener();
+
+      if (process.env.MODE === 'electron' && window.api?.getServerStatus) {
+        try {
+          const lastStatus = await window.api.getServerStatus();
+          // An event can land while the IPC round-trip is in flight; do not
+          // replay a stale snapshot over a newer live status.
+          if (lastStatus && !appliedStatusFromEvent) {
+            applyServerStatus(lastStatus);
+          }
+        } catch (error) {
+          console.error('Error while reading last server status', error);
+        }
+      }
       
       const start = new Date();
       // During this time, the app will check for update and initialize the backend
@@ -119,6 +146,7 @@ export default defineComponent({
 
       while (
         !isServerRunning &&
+        !state.error &&
         new Date().getTime() - start.getTime() < timeout
       ) {
         // Wait 1 second before checking if the server is running
@@ -136,6 +164,11 @@ export default defineComponent({
         if (result === 'hi') {
           isServerRunning = true;
         }
+      }
+      if (state.error) {
+        state.loading = false;
+        state.isExtracting = false;
+        return;
       }
       if (!isServerRunning) {
         state.error = t('gateway.initBackendError');
