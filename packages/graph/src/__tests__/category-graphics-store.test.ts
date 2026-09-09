@@ -26,10 +26,16 @@ jest.mock('pixi.js', () => {
       }
       return child;
     }
-    destroy() {
+    destroy(options?: unknown) {
+      this.lastDestroyOptions = options;
+      const opts = options as { context?: boolean } | boolean | undefined;
+      this.contextReleased =
+        opts === undefined || opts === true || (typeof opts === 'object' && opts?.context === true);
       this.destroyed = true;
       destroyedGraphics.push(this);
     }
+    lastDestroyOptions: unknown;
+    contextReleased = false;
     destroyed = false;
     clear() {
       if (this.destroyed) {
@@ -144,6 +150,11 @@ describe('CategoryGraphicsStore', () => {
 
     expect(destroyedGraphics).toContain(graphic);
     expect(displayContainer.children).not.toContain(graphic);
+    expect((graphic as { contextReleased?: boolean }).contextReleased).toBe(true);
+    expect((graphic as { lastDestroyOptions?: unknown }).lastDestroyOptions).toEqual({
+      children: true,
+      context: true,
+    });
   });
 
   it('discards uncommitted paint so a retry does not clear() destroyed graphics', () => {

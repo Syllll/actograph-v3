@@ -59,6 +59,8 @@ export declare class PixiApp {
     /** Canvas passé à init(); évite d'accéder à app.canvas après destroy. */
     private viewCanvas;
     private isDestroyed;
+    private applicationDestroyed;
+    private sceneTornDown;
     private worldBounds;
     private fitViewport;
     private needsInitialFit;
@@ -308,6 +310,12 @@ export declare class PixiApp {
     exportAsImage(format?: 'png' | 'jpeg', quality?: number): Promise<string | null>;
     private runExportAsImage;
     destroy(): void;
+    /**
+     * Idempotent teardown. Safe during in-flight init(): if the renderer is not
+     * ready yet, a later init() continuation calls this again to destroy the
+     * Application created after destroy() returned.
+     */
+    private teardownPixiResources;
 }
 export {};
 //# sourceMappingURL=index.d.ts.map

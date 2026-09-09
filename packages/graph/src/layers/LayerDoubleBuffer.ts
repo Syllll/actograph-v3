@@ -1,5 +1,5 @@
 import { Container } from 'pixi.js';
-import { isPixiDestroyed } from '../utils/display-object.utils';
+import { isPixiDestroyed, PIXI_DESTROY_OWNED } from '../utils/display-object.utils';
 
 /**
  * Front/back container swap for full prepareWorld paints.
@@ -55,7 +55,7 @@ export class LayerDoubleBuffer {
     for (const child of [...target.children]) {
       target.removeChild(child);
       if (typeof child.destroy === 'function' && !isPixiDestroyed(child)) {
-        child.destroy({ children: true });
+        child.destroy(PIXI_DESTROY_OWNED);
       }
     }
   }

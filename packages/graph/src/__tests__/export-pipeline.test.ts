@@ -44,6 +44,7 @@ describe('ExportPipeline', () => {
       target: app.stage,
       format: 'png',
       quality: 0.92,
+      clearColor: '#ffffff',
     });
     expect(canvasToDataURL).not.toHaveBeenCalled();
     expect(app.render).not.toHaveBeenCalled();

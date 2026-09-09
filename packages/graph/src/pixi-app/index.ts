@@ -98,6 +98,8 @@ export class PixiApp {
   /** Canvas passé à init(); évite d'accéder à app.canvas après destroy. */
   private viewCanvas: HTMLCanvasElement | null = null;
   private isDestroyed = false;
+  private applicationDestroyed = false;
+  private sceneTornDown = false;
   private worldBounds: WorldBounds = { width: 1, height: 1 };
   private fitViewport: ViewportState = { scaleX: 1, scaleY: 1, x: 0, y: 0 };
   private needsInitialFit = false;
@@ -234,20 +236,32 @@ export class PixiApp {
     
     console.log('[PixiApp] Init with dimensions:', width, 'x', height, 'dpr:', dpr);
 
-    await this.app.init({
-      background: 'white',
-      canvas: canvas, // PixiJS v8 : utiliser 'canvas' au lieu de 'view' (déprécié)
-      width: width,
-      height: height,
-      resolution: Math.min(dpr, 2), // Cap HiDPI GPU fill; geometry unchanged via autoDensity
-      autoDensity: true,    // Ajuste automatiquement la densité
-      preserveDrawingBuffer: false,
-      // Explicit renders only: the default ticker would call app.render() every
-      // frame and bypass drawInProgress / midDraw guards.
-      autoStart: false,
-      // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
-      // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
-    });
+    try {
+      await this.app.init({
+        background: 'white',
+        canvas: canvas, // PixiJS v8 : utiliser 'canvas' au lieu de 'view' (déprécié)
+        width: width,
+        height: height,
+        resolution: Math.min(dpr, 2), // Cap HiDPI GPU fill; geometry unchanged via autoDensity
+        autoDensity: true,    // Ajuste automatiquement la densité
+        preserveDrawingBuffer: false,
+        // Explicit renders only: the default ticker would call app.render() every
+        // frame and bypass drawInProgress / midDraw guards.
+        autoStart: false,
+        // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
+        // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
+      });
+    } catch (error) {
+      if (this.isDestroyed) {
+        this.teardownPixiResources();
+        return;
+      }
+      throw error;
+    }
+    if (this.isDestroyed) {
+      this.teardownPixiResources();
+      return;
+    }
     this.app.ticker.stop();
 
     this.yAxis = new YAxis(this.app);
@@ -353,6 +367,11 @@ export class PixiApp {
 
     this.setupZoomAndPan();
     this.bindWebGLContextHandlers();
+
+    if (this.isDestroyed) {
+      this.teardownPixiResources();
+      return;
+    }
 
     this.isInitialized = true;
     if (this.isInteractive) {
@@ -1765,13 +1784,18 @@ export class PixiApp {
   }
 
   public destroy() {
-    if (this.isDestroyed) {
-      return;
-    }
     this.isDestroyed = true;
     this.isInitialized = false;
     this.layoutFitPending = false;
+    this.teardownPixiResources();
+  }
 
+  /**
+   * Idempotent teardown. Safe during in-flight init(): if the renderer is not
+   * ready yet, a later init() continuation calls this again to destroy the
+   * Application created after destroy() returned.
+   */
+  private teardownPixiResources(): void {
     try {
       this.renderScheduler.cancel();
       this.renderScheduler.bumpGeneration();
@@ -1785,14 +1809,19 @@ export class PixiApp {
       pendingResolvers.forEach((r) => r.resolve());
 
       this.teardownContextHandlers?.();
+      this.teardownContextHandlers = null;
 
-      if (this.dataArea) {
-        this.axisLabelOverlay.destroy();
-        this.hoverLayer.destroy();
-        this.graphEngine.clearPatternSprites();
+      const dataArea = this.dataArea as DataArea | undefined;
+      if (dataArea && !this.sceneTornDown) {
+        this.sceneTornDown = true;
+        this.axisLabelOverlay?.destroy();
+        this.hoverLayer?.destroy();
+        this.graphEngine?.clearPatternSprites();
       }
-      if (this.overlayRoot) {
-        this.overlayRoot.destroy({ children: true });
+      const overlayRoot = this.overlayRoot as Container | undefined;
+      if (overlayRoot) {
+        overlayRoot.destroy({ children: true, context: true });
+        this.overlayRoot = undefined as unknown as Container;
       }
       this.patternStore.evict();
       unbindPatternTextureStore(this.patternStore);
@@ -1819,6 +1848,13 @@ export class PixiApp {
       console.warn('[PixiApp] destroy cleanup failed:', error);
     }
 
+    if (this.applicationDestroyed) {
+      return;
+    }
+    if (!this.app.renderer) {
+      return;
+    }
+    this.applicationDestroyed = true;
     try {
       this.app.destroy();
     } catch (error) {

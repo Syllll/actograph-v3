@@ -8,6 +8,7 @@ import { isPointInsidePlotBounds, shouldRenderHoverOverlay, } from '../utils/hov
 import { formatFromDate, formatCalendarFixed, formatChronometerFixed, } from '../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../utils/chronometer.constants';
 import { safeMoveTo, safeRect } from '../utils/safe-graphics.utils';
+import { PIXI_DESTROY_OWNED } from '../utils/display-object.utils';
 export class HoverLayer extends BaseLayer {
     constructor(app, options) {
         super('hover');
@@ -191,7 +192,7 @@ export class HoverLayer extends BaseLayer {
     destroy() {
         this.cancelPendingHoverUpdate();
         this.clear({ cancelPending: true });
-        this.container.destroy({ children: true });
+        this.container.destroy(PIXI_DESTROY_OWNED);
     }
     formatHoverTimeLabel(dateTime) {
         const timeDisplayFormat = this.graphRenderOptions.timeDisplayFormat ?? TimeDisplayFormatEnum.Auto;

@@ -5,7 +5,7 @@ import { createTilingPatternSprite } from '../lib/pattern-textures';
 import type { PatternTextureStore } from '../gpu/PatternTextureStore';
 import type { ProtocolItem } from '../utils/protocol.utils';
 import { pruneStaleCategoryEntries } from '../utils/category-graphics.utils';
-import { isPixiDestroyed } from '../utils/display-object.utils';
+import { isPixiDestroyed, PIXI_DESTROY_OWNED } from '../utils/display-object.utils';
 
 export interface TilingSpriteRecord {
   sprite: TilingSprite;
@@ -182,7 +182,7 @@ export class CategoryGraphicsStore {
         sprite.parent.removeChild(sprite);
       }
       if (!isPixiDestroyed(sprite)) {
-        sprite.destroy({ children: true });
+        sprite.destroy(PIXI_DESTROY_OWNED);
       }
     }
     this.patternStore?.release(spriteRecord.pattern, spriteRecord.color);
@@ -197,7 +197,7 @@ export class CategoryGraphicsStore {
       graphic.parent.removeChild(graphic);
     }
     if (!isPixiDestroyed(graphic)) {
-      graphic.destroy({ children: true });
+      graphic.destroy(PIXI_DESTROY_OWNED);
     }
   }
 

@@ -246,7 +246,7 @@ import {
 } from '@services/observations/protocol-graph-preferences.utils';
 import StudentWatermark from '@components/student-watermark/Index.vue';
 import { payloadFromImageDataUrl } from 'src/utils/image-data-url';
-import { mergeMetaIfSameObservation } from 'src/utils/observation-meta-update';
+import { mergeMetaIfSameObservation, createLatestWinsRunner } from 'src/utils/observation-meta-update';
 
 /**
  * Composant principal du graphique d'activité.
@@ -350,6 +350,9 @@ export default defineComponent({
     // Initialisation du composable de personnalisation du graphe
     const customization = useGraphCustomization();
 
+    const persistTimeDisplayFormatRunner = createLatestWinsRunner();
+    const persistAxisStretchRunner = createLatestWinsRunner();
+
     const methods = {
       zoomIn: () => {
         if (!graph.sharedState.ready || !graph.sharedState.pixiApp) {
@@ -388,7 +391,7 @@ export default defineComponent({
       // chronique (export jchronic + réouverture) — même pattern que
       // persistUiScaleToObservation (buttons-side/Index.vue). Échec non
       // bloquant : l'affichage local a déjà changé quoi qu'il arrive.
-      persistTimeDisplayFormat: async (format: TimeDisplayFormatEnum) => {
+      persistTimeDisplayFormat: (format: TimeDisplayFormatEnum) => {
         const current = observation.sharedState.currentObservation;
         if (!current?.id) return;
 
@@ -397,21 +400,26 @@ export default defineComponent({
           meta: { ...(current.meta ?? {}), timeDisplayFormat: format },
         } as typeof observation.sharedState.currentObservation;
 
-        try {
-          const updated = await observationService.update(current.id, {
-            meta: { timeDisplayFormat: format },
-          });
-          const next = mergeMetaIfSameObservation(
-            observation.sharedState.currentObservation,
-            current.id,
-            updated?.meta,
-          );
-          if (next) {
-            observation.sharedState.currentObservation = next as typeof observation.sharedState.currentObservation;
+        persistTimeDisplayFormatRunner.schedule(async (generation) => {
+          try {
+            const updated = await observationService.update(current.id, {
+              meta: { timeDisplayFormat: format },
+            });
+            if (!persistTimeDisplayFormatRunner.isCurrent(generation)) {
+              return;
+            }
+            const next = mergeMetaIfSameObservation(
+              observation.sharedState.currentObservation,
+              current.id,
+              updated?.meta,
+            );
+            if (next) {
+              observation.sharedState.currentObservation = next as typeof observation.sharedState.currentObservation;
+            }
+          } catch (error) {
+            console.error('Failed to persist timeDisplayFormat to observation meta:', error);
           }
-        } catch (error) {
-          console.error('Failed to persist timeDisplayFormat to observation meta:', error);
-        }
+        });
       },
       onAxisStretchXChange: (value: number | null) => {
         if (value === null) return;
@@ -432,7 +440,7 @@ export default defineComponent({
       },
       // Même pattern que persistTimeDisplayFormat ci-dessus : sauvegarde non
       // bloquante dans observation.meta, l'affichage local a déjà changé.
-      persistAxisStretch: async (next: { x: number; y: number }) => {
+      persistAxisStretch: (next: { x: number; y: number }) => {
         const current = observation.sharedState.currentObservation;
         if (!current?.id) return;
 
@@ -441,21 +449,26 @@ export default defineComponent({
           meta: { ...(current.meta ?? {}), graphXStretch: next.x, graphYCompact: next.y },
         } as typeof observation.sharedState.currentObservation;
 
-        try {
-          const updated = await observationService.update(current.id, {
-            meta: { graphXStretch: next.x, graphYCompact: next.y },
-          });
-          const merged = mergeMetaIfSameObservation(
-            observation.sharedState.currentObservation,
-            current.id,
-            updated?.meta,
-          );
-          if (merged) {
-            observation.sharedState.currentObservation = merged as typeof observation.sharedState.currentObservation;
+        persistAxisStretchRunner.schedule(async (generation) => {
+          try {
+            const updated = await observationService.update(current.id, {
+              meta: { graphXStretch: next.x, graphYCompact: next.y },
+            });
+            if (!persistAxisStretchRunner.isCurrent(generation)) {
+              return;
+            }
+            const merged = mergeMetaIfSameObservation(
+              observation.sharedState.currentObservation,
+              current.id,
+              updated?.meta,
+            );
+            if (merged) {
+              observation.sharedState.currentObservation = merged as typeof observation.sharedState.currentObservation;
+            }
+          } catch (error) {
+            console.error('Failed to persist axis stretch to observation meta:', error);
           }
-        } catch (error) {
-          console.error('Failed to persist axis stretch to observation meta:', error);
-        }
+        });
       },
       // Construit le canvas de légende (noms de catégories/observables + pastilles
       // de couleur). Partagé par tous les exports impliquant la légende (légende

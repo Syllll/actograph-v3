@@ -30,6 +30,7 @@ import {
 } from '../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../utils/chronometer.constants';
 import { safeMoveTo, safeRect } from '../utils/safe-graphics.utils';
+import { PIXI_DESTROY_OWNED } from '../utils/display-object.utils';
 
 export interface HoverWorldPointerInput {
   worldX: number;
@@ -294,7 +295,7 @@ export class HoverLayer extends BaseLayer {
   public destroy(): void {
     this.cancelPendingHoverUpdate();
     this.clear({ cancelPending: true });
-    this.container.destroy({ children: true });
+    this.container.destroy(PIXI_DESTROY_OWNED);
   }
 
   private formatHoverTimeLabel(dateTime: Date): string {

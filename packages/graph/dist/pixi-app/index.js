@@ -64,6 +64,8 @@ export class PixiApp {
         /** Canvas passé à init(); évite d'accéder à app.canvas après destroy. */
         this.viewCanvas = null;
         this.isDestroyed = false;
+        this.applicationDestroyed = false;
+        this.sceneTornDown = false;
         this.worldBounds = { width: 1, height: 1 };
         this.fitViewport = { scaleX: 1, scaleY: 1, x: 0, y: 0 };
         this.needsInitialFit = false;
@@ -182,20 +184,33 @@ export class PixiApp {
         const height = Math.max(1, Math.floor(rect.height));
         this.baseCanvasHeight = height;
         console.log('[PixiApp] Init with dimensions:', width, 'x', height, 'dpr:', dpr);
-        await this.app.init({
-            background: 'white',
-            canvas: canvas, // PixiJS v8 : utiliser 'canvas' au lieu de 'view' (déprécié)
-            width: width,
-            height: height,
-            resolution: Math.min(dpr, 2), // Cap HiDPI GPU fill; geometry unchanged via autoDensity
-            autoDensity: true, // Ajuste automatiquement la densité
-            preserveDrawingBuffer: false,
-            // Explicit renders only: the default ticker would call app.render() every
-            // frame and bypass drawInProgress / midDraw guards.
-            autoStart: false,
-            // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
-            // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
-        });
+        try {
+            await this.app.init({
+                background: 'white',
+                canvas: canvas, // PixiJS v8 : utiliser 'canvas' au lieu de 'view' (déprécié)
+                width: width,
+                height: height,
+                resolution: Math.min(dpr, 2), // Cap HiDPI GPU fill; geometry unchanged via autoDensity
+                autoDensity: true, // Ajuste automatiquement la densité
+                preserveDrawingBuffer: false,
+                // Explicit renders only: the default ticker would call app.render() every
+                // frame and bypass drawInProgress / midDraw guards.
+                autoStart: false,
+                // ⚠️ PAS DE resizeTo - on contrôle les dimensions manuellement via DCanvas
+                // Utiliser resizeTo causerait des conflits avec notre gestion des dimensions
+            });
+        }
+        catch (error) {
+            if (this.isDestroyed) {
+                this.teardownPixiResources();
+                return;
+            }
+            throw error;
+        }
+        if (this.isDestroyed) {
+            this.teardownPixiResources();
+            return;
+        }
         this.app.ticker.stop();
         this.yAxis = new YAxis(this.app);
         this.xAxis = new xAxis(this.app, this.yAxis);
@@ -286,6 +301,10 @@ export class PixiApp {
         this.hoverLayer.init();
         this.setupZoomAndPan();
         this.bindWebGLContextHandlers();
+        if (this.isDestroyed) {
+            this.teardownPixiResources();
+            return;
+        }
         this.isInitialized = true;
         if (this.isInteractive) {
             this.layoutFitPending = true;
@@ -1455,12 +1474,17 @@ export class PixiApp {
         }
     }
     destroy() {
-        if (this.isDestroyed) {
-            return;
-        }
         this.isDestroyed = true;
         this.isInitialized = false;
         this.layoutFitPending = false;
+        this.teardownPixiResources();
+    }
+    /**
+     * Idempotent teardown. Safe during in-flight init(): if the renderer is not
+     * ready yet, a later init() continuation calls this again to destroy the
+     * Application created after destroy() returned.
+     */
+    teardownPixiResources() {
         try {
             this.renderScheduler.cancel();
             this.renderScheduler.bumpGeneration();
@@ -1473,13 +1497,18 @@ export class PixiApp {
             this.drawResolvers = [];
             pendingResolvers.forEach((r) => r.resolve());
             this.teardownContextHandlers?.();
-            if (this.dataArea) {
-                this.axisLabelOverlay.destroy();
-                this.hoverLayer.destroy();
-                this.graphEngine.clearPatternSprites();
+            this.teardownContextHandlers = null;
+            const dataArea = this.dataArea;
+            if (dataArea && !this.sceneTornDown) {
+                this.sceneTornDown = true;
+                this.axisLabelOverlay?.destroy();
+                this.hoverLayer?.destroy();
+                this.graphEngine?.clearPatternSprites();
             }
-            if (this.overlayRoot) {
-                this.overlayRoot.destroy({ children: true });
+            const overlayRoot = this.overlayRoot;
+            if (overlayRoot) {
+                overlayRoot.destroy({ children: true, context: true });
+                this.overlayRoot = undefined;
             }
             this.patternStore.evict();
             unbindPatternTextureStore(this.patternStore);
@@ -1504,6 +1533,13 @@ export class PixiApp {
         catch (error) {
             console.warn('[PixiApp] destroy cleanup failed:', error);
         }
+        if (this.applicationDestroyed) {
+            return;
+        }
+        if (!this.app.renderer) {
+            return;
+        }
+        this.applicationDestroyed = true;
         try {
             this.app.destroy();
         }

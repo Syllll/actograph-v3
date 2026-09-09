@@ -80,6 +80,9 @@ export class ExportPipeline {
         target: app.stage,
         format: extractFormat,
         quality,
+        // extract() does not inherit Application background; without this the
+        // PNG is transparent and JPEG composites on black (unreadable axes).
+        clearColor: '#ffffff',
       });
     } finally {
       try {

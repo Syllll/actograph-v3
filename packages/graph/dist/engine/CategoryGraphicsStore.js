@@ -1,7 +1,7 @@
 import { BaseGraphic } from '../lib/base-graphic';
 import { createTilingPatternSprite } from '../lib/pattern-textures';
 import { pruneStaleCategoryEntries } from '../utils/category-graphics.utils';
-import { isPixiDestroyed } from '../utils/display-object.utils';
+import { isPixiDestroyed, PIXI_DESTROY_OWNED } from '../utils/display-object.utils';
 /**
  * Per-layer storage for category-bound Graphics and tiling pattern sprites.
  */
@@ -131,7 +131,7 @@ export class CategoryGraphicsStore {
                 sprite.parent.removeChild(sprite);
             }
             if (!isPixiDestroyed(sprite)) {
-                sprite.destroy({ children: true });
+                sprite.destroy(PIXI_DESTROY_OWNED);
             }
         }
         this.patternStore?.release(spriteRecord.pattern, spriteRecord.color);
@@ -145,7 +145,7 @@ export class CategoryGraphicsStore {
             graphic.parent.removeChild(graphic);
         }
         if (!isPixiDestroyed(graphic)) {
-            graphic.destroy({ children: true });
+            graphic.destroy(PIXI_DESTROY_OWNED);
         }
     }
     destroyActivePaintObjects() {
