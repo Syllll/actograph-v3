@@ -97,6 +97,7 @@ describe('PixiApp destroy during init', () => {
     expect(app.destroy).toHaveBeenCalled();
     expect(addChildSpy).not.toHaveBeenCalled();
     expect((pixiApp as unknown as { isInitialized: boolean }).isInitialized).toBe(false);
+    expect(pixiApp.isEngineReady()).toBe(false);
   });
 
   it('destroys a renderer created after destroy() returned', async () => {

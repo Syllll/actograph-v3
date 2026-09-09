@@ -264,6 +264,7 @@ export declare class PixiApp {
     private setViewportTransform;
     private setupZoomAndPan;
     private updateTimeScale;
+    isEngineReady(): boolean;
     /**
      * Canvas only after init() has created the renderer. PixiJS v8 `app.canvas`
      * reads `renderer.canvas` and throws if accessed earlier.

@@ -3,12 +3,12 @@
  * is still the one that was saved. Stale responses after a chronicle switch
  * must not overwrite the new observation.
  */
-export function mergeMetaIfSameObservation<T extends { id?: string; meta?: unknown }>(
+export function mergeMetaIfSameObservation<T extends { id?: string | number; meta?: unknown }>(
   current: T | null | undefined,
-  requestedId: string,
+  requestedId: string | number,
   meta: T['meta'] | null | undefined,
 ): T | null {
-  if (!meta || !current?.id || current.id !== requestedId) {
+  if (!meta || current?.id == null || String(current.id) !== String(requestedId)) {
     return null;
   }
   return {
@@ -17,27 +17,60 @@ export function mergeMetaIfSameObservation<T extends { id?: string; meta?: unkno
   };
 }
 
+export type ObservationMetaPatch = Record<string, unknown>;
+
+type PersistBucket = {
+  chain: Promise<void>;
+  pending: ObservationMetaPatch | null;
+};
+
 /**
- * Serializes async work so only the latest scheduled task runs, and callers
- * can ignore responses from an older generation (slider spam, chronicle switch).
+ * Per-chronicle persist queue. Patches for the same observation are merged and
+ * serialized. Switching chronicle does not drop another observation's pending
+ * save. Callers should skip applying a response while hasPending(id) is true
+ * so an in-flight format save cannot overwrite a newer stretch (or the reverse).
  */
-export function createLatestWinsRunner() {
-  let generation = 0;
-  let chain: Promise<void> = Promise.resolve();
+export function createObservationMetaPersistQueue() {
+  const buckets = new Map<string, PersistBucket>();
+
+  const bucketKey = (observationId: string | number): string => String(observationId);
+
+  const getBucket = (observationId: string | number): PersistBucket => {
+    const key = bucketKey(observationId);
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { chain: Promise.resolve(), pending: null };
+      buckets.set(key, bucket);
+    }
+    return bucket;
+  };
 
   return {
-    isCurrent(gen: number): boolean {
-      return gen === generation;
+    hasPending(observationId: string | number): boolean {
+      return buckets.get(bucketKey(observationId))?.pending != null;
     },
-    schedule(task: (generation: number) => Promise<void>): Promise<void> {
-      const gen = ++generation;
-      const run = chain.then(async () => {
-        if (gen !== generation) {
-          return;
+    schedule(
+      observationId: string | number,
+      patch: ObservationMetaPatch,
+      persist: (
+        observationId: string | number,
+        patch: ObservationMetaPatch,
+      ) => Promise<void>,
+    ): Promise<void> {
+      const bucket = getBucket(observationId);
+      bucket.pending = { ...bucket.pending, ...patch };
+      const run = bucket.chain.then(async () => {
+        while (bucket.pending) {
+          const payload = bucket.pending;
+          bucket.pending = null;
+          try {
+            await persist(observationId, payload);
+          } catch {
+            /* Keep draining later patches for this chronicle. */
+          }
         }
-        await task(gen);
       });
-      chain = run.catch(() => undefined);
+      bucket.chain = run;
       return run;
     },
   };

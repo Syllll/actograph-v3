@@ -246,7 +246,7 @@ import {
 } from '@services/observations/protocol-graph-preferences.utils';
 import StudentWatermark from '@components/student-watermark/Index.vue';
 import { payloadFromImageDataUrl } from 'src/utils/image-data-url';
-import { mergeMetaIfSameObservation, createLatestWinsRunner } from 'src/utils/observation-meta-update';
+import { mergeMetaIfSameObservation, createObservationMetaPersistQueue } from 'src/utils/observation-meta-update';
 
 /**
  * Composant principal du graphique d'activité.
@@ -350,8 +350,31 @@ export default defineComponent({
     // Initialisation du composable de personnalisation du graphe
     const customization = useGraphCustomization();
 
-    const persistTimeDisplayFormatRunner = createLatestWinsRunner();
-    const persistAxisStretchRunner = createLatestWinsRunner();
+    const persistGraphMetaQueue = createObservationMetaPersistQueue();
+
+    const persistObservationGraphMeta = async (
+      observationId: string | number,
+      patch: Record<string, unknown>,
+    ): Promise<void> => {
+      try {
+        const updated = await observationService.update(observationId, {
+          meta: patch,
+        });
+        if (persistGraphMetaQueue.hasPending(observationId)) {
+          return;
+        }
+        const next = mergeMetaIfSameObservation(
+          observation.sharedState.currentObservation,
+          observationId,
+          updated?.meta,
+        );
+        if (next) {
+          observation.sharedState.currentObservation = next as typeof observation.sharedState.currentObservation;
+        }
+      } catch (error) {
+        console.error('Failed to persist graph settings to observation meta:', error);
+      }
+    };
 
     const methods = {
       zoomIn: () => {
@@ -400,26 +423,11 @@ export default defineComponent({
           meta: { ...(current.meta ?? {}), timeDisplayFormat: format },
         } as typeof observation.sharedState.currentObservation;
 
-        persistTimeDisplayFormatRunner.schedule(async (generation) => {
-          try {
-            const updated = await observationService.update(current.id, {
-              meta: { timeDisplayFormat: format },
-            });
-            if (!persistTimeDisplayFormatRunner.isCurrent(generation)) {
-              return;
-            }
-            const next = mergeMetaIfSameObservation(
-              observation.sharedState.currentObservation,
-              current.id,
-              updated?.meta,
-            );
-            if (next) {
-              observation.sharedState.currentObservation = next as typeof observation.sharedState.currentObservation;
-            }
-          } catch (error) {
-            console.error('Failed to persist timeDisplayFormat to observation meta:', error);
-          }
-        });
+        persistGraphMetaQueue.schedule(
+          current.id,
+          { timeDisplayFormat: format },
+          persistObservationGraphMeta,
+        );
       },
       onAxisStretchXChange: (value: number | null) => {
         if (value === null) return;
@@ -449,26 +457,11 @@ export default defineComponent({
           meta: { ...(current.meta ?? {}), graphXStretch: next.x, graphYCompact: next.y },
         } as typeof observation.sharedState.currentObservation;
 
-        persistAxisStretchRunner.schedule(async (generation) => {
-          try {
-            const updated = await observationService.update(current.id, {
-              meta: { graphXStretch: next.x, graphYCompact: next.y },
-            });
-            if (!persistAxisStretchRunner.isCurrent(generation)) {
-              return;
-            }
-            const merged = mergeMetaIfSameObservation(
-              observation.sharedState.currentObservation,
-              current.id,
-              updated?.meta,
-            );
-            if (merged) {
-              observation.sharedState.currentObservation = merged as typeof observation.sharedState.currentObservation;
-            }
-          } catch (error) {
-            console.error('Failed to persist axis stretch to observation meta:', error);
-          }
-        });
+        persistGraphMetaQueue.schedule(
+          current.id,
+          { graphXStretch: next.x, graphYCompact: next.y },
+          persistObservationGraphMeta,
+        );
       },
       // Construit le canvas de légende (noms de catégories/observables + pastilles
       // de couleur). Partagé par tous les exports impliquant la légende (légende

@@ -5,6 +5,7 @@ import { DEFAULT_GRAPH_RENDER_OPTIONS, TimeDisplayFormatEnum } from '@actograph/
 import { useObservation } from 'src/composables/use-observation';
 import { useAppResume } from 'src/composables/use-app-resume';
 import { isElementVisible } from 'src/utils/dom.utils';
+import { shouldCommitGraphInit } from 'src/utils/graph-init-ownership';
 import { IObservation, IReading } from '@services/observations/interface';
 import type { IObservation as ICoreObservation, IReading as ICoreReading } from '@actograph/core';
 
@@ -315,6 +316,10 @@ export const useGraph = (options?: {
           view: options.init.canvasRef.value.canvasRef,
         });
 
+        if (!shouldCommitGraphInit(sharedState.pixiApp, pixiApp, (app) => app.isEngineReady())) {
+          return;
+        }
+
         sharedState.ready = true;
 
         await redrawFromObservation(pixiApp);
@@ -328,15 +333,16 @@ export const useGraph = (options?: {
 
         if (
           generationAfterRedraw === redrawGeneration &&
-          sharedState.pixiApp === pixiApp &&
-          sharedState.ready
+          shouldCommitGraphInit(sharedState.pixiApp, pixiApp, (app) => app.isEngineReady())
         ) {
           await pixiApp.settleInitialLayoutFit();
         }
       } catch (error) {
         console.error('Failed to initialize Pixi app:', error);
       } finally {
-        sharedState.loading = false;
+        if (sharedState.pixiApp === pixiApp) {
+          sharedState.loading = false;
+        }
       }
     });
 

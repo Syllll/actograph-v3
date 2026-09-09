@@ -1332,6 +1332,9 @@ export class PixiApp {
     updateTimeScale() {
         // Future: implémenter l'ajustement dynamique des graduations
     }
+    isEngineReady() {
+        return this.isInitialized && !this.isDestroyed;
+    }
     /**
      * Canvas only after init() has created the renderer. PixiJS v8 `app.canvas`
      * reads `renderer.canvas` and throws if accessed earlier.
