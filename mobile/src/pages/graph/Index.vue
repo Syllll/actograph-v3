@@ -24,10 +24,16 @@
         </div>
         <div v-else-if="graph.sharedState.error" class="text-negative text-caption row items-center">
           <q-icon name="warning" size="xs" class="q-mr-xs" />
-          <span>{{ graph.sharedState.error }}</span>
+          <span class="col">{{ graph.sharedState.error }}</span>
+          <q-btn flat dense no-caps color="negative" label="Réessayer" @click="graph.methods.initGraph" />
         </div>
-        <div v-else class="text-caption text-muted">
+        <div v-else class="text-caption text-muted col">
           {{ graph.sharedState.ready ? 'Graphique prêt' : 'En attente...' }}
+        </div>
+        <div class="row no-wrap">
+          <q-btn flat round dense icon="mdi-magnify-minus" aria-label="Réduire le graphe" :disable="!graph.sharedState.ready" @click="graph.methods.zoomOut" />
+          <q-btn flat round dense icon="mdi-magnify-plus" aria-label="Agrandir le graphe" :disable="!graph.sharedState.ready" @click="graph.methods.zoomIn" />
+          <q-btn flat round dense icon="mdi-fit-to-screen-outline" aria-label="Afficher tout le graphe" :disable="!graph.sharedState.ready" @click="graph.methods.resetView" />
         </div>
       </div>
 
@@ -167,13 +173,12 @@ export default defineComponent({
 .graph-page {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .graph-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  flex-shrink: 0;
   z-index: 10;
   min-height: 48px;
   background-color: color-mix(in srgb, var(--background, #fff) 95%, transparent);
@@ -185,11 +190,9 @@ body.body--dark .graph-header {
 }
 
 .canvas-container {
-  position: absolute;
-  top: 48px;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  flex: 1;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;

@@ -8,6 +8,7 @@
           v-if="editMode.sharedState.isEditing"
           flat round icon="mdi-close" color="negative" size="md"
           aria-label="Annuler l'édition"
+          :disable="editMode.sharedState.isSaving"
           @click="methods.cancelEditMode"
         />
         <q-btn
@@ -45,19 +46,22 @@
         <template v-else>
           <q-btn
             v-if="!state.isRecording"
-            round color="positive" icon="mdi-play" size="md"
+            round color="positive-strong" icon="mdi-play" size="md"
             aria-label="Démarrer l'enregistrement"
+            :disable="state.recordingBusy || state.categories.length === 0"
             @click="methods.startRecording"
           />
           <template v-else>
             <q-btn
               round size="md"
-              :color="chronicle.sharedState.isPaused ? 'positive' : 'warning'"
+              :color="chronicle.sharedState.isPaused ? 'positive-strong' : 'warning'"
+              :text-color="chronicle.sharedState.isPaused ? 'white' : 'primary'"
               :icon="chronicle.sharedState.isPaused ? 'mdi-play' : 'mdi-pause'"
+              :disable="state.recordingBusy"
               :aria-label="chronicle.sharedState.isPaused ? 'Reprendre' : 'Mettre en pause'"
               @click="methods.togglePause"
             />
-            <q-btn round color="negative" icon="mdi-stop" size="md" aria-label="Arrêter l'enregistrement" @click="methods.stopRecording" />
+            <q-btn round color="negative-strong" icon="mdi-stop" size="md" aria-label="Arrêter l'enregistrement" :disable="state.recordingBusy" @click="methods.stopRecording" />
           </template>
         </template>
       </div>
@@ -126,7 +130,7 @@
     </div>
 
     <!-- Bandeau "Éditer protocole" en mode édition -->
-    <div v-if="editMode.sharedState.isEditing" class="edit-protocol-banner" @click="state.showProtocolSheet = true">
+    <div v-if="editMode.sharedState.isEditing" class="edit-protocol-banner" role="button" tabindex="0" @keydown.enter="state.showProtocolSheet = true" @click="state.showProtocolSheet = true">
       <q-icon name="mdi-clipboard-edit-outline" size="18px" class="q-mr-xs" />
       Éditer protocole
     </div>
@@ -202,7 +206,7 @@
             v-model="state.newCategory.action"
             :options="[
               { label: 'Discret (événement)', value: 'discrete' },
-              { label: 'Continu (toggle)', value: 'continuous' }
+              { label: 'Continu (état)', value: 'continuous' }
             ]"
             label="Type de catégorie"
             outlined
@@ -343,9 +347,9 @@
           <q-btn flat round dense icon="mdi-close" aria-label="Fermer" v-close-popup />
         </q-card-section>
 
-        <q-card-section class="q-pt-sm">
+        <q-card-section class="q-pt-sm protocol-sheet-body">
           <div class="text-body2 text-muted q-mb-md">
-            Gérez les catégories et observables de votre chronique
+            Les modifications seront appliquées à la validation. Annuler conserve le protocole précédent.
           </div>
 
           <!-- Liste des catégories -->
@@ -356,7 +360,7 @@
                 <q-item-section avatar>
                   <q-icon 
                     name="mdi-folder" 
-                    :color="category.action === 'continuous' ? 'accent-strong' : 'primary'" 
+                    color="control"
                   />
                 </q-item-section>
                 <q-item-section>
@@ -451,7 +455,7 @@
           <!-- Réglage de la taille d'affichage (contextuel à l'édition du protocole) -->
           <div class="q-mt-sm q-pa-sm ui-scale-card">
             <div class="row items-center q-mb-xs">
-              <q-icon name="mdi-resize" size="18px" color="primary" class="q-mr-sm" />
+              <q-icon name="mdi-resize" size="18px" color="control" class="q-mr-sm" />
               <div class="text-caption text-weight-medium">Taille d'affichage</div>
               <q-space />
               <q-badge color="primary" :label="Math.round(uiScale.state.scale * 100) + '%'" />
@@ -462,13 +466,14 @@
               :min="uiScale.min"
               :max="uiScale.max"
               :step="uiScale.step"
-              color="primary"
+              color="control"
+              aria-label="Taille des catégories"
               @update:model-value="methods.onUiScaleChange"
             />
             <div class="row items-center justify-between">
-              <q-btn flat dense label="Compact" color="grey-7" size="sm" @click="uiScale.setScale(uiScale.min)" />
-              <q-btn flat dense label="Standard" color="grey-7" size="sm" @click="uiScale.setScale(1)" />
-              <q-btn flat dense label="Grand" color="grey-7" size="sm" @click="uiScale.setScale(uiScale.max)" />
+              <q-btn flat dense label="Compact" class="text-muted" size="sm" @click="methods.onUiScaleChange(uiScale.min)" />
+              <q-btn flat dense label="Standard" class="text-muted" size="sm" @click="methods.onUiScaleChange(1)" />
+              <q-btn flat dense label="Grand" class="text-muted" size="sm" @click="methods.onUiScaleChange(uiScale.max)" />
             </div>
           </div>
 
@@ -482,6 +487,10 @@
             @click="methods.openAddCategoryFromSheet"
           />
         </q-card-section>
+        <q-card-actions align="right" class="protocol-sheet-actions">
+          <q-btn flat label="Annuler" :disable="editMode.sharedState.isSaving" @click="methods.cancelEditMode" />
+          <q-btn unelevated color="accent-strong" label="Enregistrer" :loading="editMode.sharedState.isSaving" @click="methods.exitEditMode" />
+        </q-card-actions>
       </q-card>
     </q-dialog>
   </DPage>
@@ -497,6 +506,8 @@ import { protocolService } from '@services/protocol.service';
 import { observationService } from '@services/observation.service';
 import { DPage, DraggableCategory } from '@components';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
+import { useProtocolDraft } from '@composables/use-protocol-draft';
+import { protocolRepository } from '@database/repositories/protocol.repository';
 import { isRecordingActiveFromReadings, convertMobileReadings } from '@actograph/core';
 
 export default defineComponent({
@@ -509,12 +520,14 @@ export default defineComponent({
     const $q = useQuasar();
     const chronicle = useChronicle();
     const editMode = useEditMode();
+    const protocolDraft = useProtocolDraft();
     const haptics = useHaptics();
     const uiScale = editMode.uiScale;
 
     const state = reactive({
       categories: [] as IProtocolItemWithChildren[],
       isRecording: false,
+      recordingBusy: false,
       activeObservableByCategory: {} as Record<number, string>,
       totalReadingsCount: 0,
       readingsCountAnimating: false,
@@ -580,6 +593,7 @@ export default defineComponent({
     };
 
     let timerResizeObserver: ResizeObserver | null = null;
+    let layoutResizeObserver: ResizeObserver | null = null;
     let fitTimerRaf = 0;
 
     const scheduleFitTimerText = () => {
@@ -647,7 +661,7 @@ export default defineComponent({
 
       loadProtocol: () => {
         // Filter and normalize categories - more lenient check
-        const filteredCategories = chronicle.sharedState.currentProtocol
+        const filteredCategories = (editMode.sharedState.isEditing ? protocolDraft.categories.value : chronicle.sharedState.currentProtocol)
           .filter((cat) => {
             if (!cat) return false;
             // More lenient check - just ensure id exists and can be converted to number
@@ -748,6 +762,17 @@ export default defineComponent({
         state.activeObservableByCategory = nextActiveObservableByCategory;
       },
 
+      runRecordingAction: async (action: () => Promise<void>) => {
+        if (state.recordingBusy) return;
+        state.recordingBusy = true;
+        try { await action(); }
+        catch (error) {
+          $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Enregistrement impossible' });
+          await chronicle.methods.refreshReadings();
+          chronicle.methods.syncRecordingStateFromReadings();
+        } finally { state.recordingBusy = false; }
+      },
+
       startRecording: async () => {
         haptics.impactLight();
         methods.initializeContinuousActiveObservables();
@@ -763,15 +788,13 @@ export default defineComponent({
           })
           .filter((observableName): observableName is string => Boolean(observableName));
 
-        await chronicle.methods.startRecording(initialContinuousObservableNames);
-        state.isRecording = true;
+        await methods.runRecordingAction(() => chronicle.methods.startRecording(initialContinuousObservableNames));
         methods.loadRecentReadings();
       },
 
       stopRecording: async () => {
         haptics.impactMedium();
-        await chronicle.methods.stopRecording();
-        state.isRecording = false;
+        await methods.runRecordingAction(() => chronicle.methods.stopRecording());
         methods.initializeContinuousActiveObservables();
         methods.loadRecentReadings();
       },
@@ -779,9 +802,9 @@ export default defineComponent({
       togglePause: async () => {
         haptics.impactLight();
         if (!chronicle.sharedState.isPaused) {
-          await chronicle.methods.pauseRecording();
+          await methods.runRecordingAction(() => chronicle.methods.pauseRecording());
         } else {
-          await chronicle.methods.resumeRecording();
+          await methods.runRecordingAction(() => chronicle.methods.resumeRecording());
         }
         methods.loadRecentReadings();
       },
@@ -806,8 +829,13 @@ export default defineComponent({
           return;
         }
 
-        await chronicle.methods.toggleObservable(observable.name);
-        methods.loadRecentReadings();
+        try {
+          await chronicle.methods.toggleObservable(observable.name);
+          methods.loadRecentReadings();
+        } catch (error) {
+          state.activeObservableByCategory[category.id] = currentActiveObservable;
+          $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Relevé non enregistré' });
+        }
       },
 
       pressObservable: async (observable: IProtocolItemWithChildren) => {
@@ -816,8 +844,19 @@ export default defineComponent({
         }
 
         haptics.impactLight();
-        await chronicle.methods.toggleObservable(observable.name);
-        methods.loadRecentReadings();
+        try {
+          await chronicle.methods.toggleObservable(observable.name);
+          methods.loadRecentReadings();
+        } catch (error) {
+          $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Relevé non enregistré' });
+        }
+      },
+
+      refreshProtocol: async () => {
+        if (!editMode.sharedState.isEditing && chronicle.sharedState.currentChronicle) {
+          await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
+        }
+        methods.loadProtocol();
       },
 
       // Protocol management
@@ -856,7 +895,9 @@ export default defineComponent({
         }
 
         try {
-          const newCategory = await protocolService.addCategory(
+          const newCategory = editMode.sharedState.isEditing
+            ? protocolDraft.addCategory(trimmedName, state.newCategory.action)
+            : await protocolService.addCategory(
             chronicle.sharedState.currentChronicle.id,
             trimmedName,
             state.newCategory.action
@@ -865,8 +906,7 @@ export default defineComponent({
           state.showAddCategoryDialog = false;
           state.newCategory.name = '';
           state.newCategory.action = 'continuous';
-          await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
-          methods.loadProtocol();
+          await methods.refreshProtocol();
           await nextTick();
 
           const allCategories = state.categories;
@@ -906,13 +946,13 @@ export default defineComponent({
         const trimmedName = state.newObservable.name.trim();
         
         // Vérifier l'unicité du nom dans la catégorie
-        const existingObservable = state.selectedCategory.children?.find(
+        const existingObservable = state.categories.flatMap((category) => category.children ?? []).find(
           (o) => o.name.toLowerCase() === trimmedName.toLowerCase()
         );
         if (existingObservable) {
           $q.notify({
             type: 'warning',
-            message: 'Un observable avec ce nom existe déjà dans cette catégorie',
+            message: 'Un observable avec ce nom existe déjà dans le protocole',
             position: 'top',
           });
           return;
@@ -920,7 +960,9 @@ export default defineComponent({
 
         try {
           const categoryName = state.selectedCategory.name;
-          await protocolService.addObservable(
+          if (editMode.sharedState.isEditing) {
+            protocolDraft.addObservable(state.selectedCategory.id, trimmedName);
+          } else await protocolService.addObservable(
             chronicle.sharedState.currentChronicle.id,
             state.selectedCategory.id,
             trimmedName
@@ -928,8 +970,7 @@ export default defineComponent({
           state.showAddObservableDialog = false;
           state.newObservable.name = '';
           state.selectedCategory = null;
-          await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
-          methods.loadProtocol();
+          await methods.refreshProtocol();
           $q.notify({
             type: 'positive',
             message: `Observable "${trimmedName}" ajouté à "${categoryName}"`,
@@ -939,7 +980,7 @@ export default defineComponent({
           console.error('Failed to add observable:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors de l\'ajout de l\'observable',
+            message: error instanceof Error ? error.message : 'Erreur lors de l\'ajout de l\'observable',
             position: 'top',
           });
         }
@@ -996,14 +1037,15 @@ export default defineComponent({
           const categoryName = category.name;
           const categoryId = category.id;
           
-          // Remove position immediately if in edit mode
+          if ((category.children ?? []).some((observable) => chronicle.sharedState.currentReadings.some((reading) => reading.type === 'DATA' && reading.name === observable.name))) {
+            throw new Error('Cette catégorie contient des relevés. Dupliquez la chronique sans relevés pour la supprimer.');
+          }
           if (editMode.sharedState.isEditing) {
+            protocolDraft.remove(categoryId);
             editMode.methods.removeCategoryPosition(categoryId);
           }
-          
-          await protocolService.deleteItem(categoryId);
-          await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
-          methods.loadProtocol();
+          else await protocolService.deleteItem(categoryId);
+          await methods.refreshProtocol();
           $q.notify({
             type: 'info',
             message: `Catégorie "${categoryName}" supprimée`,
@@ -1011,6 +1053,7 @@ export default defineComponent({
           });
         } catch (error) {
           console.error('Failed to delete category:', error);
+          $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Suppression impossible' });
         }
       },
 
@@ -1018,9 +1061,12 @@ export default defineComponent({
         if (!chronicle.sharedState.currentChronicle) return;
 
         try {
-          await protocolService.deleteItem(observable.id);
-          await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
-          methods.loadProtocol();
+          if (chronicle.sharedState.currentReadings.some((reading) => reading.type === 'DATA' && reading.name === observable.name)) {
+            throw new Error('Cet observable contient des relevés. Dupliquez la chronique sans relevés pour le supprimer.');
+          }
+          if (editMode.sharedState.isEditing) protocolDraft.remove(observable.id);
+          else await protocolService.deleteItem(observable.id);
+          await methods.refreshProtocol();
           $q.notify({
             type: 'info',
             message: `Observable "${observable.name}" supprimé`,
@@ -1028,6 +1074,7 @@ export default defineComponent({
           });
         } catch (error) {
           console.error('Failed to delete observable:', error);
+          $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Suppression impossible' });
         }
       },
 
@@ -1066,12 +1113,12 @@ export default defineComponent({
         }
 
         try {
-          await protocolService.updateItem(state.selectedCategory.id, { name: trimmedName });
+          if (editMode.sharedState.isEditing) protocolDraft.rename(state.selectedCategory.id, trimmedName);
+          else await protocolService.updateItem(state.selectedCategory.id, { name: trimmedName });
           state.showRenameCategoryDialog = false;
           state.renameCategory.name = '';
           state.selectedCategory = null;
-          await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
-          methods.loadProtocol();
+          await methods.refreshProtocol();
           $q.notify({
             type: 'positive',
             message: `Catégorie renommée en "${trimmedName}"`,
@@ -1081,7 +1128,7 @@ export default defineComponent({
           console.error('Failed to rename category:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors du renommage',
+            message: error instanceof Error ? error.message : 'Erreur lors du renommage',
             position: 'top',
           });
         }
@@ -1094,13 +1141,13 @@ export default defineComponent({
         
         // Vérifier l'unicité du nom dans la catégorie (sauf si c'est le même)
         if (trimmedName.toLowerCase() !== state.selectedObservable.name.toLowerCase()) {
-          const existingObservable = state.selectedCategory.children?.find(
+          const existingObservable = state.categories.flatMap((category) => category.children ?? []).find(
             (o) => o.name.toLowerCase() === trimmedName.toLowerCase()
           );
           if (existingObservable) {
             $q.notify({
               type: 'warning',
-              message: 'Un observable avec ce nom existe déjà dans cette catégorie',
+              message: 'Un observable avec ce nom existe déjà dans le protocole',
               position: 'top',
             });
             return;
@@ -1108,13 +1155,13 @@ export default defineComponent({
         }
 
         try {
-          await protocolService.updateItem(state.selectedObservable.id, { name: trimmedName });
+          if (editMode.sharedState.isEditing) protocolDraft.rename(state.selectedObservable.id, trimmedName);
+          else await protocolService.updateItem(state.selectedObservable.id, { name: trimmedName });
           state.showRenameObservableDialog = false;
           state.renameObservable.name = '';
           state.selectedObservable = null;
           state.selectedCategory = null;
-          await chronicle.methods.loadChronicle(chronicle.sharedState.currentChronicle.id);
-          methods.loadProtocol();
+          await methods.refreshProtocol();
           $q.notify({
             type: 'positive',
             message: `Observable renommé en "${trimmedName}"`,
@@ -1124,7 +1171,7 @@ export default defineComponent({
           console.error('Failed to rename observable:', error);
           $q.notify({
             type: 'negative',
-            message: 'Erreur lors du renommage',
+            message: error instanceof Error ? error.message : 'Erreur lors du renommage',
             position: 'top',
           });
         }
@@ -1133,49 +1180,45 @@ export default defineComponent({
       // Edit mode methods
       enterEditMode: () => {
         if (canEnterEditMode.value) {
+          protocolDraft.begin(chronicle.sharedState.currentProtocol);
           editMode.methods.enterEditMode();
+          methods.loadProtocol();
         }
       },
 
       exitEditMode: async () => {
-        // Vérification de sécurité
-        if (!chronicle.sharedState.currentChronicle) {
-          console.warn('Cannot exit edit mode: no current chronicle');
-          editMode.methods.cancelEditMode();
-          return;
-        }
-
+        const current = chronicle.sharedState.currentChronicle;
+        if (!current || editMode.sharedState.isSaving) return;
+        editMode.sharedState.isSaving = true;
         try {
-          const chronicleId = chronicle.sharedState.currentChronicle.id;
-          
-          // Pass valid category IDs to prevent saving positions for deleted categories
-          const validCategoryIds = new Set(state.categories.map(cat => cat.id));
-          await editMode.methods.exitEditMode(validCategoryIds);
-          
-          // Attendre que la DB soit à jour, puis recharger
-          await nextTick();
-          await chronicle.methods.loadChronicle(chronicleId);
-          await nextTick(); // Attendre que currentProtocol soit mis à jour
-          
-          // loadProtocol() va automatiquement réinitialiser les positions
-          // car on n'est plus en mode édition
-          methods.loadProtocol();
-        } catch (error) {
-          console.error('Failed to exit edit mode:', error);
-          $q.notify({
-            type: 'negative',
-            message: 'Erreur lors de la sauvegarde des positions',
-            position: 'top',
+          const categories = protocolDraft.categories.value.map((category) => {
+            const meta = { ...(category.meta ?? {}) };
+            meta.position = editMode.sharedState.categoryPositions[category.id];
+            const size = editMode.sharedState.categorySizes[category.id];
+            if (size) meta.size = size;
+            else delete meta.size;
+            return { ...category, meta };
           });
-          // Garder le mode édition ouvert pour permettre retry
-          // Ne pas appeler exitEditMode() pour ne pas réinitialiser l'état
+          await protocolRepository.saveDraft(current.id, categories, uiScale.state.scale);
+          state.showProtocolSheet = false;
+          editMode.methods.acceptChanges();
+          await uiScale.setScale(uiScale.state.scale);
+          await chronicle.methods.loadChronicle(current.id);
+          methods.loadProtocol();
+          $q.notify({ type: 'positive', message: 'Protocole et disposition enregistrés' });
+        } catch (error) {
+          $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Erreur lors de la sauvegarde' });
+        } finally {
+          editMode.sharedState.isSaving = false;
         }
       },
 
       cancelEditMode: () => {
+        if (editMode.sharedState.isSaving) return;
+        state.showProtocolSheet = false;
         editMode.methods.cancelEditMode();
-        // Réinitialiser les positions depuis les données actuelles
-        editMode.methods.initializePositions(state.categories);
+        methods.loadProtocol();
+        methods.remeasureLayout();
       },
 
       handleDragMove: ({ categoryId, position }: { categoryId: number; position: { x: number; y: number } }) => {
@@ -1205,6 +1248,11 @@ export default defineComponent({
        */
       remeasureLayout: () => {
         nextTick(() => {
+          layoutResizeObserver?.disconnect();
+          if (editContainerRef.value) {
+            layoutResizeObserver?.observe(editContainerRef.value);
+            editContainerRef.value.querySelectorAll('[data-category-id]').forEach((element) => layoutResizeObserver?.observe(element));
+          }
           editMode.methods.measureHeights(editContainerRef.value);
           updateContainerBounds();
         });
@@ -1218,26 +1266,9 @@ export default defineComponent({
       },
 
       onUiScaleChange: async (value: number | null) => {
-        if (value == null || isNaN(value)) return;
-        await uiScale.setScale(value);
-        // Persister dans le meta de la chronic courante pour la retrouver
-        // à la réouverture / export. Échec non bloquant.
-        const current = chronicle.sharedState.currentChronicle;
-        const chronicleId = current?.id;
-        if (chronicleId) {
-          // Mise à jour optimiste du store (cohérence immédiate).
-          if (current) {
-            chronicle.sharedState.currentChronicle = {
-              ...current,
-              meta: { ...(current.meta ?? {}), uiScale: value },
-            };
-          }
-          try {
-            await observationService.updateMeta(chronicleId, { uiScale: value });
-          } catch (error) {
-            console.error('Failed to persist uiScale to chronicle meta:', error);
-          }
-        }
+        if (value == null || !Number.isFinite(value)) return;
+        uiScale.state.scale = Math.max(uiScale.min, Math.min(uiScale.max, value));
+        methods.remeasureLayout();
       },
 
       /**
@@ -1265,7 +1296,7 @@ export default defineComponent({
           left: `${position.x}px`,
           top: `${position.y}px`,
           width: `${width}px`,
-          transition: 'all 0.3s ease',
+          transition: 'left 0.3s ease, top 0.3s ease',
         };
       },
       
@@ -1273,6 +1304,10 @@ export default defineComponent({
     };
 
     onMounted(() => {
+      layoutResizeObserver = new ResizeObserver(() => {
+        editMode.methods.measureHeights(editContainerRef.value);
+        updateContainerBounds();
+      });
       // Always load protocol and readings on mount
       methods.loadProtocol();
       methods.loadRecentReadings();
@@ -1311,11 +1346,17 @@ export default defineComponent({
       fitTimerRaf = 0;
       timerResizeObserver?.disconnect();
       timerResizeObserver = null;
+      layoutResizeObserver?.disconnect();
+      layoutResizeObserver = null;
       // Cancel edit mode if active to prevent state leakage
       if (editMode.sharedState.isEditing) {
         editMode.methods.cancelEditMode();
       }
     });
+
+    watch(protocolDraft.categories, () => {
+      if (editMode.sharedState.isEditing) methods.loadProtocol();
+    }, { deep: true });
 
     // Watch for protocol changes
     watch(
@@ -1550,15 +1591,21 @@ export default defineComponent({
 // Protocol sheet styles
 .protocol-sheet {
   border-radius: 16px 16px 0 0;
-  max-height: 70vh;
-  overflow-y: auto;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
+.protocol-sheet-body { overflow-y: auto; min-height: 0; }
+.protocol-sheet-actions { flex-shrink: 0; border-top: 1px solid rgba(128, 128, 128, 0.25); }
+.protocol-list :deep(.q-item__section--avatar) { min-width: 28px; padding-right: 8px; }
+.protocol-list :deep(.q-item__section--side) { padding-left: 4px; }
+.protocol-list :deep(.observable-item) { padding-left: 16px; }
 .protocol-list {
   background: rgba(0, 0, 0, 0.02);
   border-radius: 8px;
-  max-height: 40vh;
-  overflow-y: auto;
+
 }
 
 .category-item {

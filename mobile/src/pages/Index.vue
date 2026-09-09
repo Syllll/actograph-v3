@@ -6,7 +6,7 @@
         <q-card-section class="chronicle-header">
           <div class="row items-center">
             <q-avatar color="accent-strong" text-color="white" icon="mdi-clipboard-text" size="48px" class="q-mr-md" />
-            <div>
+            <div class="col" style="min-width: 0; overflow-wrap: anywhere">
               <div class="text-h6">{{ chronicle.sharedState.currentChronicle?.name }}</div>
               <div class="text-caption chronicle-description">
                 {{ chronicle.sharedState.currentChronicle?.description || 'Aucune description' }}
@@ -130,6 +130,20 @@
       </div>
     </template>
 
+    <q-file
+      v-model="state.importFile"
+      label="Importer un fichier"
+      hint=".chronic ou .jchronic — sans connexion"
+      accept=".chronic,.jchronic,application/json,application/octet-stream"
+      outlined
+      class="q-mt-md q-mb-lg"
+      :loading="state.importing"
+      :disable="state.importing || chronicle.sharedState.isPlaying || chronicle.sharedState.isPaused"
+      @update:model-value="methods.importLocalFile"
+    >
+      <template #prepend><q-icon name="mdi-file-import" class="text-control" /></template>
+    </q-file>
+
     <!-- Section Cloud - Toujours visible -->
     <q-card class="cloud-card q-mt-md">
       <q-card-section class="cloud-header">
@@ -148,7 +162,7 @@
                 {{ cloud.sharedState.currentEmail }}
               </div>
               <div v-else class="text-caption text-muted">
-                Non connecté
+                Facultatif — connexion pour les échanges en ligne
               </div>
             </div>
           </div>
@@ -215,7 +229,7 @@
             label="Nom de la chronique"
             outlined
             autofocus
-            :rules="[val => !!val || 'Le nom est requis']"
+            :rules="[val => !!val?.trim() || 'Le nom est requis']"
           />
           <q-input
             v-model="state.newChronicle.description"
@@ -234,7 +248,8 @@
             label="Créer"
             unelevated
             @click="methods.createChronicle"
-            :disable="!state.newChronicle.name"
+            :disable="!state.newChronicle.name.trim()"
+            :loading="state.creating"
           />
         </q-card-actions>
       </q-card>
@@ -247,6 +262,7 @@ import { defineComponent, reactive, onMounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useChronicle, useObservationLaunch, useCloud } from '@composables';
 import { observationService } from '@services/observation.service';
+import { importService } from '@services/import.service';
 import { shareService } from '@services/share.service';
 import { DPage } from '@components';
 import CloudLoginDialog from '@components/CloudLoginDialog.vue';
@@ -267,6 +283,9 @@ export default defineComponent({
     const state = reactive({
       chronicles: [] as IObservationWithCounts[],
       loading: false,
+      importing: false,
+      importFile: null as File | null,
+      creating: false,
       showCreateDialog: false,
       newChronicle: {
         name: '',
@@ -277,6 +296,22 @@ export default defineComponent({
     });
 
     const methods = {
+      importLocalFile: async (file: File | null) => {
+        if (!file || state.importing) return;
+        state.importing = true;
+        try {
+          const result = await importService.importFile(file);
+          if (!result.success || !result.observationId) throw new Error(result.error || 'Import impossible');
+          await chronicle.methods.loadChronicle(result.observationId);
+          await methods.loadChronicles();
+          $q.notify({ type: 'positive', message: `Chronique « ${result.observationName} » importée` });
+        } catch (error) {
+          $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Import impossible' });
+        } finally {
+          state.importing = false;
+          state.importFile = null;
+        }
+      },
       loadChronicles: async () => {
         state.loading = true;
         try {
@@ -291,9 +326,11 @@ export default defineComponent({
       },
 
       createChronicle: async () => {
+        if (state.creating || !state.newChronicle.name.trim()) return;
+        state.creating = true;
         try {
           await chronicle.methods.createChronicle({
-            name: state.newChronicle.name,
+            name: state.newChronicle.name.trim(),
             description: state.newChronicle.description || undefined,
           });
           state.showCreateDialog = false;
@@ -308,6 +345,8 @@ export default defineComponent({
             caption: error instanceof Error ? error.message : 'Erreur inconnue',
             position: 'top',
           });
+        } finally {
+          state.creating = false;
         }
       },
 
@@ -380,13 +419,13 @@ export default defineComponent({
           if (result.success) {
             $q.notify({
               type: 'positive',
-              message: 'Chronique uploadée !',
+              message: 'Chronique envoyée',
               caption: `${name} a été envoyée vers le cloud.`,
             });
           } else {
             $q.notify({
               type: 'negative',
-              message: "Erreur d'upload",
+              message: 'Échec de l’envoi',
               caption: result.error,
             });
           }

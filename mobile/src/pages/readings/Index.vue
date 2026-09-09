@@ -45,7 +45,7 @@
           <q-td :props="props">
             <q-chip
               :color="methods.getTypeColor(props.row.type)"
-              text-color="white"
+              :text-color="props.row.type.startsWith('PAUSE') ? 'primary' : 'white'"
               size="sm"
               dense
               class="reading-type-chip"
@@ -80,21 +80,21 @@
           </q-td>
         </template>
       </q-table>
-    </div>
+      <!-- Empty state -->
+      <div v-if="filteredReadings.length === 0" class="empty-state column items-center justify-center">
+        <q-icon name="mdi-table-off" size="64px" color="grey-5" />
+        <div class="text-h6 q-mt-md text-muted">
+          {{ isSearchActive ? 'Aucun relevé trouvé' : 'Aucun relevé' }}
+        </div>
+        <div class="text-body2 text-muted">
+          {{
+            isSearchActive
+              ? 'Essayez un autre terme de recherche'
+              : 'Démarrez une observation pour enregistrer des relevés'
+          }}
+        </div>
+      </div>
 
-    <!-- Empty state -->
-    <div v-if="filteredReadings.length === 0" class="empty-state column items-center justify-center">
-      <q-icon name="mdi-table-off" size="64px" color="grey-5" />
-      <div class="text-h6 q-mt-md text-muted">
-        {{ isSearchActive ? 'Aucun relevé trouvé' : 'Aucun relevé' }}
-      </div>
-      <div class="text-body2 text-muted">
-        {{
-          isSearchActive
-            ? 'Essayez un autre terme de recherche'
-            : 'Démarrez une observation pour enregistrer des relevés'
-        }}
-      </div>
     </div>
 
     <!-- Dialog ajout commentaire sur un relevé -->
@@ -155,12 +155,12 @@ const TYPE_LABELS: Record<ReadingType, string> = {
   STOP: 'Fin',
   PAUSE_START: 'Déb pause',
   PAUSE_END: 'Fin pause',
-  DATA: 'Data',
+  DATA: 'Donnée',
 };
 
 const TYPE_COLORS: Record<ReadingType, string> = {
-  START: 'positive',
-  STOP: 'negative',
+  START: 'positive-strong',
+  STOP: 'negative-strong',
   PAUSE_START: 'warning',
   PAUSE_END: 'warning',
   DATA: 'primary',
@@ -211,7 +211,7 @@ export default defineComponent({
       if (!state.search) {
         return readings.value;
       }
-      const searchLower = state.search.toLowerCase();
+      const searchLower = state.search.trim().toLowerCase();
       return readings.value.filter(
         (r) =>
           r.name?.toLowerCase().includes(searchLower) ||
@@ -220,7 +220,7 @@ export default defineComponent({
       );
     });
 
-    const isSearchActive = computed(() => state.search.trim().length > 0);
+    const isSearchActive = computed(() => (state.search ?? '').trim().length > 0);
 
     watch(
       () => chronicle.sharedState.currentChronicle?.id,

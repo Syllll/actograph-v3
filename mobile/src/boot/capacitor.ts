@@ -4,7 +4,7 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 
-export default boot(async ({ router }) => {
+export default boot(async () => {
   // Only run on native platforms
   if (!Capacitor.isNativePlatform()) {
     return;
@@ -27,16 +27,6 @@ export default boot(async ({ router }) => {
     // Status bar not available (web)
     console.log('StatusBar not available:', error);
   }
-
-  // Handle back button on Android
-  App.addListener('backButton', ({ canGoBack }) => {
-    if (canGoBack) {
-      router.back();
-    } else {
-      // Ask user if they want to exit
-      App.exitApp();
-    }
-  });
 
   // Handle app state changes
   App.addListener('appStateChange', ({ isActive }) => {

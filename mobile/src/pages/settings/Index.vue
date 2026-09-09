@@ -6,7 +6,7 @@
 
       <q-item>
         <q-item-section avatar>
-          <q-icon name="mdi-information" color="primary" />
+          <q-icon name="mdi-information" color="control" />
         </q-item-section>
         <q-item-section>
           <q-item-label>Version</q-item-label>
@@ -21,27 +21,28 @@
 
       <q-item>
         <q-item-section avatar>
-          <q-icon name="mdi-resize" color="primary" />
+          <q-icon name="mdi-resize" color="control" />
         </q-item-section>
         <q-item-section>
-          <q-item-label>Taille de l'interface</q-item-label>
+          <q-item-label>Taille de l'interface — {{ Math.round(state.scaleModel * 100) }} %</q-item-label>
           <q-item-label caption>
             Ajuste la taille globale des catégories et observables sur cet appareil
           </q-item-label>
           <q-slider
+            aria-label="Taille de l’interface"
             v-model="state.scaleModel"
             :min="uiScale.min"
             :max="uiScale.max"
             :step="uiScale.step"
-            color="primary"
+            color="control"
             class="q-mt-md"
             :label-value="Math.round(state.scaleModel * 100) + '%'"
             @change="methods.onScaleChange"
           />
           <div class="row items-center justify-between q-mt-xs">
-            <q-btn flat dense label="Compact" color="grey-7" size="sm" @click="methods.setScale(uiScale.min)" />
-            <q-btn flat dense label="Standard" color="grey-7" size="sm" @click="methods.setScale(1)" />
-            <q-btn flat dense label="Grand" color="grey-7" size="sm" @click="methods.setScale(uiScale.max)" />
+            <q-btn flat dense label="Compact" class="text-muted" size="sm" @click="methods.setScale(uiScale.min)" />
+            <q-btn flat dense label="Standard" class="text-muted" size="sm" @click="methods.setScale(1)" />
+            <q-btn flat dense label="Grand" class="text-muted" size="sm" @click="methods.setScale(uiScale.max)" />
           </div>
         </q-item-section>
       </q-item>
@@ -53,7 +54,7 @@
 
       <q-item>
         <q-item-section avatar>
-          <q-icon name="mdi-database" color="primary" />
+          <q-icon name="mdi-database" color="control" />
         </q-item-section>
         <q-item-section>
           <q-item-label>Chroniques locales</q-item-label>

@@ -25,6 +25,7 @@
 
 import { reactive, computed } from 'vue';
 import { protocolRepository, type IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
+import { arrangeCategoryCards } from '@utils/category-layout';
 import { useUiScale } from '@composables/use-ui-scale';
 
 // ============================================================================
@@ -134,6 +135,10 @@ export function useEditMode() {
   // --------------------------------------------------------------------------
 
   const uiScale = useUiScale();
+  let categoryOrder: number[] = [];
+  let customPositionIds = new Set<number>();
+  const layout = reactive({ width: 350 });
+  let snapshot: { positions: Record<number, Position>; sizes: Record<number, Size>; scale: number; customPositionIds: Set<number>; categoryOrder: number[] } | null = null;
 
   // --------------------------------------------------------------------------
   // Computed
@@ -156,10 +161,11 @@ export function useEditMode() {
    */
   const getCategoryWidth = (categoryId: number): number => {
     const stored = sharedState.categorySizes[categoryId];
-    if (stored && typeof stored.width === 'number' && !isNaN(stored.width)) {
-      return stored.width;
-    }
-    return Math.round(GRID_CONFIG.cardWidth * uiScale.state.scale);
+    const available = layout.width - GRID_CONFIG.padding * 2;
+    const minimum = Math.round(GRID_CONFIG.cardWidth * uiScale.state.scale);
+    const columns = Math.max(1, Math.min(GRID_CONFIG.maxColumns, Math.floor((available + 16) / (minimum + 16))));
+    const preferred = stored && Number.isFinite(stored.width) ? stored.width : (available - (columns - 1) * 16) / columns;
+    return Math.max(1, Math.min(preferred, layout.width - GRID_CONFIG.padding * 2));
   };
 
   // --------------------------------------------------------------------------
@@ -178,99 +184,34 @@ export function useEditMode() {
      * @param categories - List of categories to initialize
      */
     initializePositions: (categories: IProtocolItemWithChildren[]) => {
-      // Clean up positions/sizes for categories that no longer exist
-      const categoryIds = new Set(categories.map(c => c.id));
-      Object.keys(sharedState.categoryPositions).forEach(idStr => {
-        const id = Number(idStr);
-        if (!categoryIds.has(id)) {
-          delete sharedState.categoryPositions[id];
+      categoryOrder = categories.map((category) => category.id);
+      customPositionIds.clear();
+      sharedState.categoryPositions = {};
+      sharedState.categorySizes = {};
+      sharedState.categoryHeights = Object.fromEntries(Object.entries(sharedState.categoryHeights).filter(([id]) => categoryOrder.includes(Number(id))));
+      for (const category of categories) {
+        const position = category.meta?.position as Position | undefined;
+        const size = category.meta?.size as Size | undefined;
+        if (position && Number.isFinite(position.x) && Number.isFinite(position.y)) {
+          sharedState.categoryPositions[category.id] = { ...position };
+          customPositionIds.add(category.id);
         }
-      });
-      Object.keys(sharedState.categorySizes).forEach(idStr => {
-        const id = Number(idStr);
-        if (!categoryIds.has(id)) {
-          delete sharedState.categorySizes[id];
-        }
-      });
-      Object.keys(sharedState.categoryHeights).forEach(idStr => {
-        const id = Number(idStr);
-        if (!categoryIds.has(id)) {
-          delete sharedState.categoryHeights[id];
-        }
-      });
-
-      // Helper to validate stored position
-      const isValidPosition = (pos: unknown): pos is Position => {
-        return (
-          pos !== null &&
-          typeof pos === 'object' &&
-          'x' in pos &&
-          'y' in pos &&
-          typeof (pos as Position).x === 'number' &&
-          typeof (pos as Position).y === 'number' &&
-          !isNaN((pos as Position).x) &&
-          !isNaN((pos as Position).y) &&
-          (pos as Position).x >= 0 &&
-          (pos as Position).y >= 0
-        );
-      };
-
-      // Helper to validate stored size
-      const isValidSize = (size: unknown): size is Size => {
-        return (
-          size !== null &&
-          typeof size === 'object' &&
-          'width' in size &&
-          typeof (size as Size).width === 'number' &&
-          !isNaN((size as Size).width) &&
-          (size as Size).width > 0
-        );
-      };
-
-      // First pass: load stored positions and sizes
-      categories.forEach((category) => {
-        const storedPosition = category.meta?.position;
-
-        if (isValidPosition(storedPosition)) {
-          sharedState.categoryPositions[category.id] = {
-            x: storedPosition.x,
-            y: storedPosition.y,
-          };
-        }
-
-        const storedSize = category.meta?.size;
-        if (isValidSize(storedSize)) {
-          sharedState.categorySizes[category.id] = { width: storedSize.width };
-        }
-      });
-
-      // Second pass: assign grid positions to categories without stored positions
-      // This ensures no "holes" in the default grid layout
-      let row = 0;
-      let column = 0;
-
-      categories.forEach((category) => {
-        // Skip if already has a position from first pass
-        if (sharedState.categoryPositions[category.id]) {
-          return;
-        }
-
-        // Assign default grid position
-        sharedState.categoryPositions[category.id] = {
-          x: column * GRID_CONFIG.columnWidth + GRID_CONFIG.padding,
-          y: row * GRID_CONFIG.rowHeight + GRID_CONFIG.padding,
-        };
-
-        // Move to next grid cell only for categories without stored positions
-        column++;
-        if (column >= GRID_CONFIG.maxColumns) {
-          column = 0;
-          row++;
-        }
-      });
-
-      // Reset unsaved changes flag since we just loaded
+        if (size && Number.isFinite(size.width) && size.width > 0) sharedState.categorySizes[category.id] = { ...size };
+      }
+      methods.arrangePositions();
       sharedState.hasUnsavedChanges = false;
+    },
+
+    arrangePositions: () => {
+      if (sharedState.isDragging || sharedState.isResizing) return;
+      const positions = arrangeCategoryCards(categoryOrder.map((id) => ({
+        id, width: getCategoryWidth(id), height: sharedState.categoryHeights[id] ?? GRID_CONFIG.cardHeight,
+        position: customPositionIds.has(id) ? sharedState.categoryPositions[id] : undefined,
+      })), layout.width);
+      for (const [id, position] of Object.entries(positions)) {
+        const previous = sharedState.categoryPositions[Number(id)];
+        if (!previous || previous.x !== position.x || previous.y !== position.y) sharedState.categoryPositions[Number(id)] = position;
+      }
     },
 
     /**
@@ -282,6 +223,7 @@ export function useEditMode() {
      * - Positions can be modified
      */
     enterEditMode: () => {
+      snapshot = { positions: JSON.parse(JSON.stringify(sharedState.categoryPositions)), sizes: JSON.parse(JSON.stringify(sharedState.categorySizes)), scale: uiScale.state.scale, customPositionIds: new Set(customPositionIds), categoryOrder: [...categoryOrder] };
       sharedState.isEditing = true;
       sharedState.hasUnsavedChanges = false;
     },
@@ -317,7 +259,23 @@ export function useEditMode() {
      * This discards any position changes made during edit mode.
      * Call initializePositions() after this to restore original positions.
      */
+    acceptChanges: () => {
+      snapshot = null;
+      sharedState.hasUnsavedChanges = false;
+      sharedState.isEditing = false;
+      sharedState.isDragging = false;
+      sharedState.isResizing = false;
+    },
+
     cancelEditMode: () => {
+      if (snapshot) {
+        sharedState.categoryPositions = snapshot.positions;
+        sharedState.categorySizes = snapshot.sizes;
+        uiScale.state.scale = snapshot.scale;
+        customPositionIds = snapshot.customPositionIds;
+        categoryOrder = snapshot.categoryOrder;
+        snapshot = null;
+      }
       sharedState.isEditing = false;
       sharedState.isDragging = false;
       sharedState.draggingCategoryId = null;
@@ -334,6 +292,7 @@ export function useEditMode() {
      */
     updateCategoryPosition: (categoryId: number, position: Position) => {
       sharedState.categoryPositions[categoryId] = position;
+      customPositionIds.add(categoryId);
       sharedState.hasUnsavedChanges = true;
     },
 
@@ -384,19 +343,13 @@ export function useEditMode() {
           return true;
         });
 
-        const promises: Promise<unknown>[] = positionEntries.map(
-          async ([categoryIdStr, position]) => {
-            const categoryId = Number(categoryIdStr);
-            await protocolRepository.updateCategoryPosition(categoryId, position);
-          }
-        );
-
-        sizeEntries.forEach(([categoryIdStr, size]) => {
-          const categoryId = Number(categoryIdStr);
-          promises.push(protocolRepository.updateCategorySize(categoryId, size));
-        });
-
-        await Promise.all(promises);
+        // Position and size both merge the same metadata: serialize these writes.
+        for (const [categoryId, position] of positionEntries) {
+          await protocolRepository.updateCategoryPosition(Number(categoryId), position);
+        }
+        for (const [categoryId, size] of sizeEntries) {
+          await protocolRepository.updateCategorySize(Number(categoryId), size);
+        }
         sharedState.hasUnsavedChanges = false;
         console.log(
           `Saved ${positionEntries.length} position(s) and ${sizeEntries.length} size(s) successfully`
@@ -421,42 +374,11 @@ export function useEditMode() {
      * @param categories - List of categories to reset
      */
     resetPositions: (categories: IProtocolItemWithChildren[]) => {
-      // Clean up positions/sizes for categories that no longer exist
-      const categoryIds = new Set(categories.map(c => c.id));
-      Object.keys(sharedState.categoryPositions).forEach(idStr => {
-        const id = Number(idStr);
-        if (!categoryIds.has(id)) {
-          delete sharedState.categoryPositions[id];
-        }
-      });
-      // Reset all custom sizes: return to default width (cardWidth * uiScale)
-      Object.keys(sharedState.categorySizes).forEach(idStr => {
-        const id = Number(idStr);
-        if (!categoryIds.has(id)) {
-          delete sharedState.categorySizes[id];
-        }
-      });
-      // Clear custom sizes for remaining categories too
-      categories.forEach((category) => {
-        delete sharedState.categorySizes[category.id];
-      });
-
-      let row = 0;
-      let column = 0;
-
-      categories.forEach((category) => {
-        sharedState.categoryPositions[category.id] = {
-          x: column * GRID_CONFIG.columnWidth + GRID_CONFIG.padding,
-          y: row * GRID_CONFIG.rowHeight + GRID_CONFIG.padding,
-        };
-
-        column++;
-        if (column >= GRID_CONFIG.maxColumns) {
-          column = 0;
-          row++;
-        }
-      });
-
+      categoryOrder = categories.map((category) => category.id);
+      customPositionIds.clear();
+      sharedState.categoryPositions = {};
+      sharedState.categorySizes = {};
+      methods.arrangePositions();
       sharedState.hasUnsavedChanges = true;
     },
 
@@ -480,7 +402,7 @@ export function useEditMode() {
         top: `${position.y}px`,
         width: `${getCategoryWidth(categoryId)}px`,
         // Disable transition during drag/resize for smooth, lag-free movement
-        transition: (sharedState.isDragging || sharedState.isResizing) ? 'none' : 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+        transition: (sharedState.isDragging || sharedState.isResizing) ? 'none' : 'left 0.3s ease, top 0.3s ease',
         // Bring active item to front
         zIndex: (isDraggingThis || isResizingThis) ? 100 : 1,
         // Subtle visual feedback for the active item
@@ -525,7 +447,7 @@ export function useEditMode() {
       }
 
       // Add padding at bottom
-      return maxBottom + GRID_CONFIG.padding * 2;
+      return maxBottom + 96; // Keep the final buttons clear of the floating comment action.
     },
 
     /**
@@ -540,13 +462,17 @@ export function useEditMode() {
      */
     measureHeights: (containerEl: HTMLElement | null) => {
       if (!containerEl) return;
+      const widthChanged = containerEl.clientWidth > 0 && layout.width !== containerEl.clientWidth;
+      layout.width = containerEl.clientWidth || layout.width;
       const els = containerEl.querySelectorAll<HTMLElement>('[data-category-id]');
       els.forEach((el) => {
         const id = Number(el.getAttribute('data-category-id'));
         if (!isNaN(id)) {
-          sharedState.categoryHeights[id] = el.offsetHeight;
+          if (sharedState.categoryHeights[id] !== el.offsetHeight) sharedState.categoryHeights[id] = el.offsetHeight;
         }
       });
+      methods.arrangePositions();
+      if (widthChanged) requestAnimationFrame(() => methods.measureHeights(containerEl));
     },
 
     // ------------------------------------------------------------------------
@@ -569,6 +495,7 @@ export function useEditMode() {
     endDrag: () => {
       sharedState.isDragging = false;
       sharedState.draggingCategoryId = null;
+      methods.arrangePositions();
     },
 
     // ------------------------------------------------------------------------
@@ -589,6 +516,7 @@ export function useEditMode() {
     endResize: () => {
       sharedState.isResizing = false;
       sharedState.resizingCategoryId = null;
+      methods.arrangePositions();
     },
 
     /**
@@ -644,24 +572,10 @@ export function useEditMode() {
      * @param allCategories - List of all categories (including the new one)
      */
     addCategoryPosition: (categoryId: number, allCategories: IProtocolItemWithChildren[]) => {
-      // Count existing categories (excluding the new one)
-      const existingCount = allCategories.filter(cat => cat.id !== categoryId).length;
-      
-      // Calculate grid position based on index
-      // New category goes at position N (0-indexed) where N = existingCount
-      const gridIndex = existingCount;
-      const row = Math.floor(gridIndex / GRID_CONFIG.maxColumns);
-      const column = gridIndex % GRID_CONFIG.maxColumns;
-
-      sharedState.categoryPositions[categoryId] = {
-        x: column * GRID_CONFIG.columnWidth + GRID_CONFIG.padding,
-        y: row * GRID_CONFIG.rowHeight + GRID_CONFIG.padding,
-      };
-
-      // Mark as unsaved if in edit mode
-      if (sharedState.isEditing) {
-        sharedState.hasUnsavedChanges = true;
-      }
+      categoryOrder = allCategories.map((category) => category.id);
+      delete sharedState.categoryPositions[categoryId];
+      methods.arrangePositions();
+      if (sharedState.isEditing) sharedState.hasUnsavedChanges = true;
     },
 
     /**
@@ -673,6 +587,8 @@ export function useEditMode() {
      * @param categoryId - ID of the deleted category
      */
     removeCategoryPosition: (categoryId: number) => {
+      categoryOrder = categoryOrder.filter((id) => id !== categoryId);
+      customPositionIds.delete(categoryId);
       if (sharedState.categoryPositions[categoryId]) {
         delete sharedState.categoryPositions[categoryId];
         // Note: We don't mark as unsaved because the position is already

@@ -18,6 +18,7 @@
         </q-toolbar-title>
 
         <q-btn
+          v-if="!showBackButton"
           flat
           dense
           round
@@ -26,6 +27,12 @@
           @click="$router.push({ name: 'settings' })"
         />
       </q-toolbar>
+      <div v-if="hasChronicle" class="chronicle-context row items-center no-wrap q-px-md q-pb-xs">
+        <span class="ellipsis col">{{ chronicle.sharedState.currentChronicle?.name }}</span>
+        <span v-if="chronicle.sharedState.isPlaying || chronicle.sharedState.isPaused" class="q-ml-sm text-warning">
+          {{ chronicle.sharedState.isPaused ? 'En pause' : '● Enregistrement' }}
+        </span>
+      </div>
     </q-header>
 
     <!-- Page content -->
@@ -44,12 +51,14 @@
         narrow-indicator
       >
         <q-route-tab
+          exact
           name="home"
           icon="mdi-home"
           label="Accueil"
           :to="{ name: 'home' }"
         />
         <q-route-tab
+          exact
           name="observation"
           icon="mdi-binoculars"
           label="Observer"
@@ -59,6 +68,7 @@
           @click="(e) => methods.guardTab(e, 'observation')"
         />
         <q-route-tab
+          exact
           name="readings"
           icon="mdi-table"
           label="Relevés"
@@ -68,6 +78,7 @@
           @click="(e) => methods.guardTab(e, 'readings')"
         />
         <q-route-tab
+          exact
           name="graph"
           icon="mdi-chart-line"
           label="Graphe"
@@ -96,13 +107,15 @@ export default defineComponent({
     const route = useRoute();
     const $q = useQuasar();
     const chronicle = useChronicle();
-    const currentTab = ref('home');
+    const currentTab = ref<string | null>(null);
 
     watch(
       () => route.name,
       (name) => {
         if (typeof name === 'string' && TAB_ROUTE_NAMES.has(name)) {
           currentTab.value = name;
+        } else {
+          currentTab.value = null;
         }
       },
       { immediate: true }
@@ -164,6 +177,7 @@ export default defineComponent({
 
     return {
       currentTab,
+      chronicle,
       pageTitle,
       showBackButton,
       hasChronicle,
@@ -175,6 +189,8 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+.chronicle-context { font-size: 12px; }
+
 // Reduce horizontal padding so 4 labels fit comfortably on ~360dp screens.
 .main-tabs {
   :deep(.q-tab) {

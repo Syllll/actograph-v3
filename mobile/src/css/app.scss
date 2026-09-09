@@ -38,6 +38,7 @@ $modernDarkGrey: #1f2937;
   --info: #{$blue};
   --text: #{$black};
   // Secondary text: readable on white (slate-600, ~7:1 contrast, passes WCAG AA).
+  --control-color: #c2410c;
   --text-secondary: #475569;
   // Disabled/placeholder text: intentionally muted, reserved for non-essential text.
   --text-disabled: #94a3b8;
@@ -68,6 +69,7 @@ body.body--dark {
 
   --text: #{$white};
   // Secondary/disabled text tuned for dark background (slate-300 / slate-500).
+  --control-color: #fb923c;
   --text-secondary: #cbd5e1;
   --text-disabled: #64748b;
   --text-invert: #{$black};
@@ -141,6 +143,10 @@ body {
 // Semantic text helpers (theme-aware, sufficient contrast in light & dark).
 // Use `.text-muted` for secondary content (captions, empty states, hints)
 // instead of Quasar's washed-out `text-grey` (#9e9e9e fails WCAG contrast).
+.text-control {
+  color: var(--control-color) !important;
+}
+
 .text-muted {
   color: var(--text-secondary) !important;
 }
@@ -225,6 +231,8 @@ body {
 // Dialog styles
 .q-dialog__inner--minimized > div {
   border-radius: 12px;
+  min-width: min(320px, calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 32px);
 }
 
 // Timer display (font size is fitted dynamically in observation/Index.vue)
@@ -324,3 +332,11 @@ body {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
 }
+
+// Filled status controls need readable white text in both themes.
+.bg-positive-strong { background-color: #047857 !important; }
+.text-positive-strong { color: #047857 !important; }
+.bg-negative-strong { background-color: #b91c1c !important; }
+.text-negative-strong { color: #b91c1c !important; }
+.q-btn--round { border-radius: 50%; padding: 0; min-width: 48px; }
+.q-btn--round.q-btn--dense { min-width: 44px; }

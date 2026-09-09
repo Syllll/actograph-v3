@@ -101,6 +101,13 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
     return created[0];
   }
 
+  async addBatch(observationId: number, entries: { type: ReadingType; date: Date; name?: string }[]): Promise<void> {
+    await sqliteService.executeTransaction(entries.map((entry) => ({
+      statement: 'INSERT INTO readings (observation_id, type, date, name) VALUES (?, ?, ?, ?)',
+      values: [observationId, entry.type, toAbsoluteDateTimeString(entry.date), entry.name ?? null],
+    })));
+  }
+
   /**
    * Add START reading
    */

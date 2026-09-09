@@ -7,7 +7,6 @@ import { reactive, computed, ref, onUnmounted } from 'vue';
 import { observationService, type IObservationFull } from '@services/observation.service';
 import { protocolService } from '@services/protocol.service';
 import type { IReadingEntity } from '@database/repositories/reading.repository';
-import { autoCorrectReadings } from '../use-readings-auto-correct';
 
 interface IObservableState {
   id: number;
@@ -198,14 +197,6 @@ export function useObservation() {
       recordingState.isRecording = false;
       recordingState.isPaused = false;
       methods.stopTimer();
-
-      // Silently auto-correct readings (baguette magique)
-      try {
-        await autoCorrectReadings(currentObservation.value.observation.id);
-      } catch (error) {
-        // Silently ignore errors during auto-correction
-        console.error('Error during auto-correction:', error);
-      }
 
       methods.addToRecentReadings(reading);
     },

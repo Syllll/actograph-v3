@@ -270,37 +270,42 @@ class ObservationService {
     observationId: number,
     initialContinuousObservableNames: string[] = []
   ): Promise<IReadingEntity> {
-    const startDate = new Date();
-    const startReading = await readingRepository.addStart(observationId, startDate);
-
-    for (const observableName of initialContinuousObservableNames) {
-      const trimmedObservableName = observableName.trim();
-      if (!trimmedObservableName) {
-        continue;
-      }
-      await readingRepository.addData(observationId, trimmedObservableName, startDate);
+    if (await this.isRecording(observationId)) {
+      throw new Error('Une session est déjà en cours');
     }
-
-    return startReading;
+    const categories = await protocolRepository.findByObservationId(observationId);
+    const items = categories ? await protocolRepository.getProtocolItems(categories.id) : [];
+    const names = items.flatMap((category) => category.children ?? []).map((item) => item.name.trim().toLowerCase());
+    if (new Set(names).size !== names.length) throw new Error('Des observables ont le même nom. Renommez-les avant de démarrer.');
+    if (names.length === 0) throw new Error('Ajoutez au moins un observable avant de démarrer.');
+    const startDate = new Date();
+    await readingRepository.addBatch(observationId, [
+      { type: 'START', date: startDate },
+      ...initialContinuousObservableNames.filter((name) => name.trim()).map((name) => ({
+        type: 'DATA' as const, date: startDate, name: name.trim(),
+      })),
+    ]);
+    const readings = await readingRepository.findByObservationId(observationId);
+    return readings.filter((reading) => reading.type === 'START').pop()!;
   }
 
-  /**
-   * Stop recording
-   */
+  /** Stop the current session without rewriting any previous session. */
   async stopRecording(observationId: number): Promise<IReadingEntity> {
-    return readingRepository.addStop(observationId);
+    if (!(await this.isRecording(observationId))) throw new Error('Aucune session en cours');
+    const readings = await readingRepository.findByObservationId(observationId);
+    const lastBoundary = readings.filter((r) => r.type !== 'DATA').pop();
+    const date = new Date();
+    await readingRepository.addBatch(observationId, [
+      ...(lastBoundary?.type === 'PAUSE_START' ? [{ type: 'PAUSE_END' as const, date }] : []),
+      { type: 'STOP', date },
+    ]);
+    return (await readingRepository.getLastReading(observationId))!;
   }
 
-  /**
-   * Pause recording
-   */
   async pauseRecording(observationId: number): Promise<IReadingEntity> {
     return readingRepository.addPauseStart(observationId);
   }
 
-  /**
-   * Resume recording
-   */
   async resumeRecording(observationId: number): Promise<IReadingEntity> {
     return readingRepository.addPauseEnd(observationId);
   }

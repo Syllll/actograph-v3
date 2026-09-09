@@ -10,7 +10,6 @@ import {
 import { observationService } from '@services/observation.service';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
 import type { IReadingEntity } from '@database/repositories/reading.repository';
-import { autoCorrectReadings } from '../use-readings-auto-correct';
 import { toAbsoluteTimeString } from '@utils/date-time';
 
 interface IChronicleObservation {
@@ -222,11 +221,7 @@ export const useChronicle = () => {
       if (!sharedState.currentChronicle) return;
       await observationService.stopRecording(sharedState.currentChronicle.id);
       methods.stopTimer();
-      try {
-        await autoCorrectReadings(sharedState.currentChronicle.id);
-      } catch (error) {
-        console.error('Error during auto-correction:', error);
-      }
+
       await methods.refreshReadings();
     },
 

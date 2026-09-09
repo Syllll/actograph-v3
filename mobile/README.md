@@ -1,21 +1,22 @@
 # ActoGraph Mobile
 
-Application mobile **gratuite** et **100% offline** pour observations comportementales, basée sur Quasar + Capacitor.
+Application mobile **gratuite**, utilisable **hors ligne** pour observations comportementales, basée sur Quasar + Capacitor.
 
 ## 🎁 Gratuit et accessible
 
 - **Aucune licence requise** - L'app mobile est entièrement gratuite
-- **Pas de compte utilisateur** - Utilisation immédiate sans inscription
-- **100% local** - Vos données restent privées sur votre appareil
-- **Pas de connexion internet** - Fonctionne entièrement hors ligne
+- **Sans compte pour observer** - Création, import local, relevés et graphe accessibles sans inscription
+- **Stockage local** - Les chroniques sont conservées sur votre appareil ; un envoi vers le cloud est une action explicite
+- **Cloud facultatif** - Une connexion et un compte sont nécessaires uniquement pour les échanges avec le cloud
 
 ## Fonctionnalités
 
 - ✅ Créer et charger des chroniques (observations)
 - ✅ Observation en temps réel avec catégories et boutons
-- ✅ Consultation des relevés (tableau read-only)
+- ✅ Consultation des relevés, recherche et commentaires
 - ✅ Visualisation du graphique d'activité
-- ✅ Import de fichiers `.chronic` et `.jchronic`
+- ✅ Import local de fichiers `.chronic` et `.jchronic` depuis l’accueil
+- ✅ Édition du protocole et de sa disposition, avec validation ou annulation
 - ✅ Mode 100% offline avec SQLite
 
 ## Navigation
@@ -27,7 +28,7 @@ L'application propose 4 onglets principaux :
 | **Accueil** | Créer/charger une chronique, voir les statistiques |
 | **Observation** | Enregistrer des relevés avec les boutons de catégories |
 | **Relevés** | Consulter tous les relevés dans un tableau |
-| **Graph** | Visualiser le graphique d'activité |
+| **Graphe** | Visualiser le graphique d'activité |
 
 ## Différences avec la version web
 
@@ -407,3 +408,18 @@ Cette application utilise :
 ### @actograph/graph
 - Afficher le graphique d'activité
 - Visualisation des relevés dans le temps
+
+
+## Vérifications de régression mobile
+
+Après installation des dépendances de `mobile` et `packages/core` :
+
+```bash
+cd mobile
+yarn test
+yarn lint
+```
+
+Les tests réutilisent Jest/ts-jest de `packages/core` et SQL.js fourni par la dépendance SQLite. Ils exécutent les migrations et repositories mobiles dans une base éphémère pour vérifier les sessions successives, l’arrêt en pause, les écritures atomiques, les renommages historiques, l’édition annulable, l’import et la disposition adaptative. Ils ne remplacent pas les essais Android/iOS sur appareil.
+
+Les noms d’observables sont uniques dans tout le protocole, car les fichiers et relevés les référencent par nom. Un renommage met à jour les relevés de la chronique dans la même transaction. La suppression d’un élément déjà utilisé est refusée : dupliquez la chronique sans relevés pour créer une variante du protocole.

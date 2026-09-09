@@ -268,10 +268,10 @@ export function useGraph(options: UseGraphOptions) {
       console.log('[useGraph] Graph initialized successfully');
     } catch (error) {
       console.error('[useGraph] Failed to initialize graph:', error);
-      sharedState.error = error instanceof Error 
-        ? error.message 
-        : 'Erreur lors de l\'initialisation du graphique';
       destroyGraph();
+      sharedState.error = error instanceof Error
+        ? error.message
+        : 'Erreur lors de l\'initialisation du graphique';
     } finally {
       // ⚠️ Important : loading=false va masquer l'overlay, révélant le graphique
       sharedState.loading = false;

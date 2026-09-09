@@ -29,6 +29,7 @@ export default defineComponent({
 
 <style scoped lang="scss">
 .d-page {
+  background: var(--background);
   display: flex;
   flex-direction: column;
   height: 100%;
