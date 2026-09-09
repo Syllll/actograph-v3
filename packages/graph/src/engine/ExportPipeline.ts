@@ -30,9 +30,14 @@ export class ExportPipeline {
   async exportAsImage(format: 'png' | 'jpeg', quality = 0.92): Promise<string | null> {
     const { app, isInteractive, setHoverSuppressed } = this.deps;
 
-    if (!app.canvas || !app.renderer) {
+    const renderer = app.renderer;
+    const stage = app.stage;
+    if (!renderer || !stage || !app.canvas) {
       return null;
     }
+    // Closing the analysis screen can destroy Pixi while draw/extract awaits.
+    const isAvailable = () =>
+      app.renderer === renderer && app.stage === stage && !stage.destroyed;
 
     setHoverSuppressed(true);
 
@@ -44,6 +49,7 @@ export class ExportPipeline {
     const savedViewport = this.deps.getViewportTransform();
 
     let resizedForExport = false;
+    let image: string | null = null;
     try {
       if (isInteractive()) {
         if (exportHeight !== originalHeight) {
@@ -74,19 +80,23 @@ export class ExportPipeline {
 
       // enqueueDrawBody paints on success via PixiApp.paint('draw-complete').
       await this.deps.enqueueDrawBody();
+      if (!isAvailable()) return null;
 
       const extractFormat = format === 'jpeg' ? 'jpg' : 'png';
-      return await app.renderer.extract.base64({
-        target: app.stage,
+      image = await renderer.extract.base64({
+        target: stage,
         format: extractFormat,
         quality,
         // extract() does not inherit Application background; without this the
         // PNG is transparent and JPEG composites on black (unreadable axes).
         clearColor: '#ffffff',
       });
+    } catch (error) {
+      if (!isAvailable()) return null;
+      throw error;
     } finally {
       try {
-        if (isInteractive()) {
+        if (isAvailable() && isInteractive()) {
           if (resizedForExport) {
             this.deps.resizeRenderer(originalWidth, originalHeight);
             this.deps.updateWorldBounds();
@@ -97,8 +107,9 @@ export class ExportPipeline {
           await this.deps.enqueueDrawBody();
         }
       } finally {
-        setHoverSuppressed(false);
+        if (isAvailable()) setHoverSuppressed(false);
       }
     }
+    return isAvailable() ? image : null;
   }
 }

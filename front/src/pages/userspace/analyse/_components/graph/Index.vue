@@ -155,6 +155,7 @@
                 unelevated
                 icon="mdi-download"
                 :label="$t('graphUi.exportAction')"
+                :disable="exportSelection.content !== 'legend' && graphControlsDisabled"
                 class="full-width"
                 v-close-popup
                 @click="methods.runExport"
@@ -246,7 +247,7 @@ import {
 } from '@services/observations/protocol-graph-preferences.utils';
 import StudentWatermark from '@components/student-watermark/Index.vue';
 import { payloadFromImageDataUrl } from 'src/utils/image-data-url';
-import { mergeMetaIfSameObservation, createObservationMetaPersistQueue } from 'src/utils/observation-meta-update';
+import { mergeMetaIfSameObservation, observationGraphMetaPersistQueue } from 'src/utils/observation-meta-update';
 
 /**
  * Composant principal du graphique d'activité.
@@ -350,14 +351,14 @@ export default defineComponent({
     // Initialisation du composable de personnalisation du graphe
     const customization = useGraphCustomization();
 
-    const persistGraphMetaQueue = createObservationMetaPersistQueue();
+    const persistGraphMetaQueue = observationGraphMetaPersistQueue;
 
     const persistObservationGraphMeta = async (
       observationId: string | number,
       patch: Record<string, unknown>,
     ): Promise<void> => {
       try {
-        const updated = await observationService.update(observationId, {
+        const updated = await observationService.update(Number(observationId), {
           meta: patch,
         });
         if (persistGraphMetaQueue.hasPending(observationId)) {
@@ -611,6 +612,14 @@ export default defineComponent({
       // Export unique piloté par les sélecteurs du panneau : contenu (graphe /
       // légende / combiné) × format (PNG / JPEG).
       runExport: async () => {
+        try {
+          await methods.exportSelectedImage();
+        } catch (error) {
+          console.error('Graph image export failed:', error);
+          $q.notify({ type: 'negative', message: t('graphUi.exportSaveFailed') });
+        }
+      },
+      exportSelectedImage: async () => {
         const content = exportSelection.content;
         const format = exportSelection.format;
         const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';

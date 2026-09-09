@@ -2,6 +2,55 @@ import { Application } from 'pixi.js';
 import { ExportPipeline } from '../engine/ExportPipeline';
 
 describe('ExportPipeline', () => {
+  it.each(['draw', 'extract', 'restore'] as const)(
+    'cancels safely when the graph is destroyed during %s',
+    async (phase) => {
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      let entered: () => void = () => undefined;
+      const started = new Promise<void>((resolve) => { entered = resolve; });
+      const extract = jest.fn(async () => {
+        if (phase === 'extract') { entered(); await gate; }
+        return 'data:image/png;base64,abc';
+      });
+      const app = {
+        canvas: {}, screen: { width: 800, height: 400 }, stage: {},
+        renderer: { extract: { base64: extract } },
+      } as unknown as Application;
+      const setViewportTransform = jest.fn();
+      const setHoverSuppressed = jest.fn();
+      const resizeRenderer = jest.fn();
+      let drawCount = 0;
+      const enqueueDrawBody = jest.fn(async () => {
+        drawCount += 1;
+        if (phase === 'draw' || (phase === 'restore' && drawCount === 2)) {
+          entered();
+          await gate;
+        }
+      });
+      const pipeline = new ExportPipeline({
+        app, isInteractive: () => true, getRequiredCanvasHeight: () => 900,
+        enqueueDrawBody, setViewportTransform, setHoverSuppressed, resizeRenderer,
+        updateWorldBounds: jest.fn(), recalculateFitViewport: jest.fn(),
+        getWorldBounds: () => ({ width: 800, height: 900 }),
+        getZoomState: () => ({ scale: 1, minScale: 0.1, maxScale: 5 }),
+        getViewportTransform: () => ({ scale: 1, x: 0, y: 0 }),
+        presentCommittedScene: jest.fn(),
+      });
+      const result = pipeline.exportAsImage('png');
+      await started;
+      Object.assign(app, { renderer: null, stage: null });
+      release();
+
+      await expect(result).resolves.toBeNull();
+      expect(resizeRenderer).toHaveBeenCalledTimes(phase === 'restore' ? 2 : 1);
+      expect(setViewportTransform).toHaveBeenCalledTimes(phase === 'restore' ? 2 : 1);
+      expect(setHoverSuppressed).toHaveBeenCalledTimes(1);
+      expect(enqueueDrawBody).toHaveBeenCalledTimes(phase === 'restore' ? 2 : 1);
+      expect(extract).toHaveBeenCalledTimes(phase === 'draw' ? 0 : 1);
+    },
+  );
+
   it('captures via renderer.extract.base64, not app.canvas.toDataURL', async () => {
     const extractBase64 = jest.fn().mockResolvedValue('data:image/png;base64,abc');
     const canvasToDataURL = jest.fn();

@@ -75,3 +75,8 @@ export function createObservationMetaPersistQueue() {
     },
   };
 }
+
+// Keep in-flight saves coordinated when the analysis component is remounted.
+// A queue owned by setup() allows an old screen's response/write to race with
+// the new screen's edits to the same chronicle.
+export const observationGraphMetaPersistQueue = createObservationMetaPersistQueue();

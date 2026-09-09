@@ -45,4 +45,8 @@ describe('PixiApp zoom before init', () => {
 
     await expect(pixiApp.resetView()).resolves.toBeUndefined();
   });
+
+  it('export before initialization returns null without accessing the canvas', async () => {
+    await expect(new PixiApp().exportAsImage()).resolves.toBeNull();
+  });
 });

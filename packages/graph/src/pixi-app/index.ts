@@ -1774,7 +1774,7 @@ export class PixiApp {
     format: 'png' | 'jpeg',
     quality: number,
   ): Promise<string | null> {
-    if (!this.app.canvas || !this.isInitialized || !this.app.renderer) {
+    if (!this.isEngineReady() || !this.getInitializedCanvas()) {
       return null;
     }
 
@@ -1783,7 +1783,7 @@ export class PixiApp {
       return await this.exportPipeline.exportAsImage(format, quality);
     } finally {
       this.exportInProgress = false;
-      this.consumePendingCanvasResizeAfterIdle();
+      if (this.isEngineReady()) this.consumePendingCanvasResizeAfterIdle();
     }
   }
 
@@ -1866,4 +1866,3 @@ export class PixiApp {
     }
   }
 }
-

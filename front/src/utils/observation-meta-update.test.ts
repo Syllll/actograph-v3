@@ -1,11 +1,12 @@
 import {
   mergeMetaIfSameObservation,
   createObservationMetaPersistQueue,
+  observationGraphMetaPersistQueue,
 } from './observation-meta-update';
 
 describe('mergeMetaIfSameObservation', () => {
   it('merges meta when the current observation is still the saved one', () => {
-    const current = { id: 'obs-a', name: 'A', meta: { graphXStretch: 1 } };
+    const current = { id: 'obs-a', name: 'A', meta: { graphXStretch: 1 } as Record<string, unknown> };
     const next = mergeMetaIfSameObservation(current, 'obs-a', {
       graphXStretch: 2,
       graphYCompact: 0.8,
@@ -39,6 +40,34 @@ describe('mergeMetaIfSameObservation', () => {
 });
 
 describe('createObservationMetaPersistQueue', () => {
+  it('coordinates old and remounted graph consumers until both saves finish', async () => {
+    const queue = observationGraphMetaPersistQueue;
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const applied: number[] = [];
+    const saved: number[] = [];
+    let running = 0;
+    let maxRunning = 0;
+    const makeConsumer = () => async (id: string | number, patch: Record<string, unknown>) => {
+      running += 1;
+      maxRunning = Math.max(maxRunning, running);
+      if (patch.graphXStretch === 1.5) await gate;
+      saved.push(patch.graphXStretch as number);
+      if (!queue.hasPending(id)) applied.push(patch.graphXStretch as number);
+      running -= 1;
+    };
+
+    const oldScreen = queue.schedule('remounted-observation', { graphXStretch: 1.5 }, makeConsumer());
+    await Promise.resolve();
+    const newScreen = queue.schedule('remounted-observation', { graphXStretch: 3 }, makeConsumer());
+    release();
+    await Promise.all([oldScreen, newScreen]);
+
+    expect(maxRunning).toBe(1);
+    expect(saved).toEqual([1.5, 3]);
+    expect(applied).toEqual([3]);
+  });
+
   it('treats numeric and string ids as the same chronicle', async () => {
     const queue = createObservationMetaPersistQueue();
     const calls: Array<{ id: string | number; patch: Record<string, unknown> }> = [];

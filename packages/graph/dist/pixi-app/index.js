@@ -1464,7 +1464,7 @@ export class PixiApp {
         return task;
     }
     async runExportAsImage(format, quality) {
-        if (!this.app.canvas || !this.isInitialized || !this.app.renderer) {
+        if (!this.isEngineReady() || !this.getInitializedCanvas()) {
             return null;
         }
         this.exportInProgress = true;
@@ -1473,7 +1473,8 @@ export class PixiApp {
         }
         finally {
             this.exportInProgress = false;
-            this.consumePendingCanvasResizeAfterIdle();
+            if (this.isEngineReady())
+                this.consumePendingCanvasResizeAfterIdle();
         }
     }
     destroy() {
