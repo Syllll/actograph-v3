@@ -214,6 +214,16 @@ export class xAxis extends BaseGroup {
     }
   }
 
+  /** True when setData has produced ticks that a format change can relabel. */
+  public hasTicks(): boolean {
+    return this.ticks.length > 0;
+  }
+
+  /** Labels currently stored on ticks (positions unchanged). */
+  public getTickLabels(): readonly string[] {
+    return this.ticks.map((tick) => tick.label);
+  }
+
   /**
    * Largeur d'un texte pour le style des labels de tick, via un canvas 2D
    * hors-DOM réutilisé (measureText). Fallback grossier si `document` n'est

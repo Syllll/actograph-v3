@@ -723,9 +723,10 @@ describe('PixiApp draw error surface', () => {
     scheduleDraw.mockRestore();
   });
 
-  it('requestRender schedules draw instead of partial flush when midDraw', () => {
+  it('requestRender never starts a build when midDraw leftover blocks present', () => {
     const pixiApp = new PixiApp();
     const render = jest.fn();
+    const paint = jest.fn();
     const scheduleDraw = jest.spyOn(
       pixiApp as unknown as { scheduleDraw: (reason?: string) => void },
       'scheduleDraw',
@@ -740,12 +741,45 @@ describe('PixiApp draw error surface', () => {
       dirtyRegistry: {
         isAnyUnsafeToPaint: () => true,
       },
+      paint,
     });
 
     pixiApp.requestRender();
+    pixiApp.requestRender('hover');
+    pixiApp.requestRender('pan');
 
     expect(render).not.toHaveBeenCalled();
-    expect(scheduleDraw).toHaveBeenCalledWith('renderGate');
+    expect(paint).not.toHaveBeenCalled();
+    expect(scheduleDraw).not.toHaveBeenCalled();
+    scheduleDraw.mockRestore();
+  });
+
+  it('requestRender does not start a build while the scene is mutating', () => {
+    const pixiApp = new PixiApp();
+    const render = jest.fn();
+    const paint = jest.fn();
+    const scheduleDraw = jest.spyOn(
+      pixiApp as unknown as { scheduleDraw: (reason?: string) => void },
+      'scheduleDraw',
+    ).mockImplementation(() => undefined);
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      app: { renderer: {}, render },
+      drawInProgress: false,
+      exportInProgress: false,
+      scenePaintState: 'mutating',
+      dirtyRegistry: {
+        isAnyUnsafeToPaint: () => true,
+      },
+      paint,
+    });
+
+    pixiApp.requestRender('hover');
+
+    expect(render).not.toHaveBeenCalled();
+    expect(paint).not.toHaveBeenCalled();
+    expect(scheduleDraw).not.toHaveBeenCalled();
     scheduleDraw.mockRestore();
   });
 

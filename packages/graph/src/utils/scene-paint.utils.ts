@@ -3,12 +3,19 @@ export type ScenePaintState = 'stable' | 'mutating' | 'failed';
 
 /**
  * Why a paint was requested. Only `paint()` may call `app.render()`.
+ *
+ * Two queues, never mixed:
+ * - Build: `scheduleDraw` / `draw` / `executeDrawBody` / `prepareWorld`.
+ * - Present: `requestRender` / `paint`. Never starts a build.
+ *
  * - Authoritative reasons may paint even while rebuilding (caller guarantees
  *   the scene is ready for that frame).
- * - `resize` refills the default framebuffer after `renderer.resize()` from
- *   the last committed scene. Allowed while a full draw is queued, never
- *   while mutating or failed.
- * - Partial reasons only paint when the scene is STABLE.
+ * - `resize` refills the canvas after `renderer.resize()` from the last
+ *   committed scene. Allowed while a full draw is queued, never while
+ *   mutating or failed.
+ * - Partial reasons (hover, pan, zoom, time-format labels) only paint when
+ *   the scene is STABLE. A refused present is a no-op: wait for the current
+ *   build, or for retry after `failed`.
  */
 export type PaintReason =
   | 'init'
@@ -61,16 +68,5 @@ export function canPaintResizePresent(options: {
     options.scenePaintState === 'stable' &&
     !options.drawInProgress &&
     !options.exportInProgress
-  );
-}
-
-/** Reasons that should trigger a full draw when a partial paint is refused. */
-export function shouldScheduleDrawOnPaintGate(reason: PaintReason): boolean {
-  return (
-    reason !== 'leave' &&
-    reason !== 'init' &&
-    reason !== 'draw-complete' &&
-    reason !== 'export' &&
-    reason !== 'resize'
   );
 }

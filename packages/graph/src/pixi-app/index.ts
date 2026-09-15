@@ -26,8 +26,12 @@ import {
   type ViewportState,
   type WorldBounds,
 } from '../utils/viewport.utils';
-import type { IGraphRenderOptions } from '../types/graph-render-options';
-import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../types/graph-render-options';
+import {
+  DEFAULT_GRAPH_RENDER_OPTIONS,
+  hasGraphRenderOptionsChanged,
+  isTimeFormatOnlyChange,
+  type IGraphRenderOptions,
+} from '../types/graph-render-options';
 import {
   GRAPH_CANVAS_CURSOR_IDLE,
   GRAPH_CANVAS_CURSOR_PANNING,
@@ -36,7 +40,6 @@ import {
   canPaintPartial,
   canPaintResizePresent,
   isAuthoritativePaintReason,
-  shouldScheduleDrawOnPaintGate,
   type PaintReason,
   type ScenePaintState,
 } from '../utils/scene-paint.utils';
@@ -134,9 +137,9 @@ export class PixiApp {
   private forcePatternTextureClear = false;
   /**
    * Per-layer dirty/midDraw state. midDraw is true while a full draw has
-   * cleared axis graphics but not yet flushed app.render(). Partial paints
-   * (hover, redrawCategory, pan) must not call app.render() while any layer
-   * is midDraw — they would show empty axes.
+   * started rebuilding and has not yet flushed a successful present.
+   * requestRender must not present (and never rebuild) while any layer is
+   * midDraw.
    */
   private dirtyRegistry = new DirtyRegistry();
   private contextRestoring = false;
@@ -154,6 +157,12 @@ export class PixiApp {
    * (Windows/ANGLE). Next full label sync recreates the pool.
    */
   private needsLabelTextureRefresh = false;
+  /**
+   * True after a successful world build has been presented. Until then a
+   * resize must not present: last committed frame is still the empty init
+   * paint (no axes). Remount / Observation→Graphe used to flash that frame.
+   */
+  private hasCommittedWorld = false;
   /** Scene coherence for partial WebGL paints (hover/pan). */
   private scenePaintState: ScenePaintState = 'stable';
   /** At most one auto-retry per failed draw until the next success. */
@@ -385,9 +394,10 @@ export class PixiApp {
   }
 
   /**
-   * Sole entry point for `app.render()` in PixiApp. Authoritative reasons paint
-   * when the caller guarantees scene readiness; `resize` refills the default
-   * framebuffer from the last committed scene; partial reasons only when idle.
+   * Sole present entry: `app.render()` only. Never rebuilds the world.
+   * Authoritative reasons paint when the caller guarantees scene readiness;
+   * `resize` refills the canvas from the last committed scene; partial reasons
+   * only when idle.
    */
   private paint(reason: PaintReason): void {
     if (!this.isInitialized || !this.app.renderer) {
@@ -415,7 +425,8 @@ export class PixiApp {
         drawInProgress: this.drawInProgress,
         exportInProgress: this.exportInProgress,
         drawQueued: this.drawFrameScheduled,
-      })
+      }) ||
+      this.dirtyRegistry.isAnyUnsafeToPaint()
     ) {
       return;
     }
@@ -451,10 +462,12 @@ export class PixiApp {
   /**
    * Resize the renderer to match the current CSS size of the canvas element.
    * Interactive path: updates layout, reprojects existing labels, presents the
-   * last committed scene into the new framebuffer (Windows/ANGLE clears it on
+   * last committed scene into the new canvas (Windows/ANGLE clears it on
    * resize), then the caller should coalesce a full `draw()`.
+   * No present until a world has been committed (`hasCommittedWorld`) : the
+   * init paint is empty (no axes).
    * @param options.skipRender - Non-interactive: skip `requestRender()`.
-   *   Interactive present still runs (cheap framebuffer refill).
+   *   Interactive present still runs when a world is committed.
    */
   public resizeFromCanvas(options?: { skipRender?: boolean }): boolean {
     if (!this.isInitialized || !this.app.renderer) {
@@ -467,7 +480,7 @@ export class PixiApp {
     }
 
     const didResize = this.applyCanvasResizeFromDom({
-      present: this.isInteractive,
+      present: this.isInteractive && this.hasCommittedWorld,
       skipRender: options?.skipRender,
     });
     if (didResize) {
@@ -486,7 +499,8 @@ export class PixiApp {
       this.contextRestoring ||
       this.drawInProgress ||
       this.scenePaintState === 'mutating' ||
-      this.scenePaintState === 'failed'
+      this.scenePaintState === 'failed' ||
+      (this.isInteractive && !this.hasCommittedWorld)
     );
   }
 
@@ -573,10 +587,10 @@ export class PixiApp {
           skipLabelRefresh: true,
         },
       );
-      // Reproject existing Text objects to the clamped viewport before present.
-      // GPU texture recreate stays deferred (`needsLabelTextureRefresh`).
-      this.refreshAxisLabelOverlay();
       if (options.present) {
+        // renderer.resize() invalidates Text GPU textures. Recreate from the
+        // last committed tick labels before refilling the cleared canvas.
+        this.syncAxisLabelOverlay();
         this.presentAfterResize();
       }
     } else if (!options.skipRender) {
@@ -642,7 +656,9 @@ export class PixiApp {
       this.scheduleDraw('pending-resize');
       return;
     }
-    const didResize = this.flushPendingCanvasResize({ present: true });
+    const didResize = this.flushPendingCanvasResize({
+      present: this.hasCommittedWorld,
+    });
     if (didResize) {
       this.scheduleDraw('pending-resize');
     }
@@ -872,6 +888,7 @@ export class PixiApp {
     options: Partial<IGraphRenderOptions>,
     drawOptions?: { redraw?: boolean },
   ): void {
+    const previous = this.graphRenderOptions;
     this.graphRenderOptions = {
       ...this.graphRenderOptions,
       ...options,
@@ -879,9 +896,45 @@ export class PixiApp {
     this.xAxis.setGraphRenderOptions(this.graphRenderOptions);
     this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
     this.hoverLayer.setGraphRenderOptions(this.graphRenderOptions);
-    if (drawOptions?.redraw !== false) {
-      this.scheduleDraw('renderOptions');
+    if (drawOptions?.redraw === false) {
+      return;
     }
+    if (!hasGraphRenderOptionsChanged(previous, this.graphRenderOptions)) {
+      return;
+    }
+    // A queued or in-flight full draw will pick up the new labels. Do not
+    // present overlay mid-draw (empty axes) and do not enqueue a second rebuild.
+    if (this.drawInProgress || this.exportInProgress || this.drawFrameScheduled) {
+      return;
+    }
+    if (
+      isTimeFormatOnlyChange(previous, this.graphRenderOptions) &&
+      this.canPresentTimeFormatWithoutWorldRebuild()
+    ) {
+      this.presentTimeFormatChange();
+      return;
+    }
+    this.scheduleDraw('renderOptions');
+  }
+
+  /**
+   * Format-only present: relabel X ticks already in memory, sync screen-space
+   * overlay, flush. Must not call prepareWorld (that path clears Y ticks and
+   * swaps series buffers: missing axes / duplicated readings).
+   */
+  private canPresentTimeFormatWithoutWorldRebuild(): boolean {
+    return (
+      this.isInitialized &&
+      this.scenePaintState === 'stable' &&
+      this.xAxis.hasTicks() &&
+      this.yAxis.hasTicks()
+    );
+  }
+
+  private presentTimeFormatChange(): void {
+    this.hoverLayer.clear({ cancelPending: true });
+    this.syncAxisLabelOverlay();
+    this.paint('draw-complete');
   }
 
   public setProtocol(protocol: IProtocol) {
@@ -962,9 +1015,11 @@ export class PixiApp {
   }
 
   /**
-   * Renders only when the app is ready and no full draw/export is in flight.
-   * If axis graphics were cleared and not yet redrawn, schedules a full draw
-   * instead of painting the empty-axes scene (hover/pan must not "exclude" axes).
+   * Present-only: display the last committed scene.
+   * Never starts a world rebuild. Hover, pan, zoom, and time-format labels
+   * must go through this path. If the scene is mutating, failed, or still
+   * mid-draw, skip: the in-flight build will present, or retryDraw / autoRetry
+   * will rebuild.
    */
   public requestRender(reason: PaintReason = 'partial'): void {
     if (!this.isInitialized || !this.app.renderer || this.exportInProgress) {
@@ -973,8 +1028,6 @@ export class PixiApp {
     if (this.drawInProgress) {
       return;
     }
-    // After a failed full draw, recovery is autoRetry (once) or explicit retryDraw.
-    // Do not let hover/pan spam scheduleDraw('renderGate') and bypass the 1× cap.
     if (this.scenePaintState === 'failed') {
       return;
     }
@@ -988,13 +1041,10 @@ export class PixiApp {
       !this.dirtyRegistry.isAnyUnsafeToPaint()
     ) {
       this.paint(reason);
-      return;
-    }
-    if (shouldScheduleDrawOnPaintGate(reason)) {
-      this.scheduleDraw('renderGate');
     }
   }
 
+  /** Build entry: rebuild the world, then present once. Never called from requestRender. */
   private scheduleDraw(reason?: string): void {
     if (!this.isInitialized) {
       return;
@@ -1066,7 +1116,7 @@ export class PixiApp {
     // present, then rebuild in this same turn.
     if (!this.exportInProgress) {
       this.flushPendingCanvasResize({
-        present: this.scenePaintState === 'stable',
+        present: this.scenePaintState === 'stable' && this.hasCommittedWorld,
       });
     }
 
@@ -1140,13 +1190,12 @@ export class PixiApp {
       // Success path only: scene is coherent again, partial paints are safe.
       this.dirtyRegistry.resetAllMidDraw();
       this.scenePaintState = 'stable';
+      this.hasCommittedWorld = true;
       this.drawFailureAutoRetryArmed = false;
       this.cancelDrawFailureAutoRetryRaf();
     } catch (error) {
-      // Axes/data clear at the start of draw. If we fail mid-way and then let
-      // hover call requestRender(), the user sees empty axes + orphan crosshair.
-      // Keep midDraw=true until a later successful full draw (same invariant as
-      // the old axesGraphicsDirty flag on failure). Do not paint the broken scene.
+      // Keep midDraw + failed until a later successful build. requestRender is
+      // present-only and will no-op here; recovery is autoRetry / retryDraw.
       console.error('[PixiApp] Full draw failed:', error);
       this.emitDrawErrors([
         {
@@ -1157,6 +1206,7 @@ export class PixiApp {
       this.dirtyRegistry.invalidateAll('full');
       this.dirtyRegistry.markAllMidDraw();
       this.scenePaintState = 'failed';
+      this.hasCommittedWorld = false;
       this.needsInitialFit = true;
       this.needsPatternTextureRefresh = true;
       this.hoverLayer.clear({ cancelPending: true });
@@ -1791,6 +1841,7 @@ export class PixiApp {
     this.isDestroyed = true;
     this.isInitialized = false;
     this.layoutFitPending = false;
+    this.hasCommittedWorld = false;
     this.teardownPixiResources();
   }
 

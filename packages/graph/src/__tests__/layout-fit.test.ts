@@ -102,6 +102,7 @@ describe('PixiApp layout fit pending', () => {
       wasDegenerateCanvas: false,
       layoutFitPending: true,
       needsInitialFit: false,
+      hasCommittedWorld: true,
       app: mock.app,
       viewport: { scale: { set: jest.fn() }, x: 0, y: 0 },
       zoomState: { scale: 1, x: 0, y: 0 },
@@ -110,6 +111,7 @@ describe('PixiApp layout fit pending', () => {
       updateWorldBounds: jest.fn(),
       recalculateFitViewport: jest.fn(),
       setViewportTransform: jest.fn(),
+      syncAxisLabelOverlay: jest.fn(),
       getCanvasSize: () => ({ width: mock.screen.width, height: mock.screen.height }),
     });
 
@@ -136,6 +138,7 @@ describe('PixiApp layout fit pending', () => {
       wasDegenerateCanvas: false,
       layoutFitPending: false,
       needsInitialFit: false,
+      hasCommittedWorld: true,
       app: mock.app,
       viewport: { scale: { set: jest.fn() }, x: 0, y: 0 },
       zoomState: { scale: 1, x: 0, y: 0 },
@@ -144,6 +147,7 @@ describe('PixiApp layout fit pending', () => {
       updateWorldBounds: jest.fn(),
       recalculateFitViewport: jest.fn(),
       setViewportTransform: jest.fn(),
+      syncAxisLabelOverlay: jest.fn(),
       getCanvasSize: () => ({ width: mock.screen.width, height: mock.screen.height }),
     });
 

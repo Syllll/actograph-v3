@@ -158,7 +158,7 @@ describe('HoverLayer', () => {
     expect(requestRender).not.toHaveBeenCalled();
   });
 
-  it('requests full render instead of painting when unsafe', () => {
+  it('does not request render when unsafe to paint', () => {
     hoverLayer.setDrawStateCallbacks({
       isDrawInProgress: () => false,
       isUnsafeToPaint: () => true,
@@ -191,7 +191,7 @@ describe('HoverLayer', () => {
     expect(requestRender).not.toHaveBeenCalled();
   });
 
-  it('mutates hover graphics without flush while drawInProgress', () => {
+  it('skips hover graphics while a build is in progress', () => {
     hoverLayer.setDrawStateCallbacks({
       isDrawInProgress: () => true,
       isUnsafeToPaint: () => true,
@@ -209,47 +209,29 @@ describe('HoverLayer', () => {
 
     expect(requestRender).not.toHaveBeenCalled();
     expect(app.render).not.toHaveBeenCalled();
+    requestRender.mockClear();
+    hoverLayer.dismiss();
+    expect(requestRender).not.toHaveBeenCalled();
   });
 
-  it('dismiss during drawInProgress clears without requesting render', () => {
-    hoverLayer.setDrawStateCallbacks({
-      isDrawInProgress: () => true,
-      isUnsafeToPaint: () => true,
-      isExportInProgress: () => false,
-      requestRender,
-    });
-
+  it('dismiss during drawInProgress does not request render', () => {
     hoverLayer.updateFromWorldPointer({
       worldX: 400,
       worldY: 300,
       plotBoundsWorld: plotBounds,
       dateTime: new Date('2024-01-01T12:00:00.000Z'),
       worldToOverlay: (p) => p,
+    });
+    hoverLayer.setDrawStateCallbacks({
+      isDrawInProgress: () => true,
+      isUnsafeToPaint: () => true,
+      isExportInProgress: () => false,
+      requestRender,
     });
     requestRender.mockClear();
 
     hoverLayer.dismiss();
 
     expect(requestRender).not.toHaveBeenCalled();
-  });
-
-  it('midDraw skips hover mutation and does not request render', () => {
-    hoverLayer.setDrawStateCallbacks({
-      isDrawInProgress: () => false,
-      isUnsafeToPaint: () => true,
-      isExportInProgress: () => false,
-      requestRender,
-    });
-
-    hoverLayer.updateFromWorldPointer({
-      worldX: 400,
-      worldY: 300,
-      plotBoundsWorld: plotBounds,
-      dateTime: new Date('2024-01-01T12:00:00.000Z'),
-      worldToOverlay: (p) => p,
-    });
-
-    expect(requestRender).not.toHaveBeenCalled();
-    expect(app.render).not.toHaveBeenCalled();
   });
 });

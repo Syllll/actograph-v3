@@ -74,11 +74,11 @@ describe('PixiApp resizeFromCanvas', () => {
     jest.restoreAllMocks();
   });
 
-  it('interactive skipRender presents immediately and skips label refresh', () => {
+  it('recreates labels then presents after resize when a world is committed', () => {
     const pixiApp = new PixiApp();
     const mock = createMutableScreenMock(400, 300);
     const setViewportTransform = jest.fn();
-    const syncPositions = jest.fn();
+    const syncAxisLabelOverlay = jest.fn();
 
     patchPixiApp(pixiApp, {
       isInitialized: true,
@@ -87,6 +87,7 @@ describe('PixiApp resizeFromCanvas', () => {
       wasDegenerateCanvas: false,
       drawInProgress: false,
       scenePaintState: 'stable',
+      hasCommittedWorld: true,
       layoutFitPending: false,
       app: mock.app,
       viewport: { scale: { set: jest.fn() }, x: 0, y: 0 },
@@ -96,7 +97,8 @@ describe('PixiApp resizeFromCanvas', () => {
       updateWorldBounds: jest.fn(),
       recalculateFitViewport: jest.fn(),
       setViewportTransform,
-      axisLabelOverlay: { syncPositions, sync: jest.fn(), setViewportSize: jest.fn() },
+      syncAxisLabelOverlay,
+      axisLabelOverlay: { sync: jest.fn(), setViewportSize: jest.fn() },
       getCanvasSize: () => ({ width: mock.screen.width, height: mock.screen.height }),
       dirtyRegistry: { isAnyUnsafeToPaint: () => false },
     });
@@ -112,14 +114,38 @@ describe('PixiApp resizeFromCanvas', () => {
       { scale: 1, x: expect.any(Number), y: expect.any(Number) },
       { emitZoom: false, skipRender: true, skipLabelRefresh: true },
     );
-    expect(syncPositions).toHaveBeenCalled();
+    expect(syncAxisLabelOverlay).toHaveBeenCalled();
     expect(mock.app.render).toHaveBeenCalledTimes(1);
-    expect(syncPositions.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(syncAxisLabelOverlay.mock.invocationCallOrder[0]).toBeLessThan(
       (mock.app.render as jest.Mock).mock.invocationCallOrder[0],
     );
-    expect(
-      (pixiApp as unknown as { needsLabelTextureRefresh: boolean }).needsLabelTextureRefresh,
-    ).toBe(true);
+  });
+
+  it('defers resize until the first world is committed (empty init must not be presented)', () => {
+    const pixiApp = new PixiApp();
+    const mock = createMutableScreenMock(400, 300);
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      isInteractive: true,
+      exportInProgress: false,
+      wasDegenerateCanvas: false,
+      drawInProgress: false,
+      scenePaintState: 'stable',
+      hasCommittedWorld: false,
+      layoutFitPending: true,
+      app: mock.app,
+    });
+
+    mock.rect.width = 800;
+    mock.rect.height = 600;
+
+    const didResize = pixiApp.resizeFromCanvas({ skipRender: true });
+
+    expect(didResize).toBe(false);
+    expect(mock.resize).not.toHaveBeenCalled();
+    expect(mock.app.render).not.toHaveBeenCalled();
+    expect(pixiApp.hasPendingCanvasResize()).toBe(true);
   });
 
   it('presents after resize even when midDraw lock is set (last committed scene is still valid)', () => {
@@ -134,6 +160,7 @@ describe('PixiApp resizeFromCanvas', () => {
       wasDegenerateCanvas: false,
       drawInProgress: false,
       scenePaintState: 'stable',
+      hasCommittedWorld: true,
       layoutFitPending: false,
       app: mock.app,
       viewport: { scale: { set: jest.fn() }, x: 0, y: 0 },
@@ -143,6 +170,7 @@ describe('PixiApp resizeFromCanvas', () => {
       updateWorldBounds: jest.fn(),
       recalculateFitViewport: jest.fn(),
       setViewportTransform,
+      syncAxisLabelOverlay: jest.fn(),
       axisLabelOverlay: { syncPositions: jest.fn(), sync: jest.fn(), setViewportSize: jest.fn() },
       getCanvasSize: () => ({ width: mock.screen.width, height: mock.screen.height }),
       dirtyRegistry: { isAnyUnsafeToPaint: () => true },
@@ -231,7 +259,7 @@ describe('PixiApp resizeFromCanvas', () => {
     ).toBe(true);
   });
 
-  it('executeDrawBody applies a pending resize before prepareWorld', async () => {
+  it('executeDrawBody applies a pending resize without present before the first world commit', async () => {
     const pixiApp = new PixiApp();
     const applyCanvasResizeFromDom = jest.fn().mockReturnValue(true);
     const prepareWorld = jest.fn().mockReturnValue(true);
@@ -279,7 +307,7 @@ describe('PixiApp resizeFromCanvas', () => {
     ).executeDrawBody();
 
     expect(applyCanvasResizeFromDom).toHaveBeenCalledWith({
-      present: true,
+      present: false,
       skipRender: true,
     });
     expect(callOrder[0]).toBe('resize');
@@ -287,6 +315,53 @@ describe('PixiApp resizeFromCanvas', () => {
     expect(
       (pixiApp as unknown as { pendingCanvasResize: boolean }).pendingCanvasResize,
     ).toBe(false);
+    expect(
+      (pixiApp as unknown as { hasCommittedWorld: boolean }).hasCommittedWorld,
+    ).toBe(true);
+  });
+
+  it('executeDrawBody refills the last committed scene when resizing after a successful draw', async () => {
+    const pixiApp = new PixiApp();
+    const applyCanvasResizeFromDom = jest.fn().mockReturnValue(true);
+    const prepareWorld = jest.fn().mockReturnValue(true);
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      contextRestoring: false,
+      pendingCanvasResize: true,
+      scenePaintState: 'stable',
+      hasCommittedWorld: true,
+      applyCanvasResizeFromDom,
+      app: { renderer: {}, render: jest.fn() },
+      plot: { x: 0, y: 0, scale: { set: jest.fn() }, rotation: 0 },
+      hoverLayer: { clear: jest.fn() },
+      axisLabelOverlay: { sync: jest.fn(), setViewportSize: jest.fn() },
+      needsPatternTextureRefresh: false,
+      isInteractive: false,
+      dirtyRegistry: {
+        markAllMidDraw: jest.fn(),
+        resetAllMidDraw: jest.fn(),
+        invalidateAll: jest.fn(),
+        isAnyUnsafeToPaint: () => false,
+      },
+      graphEngine: {
+        prepareWorld,
+        getLastDrawErrors: jest.fn(() => []),
+        hasPatternSprites: jest.fn(() => false),
+        clearPatternSprites: jest.fn(),
+      },
+      updateWorldTransforms: jest.fn(),
+      syncAxisLabelOverlay: jest.fn(),
+    });
+
+    await (
+      pixiApp as unknown as { executeDrawBody: () => Promise<void> }
+    ).executeDrawBody();
+
+    expect(applyCanvasResizeFromDom).toHaveBeenCalledWith({
+      present: true,
+      skipRender: true,
+    });
   });
 
   it('syncAxisLabelOverlay recreates texts after a resize', () => {

@@ -93,30 +93,33 @@ stage
 - Les **labels d'axes** sont en screen-space (`AxisLabelOverlay`, dans `overlayRoot`) : ils ne grossissent pas avec le zoom caméra.
 - `updateTimeScale()` est un stub : les graduations X ne se recalculent **pas** encore selon le zoom (`pixelsPerMsec` reste basé sur la plage complète). Un vrai zoom données reste une évolution future.
 
-**Contrat draw / hover** (anti-sautes) :
-1. `draw()` coalesce via `RenderScheduler` (rAF), attend un export éventuel **hors** chaîne, puis enfile `executeDrawBody()` via `drawChain`.
-2. `executeDrawBody()` est **exclusif** : `drawChain` / `enqueueDrawBody` garantissent qu’aucun second draw complet ne démarre avant la fin du précédent.
-3. Pendant le draw, `drawInProgress === true` : le hover ne doit pas appeler `app.render()`.
-4. Le hover passe par `requestRender()` (no-op si draw/export en cours).
-5. Au début du draw, l’overlay hover est **annulé** (`cancelPending: true`) : on ne reprend plus automatiquement le hover après un full draw.
-6. Après pan/zoom, `getGlobalTransform()` force la mise à jour des matrices monde (requis pour le crosshair). Clear du hover au changement de viewport (rebouger la souris).
-7. Le rendu final du draw complet appelle **toujours** `app.render()`.
-8. **`DirtyRegistry` / `midDraw`** (remplace `axesGraphicsDirty`) : dès qu’un full draw commence, les layers sont `midDraw` jusqu’après `app.render()` réussi. Tant que `isAnyUnsafeToPaint()`, hover / `requestRender` / `redrawCategory` forcent un full `draw()`. Après un draw **échoué**, `midDraw` reste vrai jusqu’au prochain draw réussi.
-9. Pixi est initialisé avec **`autoStart: false`** (ticker stoppé) : aucun render hors de nos gardes.
-10. Un `draw()` en échec **reject** sa Promise ; `invalidateAll('full')` + `midDraw` conservé.
-11. Les labels Text des axes sont rendus par **`AxisLabelOverlay`** (screen-space, dans `overlayRoot`) ; les axes ne créent plus de `Text` dans le viewport. Clear overlay si draw échoue.
-12. **Invariant `prepareWorld`** : toujours `axisLayer.prepare()` (donc `yAxis.draw` / `xAxis.draw`) **avant** de lire `getAxisBounds()`. Sinon le premier paint sort tôt (`axisStart` encore null) et le graphe reste vide.
-13. **Géométrie safe** : strokes/rects/ellipses via `safe-graphics.utils` (no-op si NaN/Infinity) — un vertex non fini ne doit pas corrompre le batch WebGL. Séries continues : **batch strokes** (1 `stroke()` par couleur horizontale + 1 pour les verticaux), sans LOD.
-14. **Pas de LOD** : tous les segments sont dessinés ; timestamps égaux → même X (pas d’offset artificiel).
-15. **Erreurs de catégorie** : collectées dans `lastDrawErrors`, event `drawErrors` (tableau, éventuellement vide), `retryDraw()` pour relancer. Bannière UI desktop + mobile.
-16. **Charge** : pan/zoom coalescé (rAF) ; labels axes reprojetés depuis cache (pas de re-mesure à chaque move) ; `setAxisStretch` no-op si inchangé ; `resolution` plafonnée à `min(dpr, 2)`.
-17. **Fit initial** : `layoutFitPending` jusqu’à `settleInitialLayoutFit()` après stabilisation layout (splitter) — évite le canvas blanc au premier chargement (Reset n’est plus nécessaire).
-18. **Axes anti-flicker** : double-buffer display/paint (`beginPaint` / `commitPaint`) ; labels `AxisLabelOverlay` en pool (pas de destroy systématique). Series/Background déjà double-bufferés.
-19. **Contrat paint** : `redrawFromObservation` fait `setData` → `setAxisStretch(..., { redraw: false })` → **`draw()` toujours** (plus de paint déclenché uniquement via stretch).
+**Contrat build / affichage** (deux files, jamais mélangées) :
+1. **Build** : `scheduleDraw` / `draw()` / `executeDrawBody()` / `prepareWorld`. Données (relevés, protocole, fonds, étirement Y, `maskPauses`, retry). Construit dans les buffers paint, `commitPaint`, puis **un** `paint('draw-complete')`.
+2. **Affichage** : `requestRender()` / `paint()` partiel. Zoom, pan, réticule, format d’heure. Affiche la dernière scène committed. **Ne démarre jamais un build.**
+3. `draw()` coalesce via `RenderScheduler` (rAF), attend un export éventuel **hors** chaîne, puis enfile `executeDrawBody()` via `drawChain`.
+4. `executeDrawBody()` est **exclusif** : `drawChain` / `enqueueDrawBody` garantissent qu’aucun second build ne démarre avant la fin du précédent.
+5. Pendant le build, `drawInProgress === true` : le survol **attend** (pas d’écriture sur l’overlay). Un réticule calculé pendant `beginPaint` (ticks Y vidés, transform identité) ne doit pas se retrouver dans `paint('draw-complete')`.
+6. `requestRender()` est un no-op si draw/export en cours, scène `mutating`/`failed`, ou `midDraw` encore posé. Pas de `scheduleDraw('renderGate')`.
+7. Au début du build, l’overlay hover est **annulé** (`cancelPending: true`) : on ne reprend plus automatiquement le hover après un full draw.
+8. Après pan/zoom, `getGlobalTransform()` force la mise à jour des matrices monde (requis pour le réticule). Clear du hover au changement de viewport (rebouger la souris).
+9. Le rendu final du build appelle **toujours** `app.render()` via `paint('draw-complete')`.
+10. **`DirtyRegistry` / `midDraw`** : dès qu’un build commence, les layers sont `midDraw` jusqu’après `app.render()` réussi. Tant que `isAnyUnsafeToPaint()`, `requestRender` **n’affiche pas**. Après un draw **échoué**, `midDraw` reste vrai jusqu’au prochain draw réussi ; la récupération est `autoRetry` (une fois) ou `retryDraw()`, pas le hover. `redrawCategory` / `redrawObservable` restent des builds (`scheduleDraw`).
+11. Pixi est initialisé avec **`autoStart: false`** (ticker stoppé) : aucun render hors de nos gardes.
+12. Un `draw()` en échec **reject** sa Promise ; `invalidateAll('full')` + `midDraw` conservé.
+13. Les labels Text des axes sont rendus par **`AxisLabelOverlay`** (screen-space, dans `overlayRoot`) ; les axes ne créent plus de `Text` dans le viewport. Clear overlay si draw échoue.
+14. **Invariant `prepareWorld`** : toujours `axisLayer.prepare()` (donc `yAxis.draw` / `xAxis.draw`) **avant** de lire `getAxisBounds()`. Sinon le premier paint sort tôt (`axisStart` encore null) et le graphe reste vide.
+15. **Géométrie safe** : strokes/rects/ellipses via `safe-graphics.utils` (no-op si NaN/Infinity) : un vertex non fini ne doit pas corrompre le batch WebGL. Séries continues : **batch strokes** (1 `stroke()` par couleur horizontale + 1 pour les verticaux), sans LOD.
+16. **Pas de LOD** : tous les segments sont dessinés ; timestamps égaux → même X (pas d’offset artificiel).
+17. **Erreurs de catégorie** : collectées dans `lastDrawErrors`, event `drawErrors` (tableau, éventuellement vide), `retryDraw()` pour relancer. Bannière UI desktop + mobile.
+18. **Charge** : pan/zoom coalescé (rAF) ; labels axes reprojetés depuis cache (pas de re-mesure à chaque move) ; `setAxisStretch` no-op si inchangé ; `resolution` plafonnée à `min(dpr, 2)`.
+19. **Fit initial** : `layoutFitPending` jusqu’à `settleInitialLayoutFit()` après stabilisation layout (splitter) : évite le canvas blanc au premier chargement (Reset n’est plus nécessaire).
+20. **Axes anti-flicker** : double-buffer display/paint (`beginPaint` / `commitPaint`) ; labels `AxisLabelOverlay` en pool (pas de destroy systématique). Series/Background déjà double-bufferés.
+21. **Contrat paint** : `redrawFromObservation` fait `setData` → `setAxisStretch(..., { redraw: false })` → **`draw()` toujours** (plus de paint déclenché uniquement via stretch).
+22. **Format de temps** : un changement *uniquement* de `timeDisplayFormat` (scène `stable`, ticks déjà là) relabel les ticks X en mémoire, clear hover, sync `AxisLabelOverlay`, puis `paint('draw-complete')`. **Pas** de `prepareWorld` (sinon `beginPaint` vide les ticks Y et `SeriesLayer.commit` swap : axes manquants / relevés dédoublés). Options inchangées → no-op. `maskPauses`, scène `failed`, ou ticks vides → full `scheduleDraw('renderOptions')` comme avant.
 
 **Contrat resume / export / mutex** :
 1. **Mutex draw** : les appels `draw()` externes attendent un export **hors** de `drawChain`, puis enfilent `executeDrawBody` ; l’export appelle `enqueueDrawBody()` directement (jamais `draw()`), ce qui évite un deadlock `drawChain ↔ exportQueue`.
-2. **`resizeFromCanvas({ skipRender?: boolean })`** : met à jour le renderer. En interactif, reprojette les labels existants (`syncPositions`) puis **present immédiat** (`paint('resize')`, même si `midDraw` est posé : la dernière scène committed est encore valide) pour remplir le framebuffer vidé par Windows/ANGLE. Recreate GPU des Text au `draw()` suivant (`needsLabelTextureRefresh`). Le desktop planifie un `draw()` **50 ms** après le dernier tick de splitter (pas de `setData`). Si un full draw mute déjà la scène, si la scène est `failed`, ou si un export est en cours, le resize est différé (`pendingCanvasResize`, `hasPendingCanvasResize()`) et appliqué hors export : **avant** `mutating` (present seulement si la scène est `stable` ; une scène `failed` resize sans present puis rebuild dans le même tour), en `finally` de `executeDrawBody` (sans resize si `failed`, juste un `scheduleDraw`), ou en fin d’export. `skipRender` ne saute le present que sur le chemin non-interactif (`requestRender`).
+2. **`resizeFromCanvas({ skipRender?: boolean })`** : met à jour le renderer. **Pas de present** tant qu’aucun monde n’a été committed (`hasCommittedWorld`, remount : scène `init` vide). Une fois committed, en interactif : recrée les labels (`syncAxisLabelOverlay`) puis **present** (`paint('resize')`, même si `midDraw` est posé : la dernière scène committed est encore valide). Recreate GPU des Text aussi au `draw()` suivant (`needsLabelTextureRefresh`). Le desktop planifie un `draw()` **50 ms** après le dernier tick de splitter (pas de `setData`). Si un full draw mute déjà la scène, si la scène est `failed`, si un export est en cours, ou si le monde n’est pas encore committed (interactif), le resize est différé (`pendingCanvasResize`) et appliqué hors export : **avant** `mutating` (present seulement si `stable` et committed ; une scène `failed` resize sans present puis rebuild dans le même tour), en `finally` de `executeDrawBody` (sans resize si `failed`, juste un `scheduleDraw`), ou en fin d’export. `skipRender` ne saute le present que sur le chemin non-interactif (`requestRender`).
 3. **Canvas dégénéré** (`isDegenerateCanvasSize`, width ou height ≤ 2) : mémorisé via `wasDegenerateCanvas` ; au retour à une taille utile, `needsInitialFit = true`.
 4. **`refreshAfterResume()`** (mobile, `webglcontextrestored`) : garde `isInitialized` + `!contextRestoring` → clear hover → marque `needsPatternTextureRefresh` + `needsLabelTextureRefresh` + `needsInitialFit` → réapplication de `lastObservation` → `resizeFromCanvas({ skipRender: true })` → `scheduleDraw('resume')`. Le cache motifs (`PatternTextureStore` par instance) est vidé au début de `executeDrawBody` seulement s'il y a des sprites motifs ou après une perte WebGL (`forcePatternTextureClear`).
 5. **`refreshGraph()` desktop** (visibility resume) : retry si canvas pas encore visible → `prepareForResumeRefresh()` → `waitForIdle()` → `resizeFromCanvas({ skipRender: true })` → `redrawFromObservation()`.
@@ -124,7 +127,7 @@ stage
 7. **Export** : `ExportPipeline` via `renderer.extract.base64` (pas `app.canvas.toDataURL`) ; hover supprimé pendant l’export. Chaque `renderer.resize` (agrandissement ou restore) passe par `resizeRenderer` (`needsLabelTextureRefresh`) puis **present immédiat** (`paint('export')`, autoritaire) avant le `enqueueDrawBody` async, pour ne pas laisser le framebuffer vidé visible sous Windows/ANGLE.
 8. **`waitForIdle()`** : attend drawChain, exportQueue et `renderScheduler.flush()`.
 9. **Échec de draw** : pas de reprise auto du hover ; `midDraw` + `needsInitialFit` pour un retry.
-10. **Labels après resize** : `needsLabelTextureRefresh` force `AxisLabelOverlay.sync(..., { recreate: true })` au prochain draw complet (textures Text périmées sous ANGLE).
+10. **Labels après resize** : present resize committed recrée les Text tout de suite (`syncAxisLabelOverlay`) ; `needsLabelTextureRefresh` force aussi `recreate: true` au prochain draw complet.
 11. **Commit axes** : `commitPaint` ne swap pas un paint buffer vide (garde le display cohérent).
 ## Chargement des données
 
@@ -815,9 +818,17 @@ const config = {
 
 **Séquence** : Graphe OK → Observation (démontage) → retour Graphe (affichage normal) → placer le curseur → axes/labels disparaissent.
 
-**Cause** : après remount, un 2e full draw (resize/watch) clear les axes ; un `app.render()` partiel (hover) pouvait révéler la scène vidée. La reprise auto du hover après draw aggravait la course.
+**Cause** : après remount, un 2e full draw (resize/watch) clear les axes ; un `app.render()` partiel (hover) pouvait révéler la scène vidée. Un hover qui relançait un build (`renderGate`) aggravait la course.
 
-**Correctifs** : `autoStart: false`, cancel pending hover en début de draw, render final obligatoire, garde `DirtyRegistry.midDraw` (ex-`axesGraphicsDirty`) côté hover, destroy des Text d’axes. Voir aussi le moteur v2 (`docs/graph-engine-v2.md`).
+**Correctifs** : `autoStart: false`, cancel pending hover en début de draw, render final obligatoire, `requestRender` affichage-only (jamais de build), garde `DirtyRegistry.midDraw` côté hover. Voir aussi le moteur v2 (`docs/graph-engine-v2.md`).
+
+### Axes absents dès le rechargement (sans bouger la souris)
+
+**Séquence** : quitter Graphe (Pixi détruit) → revenir → le canvas s’affiche sans axes, avant tout survol.
+
+**Cause** : `paint('init')` présente une scène vide, puis un `renderer.resize` (layout / splitter) reflète cette scène vide, ou présente des labels Text dont les textures GPU viennent d’être invalidées.
+
+**Correctifs** : pas de present resize tant que `hasCommittedWorld` est faux (le premier `executeDrawBody` applique le resize, construit, puis un seul present). Après un monde committed, le present resize recrée les labels (`syncAxisLabelOverlay`) avant `app.render()`.
 
 ### Canvas non affiché
 

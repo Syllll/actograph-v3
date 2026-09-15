@@ -10,7 +10,11 @@ export { PixiApp } from './pixi-app';
 
 // Options de rendu graphe (niveau session, pas par catégorie)
 export type { IGraphRenderOptions } from './types/graph-render-options';
-export { DEFAULT_GRAPH_RENDER_OPTIONS } from './types/graph-render-options';
+export {
+  DEFAULT_GRAPH_RENDER_OPTIONS,
+  hasGraphRenderOptionsChanged,
+  isTimeFormatOnlyChange,
+} from './types/graph-render-options';
 export {
   computePauseOverlayRects,
   shouldDrawPauseOverlay,

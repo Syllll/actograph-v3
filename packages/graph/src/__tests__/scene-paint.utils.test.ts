@@ -2,7 +2,6 @@ import {
   canPaintPartial,
   canPaintResizePresent,
   isAuthoritativePaintReason,
-  shouldScheduleDrawOnPaintGate,
 } from '../utils/scene-paint.utils';
 
 describe('scene-paint.utils', () => {
@@ -42,22 +41,6 @@ describe('scene-paint.utils', () => {
       expect(canPaintPartial({ ...stableIdle, drawInProgress: true })).toBe(false);
       expect(canPaintPartial({ ...stableIdle, exportInProgress: true })).toBe(false);
       expect(canPaintPartial({ ...stableIdle, drawQueued: true })).toBe(false);
-    });
-  });
-
-  describe('shouldScheduleDrawOnPaintGate', () => {
-    it('schedules draw for hover/pan-like reasons', () => {
-      expect(shouldScheduleDrawOnPaintGate('hover')).toBe(true);
-      expect(shouldScheduleDrawOnPaintGate('pan')).toBe(true);
-      expect(shouldScheduleDrawOnPaintGate('partial')).toBe(true);
-    });
-
-    it('does not schedule for leave, resize present, or authoritative reasons', () => {
-      expect(shouldScheduleDrawOnPaintGate('leave')).toBe(false);
-      expect(shouldScheduleDrawOnPaintGate('resize')).toBe(false);
-      expect(shouldScheduleDrawOnPaintGate('init')).toBe(false);
-      expect(shouldScheduleDrawOnPaintGate('draw-complete')).toBe(false);
-      expect(shouldScheduleDrawOnPaintGate('export')).toBe(false);
     });
   });
 

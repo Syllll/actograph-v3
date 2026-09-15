@@ -147,6 +147,11 @@ export class YAxis extends BaseGroup {
     return bounds.width > 0 || bounds.height > 0;
   }
 
+  /** True when draw() has produced ticks (format overlay can keep their positions). */
+  public hasTicks(): boolean {
+    return this.ticks.length > 0;
+  }
+
   /** True when the back buffer has stroke geometry ready to swap in. */
   public hasPaintContent(): boolean {
     const bounds = this.paintGraphic.getLocalBounds();

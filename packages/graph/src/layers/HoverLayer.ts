@@ -194,6 +194,12 @@ export class HoverLayer extends BaseLayer {
 
     const drawInProgress = this.drawInProgressGate?.() ?? false;
     const unsafeToPaint = this.unsafeToPaintGate?.() ?? false;
+    // Build in flight or leftover midDraw: do not write overlay Graphics.
+    // The success present would otherwise photograph a crosshair computed
+    // while Y ticks / transforms are being rebuilt.
+    if (drawInProgress || unsafeToPaint) {
+      return;
+    }
 
     if (
       !shouldRenderHoverOverlay({
@@ -216,20 +222,7 @@ export class HoverLayer extends BaseLayer {
       return;
     }
 
-    // midDraw/failed: axis metadata may already reflect an uncommitted prepare
-    // while the framebuffer still shows the previous commit — skip hover to
-    // avoid a wrong crosshair. Recovery is auto-retry / retryDraw / resume draw.
-    if (unsafeToPaint && !drawInProgress) {
-      return;
-    }
-
-    // During an in-flight full draw, overlay Graphics may update without a
-    // partial flush; the success paint() includes them (or clear() wiped them).
     this.paintHoverGraphics(input, overlayCursor, overlayBounds);
-
-    if (drawInProgress) {
-      return;
-    }
     this.requestRenderCallback?.();
   }
 
@@ -362,7 +355,7 @@ export class HoverLayer extends BaseLayer {
     if (this.exportInProgressGate?.() || !this.app.renderer) {
       return;
     }
-    if (this.drawInProgressGate?.()) {
+    if (this.drawInProgressGate?.() || this.unsafeToPaintGate?.()) {
       return;
     }
     this.requestRenderCallback?.();

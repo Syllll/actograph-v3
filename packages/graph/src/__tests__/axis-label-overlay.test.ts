@@ -199,6 +199,33 @@ describe('AxisLabelOverlay', () => {
     expect(overlay.container.children[0]).not.toBe(first);
   });
 
+  it('updates existing label text in place when the id is unchanged', () => {
+    overlay.sync([
+      makeDescriptor({
+        id: 'x-tick-1',
+        kind: 'x-tick',
+        text: '10:00',
+        worldX: 40,
+        labelWidth: 20,
+      }),
+    ]);
+    const first = overlay.container.children[0] as Text;
+
+    overlay.sync([
+      makeDescriptor({
+        id: 'x-tick-1',
+        kind: 'x-tick',
+        text: '10:00:00',
+        worldX: 40,
+        labelWidth: 40,
+      }),
+    ]);
+
+    expect(overlay.container.children.length).toBe(1);
+    expect(overlay.container.children[0]).toBe(first);
+    expect(first.text).toBe('10:00:00');
+  });
+
   it('syncPositions after clear does not recreate labels', () => {
     overlay.sync([
       makeDescriptor({
