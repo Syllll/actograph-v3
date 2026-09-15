@@ -32,14 +32,11 @@ export class DataArea extends BaseGroup {
         if (!this.protocol) {
             return null;
         }
-        const protocolAny = this.protocol;
-        const items = protocolAny._items || protocolAny.items || [];
-        for (const item of items) {
-            if (item.type === 'category' && item.id === categoryId) {
-                return item;
-            }
+        const items = parseProtocolItems(this.protocol);
+        if (!Array.isArray(items)) {
+            return null;
         }
-        return null;
+        return items.find((item) => item.id === categoryId) ?? null;
     }
     setCategoryPruneHandler(handler) {
         // Explicit prune only; setData no longer invokes this handler (orphans

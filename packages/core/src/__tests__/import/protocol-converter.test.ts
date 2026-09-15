@@ -1,6 +1,7 @@
 import { ProtocolV1Converter } from '../../import/chronic-v1/converter/protocol-converter';
 import { DisplayModeEnum, ProtocolItemActionEnum } from '../../enums';
 import type { IProtocolNodeV1 } from '../../import/chronic-v1/types/chronic-v1.types';
+import { resolvePortableGraphPreferencesOnImport } from '../../utils/graph-preferences';
 
 function makeCategoryNode(shape: string, overrides: Partial<IProtocolNodeV1> = {}): IProtocolNodeV1 {
   return {
@@ -95,6 +96,113 @@ describe('ProtocolV1Converter - shape → action', () => {
 
     expect(protocol.categories?.[0].action).toBe(ProtocolItemActionEnum.Continuous);
     expect(protocol.categories?.[0].graphPreferences?.displayMode).toBe(DisplayModeEnum.Background);
+  });
+
+  it('mappe backgroundCover « all » vers un arrière-plan de tout le graphe', () => {
+    const protocol = converter.convert({
+      name: 'root',
+      type: 'Category',
+      isRootNode: true,
+      colorName: '',
+      shape: 'line',
+      thickness: 0,
+      isVisible: true,
+      indexInParentContext: -1,
+      isBackground: false,
+      backgroundCover: '',
+      backgroundMotif: 0,
+      bX: 0,
+      bY: 0,
+      bWidth: 0,
+      bHeight: 0,
+      children: [makeCategoryNode('background', { backgroundCover: 'all' })],
+    });
+
+    expect(protocol.categories?.[0].graphPreferences?.displayMode).toBe(DisplayModeEnum.Background);
+    expect(protocol.categories?.[0].graphPreferences?.supportCategoryName).toBeUndefined();
+  });
+
+  it('mappe backgroundCover vers supportCategoryName pour une cible nommée', () => {
+    const protocol = converter.convert({
+      name: 'root',
+      type: 'Category',
+      isRootNode: true,
+      colorName: '',
+      shape: 'line',
+      thickness: 0,
+      isVisible: true,
+      indexInParentContext: -1,
+      isBackground: false,
+      backgroundCover: '',
+      backgroundMotif: 0,
+      bX: 0,
+      bY: 0,
+      bWidth: 0,
+      bHeight: 0,
+      children: [makeCategoryNode('background', { name: 'Lieu', backgroundCover: 'Posture' })],
+    });
+
+    expect(protocol.categories?.[0].graphPreferences?.supportCategoryName).toBe('Posture');
+  });
+
+  it('permet de résoudre backgroundCover en supportCategoryId à l\'import (create/mobile)', () => {
+    const protocol = converter.convert({
+      name: 'root',
+      type: 'Category',
+      isRootNode: true,
+      colorName: '',
+      shape: 'line',
+      thickness: 0,
+      isVisible: true,
+      indexInParentContext: -1,
+      isBackground: false,
+      backgroundCover: '',
+      backgroundMotif: 0,
+      bX: 0,
+      bY: 0,
+      bWidth: 0,
+      bHeight: 0,
+      children: [
+        makeCategoryNode('line', { name: 'Posture' }),
+        makeCategoryNode('background', { name: 'Lieu', backgroundCover: 'Posture' }),
+      ],
+    });
+
+    const categoryNameToId = new Map([
+      ['Posture', 'id-posture'],
+      ['Lieu', 'id-lieu'],
+    ]);
+    const resolved = resolvePortableGraphPreferencesOnImport(
+      protocol.categories?.[1].graphPreferences,
+      categoryNameToId,
+    );
+
+    expect(resolved?.displayMode).toBe(DisplayModeEnum.Background);
+    expect(resolved?.supportCategoryId).toBe('id-posture');
+    expect(resolved?.supportCategoryName).toBeUndefined();
+  });
+
+  it('ignore un backgroundCover égal au nom de la catégorie source', () => {
+    const protocol = converter.convert({
+      name: 'root',
+      type: 'Category',
+      isRootNode: true,
+      colorName: '',
+      shape: 'line',
+      thickness: 0,
+      isVisible: true,
+      indexInParentContext: -1,
+      isBackground: false,
+      backgroundCover: '',
+      backgroundMotif: 0,
+      bX: 0,
+      bY: 0,
+      bWidth: 0,
+      bHeight: 0,
+      children: [makeCategoryNode('background', { name: 'Lieu', backgroundCover: 'Lieu' })],
+    });
+
+    expect(protocol.categories?.[0].graphPreferences?.supportCategoryName).toBeUndefined();
   });
 
   it('mappe un observable racine vers une catégorie par défaut avec la bonne action', () => {

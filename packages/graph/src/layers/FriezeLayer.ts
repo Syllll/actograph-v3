@@ -17,6 +17,7 @@ import { BaseLayer } from './Layer';
 import { LayerDoubleBuffer } from './LayerDoubleBuffer';
 import { iterContinuousDataPairs } from '../utils/continuous-segments.utils';
 import { isFinitePoint, safeEllipse, safeRect } from '../utils/safe-graphics.utils';
+import { FRIEZE_SEGMENT_STROKE } from '../lib/axis-layout.constants';
 
 export class FriezeLayer extends BaseLayer {
   readonly container: Container;
@@ -194,10 +195,7 @@ export class FriezeLayer extends BaseLayer {
       if (pattern === BackgroundPatternEnum.Solid) {
         safeRect(graphic, segmentStartX, friezeTopY, segmentWidth, friezeHeight, {
           fill: { color, alpha: 1 },
-        });
-
-        safeRect(graphic, segmentStartX, friezeTopY, segmentWidth, friezeHeight, {
-          stroke: { color, width: 1 },
+          stroke: { ...FRIEZE_SEGMENT_STROKE },
         });
       } else {
         const tilingSprite = this.graphicsStore.createTilingPatternSprite(
@@ -212,7 +210,7 @@ export class FriezeLayer extends BaseLayer {
           this.graphicsStore.addTilingSpriteBehindGraphics(category, tilingSprite, pattern, color);
         }
         safeRect(graphic, segmentStartX, friezeTopY, segmentWidth, friezeHeight, {
-          stroke: { color, width: 1 },
+          stroke: { ...FRIEZE_SEGMENT_STROKE },
         });
       }
     }

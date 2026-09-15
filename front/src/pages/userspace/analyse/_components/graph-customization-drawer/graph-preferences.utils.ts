@@ -4,24 +4,22 @@ import {
   IGraphPreferences,
   IProtocolItem,
   ProtocolItemActionEnum,
-  ProtocolItemTypeEnum,
 } from '@services/observations/interface';
+import {
+  getEffectiveDisplayMode,
+  isGraphCategoryType,
+  isValidDisplayMode,
+  listEligibleBackgroundSupportCategories,
+  normalizeProtocolItemAction,
+  resolveSupportCategoryId as resolveSupportCategoryIdFromCore,
+} from '@actograph/core';
 
 export function isDiscreteCategory(category: IProtocolItem): boolean {
-  return String(category.action) === ProtocolItemActionEnum.Discrete;
+  return normalizeProtocolItemAction(category.action) === ProtocolItemActionEnum.Discrete;
 }
 
 export function resolveCategoryDisplayMode(category: IProtocolItem): DisplayModeEnum {
-  if (isDiscreteCategory(category)) {
-    return DisplayModeEnum.Normal;
-  }
-
-  const mode = category.graphPreferences?.displayMode;
-  if (mode && Object.values(DisplayModeEnum).includes(mode)) {
-    return mode;
-  }
-
-  return DisplayModeEnum.Normal;
+  return getEffectiveDisplayMode(category);
 }
 
 export function sanitizeGraphPreferencePatch(
@@ -90,6 +88,10 @@ export function resolveSupportCategoryId(
   categories: IProtocolItem[],
   getDisplayMode: (category: IProtocolItem) => DisplayModeEnum = resolveCategoryDisplayMode
 ): string | null {
+  if (getDisplayMode === resolveCategoryDisplayMode) {
+    return resolveSupportCategoryIdFromCore(categoryId, supportCategoryId, categories);
+  }
+
   if (!supportCategoryId) {
     return null;
   }
@@ -104,9 +106,17 @@ export function resolveSupportCategoryId(
   return isValid ? supportCategoryId : null;
 }
 
-export function isValidDisplayMode(mode: unknown): mode is DisplayModeEnum {
-  return typeof mode === 'string' && Object.values(DisplayModeEnum).includes(mode as DisplayModeEnum);
+export function listBackgroundSupportCategories(
+  categoryId: string,
+  categories: IProtocolItem[]
+): IProtocolItem[] {
+  return listEligibleBackgroundSupportCategories(categoryId, categories);
 }
+
+export type DisplayModeChoice = {
+  displayMode: DisplayModeEnum;
+  supportCategoryId: string | null;
+};
 
 /** Patch de correction pour une catégorie dont les prefs graphiques sont incohérentes. */
 export function getCategoryPreferenceRepairPatch(
@@ -154,7 +164,7 @@ export function collectCategoryPreferenceRepairs(
   categories: IProtocolItem[]
 ): { categoryId: string; patch: Partial<IGraphPreferences> }[] {
   return categories
-    .filter((category) => category.type === ProtocolItemTypeEnum.Category)
+    .filter((category) => isGraphCategoryType(category.type))
     .map((category) => ({
       categoryId: category.id,
       patch: getCategoryPreferenceRepairPatch(category, categories),
@@ -164,7 +174,8 @@ export function collectCategoryPreferenceRepairs(
 
 export function shouldApplyDisplayModeUpdate(
   category: IProtocolItem,
-  nextMode: DisplayModeEnum
+  nextMode: DisplayModeEnum,
+  nextSupportCategoryId?: string | null
 ): boolean {
   const rawMode = category.graphPreferences?.displayMode;
   const effectiveMode = resolveCategoryDisplayMode(category);
@@ -174,5 +185,15 @@ export function shouldApplyDisplayModeUpdate(
     return true;
   }
 
-  return effectiveMode !== nextMode;
+  if (effectiveMode !== nextMode) {
+    return true;
+  }
+
+  if (nextMode === DisplayModeEnum.Background) {
+    const currentSupport = category.graphPreferences?.supportCategoryId ?? null;
+    const nextSupport = nextSupportCategoryId ?? null;
+    return currentSupport !== nextSupport;
+  }
+
+  return false;
 }

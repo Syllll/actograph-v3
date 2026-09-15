@@ -14,6 +14,7 @@ import {
   resolveSupportCategoryId,
   sanitizeGraphPreferencePatch,
   shouldApplyDisplayModeUpdate,
+  listBackgroundSupportCategories,
 } from './graph-preferences.utils';
 
 const makeCategory = (overrides: Partial<IProtocolItem> = {}): IProtocolItem => ({
@@ -47,6 +48,7 @@ describe('graph-preferences.utils', () => {
   it('remet supportCategoryId à null hors mode Arrière-plan', () => {
     const patch = sanitizeGraphPreferencePatch({
       displayMode: DisplayModeEnum.Frieze,
+      supportCategoryId: 'cat-2',
     });
 
     expect(patch.displayMode).toBe(DisplayModeEnum.Frieze);
@@ -100,6 +102,26 @@ describe('graph-preferences.utils', () => {
     });
   });
 
+  it('répare aussi une catégorie dont le type est capitalisé', () => {
+    const categories = [
+      makeCategory({
+        id: 'cat-bg',
+        type: 'Category' as IProtocolItem['type'],
+        graphPreferences: {
+          displayMode: DisplayModeEnum.Background,
+          supportCategoryId: 'missing',
+        },
+      }),
+    ];
+
+    expect(collectCategoryPreferenceRepairs(categories)).toEqual([
+      {
+        categoryId: 'cat-bg',
+        patch: { supportCategoryId: null },
+      },
+    ]);
+  });
+
   it('autorise la correction d\'un mode stocké invalide même si l\'affichage est Normal', () => {
     const category = makeCategory({
       graphPreferences: { displayMode: 'invalid' as DisplayModeEnum },
@@ -116,5 +138,53 @@ describe('graph-preferences.utils', () => {
 
     expect(shouldApplyDisplayModeUpdate(category, DisplayModeEnum.Frieze)).toBe(false);
     expect(shouldApplyDisplayModeUpdate(category, DisplayModeEnum.Background)).toBe(true);
+  });
+
+  it('conserve supportCategoryId quand on passe en arrière-plan', () => {
+    const patch = sanitizeGraphPreferencePatch({
+      displayMode: DisplayModeEnum.Background,
+      supportCategoryId: 'cat-2',
+    });
+
+    expect(patch.displayMode).toBe(DisplayModeEnum.Background);
+    expect(patch.supportCategoryId).toBe('cat-2');
+  });
+
+  it('applique un changement de cible d\'arrière-plan à mode inchangé', () => {
+    const category = makeCategory({
+      graphPreferences: {
+        displayMode: DisplayModeEnum.Background,
+        supportCategoryId: 'cat-2',
+      },
+    });
+
+    expect(shouldApplyDisplayModeUpdate(category, DisplayModeEnum.Background, 'cat-2')).toBe(false);
+    expect(shouldApplyDisplayModeUpdate(category, DisplayModeEnum.Background, null)).toBe(true);
+    expect(shouldApplyDisplayModeUpdate(category, DisplayModeEnum.Background, 'cat-3')).toBe(true);
+  });
+
+  it('autorise continu, événement et frise comme cibles d\'arrière-plan', () => {
+    const categories = [
+      makeCategory({ id: 'source' }),
+      makeCategory({ id: 'continuous' }),
+      makeCategory({
+        id: 'event',
+        action: ProtocolItemActionEnum.Discrete,
+      }),
+      makeCategory({
+        id: 'frieze',
+        graphPreferences: { displayMode: DisplayModeEnum.Frieze },
+      }),
+      makeCategory({
+        id: 'already-bg',
+        graphPreferences: { displayMode: DisplayModeEnum.Background },
+      }),
+    ];
+
+    expect(listBackgroundSupportCategories('source', categories).map((cat) => cat.id)).toEqual([
+      'continuous',
+      'event',
+      'frieze',
+    ]);
   });
 });

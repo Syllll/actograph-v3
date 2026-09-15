@@ -1,6 +1,5 @@
 import { Container } from 'pixi.js';
-import { DisplayModeEnum, mergeGraphPreferences, } from '@actograph/core';
-import { getEffectiveDisplayMode } from '../utils/category-display.utils';
+import { DisplayModeEnum, getEffectiveDisplayMode, mergeGraphPreferences, } from '@actograph/core';
 import { AxisLayer } from '../layers/AxisLayer';
 import { BackgroundLayer } from '../layers/BackgroundLayer';
 import { FriezeLayer } from '../layers/FriezeLayer';
@@ -38,13 +37,10 @@ export class GraphEngine {
             axisStretch: dataArea.getAxisStretch(),
             pausePeriods: dataArea.getPausePeriods(),
             readingsPerCategory: dataArea.getReadingsPerCategory(),
-            getYPos: (categoryId, observableName) => {
-                const scopedPos = yAxis.getPosFromCategoryObservable(categoryId, observableName);
-                if (scopedPos >= 0) {
-                    return scopedPos;
-                }
-                return yAxis.getPosFromLabel(observableName);
-            },
+            getYPos: (categoryId, observableName) => 
+            // Lookup scopé : un "On"/"Off" d'une autre catégorie ne doit pas
+            // servir de repli (bande d'arrière-plan ou série sur la mauvaise ligne).
+            yAxis.getPosFromCategoryObservable(categoryId, observableName),
             getDateTimePos: (date) => xAxis.getPosFromDateTime(date),
             getAxisBounds: () => {
                 const yAxisStart = yAxis.getAxisStart();
@@ -67,7 +63,7 @@ export class GraphEngine {
             getFriezeInfo: (categoryId) => yAxis.getFriezeInfo(categoryId),
             getObservablePreferences: (category, observableName) => this.getObservablePreferencesForReading(category, observableName),
             getCategoryById: (categoryId) => dataArea.getCategoryById(categoryId),
-            getEffectiveDisplayMode,
+            getEffectiveDisplayMode: (category) => getEffectiveDisplayMode(category),
         };
     }
     getLastDrawErrors() {
@@ -159,7 +155,13 @@ export class GraphEngine {
         if (!protocol || !category.children?.length || !observableName) {
             return null;
         }
-        const observable = category.children.find((obs) => obs.name === observableName && obs.type === 'observable');
+        const observable = category.children.find((obs) => {
+            if (obs.name !== observableName) {
+                return false;
+            }
+            const type = (obs.type || '').toLowerCase();
+            return type === '' || type === 'observable';
+        });
         if (!observable) {
             return null;
         }

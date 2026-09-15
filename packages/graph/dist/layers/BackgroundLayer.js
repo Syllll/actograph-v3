@@ -1,4 +1,4 @@
-import { BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, isCategoryVisible, resolveGraphColor, } from '@actograph/core';
+import { BackgroundPatternEnum, DisplayModeEnum, ProtocolItemActionEnum, isCategoryVisible, normalizeProtocolItemAction, resolveGraphColor, } from '@actograph/core';
 import { toDrawErrorMessage } from '../engine/types';
 import { CategoryGraphicsStore } from '../engine/CategoryGraphicsStore';
 import { BaseLayer } from './Layer';
@@ -88,7 +88,7 @@ export class BackgroundLayer extends BaseLayer {
         const category = categoryEntry.category;
         const readings = categoryEntry.readings;
         const graphic = this.graphicsStore.getOrCreateGraphic(category);
-        if (category.action === ProtocolItemActionEnum.Discrete) {
+        if (normalizeProtocolItemAction(category.action) === ProtocolItemActionEnum.Discrete) {
             return;
         }
         if (readings.length === 0) {
@@ -100,11 +100,14 @@ export class BackgroundLayer extends BaseLayer {
         if (zoneHeight <= 0) {
             graphic.clear();
             this.graphicsStore.clearTilingSpritesForCategory(category);
+            const supportId = category.graphPreferences?.supportCategoryId;
             options?.onCategoryError?.({
                 layerId: this.id,
                 categoryId: category.id,
                 categoryName: category.name,
-                message: `Background skipped: zoneHeight=${zoneHeight}`,
+                message: supportId
+                    ? `Background skipped: no Y band for support ${supportId} (zoneHeight=${zoneHeight})`
+                    : `Background skipped: zoneHeight=${zoneHeight}`,
             });
             return;
         }

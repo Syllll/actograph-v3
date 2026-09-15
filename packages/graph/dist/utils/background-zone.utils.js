@@ -1,53 +1,74 @@
-import { DisplayModeEnum } from '@actograph/core';
-export function getBackgroundZoneForCategory(ctx, category, fullZoneTopY, fullZoneBottomY) {
-    const supportCategoryId = category.graphPreferences?.supportCategoryId;
-    if (!supportCategoryId) {
-        return {
-            topY: fullZoneTopY,
-            height: Math.max(0, fullZoneBottomY - fullZoneTopY),
-        };
-    }
-    const supportCategory = ctx.getCategoryById(supportCategoryId);
-    if (!supportCategory) {
-        return {
-            topY: fullZoneTopY,
-            height: Math.max(0, fullZoneBottomY - fullZoneTopY),
-        };
-    }
-    if (supportCategory.graphPreferences?.displayMode === DisplayModeEnum.Frieze) {
-        const friezeInfo = ctx.getFriezeInfo(supportCategory.id);
-        if (!friezeInfo) {
-            return {
-                topY: fullZoneTopY,
-                height: Math.max(0, fullZoneBottomY - fullZoneTopY),
-            };
-        }
-        const top = Math.min(friezeInfo.startY, friezeInfo.endY);
-        const bottom = Math.max(friezeInfo.startY, friezeInfo.endY);
-        const clampedTop = Math.max(fullZoneTopY, top);
-        const clampedBottom = Math.min(fullZoneBottomY, bottom);
-        return {
-            topY: clampedTop,
-            height: Math.max(0, clampedBottom - clampedTop),
-        };
-    }
-    const supportYPositions = (supportCategory.children || [])
-        .map((observable) => ctx.getYPos(supportCategory.id, observable.name))
-        .filter((pos) => pos >= 0);
-    if (supportYPositions.length === 0) {
-        return {
-            topY: fullZoneTopY,
-            height: Math.max(0, fullZoneBottomY - fullZoneTopY),
-        };
-    }
-    const rowHalfHeight = 15;
-    const top = Math.min(...supportYPositions) - rowHalfHeight;
-    const bottom = Math.max(...supportYPositions) + rowHalfHeight;
-    const clampedTop = Math.max(fullZoneTopY, top);
-    const clampedBottom = Math.min(fullZoneBottomY, bottom);
+import { DisplayModeEnum, ProtocolItemTypeEnum } from '@actograph/core';
+import { Y_AXIS_LAYOUT } from '../lib/axis-layout.constants';
+function fullChartZone(fullZoneTopY, fullZoneBottomY) {
+    return {
+        topY: fullZoneTopY,
+        height: Math.max(0, fullZoneBottomY - fullZoneTopY),
+    };
+}
+function emptyZone(fullZoneTopY) {
+    return {
+        topY: fullZoneTopY,
+        height: 0,
+    };
+}
+function clampVerticalBand(top, bottom, fullZoneTopY, fullZoneBottomY) {
+    const bandTop = Math.min(top, bottom);
+    const bandBottom = Math.max(top, bottom);
+    const clampedTop = Math.max(fullZoneTopY, bandTop);
+    const clampedBottom = Math.min(fullZoneBottomY, bandBottom);
     return {
         topY: clampedTop,
         height: Math.max(0, clampedBottom - clampedTop),
     };
+}
+function isResolvedYPos(pos) {
+    return Number.isFinite(pos) && pos !== -1;
+}
+function isObservableItem(item) {
+    if (!item?.name) {
+        return false;
+    }
+    if (!item.type) {
+        return true;
+    }
+    return item.type.toLowerCase() === ProtocolItemTypeEnum.Observable;
+}
+/**
+ * Bande verticale d'un arrière-plan.
+ * - sans `supportCategoryId` : tout le graphe (toutes les autres catégories)
+ * - avec une cible : uniquement la bande Y de cette catégorie
+ * - cible introuvable / déjà en arrière-plan / sans ticks : hauteur 0
+ *   (jamais de repli silencieux sur tout le graphe)
+ */
+export function getBackgroundZoneForCategory(ctx, category, fullZoneTopY, fullZoneBottomY) {
+    const supportCategoryId = category.graphPreferences?.supportCategoryId;
+    if (!supportCategoryId) {
+        return fullChartZone(fullZoneTopY, fullZoneBottomY);
+    }
+    const supportCategory = ctx.getCategoryById(supportCategoryId);
+    if (!supportCategory) {
+        return emptyZone(fullZoneTopY);
+    }
+    const supportMode = ctx.getEffectiveDisplayMode(supportCategory);
+    if (supportMode === DisplayModeEnum.Background) {
+        return emptyZone(fullZoneTopY);
+    }
+    if (supportMode === DisplayModeEnum.Frieze) {
+        const friezeInfo = ctx.getFriezeInfo(supportCategory.id);
+        if (!friezeInfo) {
+            return emptyZone(fullZoneTopY);
+        }
+        return clampVerticalBand(friezeInfo.startY, friezeInfo.endY, fullZoneTopY, fullZoneBottomY);
+    }
+    const supportYPositions = (supportCategory.children || [])
+        .filter(isObservableItem)
+        .map((observable) => ctx.getYPos(supportCategory.id, observable.name))
+        .filter(isResolvedYPos);
+    if (supportYPositions.length === 0) {
+        return emptyZone(fullZoneTopY);
+    }
+    const rowHalfHeight = Y_AXIS_LAYOUT.OBSERVABLE_HEIGHT / 2;
+    return clampVerticalBand(Math.min(...supportYPositions) - rowHalfHeight, Math.max(...supportYPositions) + rowHalfHeight, fullZoneTopY, fullZoneBottomY);
 }
 //# sourceMappingURL=background-zone.utils.js.map

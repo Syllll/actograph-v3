@@ -75,7 +75,6 @@ export declare class YAxis extends BaseGroup {
     private drawFriezeTick;
     getLabelDescriptors(): AxisLabelDescriptor[];
     private computeAxisLengthAndTicks;
-    private getEffectiveDisplayMode;
     private convertTicksToAbsolutePositions;
     private assertTickHasPosition;
 }

@@ -1,9 +1,6 @@
-import { DisplayModeEnum, ProtocolItemActionEnum, isCategoryVisible } from '@actograph/core';
+import { DisplayModeEnum, getEffectiveDisplayMode as resolveEffectiveDisplayMode, isCategoryVisible } from '@actograph/core';
 export function getEffectiveDisplayMode(category) {
-    if (category.action === ProtocolItemActionEnum.Discrete) {
-        return DisplayModeEnum.Normal;
-    }
-    return category.graphPreferences?.displayMode ?? DisplayModeEnum.Normal;
+    return resolveEffectiveDisplayMode(category);
 }
 export function classifyCategoriesForDraw(readingsPerCategory) {
     const background = [];

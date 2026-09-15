@@ -99,14 +99,11 @@ export class DataArea extends BaseGroup {
     if (!this.protocol) {
       return null;
     }
-    const protocolAny = this.protocol as { _items?: ProtocolItem[]; items?: ProtocolItem[] };
-    const items: ProtocolItem[] = protocolAny._items || protocolAny.items || [];
-    for (const item of items) {
-      if (item.type === 'category' && item.id === categoryId) {
-        return item as ProtocolItem;
-      }
+    const items = parseProtocolItems(this.protocol);
+    if (!Array.isArray(items)) {
+      return null;
     }
-    return null;
+    return items.find((item) => item.id === categoryId) ?? null;
   }
 
   public setCategoryPruneHandler(handler: CategoryPruneHandler | null): void {

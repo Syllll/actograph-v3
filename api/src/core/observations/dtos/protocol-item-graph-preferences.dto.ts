@@ -6,6 +6,7 @@ import {
   IsBoolean,
   Min,
   Max,
+  ValidateIf,
 } from 'class-validator';
 import { BackgroundPatternEnum, DisplayModeEnum } from '@actograph/core';
 
@@ -28,8 +29,9 @@ export class UpdateProtocolItemGraphPreferencesDto {
   @IsOptional()
   displayMode?: DisplayModeEnum;
 
-  @IsString()
   @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
   supportCategoryId?: string | null;
 
   @IsBoolean()

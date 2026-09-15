@@ -1,6 +1,7 @@
 import { Application, Container } from 'pixi.js';
 import {
   DisplayModeEnum,
+  getEffectiveDisplayMode,
   mergeGraphPreferences,
   type IGraphPreferences,
   type IProtocolItem,
@@ -10,7 +11,6 @@ import type { PatternTextureStore } from '../gpu/PatternTextureStore';
 import type { DataArea } from '../pixi-app/data-area';
 import type { YAxis } from '../pixi-app/axis/y-axis';
 import type { xAxis } from '../pixi-app/axis/x-axis';
-import { getEffectiveDisplayMode } from '../utils/category-display.utils';
 import type { ProtocolItem } from '../utils/protocol.utils';
 import { AxisLayer } from '../layers/AxisLayer';
 import { BackgroundLayer } from '../layers/BackgroundLayer';
@@ -79,13 +79,10 @@ export class GraphEngine {
       axisStretch: dataArea.getAxisStretch(),
       pausePeriods: dataArea.getPausePeriods(),
       readingsPerCategory: dataArea.getReadingsPerCategory(),
-      getYPos: (categoryId: string, observableName: string) => {
-        const scopedPos = yAxis.getPosFromCategoryObservable(categoryId, observableName);
-        if (scopedPos >= 0) {
-          return scopedPos;
-        }
-        return yAxis.getPosFromLabel(observableName);
-      },
+      getYPos: (categoryId: string, observableName: string) =>
+        // Lookup scopé : un "On"/"Off" d'une autre catégorie ne doit pas
+        // servir de repli (bande d'arrière-plan ou série sur la mauvaise ligne).
+        yAxis.getPosFromCategoryObservable(categoryId, observableName),
       getDateTimePos: (date: Date | string) => xAxis.getPosFromDateTime(date),
       getAxisBounds: () => {
         const yAxisStart = yAxis.getAxisStart();
@@ -109,7 +106,8 @@ export class GraphEngine {
       getObservablePreferences: (category: ProtocolItem, observableName: string) =>
         this.getObservablePreferencesForReading(category, observableName),
       getCategoryById: (categoryId: string) => dataArea.getCategoryById(categoryId),
-      getEffectiveDisplayMode,
+      getEffectiveDisplayMode: (category: ProtocolItem) =>
+        getEffectiveDisplayMode(category),
     };
   }
 
@@ -223,9 +221,13 @@ export class GraphEngine {
       return null;
     }
 
-    const observable = category.children.find(
-      (obs: IProtocolItem) => obs.name === observableName && obs.type === 'observable',
-    );
+    const observable = category.children.find((obs: IProtocolItem) => {
+      if (obs.name !== observableName) {
+        return false;
+      }
+      const type = (obs.type || '').toLowerCase();
+      return type === '' || type === 'observable';
+    });
 
     if (!observable) {
       return null;

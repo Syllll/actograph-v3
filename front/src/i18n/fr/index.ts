@@ -468,6 +468,8 @@ export default {
     prefsUpdateFailed: 'Erreur lors de la mise à jour des préférences',
     patternDots: 'Pointillés',
     displayBackground: 'Arrière-plan',
+    backgroundOfAll: 'Arrière-plan de tout',
+    backgroundOfCategory: 'Arrière-plan de {name}',
     placeholderBgCategory: 'Arrière-plan de…',
     graphBackgroundOption: 'Arrière-plan du graph',
     tooltipZoomIn: 'Zoom avant',

@@ -299,4 +299,28 @@ describe('GraphEngine', () => {
       topRight: { x: 800, y: 0 },
     });
   });
+
+  it('buildContext.getYPos stays scoped to the category', () => {
+    const app = {} as Application;
+    const plot = new Container();
+    const dataArea = createMockDataArea();
+    plot.addChild(dataArea as unknown as Container);
+
+    const yAxis = {
+      ...createMockAxis(),
+      getPosFromCategoryObservable: () => -1,
+      getPosFromLabel: () => 999,
+    };
+
+    const engine = new GraphEngine({
+      app,
+      plot,
+      dataArea,
+      yAxis: yAxis as never,
+      xAxis: createMockXAxis() as never,
+      patternStore: { createTilingSprite: jest.fn(), release: jest.fn() } as never,
+    });
+
+    expect(engine.buildContext().getYPos('cat-1', 'On')).toBe(-1);
+  });
 });

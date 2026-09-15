@@ -61,26 +61,13 @@
 
               <!-- Mode d'affichage (désactivé pour les catégories discrètes) -->
               <div class="cell-select">
-                <div
-                  class="display-mode-select-host"
-                  :class="{ 'is-disabled': methods.isDiscreteCategory(category) }"
-                >
-                  <q-select
-                    :model-value="methods.getCategoryDisplayMode(category)"
-                    :options="methods.getDisplayModeOptionsForCategory(category)"
-                    option-label="label"
-                    option-value="value"
-                    dense
-                    outlined
-                    emit-value
-                    map-options
-                    :disable="methods.isDiscreteCategory(category)"
-                    @update:model-value="methods.onCategoryDisplayModeChange(category.id, $event)"
-                  />
-                  <q-tooltip v-if="methods.isDiscreteCategory(category)">
-                    {{ $t('graphUi.discreteCategoryNormalOnly') }}
-                  </q-tooltip>
-                </div>
+                <DisplayModeSelect
+                  :disable="methods.isDiscreteCategory(category)"
+                  :display-mode="methods.getCategoryDisplayMode(category)"
+                  :support-category-id="methods.getCategorySupportCategoryId(category)"
+                  :support-options="methods.getSupportOptions(category.id)"
+                  @change="methods.onCategoryDisplayChoice(category.id, $event)"
+                />
               </div>
 
               <!-- Couleur -->
@@ -127,23 +114,6 @@
                   map-options
                   :disable="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Normal"
                   @update:model-value="methods.onCategoryPatternChange(category.id, $event)"
-                />
-              </div>
-
-              <!-- Support (uniquement pour Background) - bug 3.5 : sélecteur "arrière-plan de quelle catégorie ?" -->
-              <div class="cell-select">
-                <q-select
-                  v-if="methods.getCategoryDisplayMode(category) === DisplayModeEnum.Background"
-                  :model-value="methods.getCategorySupportCategoryId(category)"
-                  :options="methods.getSupportOptions(category.id)"
-                  option-label="label"
-                  option-value="value"
-                  dense
-                  outlined
-                  emit-value
-                  map-options
-                  :placeholder="$t('graphUi.placeholderBgCategory')"
-                  @update:model-value="methods.onCategorySupportChange(category.id, $event)"
                 />
               </div>
             </div>
@@ -262,26 +232,29 @@ import { useProtocol } from 'src/composables/use-observation/use-protocol';
 import { useObservation } from 'src/composables/use-observation';
 import { IGraphPreferences, BackgroundPatternEnum, DisplayModeEnum } from '@services/observations/interface';
 import { getObservableGraphPreferences } from '@services/observations/protocol-graph-preferences.utils';
-import { protocolService, ProtocolItemActionEnum, ProtocolItem } from '@services/observations/protocol.service';
+import { protocolService, ProtocolItem } from '@services/observations/protocol.service';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { useGraph } from '../graph/use-graph';
 import { DScrollArea, DDialogCard } from '@lib-improba/components';
 import { DEFAULT_GRAPH_COLOR } from '@actograph/graph';
 import DrawerLabelCell from './DrawerLabelCell.vue';
+import DisplayModeSelect from './DisplayModeSelect.vue';
 import {
   collectCategoryPreferenceRepairs,
   getObservablePropagationPatch,
   isDiscreteCategory,
+  listBackgroundSupportCategories,
   resolveCategoryDisplayMode,
   resolveSupportCategoryId,
   sanitizeGraphPreferencePatch,
   shouldApplyDisplayModeUpdate,
+  type DisplayModeChoice,
 } from './graph-preferences.utils';
 
 const COMPACT_MODE_THRESHOLD = 400; // Largeur en pixels pour activer le mode compact
-const GRID_COLUMN_WIDTHS = [36, 140, 120, 36, 90, 140, 140];
-const GRID_COLUMN_WIDTHS_COMPACT = [32, 100, 100, 36, 80, 120, 120];
+const GRID_COLUMN_WIDTHS = [36, 140, 180, 36, 90, 140];
+const GRID_COLUMN_WIDTHS_COMPACT = [32, 100, 160, 36, 80, 120];
 const GRID_GAP = 8;
 const GRID_GAP_COMPACT = 4;
 const ROW_PADDING_X = 16; // padding-left 12px + padding-right 4px
@@ -302,7 +275,6 @@ const GRID_LAYOUT_KEYS = [
   'color',
   'stroke',
   'pattern',
-  'support',
 ] as const;
 
 const buildDrawerContentStyle = (compact: boolean): Record<string, string> => {
@@ -326,6 +298,7 @@ export default defineComponent({
     DScrollArea,
     DDialogCard,
     DrawerLabelCell,
+    DisplayModeSelect,
   },
   props: {
     drawerWidth: {
@@ -362,15 +335,6 @@ export default defineComponent({
         { label: t('graphUi.patternDiagonal'), value: BackgroundPatternEnum.Diagonal },
         { label: t('graphUi.patternGrid'), value: BackgroundPatternEnum.Grid },
         { label: t('graphUi.patternDots'), value: BackgroundPatternEnum.Dots },
-      ];
-    });
-
-    const displayModeOptions = computed(() => {
-      void locale.value;
-      return [
-        { label: t('graphUi.displayNormal'), value: DisplayModeEnum.Normal },
-        { label: t('graphUi.displayBackground'), value: DisplayModeEnum.Background },
-        { label: t('graphUi.displayFrieze'), value: DisplayModeEnum.Frieze },
       ];
     });
 
@@ -534,39 +498,54 @@ export default defineComponent({
       },
 
       getCategorySupportCategoryId: (category: ProtocolItem): string | null => {
-        const currentProtocol = protocol.sharedState.currentProtocol;
-        if (!currentProtocol?._items) {
+        if (resolveCategoryDisplayMode(category) !== DisplayModeEnum.Background) {
           return null;
         }
 
-        return resolveSupportCategoryId(
-          category.id,
-          category.graphPreferences?.supportCategoryId,
-          currentProtocol._items as ProtocolItem[],
-          resolveCategoryDisplayMode
-        );
+        return category.graphPreferences?.supportCategoryId || null;
       },
 
-      updateCategoryDisplayMode: (categoryId: string, val: DisplayModeEnum | null) => {
-        if (val === null || val === undefined) {
-          return;
-        }
-
+      onCategoryDisplayChoice: (categoryId: string, choice: DisplayModeChoice) => {
         const currentProtocol = protocol.sharedState.currentProtocol;
-        const category = currentProtocol?._items?.find((item) => item.id === categoryId);
+        const items = (currentProtocol?._items || []) as ProtocolItem[];
+        const category = items.find((item) => item.id === categoryId);
         if (!category) {
           return;
         }
 
-        if (!shouldApplyDisplayModeUpdate(category as ProtocolItem, val)) {
+        let nextSupport: string | null = null;
+        if (choice.displayMode === DisplayModeEnum.Background) {
+          if (choice.supportCategoryId) {
+            nextSupport = resolveSupportCategoryId(
+              categoryId,
+              choice.supportCategoryId,
+              items
+            );
+            if (!nextSupport) {
+              return;
+            }
+          }
+        }
+
+        if (
+          !shouldApplyDisplayModeUpdate(
+            category,
+            choice.displayMode,
+            nextSupport
+          )
+        ) {
           return;
         }
 
-        methods.updateCategoryPreference(categoryId, { displayMode: val });
-      },
+        const patch =
+          choice.displayMode === DisplayModeEnum.Background
+            ? {
+                displayMode: choice.displayMode,
+                supportCategoryId: nextSupport,
+              }
+            : { displayMode: choice.displayMode };
 
-      onCategoryDisplayModeChange: (categoryId: string, val: DisplayModeEnum | null) => {
-        methods.updateCategoryDisplayMode(categoryId, val);
+        methods.updateCategoryPreference(categoryId, patch);
       },
 
       onCategoryStrokeWidthChange: (categoryId: string, val: number | null) => {
@@ -579,12 +558,6 @@ export default defineComponent({
 
       onCategoryPatternChange: (categoryId: string, val: BackgroundPatternEnum) => {
         methods.updateCategoryPreference(categoryId, { backgroundPattern: val });
-      },
-
-      onCategorySupportChange: (categoryId: string, val: string | null) => {
-        methods.updateCategoryPreference(categoryId, {
-          supportCategoryId: val === '' ? null : val,
-        });
       },
 
       onObservableStrokeWidthChange: (observableId: string, val: number | null) => {
@@ -870,42 +843,19 @@ export default defineComponent({
       },
 
       /**
-       * Récupère les options de support pour une catégorie
+       * Cibles d'arrière-plan : continu, événement, frise — pas soi-même ni un autre fond.
        */
       getSupportOptions: (categoryId: string) => {
         const currentProtocol = protocol.sharedState.currentProtocol;
         if (!currentProtocol?._items) return [];
 
-        const options: { label: string; value: string | null }[] = [
-          { label: t('graphUi.graphBackgroundOption'), value: null },
-        ];
-
-        // Ajouter les autres catégories en mode "normal"
-        const otherCategories = currentProtocol._items.filter(
-          (cat) =>
-            cat.id !== categoryId &&
-            methods.getCategoryDisplayMode(cat as ProtocolItem) !== DisplayModeEnum.Background
-        );
-
-        otherCategories.forEach((cat) => {
-          options.push({
-            label: cat.name,
-            value: cat.id,
-          });
-        });
-
-        return options;
-      },
-
-      /**
-       * Récupère les options de mode d'affichage pour une catégorie.
-       * Les catégories discrètes ne peuvent être qu'en mode Normal.
-       */
-      getDisplayModeOptionsForCategory: (category: ProtocolItem) => {
-        if (category.action === ProtocolItemActionEnum.Discrete) {
-          return [{ label: t('graphUi.displayNormal'), value: DisplayModeEnum.Normal }];
-        }
-        return displayModeOptions.value;
+        return listBackgroundSupportCategories(
+          categoryId,
+          currentProtocol._items as ProtocolItem[]
+        ).map((cat) => ({
+          id: cat.id,
+          name: cat.name,
+        }));
       },
     };
 
@@ -915,9 +865,7 @@ export default defineComponent({
       graph,
       state,
       patternOptions,
-      displayModeOptions,
       DisplayModeEnum,
-      ProtocolItemActionEnum,
       DEFAULT_GRAPH_COLOR,
       isCompactMode,
       isMinimized,
@@ -960,8 +908,7 @@ export default defineComponent({
   
   // Quasar force opacity: 0 !important + pointer-events: none via .q-scrollarea__thumb--invisible
   // (voir node_modules/quasar/src/components/scroll-area/QScrollArea.sass) : sans !important ici,
-  // la barre horizontale reste invisible et non cliquable au repos, rendant la colonne "support"
-  // (dernière colonne de la grille, hors champ en mode compact) impossible à atteindre.
+  // la barre horizontale reste invisible et non cliquable au repos.
   :deep(.q-scrollarea__thumb) {
     opacity: 1 !important;
     pointer-events: auto !important;
@@ -988,8 +935,7 @@ export default defineComponent({
     var(--gc-col-display)
     var(--gc-col-color)
     var(--gc-col-stroke)
-    var(--gc-col-pattern)
-    var(--gc-col-support);
+    var(--gc-col-pattern);
   column-gap: 8px;
   align-items: center;
   min-width: 0;
@@ -1013,14 +959,6 @@ export default defineComponent({
 
 :deep(.observable-label-cell) {
   padding-left: 16px;
-}
-
-.display-mode-select-host {
-  width: 100%;
-
-  &.is-disabled {
-    cursor: help;
-  }
 }
 
 .cell-select {

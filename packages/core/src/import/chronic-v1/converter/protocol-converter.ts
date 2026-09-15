@@ -29,6 +29,30 @@ export class ProtocolV1Converter {
   }
 
   /**
+   * v1 `backgroundCover` : `"all"` (ou vide) = tout le graphe ;
+   * sinon le nom de la catégorie cible (jamais soi-même).
+   * Le nom est résolu en `supportCategoryId` à la création
+   * (`resolvePortableGraphPreferencesOnImport`).
+   */
+  private mapBackgroundCover(
+    node: IProtocolNodeV1,
+    ownName: string,
+  ): string | undefined {
+    const rawCover =
+      node.backgroundCover ||
+      node.children?.find((child) => child.backgroundCover)?.backgroundCover ||
+      '';
+    const cover = rawCover.trim();
+    if (!cover || cover.toLowerCase() === 'all') {
+      return undefined;
+    }
+    if (cover === ownName) {
+      return undefined;
+    }
+    return cover;
+  }
+
+  /**
    * v1 encode le type via `shape` sur le nœud :
    * - point  → ponctuel (discrete)
    * - line   → continu (continuous)
@@ -49,11 +73,13 @@ export class ProtocolV1Converter {
     }
 
     if (shape === 'background' || node.isBackground) {
+      const supportCategoryName = this.mapBackgroundCover(node, node.name);
       return {
         action: ProtocolItemActionEnum.Continuous,
         graphPreferences: {
           ...basePrefs,
           displayMode: DisplayModeEnum.Background,
+          ...(supportCategoryName ? { supportCategoryName } : {}),
         },
       };
     }

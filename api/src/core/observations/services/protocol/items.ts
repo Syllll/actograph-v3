@@ -15,6 +15,10 @@ import {
   ProtocolItemActionEnum,
   ProtocolItemTypeEnum,
   mergeGraphPreferences,
+  getEffectiveDisplayMode,
+  isEligibleBackgroundSupportCategory,
+  isGraphCategoryType,
+  normalizeProtocolItemAction,
 } from '@actograph/core';
 import { randomUUID } from 'node:crypto';
 import { UpdateProtocolItemGraphPreferencesDto } from '../../dtos/protocol-item-graph-preferences.dto';
@@ -33,6 +37,21 @@ export class Items {
     }
 
     return JSON.parse(itemsStr);
+  }
+
+  /** Une cible d'arrière-plan supprimée ou devenue fond ne doit plus être référencée. */
+  private clearBackgroundSupportReferences(
+    items: ProtocolItem[],
+    targetId: string,
+  ): void {
+    for (const item of items) {
+      if (
+        item.id !== targetId &&
+        item.graphPreferences?.supportCategoryId === targetId
+      ) {
+        item.graphPreferences.supportCategoryId = null;
+      }
+    }
   }
 
   public async addCategory(options: {
@@ -123,6 +142,7 @@ export class Items {
     };
 
     findAndRemoveItemFromJson(items, options.itemId);
+    this.clearBackgroundSupportReferences(items, options.itemId);
 
     // Update the protocol with the new items
     protocol.items = JSON.stringify(items);
@@ -157,6 +177,7 @@ export class Items {
 
     // Remove the category
     categories.splice(categoryIndex, 1);
+    this.clearBackgroundSupportReferences(categories, options.categoryId);
 
     // Update the protocol with the new items
     protocol.items = JSON.stringify(categories);
@@ -234,7 +255,7 @@ export class Items {
     };
 
     // Coherence rule: discrete categories cannot use Background/Frieze display modes.
-    if (updatedCategory.action === ProtocolItemActionEnum.Discrete) {
+    if (normalizeProtocolItemAction(updatedCategory.action) === ProtocolItemActionEnum.Discrete) {
       updatedCategory.graphPreferences = {
         ...(updatedCategory.graphPreferences || {}),
         displayMode: DisplayModeEnum.Normal,
@@ -571,24 +592,30 @@ export class Items {
     }
 
     // Coherence rule: supportCategoryId only applies to categories in Background mode.
-    if (targetItem.type === ProtocolItemTypeEnum.Category) {
-      if (targetItem.action === ProtocolItemActionEnum.Discrete) {
+    if (isGraphCategoryType(targetItem.type)) {
+      if (normalizeProtocolItemAction(targetItem.action) === ProtocolItemActionEnum.Discrete) {
         normalizedPreferences.displayMode = DisplayModeEnum.Normal;
         normalizedPreferences.supportCategoryId = null;
       }
-      const nextDisplayMode =
-        normalizedPreferences.displayMode ?? targetItem.graphPreferences?.displayMode;
+      const nextDisplayMode = getEffectiveDisplayMode({
+        action: targetItem.action,
+        graphPreferences: {
+          ...targetItem.graphPreferences,
+          displayMode:
+            normalizedPreferences.displayMode ??
+            targetItem.graphPreferences?.displayMode,
+        },
+      });
       if (nextDisplayMode !== DisplayModeEnum.Background) {
         normalizedPreferences.supportCategoryId = null;
       }
       if (normalizedPreferences.supportCategoryId) {
-        if (normalizedPreferences.supportCategoryId === targetItem.id) {
+        const supportItem = findItem(items, normalizedPreferences.supportCategoryId);
+        if (
+          !supportItem ||
+          !isEligibleBackgroundSupportCategory(targetItem.id, supportItem)
+        ) {
           normalizedPreferences.supportCategoryId = null;
-        } else {
-          const supportItem = findItem(items, normalizedPreferences.supportCategoryId);
-          if (!supportItem || supportItem.type !== ProtocolItemTypeEnum.Category) {
-            normalizedPreferences.supportCategoryId = null;
-          }
         }
       }
     } else {
@@ -617,6 +644,10 @@ export class Items {
     }
     if (normalizedPreferences.visible !== undefined) {
       targetItem.graphPreferences.visible = normalizedPreferences.visible;
+    }
+
+    if (getEffectiveDisplayMode(targetItem) === DisplayModeEnum.Background) {
+      this.clearBackgroundSupportReferences(items, targetItem.id);
     }
 
     // Update the protocol with the new items

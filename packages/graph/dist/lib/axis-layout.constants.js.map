@@ -1,0 +1,1 @@
+{"version":3,"file":"axis-layout.constants.js","sourceRoot":"","sources":["../../src/lib/axis-layout.constants.ts"],"names":[],"mappings":"AAAA;;;GAGG;AACH,MAAM,CAAC,MAAM,aAAa,GAAG;IAC3B,iBAAiB,EAAE,EAAE;IACrB,aAAa,EAAE,EAAE;IACjB,gBAAgB,EAAE,EAAE;CACZ,CAAC;AAEX;;;;GAIG;AACH,MAAM,CAAC,MAAM,qBAAqB,GAAG;IACnC,KAAK,EAAE,SAAS;IAChB,KAAK,EAAE,CAAC;CACA,CAAC"}

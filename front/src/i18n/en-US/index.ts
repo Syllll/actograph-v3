@@ -461,6 +461,8 @@ export default {
     prefsUpdateFailed: 'Error updating preferences',
     patternDots: 'Dots',
     displayBackground: 'Background',
+    backgroundOfAll: 'Background of all',
+    backgroundOfCategory: 'Background of {name}',
     placeholderBgCategory: 'Background for…',
     graphBackgroundOption: 'Chart background',
     tooltipZoomIn: 'Zoom in',

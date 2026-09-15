@@ -5,4 +5,5 @@ export * from './mobile-compat';
 export * from './electron-local-auth';
 export * from './graph-color';
 export * from './graph-preferences';
+export * from './graph-display-mode';
 

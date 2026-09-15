@@ -208,6 +208,77 @@ describe('FriezeLayer', () => {
     expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
   });
+
+  it('dessine un contour gris entre états de même couleur', () => {
+    const app = {} as Application;
+    const layer = new FriezeLayer(app, {
+      createTilingSprite: jest.fn(),
+      release: jest.fn(),
+    } as never);
+
+    const continuousCategory = {
+      id: 'cat-rer',
+      name: 'Déplacement RER',
+      type: 'category',
+      action: ProtocolItemActionEnum.Continuous,
+      graphPreferences: { color: '#000000', displayMode: DisplayModeEnum.Frieze },
+      children: [
+        { id: 'obs-a', name: 'Roule', type: 'observable' },
+        { id: 'obs-b', name: 'Arrêt station', type: 'observable' },
+      ],
+    } as ProtocolItem;
+
+    const t0 = Date.parse('2024-01-01T00:00:00Z');
+    const ctx = createMockGraphContext({
+      readingsPerCategory: [
+        {
+          category: continuousCategory,
+          readings: [
+            {
+              type: ReadingTypeEnum.DATA,
+              dateTime: new Date('2024-01-01T00:00:00Z'),
+              name: 'Roule',
+            },
+            {
+              type: ReadingTypeEnum.DATA,
+              dateTime: new Date('2024-01-01T00:10:00Z'),
+              name: 'Arrêt station',
+            },
+            {
+              type: ReadingTypeEnum.STOP,
+              dateTime: new Date('2024-01-01T00:20:00Z'),
+              name: 'Arrêt station',
+            },
+          ],
+        },
+      ],
+      getEffectiveDisplayMode: () => DisplayModeEnum.Frieze,
+      getFriezeInfo: () => ({
+        centerY: 30,
+        startY: 50,
+        endY: 10,
+        height: 40,
+      }),
+      getDateTimePos: (date: Date | string) =>
+        (new Date(date).getTime() - t0) / 1000,
+      getObservablePreferences: () => ({ color: '#000000' }),
+    });
+
+    const rectSpy = jest.spyOn(safeGraphicsUtils, 'safeRect');
+    layer.prepare(ctx);
+
+    const strokedRects = rectSpy.mock.calls.filter((call) => {
+      const options = call[5];
+      return options?.stroke && call[4] === 40;
+    });
+    expect(strokedRects.length).toBeGreaterThanOrEqual(2);
+    for (const call of strokedRects) {
+      expect(call[5]?.fill).toEqual({ color: '#000000', alpha: 1 });
+      expect(call[5]?.stroke).toEqual({ color: '#969696', width: 1 });
+    }
+
+    rectSpy.mockRestore();
+  });
 });
 
 describe('SeriesLayer', () => {

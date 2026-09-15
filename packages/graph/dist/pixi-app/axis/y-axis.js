@@ -1,9 +1,10 @@
 import { BaseGroup } from '../../lib/base-group';
 import { BaseGraphic } from '../../lib/base-graphic';
-import { DisplayModeEnum, ProtocolItemActionEnum, isCategoryVisible } from '@actograph/core';
+import { DisplayModeEnum, isCategoryVisible, getEffectiveDisplayMode } from '@actograph/core';
 import { parseProtocolItems } from '../../utils/protocol.utils';
 import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
 import { worldTickLengthForStretch } from '../../utils/tick-stretch.utils';
+import { Y_AXIS_LAYOUT } from '../../lib/axis-layout.constants';
 // ============================================================================
 // Constants
 // ============================================================================
@@ -14,9 +15,9 @@ const AXIS_CONFIG = {
     COLOR: 'black',
 };
 const TICK_CONFIG = {
-    OBSERVABLE_HEIGHT: 30,
-    FRIEZE_HEIGHT: 40,
-    CATEGORY_SPACING: 15,
+    OBSERVABLE_HEIGHT: Y_AXIS_LAYOUT.OBSERVABLE_HEIGHT,
+    FRIEZE_HEIGHT: Y_AXIS_LAYOUT.FRIEZE_HEIGHT,
+    CATEGORY_SPACING: Y_AXIS_LAYOUT.CATEGORY_SPACING,
     TICK_LENGTH: 10,
     FRIEZE_TICK_LENGTH: 5,
     TICK_WIDTH: 1,
@@ -128,14 +129,13 @@ export class YAxis extends BaseGroup {
                 continue;
             }
             if (tick.isFrieze) {
-                if (tick.category.children?.some((o) => o.type === 'observable' && o.name === observableName)) {
+                if (tick.category.children?.some((child) => child.name === observableName)) {
                     this.assertTickHasPosition(tick);
                     return tick.pos;
                 }
                 continue;
             }
-            if (tick.observable.type === 'observable' &&
-                tick.observable.name === observableName) {
+            if (tick.observable.name === observableName || tick.label === observableName) {
                 this.assertTickHasPosition(tick);
                 return tick.pos;
             }
@@ -159,13 +159,13 @@ export class YAxis extends BaseGroup {
         const category = this.categories.find((c) => c.id === categoryId);
         if (!category)
             return false;
-        return this.getEffectiveDisplayMode(category) === DisplayModeEnum.Background;
+        return getEffectiveDisplayMode(category) === DisplayModeEnum.Background;
     }
     isCategoryFrieze(categoryId) {
         const category = this.categories.find((c) => c.id === categoryId);
         if (!category)
             return false;
-        return this.getEffectiveDisplayMode(category) === DisplayModeEnum.Frieze;
+        return getEffectiveDisplayMode(category) === DisplayModeEnum.Frieze;
     }
     getRequiredHeight() {
         const { axisLength } = this.computeAxisLengthAndTicks();
@@ -333,7 +333,7 @@ export class YAxis extends BaseGroup {
             if (!isCategoryVisible(category)) {
                 continue;
             }
-            const displayMode = this.getEffectiveDisplayMode(category);
+            const displayMode = getEffectiveDisplayMode(category);
             if (displayMode === DisplayModeEnum.Background) {
                 continue;
             }
@@ -373,13 +373,6 @@ export class YAxis extends BaseGroup {
             axisLength += TICK_CONFIG.CATEGORY_SPACING;
         }
         return { axisLength, ticks };
-    }
-    getEffectiveDisplayMode(category) {
-        // Discrete categories are always rendered in Normal mode.
-        if (category.action === ProtocolItemActionEnum.Discrete) {
-            return DisplayModeEnum.Normal;
-        }
-        return category.graphPreferences?.displayMode ?? DisplayModeEnum.Normal;
     }
     convertTicksToAbsolutePositions(ticks, axisStart) {
         return ticks.map((tick) => {
