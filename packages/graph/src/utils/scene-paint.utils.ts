@@ -14,8 +14,9 @@ export type ScenePaintState = 'stable' | 'mutating' | 'failed';
  *   committed scene. Allowed while a full draw is queued, never while
  *   mutating or failed.
  * - Partial reasons (hover, pan, zoom, time-format labels) only paint when
- *   the scene is STABLE. A refused present is a no-op: wait for the current
- *   build, or for retry after `failed`.
+ *   the scene is STABLE and a world with axis strokes has been committed.
+ *   A refused present is a no-op: wait for the current build, or for retry
+ *   after `failed`.
  */
 export type PaintReason =
   | 'init'
@@ -45,8 +46,11 @@ export function canPaintPartial(options: {
   exportInProgress: boolean;
   /** True when draw() has been scheduled but executeDrawBody has not finished. */
   drawQueued?: boolean;
+  /** False until a successful draw-complete with axis strokes on the display. */
+  hasCommittedWorld: boolean;
 }): boolean {
   return (
+    options.hasCommittedWorld &&
     options.scenePaintState === 'stable' &&
     !options.drawInProgress &&
     !options.exportInProgress &&
@@ -55,16 +59,18 @@ export function canPaintPartial(options: {
 }
 
 /**
- * Present after a canvas resize: refill the (cleared) default framebuffer
- * from the last committed scene. Ignores `drawQueued` so a coalesced full
- * draw can still follow; refuses mutating/failed scenes.
+ * Present after a canvas resize: refill the canvas from the last committed
+ * scene. Ignores `drawQueued` so a coalesced full draw can still follow;
+ * refuses mutating/failed scenes and the empty init paint.
  */
 export function canPaintResizePresent(options: {
   scenePaintState: ScenePaintState;
   drawInProgress: boolean;
   exportInProgress: boolean;
+  hasCommittedWorld: boolean;
 }): boolean {
   return (
+    options.hasCommittedWorld &&
     options.scenePaintState === 'stable' &&
     !options.drawInProgress &&
     !options.exportInProgress

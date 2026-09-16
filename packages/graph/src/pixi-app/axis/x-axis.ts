@@ -20,6 +20,7 @@ import {
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
 import { worldTickLengthForStretch } from '../../utils/tick-stretch.utils';
+import { AxisStrokeCommitState } from '../../utils/axis-stroke-commit';
 import type { IGraphRenderOptions } from '../../types/graph-render-options';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 
@@ -81,6 +82,7 @@ export class xAxis extends BaseGroup {
   private graphRenderOptions: IGraphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
 
   private axisStretch = { x: 1, y: 1 };
+  private readonly strokeCommit = new AxisStrokeCommitState();
 
   private styleOptions = {
     axis: { color: 'black', width: 2 },
@@ -126,12 +128,14 @@ export class xAxis extends BaseGroup {
     this.y = 0;
     this.scale.set(1);
     this.rotation = 0;
+    this.strokeCommit.beginPaint();
   }
 
   public commitPaint(): void {
     if (!this.hasPaintContent()) {
       this.paintGraphic.clear();
       this.graphic = this.displayGraphic;
+      this.strokeCommit.commit(false);
       return;
     }
 
@@ -145,12 +149,17 @@ export class xAxis extends BaseGroup {
     this.paintGraphic.visible = false;
     this.paintGraphic.clear();
     this.graphic = this.displayGraphic;
+    this.strokeCommit.commit(true);
+  }
+
+  /** True when the visible display Graphic has committed axis strokes. */
+  public hasDrawnContent(): boolean {
+    return this.axisStart !== null && this.strokeCommit.hasDrawnContent();
   }
 
   /** True when the back buffer has stroke geometry ready to swap in. */
   public hasPaintContent(): boolean {
-    const bounds = this.paintGraphic.getLocalBounds();
-    return bounds.width > 0 || bounds.height > 0;
+    return this.strokeCommit.hasPaintContent(this.paintGraphic);
   }
 
   private getReadingTimeInMsec(reading: IReading): number | null {
@@ -195,6 +204,9 @@ export class xAxis extends BaseGroup {
     this.minTimeInMsec = 0;
     this.maxTimeInMsec = 0;
     this.totalDurationMs = 0;
+    this.axisStart = null;
+    this.axisEnd = null;
+    this.strokeCommit.clear();
     super.clear();
   }
 
@@ -464,6 +476,7 @@ export class xAxis extends BaseGroup {
     safeLineTo(this.graphic, xAxisEnd.x, xAxisEnd.y);
     this.graphic.closePath();
     this.graphic.fill({ color: this.styleOptions.axis.color });
+    this.strokeCommit.markPaintStrokes();
 
     const axisLengthInPixels = xAxisEnd.x - xAxisStart.x - 20;
 

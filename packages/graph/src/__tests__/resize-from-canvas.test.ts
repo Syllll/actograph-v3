@@ -101,6 +101,7 @@ describe('PixiApp resizeFromCanvas', () => {
       axisLabelOverlay: { sync: jest.fn(), setViewportSize: jest.fn() },
       getCanvasSize: () => ({ width: mock.screen.width, height: mock.screen.height }),
       dirtyRegistry: { isAnyUnsafeToPaint: () => false },
+      hasCommittedAxisStrokes: () => true,
     });
 
     mock.rect.width = 800;
@@ -174,6 +175,7 @@ describe('PixiApp resizeFromCanvas', () => {
       axisLabelOverlay: { syncPositions: jest.fn(), sync: jest.fn(), setViewportSize: jest.fn() },
       getCanvasSize: () => ({ width: mock.screen.width, height: mock.screen.height }),
       dirtyRegistry: { isAnyUnsafeToPaint: () => true },
+      hasCommittedAxisStrokes: () => true,
     });
 
     mock.rect.width = 800;
@@ -181,6 +183,44 @@ describe('PixiApp resizeFromCanvas', () => {
 
     expect(pixiApp.resizeFromCanvas({ skipRender: true })).toBe(true);
     expect(mock.app.render).toHaveBeenCalledTimes(1);
+  });
+
+  it('resizes the renderer but does not present when axis strokes are missing', () => {
+    const pixiApp = new PixiApp();
+    const mock = createMutableScreenMock(400, 300);
+    const syncAxisLabelOverlay = jest.fn();
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      isInteractive: true,
+      exportInProgress: false,
+      wasDegenerateCanvas: false,
+      drawInProgress: false,
+      scenePaintState: 'stable',
+      hasCommittedWorld: true,
+      layoutFitPending: false,
+      app: mock.app,
+      viewport: { scale: { set: jest.fn() }, x: 0, y: 0 },
+      zoomState: { scale: 1, x: 0, y: 0 },
+      axisStretch: { x: 1, y: 1 },
+      worldBounds: { width: 800, height: 600 },
+      updateWorldBounds: jest.fn(),
+      recalculateFitViewport: jest.fn(),
+      setViewportTransform: jest.fn(),
+      syncAxisLabelOverlay,
+      axisLabelOverlay: { sync: jest.fn(), setViewportSize: jest.fn() },
+      getCanvasSize: () => ({ width: mock.screen.width, height: mock.screen.height }),
+      dirtyRegistry: { isAnyUnsafeToPaint: () => false },
+      hasCommittedAxisStrokes: () => false,
+    });
+
+    mock.rect.width = 800;
+    mock.rect.height = 600;
+
+    expect(pixiApp.resizeFromCanvas({ skipRender: true })).toBe(true);
+    expect(mock.resize).toHaveBeenCalledWith(800, 600);
+    expect(syncAxisLabelOverlay).toHaveBeenCalled();
+    expect(mock.app.render).not.toHaveBeenCalled();
   });
 
   it('defers renderer.resize while a full draw is mutating', () => {
@@ -292,6 +332,7 @@ describe('PixiApp resizeFromCanvas', () => {
         invalidateAll: jest.fn(),
         isAnyUnsafeToPaint: () => false,
       },
+      hasCommittedAxisStrokes: () => true,
       graphEngine: {
         prepareWorld,
         getLastDrawErrors: jest.fn(() => []),
@@ -344,6 +385,7 @@ describe('PixiApp resizeFromCanvas', () => {
         invalidateAll: jest.fn(),
         isAnyUnsafeToPaint: () => false,
       },
+      hasCommittedAxisStrokes: () => true,
       graphEngine: {
         prepareWorld,
         getLastDrawErrors: jest.fn(() => []),
@@ -408,6 +450,7 @@ describe('PixiApp resizeFromCanvas', () => {
         invalidateAll: jest.fn(),
         isAnyUnsafeToPaint: () => false,
       },
+      hasCommittedAxisStrokes: () => true,
       graphEngine: {
         prepareWorld,
         getLastDrawErrors: jest.fn(() => []),

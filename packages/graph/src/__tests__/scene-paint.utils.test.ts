@@ -26,10 +26,15 @@ describe('scene-paint.utils', () => {
       drawInProgress: false,
       exportInProgress: false,
       drawQueued: false,
+      hasCommittedWorld: true,
     };
 
     it('allows partial paint on stable idle scene', () => {
       expect(canPaintPartial(stableIdle)).toBe(true);
+    });
+
+    it('refuses when no world has been committed', () => {
+      expect(canPaintPartial({ ...stableIdle, hasCommittedWorld: false })).toBe(false);
     });
 
     it('refuses when scene is mutating or failed', () => {
@@ -49,10 +54,15 @@ describe('scene-paint.utils', () => {
       scenePaintState: 'stable' as const,
       drawInProgress: false,
       exportInProgress: false,
+      hasCommittedWorld: true,
     };
 
-    it('allows a framebuffer refill on a stable idle scene', () => {
+    it('allows a canvas refill on a stable idle scene', () => {
       expect(canPaintResizePresent(stableIdle)).toBe(true);
+    });
+
+    it('refuses the empty init paint', () => {
+      expect(canPaintResizePresent({ ...stableIdle, hasCommittedWorld: false })).toBe(false);
     });
 
     it('refuses when mutating, failed, drawing, or exporting', () => {

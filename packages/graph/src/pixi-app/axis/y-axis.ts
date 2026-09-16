@@ -7,6 +7,7 @@ import { DisplayModeEnum, isCategoryVisible, getEffectiveDisplayMode } from '@ac
 import { parseProtocolItems, ProtocolItem } from '../../utils/protocol.utils';
 import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
 import { worldTickLengthForStretch } from '../../utils/tick-stretch.utils';
+import { AxisStrokeCommitState } from '../../utils/axis-stroke-commit';
 import { Y_AXIS_LAYOUT } from '../../lib/axis-layout.constants';
 
 // ============================================================================
@@ -80,6 +81,7 @@ export class YAxis extends BaseGroup {
    * labels (screen-space via AxisLabelOverlay).
    */
   private axisStretch = { x: 1, y: 1 };
+  private readonly strokeCommit = new AxisStrokeCommitState();
 
   constructor(app: Application) {
     super(app);
@@ -101,12 +103,14 @@ export class YAxis extends BaseGroup {
     this.scale.set(1);
     this.rotation = 0;
     this.ticks = [];
+    this.strokeCommit.beginPaint();
   }
 
   public commitPaint(): void {
     if (!this.hasPaintContent()) {
       this.paintGraphic.clear();
       this.graphic = this.displayGraphic;
+      this.strokeCommit.commit(false);
       return;
     }
 
@@ -120,6 +124,7 @@ export class YAxis extends BaseGroup {
     this.paintGraphic.visible = false;
     this.paintGraphic.clear();
     this.graphic = this.displayGraphic;
+    this.strokeCommit.commit(true);
   }
 
   public setAxisStretch(stretch: { x: number; y: number }): void {
@@ -135,16 +140,11 @@ export class YAxis extends BaseGroup {
   }
 
   /**
-   * True when axis endpoints are set and stroke geometry or tick labels are
-   * present. Used by hover to detect a cleared axis still referenced by stale
-   * plot bounds (a stale framebuffer can hide the mismatch until hover).
+   * True when the visible display Graphic has committed axis strokes.
+   * Overlay labels (ticks in memory) are not enough.
    */
   public hasDrawnContent(): boolean {
-    if (!this.axisStart) {
-      return false;
-    }
-    const bounds = this.displayGraphic.getLocalBounds();
-    return bounds.width > 0 || bounds.height > 0;
+    return this.axisStart !== null && this.strokeCommit.hasDrawnContent();
   }
 
   /** True when draw() has produced ticks (format overlay can keep their positions). */
@@ -154,8 +154,7 @@ export class YAxis extends BaseGroup {
 
   /** True when the back buffer has stroke geometry ready to swap in. */
   public hasPaintContent(): boolean {
-    const bounds = this.paintGraphic.getLocalBounds();
-    return bounds.width > 0 || bounds.height > 0;
+    return this.strokeCommit.hasPaintContent(this.paintGraphic);
   }
 
   public getPosFromLabel(label: string): number {
@@ -287,6 +286,7 @@ export class YAxis extends BaseGroup {
     this.ticks = [];
     this.axisStart = null;
     this.axisEnd = null;
+    this.strokeCommit.clear();
     super.clear();
   }
 
@@ -311,6 +311,7 @@ export class YAxis extends BaseGroup {
     this.drawAxisLine(yAxisStart, yAxisEnd);
     this.drawArrow(yAxisEnd);
     this.drawTicks(yAxisStart);
+    this.strokeCommit.markPaintStrokes();
 
     this.visible = true;
     this.alpha = 1;

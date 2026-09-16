@@ -95,14 +95,14 @@ stage
 
 **Contrat build / affichage** (deux files, jamais mélangées) :
 1. **Build** : `scheduleDraw` / `draw()` / `executeDrawBody()` / `prepareWorld`. Données (relevés, protocole, fonds, étirement Y, `maskPauses`, retry). Construit dans les buffers paint, `commitPaint`, puis **un** `paint('draw-complete')`.
-2. **Affichage** : `requestRender()` / `paint()` partiel. Zoom, pan, réticule, format d’heure. Affiche la dernière scène committed. **Ne démarre jamais un build.**
+2. **Affichage** : `requestRender()` / `paint()` partiel. Zoom, pan, réticule, format d’heure. Affiche la dernière scène committed **avec les traits d’axes**. **Ne démarre jamais un build.** Pas de present tant que `hasCommittedWorld` est faux (paint `init` vide) ou que `hasDrawnContent()` est faux sur X ou Y.
 3. `draw()` coalesce via `RenderScheduler` (rAF), attend un export éventuel **hors** chaîne, puis enfile `executeDrawBody()` via `drawChain`.
 4. `executeDrawBody()` est **exclusif** : `drawChain` / `enqueueDrawBody` garantissent qu’aucun second build ne démarre avant la fin du précédent.
 5. Pendant le build, `drawInProgress === true` : le survol **attend** (pas d’écriture sur l’overlay). Un réticule calculé pendant `beginPaint` (ticks Y vidés, transform identité) ne doit pas se retrouver dans `paint('draw-complete')`.
-6. `requestRender()` est un no-op si draw/export en cours, scène `mutating`/`failed`, ou `midDraw` encore posé. Pas de `scheduleDraw('renderGate')`.
+6. `requestRender()` est un no-op si draw/export en cours, scène `mutating`/`failed`, `midDraw` encore posé, monde non committed, ou traits d’axes absents du display. Pas de `scheduleDraw('renderGate')`.
 7. Au début du build, l’overlay hover est **annulé** (`cancelPending: true`) : on ne reprend plus automatiquement le hover après un full draw.
 8. Après pan/zoom, `getGlobalTransform()` force la mise à jour des matrices monde (requis pour le réticule). Clear du hover au changement de viewport (rebouger la souris).
-9. Le rendu final du build appelle **toujours** `app.render()` via `paint('draw-complete')`.
+9. Le rendu final du build appelle **`app.render()` via `paint('draw-complete')` seulement si les deux axes ont des traits sur le display**. Sinon le draw échoue (`missing axis strokes`), `hasCommittedWorld` reste faux, autoRetry / `retryDraw`.
 10. **`DirtyRegistry` / `midDraw`** : dès qu’un build commence, les layers sont `midDraw` jusqu’après `app.render()` réussi. Tant que `isAnyUnsafeToPaint()`, `requestRender` **n’affiche pas**. Après un draw **échoué**, `midDraw` reste vrai jusqu’au prochain draw réussi ; la récupération est `autoRetry` (une fois) ou `retryDraw()`, pas le hover. `redrawCategory` / `redrawObservable` restent des builds (`scheduleDraw`).
 11. Pixi est initialisé avec **`autoStart: false`** (ticker stoppé) : aucun render hors de nos gardes.
 12. Un `draw()` en échec **reject** sa Promise ; `invalidateAll('full')` + `midDraw` conservé.
@@ -115,7 +115,7 @@ stage
 19. **Fit initial** : `layoutFitPending` jusqu’à `settleInitialLayoutFit()` après stabilisation layout (splitter) : évite le canvas blanc au premier chargement (Reset n’est plus nécessaire).
 20. **Axes anti-flicker** : double-buffer display/paint (`beginPaint` / `commitPaint`) ; labels `AxisLabelOverlay` en pool (pas de destroy systématique). Series/Background déjà double-bufferés.
 21. **Contrat paint** : `redrawFromObservation` fait `setData` → `setAxisStretch(..., { redraw: false })` → **`draw()` toujours** (plus de paint déclenché uniquement via stretch).
-22. **Format de temps** : un changement *uniquement* de `timeDisplayFormat` (scène `stable`, ticks déjà là) relabel les ticks X en mémoire, clear hover, sync `AxisLabelOverlay`, puis `paint('draw-complete')`. **Pas** de `prepareWorld` (sinon `beginPaint` vide les ticks Y et `SeriesLayer.commit` swap : axes manquants / relevés dédoublés). Options inchangées → no-op. `maskPauses`, scène `failed`, ou ticks vides → full `scheduleDraw('renderOptions')` comme avant.
+22. **Format de temps** : un changement *uniquement* de `timeDisplayFormat` (scène `stable`, monde committed, **traits d’axes** + ticks déjà là) relabel les ticks X en mémoire, clear hover, sync `AxisLabelOverlay`, puis `paint('draw-complete')`. **Pas** de `prepareWorld` (sinon `beginPaint` vide les ticks Y et `SeriesLayer.commit` swap : axes manquants / relevés dédoublés). Options inchangées → no-op. `maskPauses`, scène `failed`, ticks vides, ou traits absents → full `scheduleDraw('renderOptions')`.
 
 **Contrat resume / export / mutex** :
 1. **Mutex draw** : les appels `draw()` externes attendent un export **hors** de `drawChain`, puis enfilent `executeDrawBody` ; l’export appelle `enqueueDrawBody()` directement (jamais `draw()`), ce qui évite un deadlock `drawChain ↔ exportQueue`.
@@ -128,7 +128,7 @@ stage
 8. **`waitForIdle()`** : attend drawChain, exportQueue et `renderScheduler.flush()`.
 9. **Échec de draw** : pas de reprise auto du hover ; `midDraw` + `needsInitialFit` pour un retry.
 10. **Labels après resize** : present resize committed recrée les Text tout de suite (`syncAxisLabelOverlay`) ; `needsLabelTextureRefresh` force aussi `recreate: true` au prochain draw complet.
-11. **Commit axes** : `commitPaint` ne swap pas un paint buffer vide (garde le display cohérent).
+11. **Commit axes** : `commitPaint` swap si `draw()` a marqué des traits (`paintHasStrokes`) **ou** si `getLocalBounds` du paint a une géométrie. Ne pas se fier aux seuls bounds d’un Graphic invisible (Pixi peut les laisser à 0 jusqu’à un present). `hasDrawnContent()` = traits sur le **display**. `hasCommittedWorld` n’est posé qu’après ce swap des deux axes.
 ## Chargement des données
 
 ### Données requises

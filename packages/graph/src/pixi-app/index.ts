@@ -158,9 +158,10 @@ export class PixiApp {
    */
   private needsLabelTextureRefresh = false;
   /**
-   * True after a successful world build has been presented. Until then a
-   * resize must not present: last committed frame is still the empty init
-   * paint (no axes). Remount / Observation→Graphe used to flash that frame.
+   * True after a successful world build has been presented *with* axis
+   * stroke Graphics on the display buffers. Until then a resize or
+   * requestRender must not present: last frame is still the empty init
+   * paint, or series committed without axis lines.
    */
   private hasCommittedWorld = false;
   /** Scene coherence for partial WebGL paints (hover/pan). */
@@ -413,7 +414,9 @@ export class PixiApp {
           scenePaintState: this.scenePaintState,
           drawInProgress: this.drawInProgress,
           exportInProgress: this.exportInProgress,
-        })
+          hasCommittedWorld: this.hasCommittedWorld,
+        }) &&
+        this.hasCommittedAxisStrokes()
       ) {
         this.app.render();
       }
@@ -425,8 +428,10 @@ export class PixiApp {
         drawInProgress: this.drawInProgress,
         exportInProgress: this.exportInProgress,
         drawQueued: this.drawFrameScheduled,
+        hasCommittedWorld: this.hasCommittedWorld,
       }) ||
-      this.dirtyRegistry.isAnyUnsafeToPaint()
+      this.dirtyRegistry.isAnyUnsafeToPaint() ||
+      !this.hasCommittedAxisStrokes()
     ) {
       return;
     }
@@ -926,9 +931,19 @@ export class PixiApp {
     return (
       this.isInitialized &&
       this.scenePaintState === 'stable' &&
+      this.hasCommittedWorld &&
+      this.hasCommittedAxisStrokes() &&
       this.xAxis.hasTicks() &&
       this.yAxis.hasTicks()
     );
+  }
+
+  /**
+   * True when both axis *display* Graphics hold committed strokes.
+   * Overlay tick labels in memory are not sufficient.
+   */
+  private hasCommittedAxisStrokes(): boolean {
+    return this.yAxis?.hasDrawnContent() === true && this.xAxis?.hasDrawnContent() === true;
   }
 
   private presentTimeFormatChange(): void {
@@ -1015,11 +1030,11 @@ export class PixiApp {
   }
 
   /**
-   * Present-only: display the last committed scene.
+   * Present-only: display the last committed scene (axis strokes included).
    * Never starts a world rebuild. Hover, pan, zoom, and time-format labels
-   * must go through this path. If the scene is mutating, failed, or still
-   * mid-draw, skip: the in-flight build will present, or retryDraw / autoRetry
-   * will rebuild.
+   * must go through this path. If the scene is mutating, failed, still
+   * mid-draw, or has no committed axis strokes, skip: the in-flight build
+   * will present, or retryDraw / autoRetry will rebuild.
    */
   public requestRender(reason: PaintReason = 'partial'): void {
     if (!this.isInitialized || !this.app.renderer || this.exportInProgress) {
@@ -1031,12 +1046,16 @@ export class PixiApp {
     if (this.scenePaintState === 'failed') {
       return;
     }
+    if (!this.hasCommittedWorld || !this.hasCommittedAxisStrokes()) {
+      return;
+    }
     if (
       canPaintPartial({
         scenePaintState: this.scenePaintState,
         drawInProgress: this.drawInProgress,
         exportInProgress: this.exportInProgress,
         drawQueued: this.drawFrameScheduled,
+        hasCommittedWorld: this.hasCommittedWorld,
       }) &&
       !this.dirtyRegistry.isAnyUnsafeToPaint()
     ) {
@@ -1149,8 +1168,14 @@ export class PixiApp {
       this.dirtyRegistry.markAllMidDraw();
       if (!this.graphEngine.prepareWorld()) {
         // Axes were painted into back buffers but not committed. Do not flush
-        // or clear midDraw — keep the last coherent framebuffer visible.
+        // or clear midDraw — keep the last coherent canvas visible.
         throw new Error('prepareWorld incomplete: missing axis bounds');
+      }
+      if (!this.hasCommittedAxisStrokes()) {
+        // Series may have swapped while axis commitPaint skipped empty bounds.
+        // Do not present or mark the world committed: requestRender would
+        // freeze a graph without axis lines.
+        throw new Error('prepareWorld incomplete: missing axis strokes');
       }
 
       if (this.isInteractive) {

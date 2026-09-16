@@ -113,6 +113,7 @@ describe('PixiApp layout fit pending', () => {
       setViewportTransform: jest.fn(),
       syncAxisLabelOverlay: jest.fn(),
       getCanvasSize: () => ({ width: mock.screen.width, height: mock.screen.height }),
+      hasCommittedAxisStrokes: () => true,
     });
 
     mock.rect.width = 800;
@@ -149,6 +150,7 @@ describe('PixiApp layout fit pending', () => {
       setViewportTransform: jest.fn(),
       syncAxisLabelOverlay: jest.fn(),
       getCanvasSize: () => ({ width: mock.screen.width, height: mock.screen.height }),
+      hasCommittedAxisStrokes: () => true,
     });
 
     mock.rect.width = 800;

@@ -44,8 +44,8 @@ function patchFormatReady(
   scheduleDraw: jest.SpyInstance;
   syncAxisLabelOverlay: jest.Mock;
   paint: jest.Mock;
-  xAxis: { setGraphRenderOptions: jest.Mock; hasTicks: jest.Mock };
-  yAxis: { hasTicks: jest.Mock };
+  xAxis: { setGraphRenderOptions: jest.Mock; hasTicks: jest.Mock; hasDrawnContent: jest.Mock };
+  yAxis: { hasTicks: jest.Mock; hasDrawnContent: jest.Mock };
   dataArea: { setGraphRenderOptions: jest.Mock };
   hoverLayer: { setGraphRenderOptions: jest.Mock; clear: jest.Mock };
 } {
@@ -54,9 +54,11 @@ function patchFormatReady(
   const xAxis = {
     setGraphRenderOptions: jest.fn(),
     hasTicks: jest.fn(() => true),
+    hasDrawnContent: jest.fn(() => true),
   };
   const yAxis = {
     hasTicks: jest.fn(() => true),
+    hasDrawnContent: jest.fn(() => true),
   };
   const dataArea = { setGraphRenderOptions: jest.fn() };
   const hoverLayer = { setGraphRenderOptions: jest.fn(), clear: jest.fn() };
@@ -70,6 +72,7 @@ function patchFormatReady(
     drawInProgress: false,
     exportInProgress: false,
     drawFrameScheduled: false,
+    hasCommittedWorld: true,
     graphRenderOptions: { ...DEFAULT_GRAPH_RENDER_OPTIONS },
     xAxis,
     yAxis,
@@ -161,6 +164,31 @@ describe('PixiApp.setGraphRenderOptions format-only present', () => {
     const pixiApp = new PixiApp();
     const mocks = patchFormatReady(pixiApp);
     mocks.yAxis.hasTicks.mockReturnValue(false);
+
+    pixiApp.setGraphRenderOptions({
+      timeDisplayFormat: TimeDisplayFormatEnum.HourMinute,
+    });
+
+    expect(mocks.paint).not.toHaveBeenCalled();
+    expect(mocks.scheduleDraw).toHaveBeenCalledWith('renderOptions');
+  });
+
+  it('falls back to a full draw when axis strokes are missing', () => {
+    const pixiApp = new PixiApp();
+    const mocks = patchFormatReady(pixiApp);
+    mocks.yAxis.hasDrawnContent.mockReturnValue(false);
+
+    pixiApp.setGraphRenderOptions({
+      timeDisplayFormat: TimeDisplayFormatEnum.HourMinute,
+    });
+
+    expect(mocks.paint).not.toHaveBeenCalled();
+    expect(mocks.scheduleDraw).toHaveBeenCalledWith('renderOptions');
+  });
+
+  it('falls back to a full draw when the world is not committed', () => {
+    const pixiApp = new PixiApp();
+    const mocks = patchFormatReady(pixiApp, { hasCommittedWorld: false });
 
     pixiApp.setGraphRenderOptions({
       timeDisplayFormat: TimeDisplayFormatEnum.HourMinute,

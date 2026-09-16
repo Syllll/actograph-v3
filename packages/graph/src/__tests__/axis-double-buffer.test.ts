@@ -117,6 +117,33 @@ describe('YAxis double buffer', () => {
     expect(displayGraphic.visible).toBe(false);
     expect(paintGraphic.visible).toBe(true);
   });
+
+  it('commitPaint swaps after draw even when getLocalBounds reports empty paint', () => {
+    const app = createMockApp();
+    const yAxis = new YAxis(app);
+
+    const graphics = yAxis.children.filter(
+      (child): child is BaseGraphic => child instanceof BaseGraphic,
+    );
+    const displayGraphic = graphics.find((child) => child.visible)!;
+    const paintGraphic = graphics.find((child) => !child.visible)!;
+
+    yAxis.beginPaint();
+    jest.spyOn(paintGraphic, 'getLocalBounds').mockReturnValue({ width: 0, height: 0 } as never);
+    yAxis.draw();
+    yAxis.commitPaint();
+
+    expect(displayGraphic.visible).toBe(false);
+    expect(paintGraphic.visible).toBe(true);
+    expect(yAxis.hasDrawnContent()).toBe(true);
+  });
+
+  it('hasDrawnContent stays false when commit is skipped', () => {
+    const yAxis = new YAxis(createMockApp());
+    yAxis.beginPaint();
+    yAxis.commitPaint();
+    expect(yAxis.hasDrawnContent()).toBe(false);
+  });
 });
 
 describe('AxisLayer prepare', () => {

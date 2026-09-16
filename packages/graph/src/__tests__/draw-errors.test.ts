@@ -324,6 +324,7 @@ describe('PixiApp draw error surface', () => {
         resetAllMidDraw: jest.fn(),
         invalidateAll: jest.fn(),
       },
+      hasCommittedAxisStrokes: () => true,
       graphEngine: {
         hasPatternSprites: jest.fn(() => true),
         clearPatternSprites,
@@ -372,6 +373,7 @@ describe('PixiApp draw error surface', () => {
         resetAllMidDraw: jest.fn(),
         invalidateAll: jest.fn(),
       },
+      hasCommittedAxisStrokes: () => true,
       graphEngine: {
         hasPatternSprites: jest.fn(() => false),
         clearPatternSprites,
@@ -586,6 +588,59 @@ describe('PixiApp draw error surface', () => {
     }
   });
 
+  it('executeDrawBody throws when axis strokes are missing after prepareWorld', async () => {
+    const pixiApp = new PixiApp();
+    const render = jest.fn();
+    const paint = jest.fn();
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      contextRestoring: false,
+      app: { renderer: {}, render },
+      plot: { x: 0, y: 0, scale: { set: jest.fn() }, rotation: 0 },
+      hoverLayer: { clear: jest.fn() },
+      axisLabelOverlay: { sync: jest.fn() },
+      needsPatternTextureRefresh: false,
+      isInteractive: false,
+      hasCommittedWorld: false,
+      hasCommittedAxisStrokes: () => false,
+      dirtyRegistry: {
+        markAllMidDraw: jest.fn(),
+        resetAllMidDraw: jest.fn(),
+        invalidateAll: jest.fn(),
+      },
+      graphEngine: {
+        prepareWorld: jest.fn(() => true),
+        getLastDrawErrors: jest.fn(() => []),
+        hasPatternSprites: jest.fn(() => false),
+        clearPatternSprites: jest.fn(),
+      },
+      paint,
+    });
+
+    const originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = ((cb: FrameRequestCallback) => {
+      cb(0);
+      return 1;
+    }) as typeof requestAnimationFrame;
+
+    try {
+      await expect(
+        (pixiApp as unknown as { executeDrawBody: () => Promise<void> }).executeDrawBody(),
+      ).rejects.toThrow('prepareWorld incomplete: missing axis strokes');
+      expect(paint).not.toHaveBeenCalled();
+      expect(render).not.toHaveBeenCalled();
+      expect(
+        (pixiApp as unknown as { hasCommittedWorld: boolean }).hasCommittedWorld,
+      ).toBe(false);
+      expect(
+        (pixiApp as unknown as { scenePaintState: string }).scenePaintState,
+      ).toBe('failed');
+    } finally {
+      globalThis.requestAnimationFrame = originalRaf;
+    }
+  });
+
   it('executeDrawBody success resets auto-retry and paints via paint()', async () => {
     const pixiApp = new PixiApp();
     const render = jest.fn();
@@ -606,6 +661,7 @@ describe('PixiApp draw error surface', () => {
         resetAllMidDraw: jest.fn(),
         invalidateAll: jest.fn(),
       },
+      hasCommittedAxisStrokes: () => true,
       graphEngine: {
         prepareWorld: jest.fn(() => true),
         getLastDrawErrors: jest.fn(() => []),
@@ -639,6 +695,8 @@ describe('PixiApp draw error surface', () => {
       drawInProgress: false,
       exportInProgress: false,
       drawFrameScheduled: false,
+      hasCommittedWorld: true,
+      hasCommittedAxisStrokes: () => true,
       app: { renderer: {}, render },
       dirtyRegistry: {
         isAnyUnsafeToPaint: () => false,
@@ -650,6 +708,68 @@ describe('PixiApp draw error surface', () => {
 
     expect(paint).toHaveBeenCalledWith('partial');
     expect(render).not.toHaveBeenCalled();
+  });
+
+  it('requestRender does not paint before a world is committed', () => {
+    const pixiApp = new PixiApp();
+    const paint = jest.fn();
+    const scheduleDraw = jest.spyOn(
+      pixiApp as unknown as { scheduleDraw: (reason?: string) => void },
+      'scheduleDraw',
+    ).mockImplementation(() => undefined);
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      scenePaintState: 'stable',
+      drawInProgress: false,
+      exportInProgress: false,
+      drawFrameScheduled: false,
+      hasCommittedWorld: false,
+      hasCommittedAxisStrokes: () => true,
+      app: { renderer: {} },
+      dirtyRegistry: {
+        isAnyUnsafeToPaint: () => false,
+      },
+      paint,
+    });
+
+    pixiApp.requestRender();
+    pixiApp.requestRender('hover');
+
+    expect(paint).not.toHaveBeenCalled();
+    expect(scheduleDraw).not.toHaveBeenCalled();
+    scheduleDraw.mockRestore();
+  });
+
+  it('requestRender does not paint when axis strokes are missing', () => {
+    const pixiApp = new PixiApp();
+    const paint = jest.fn();
+    const scheduleDraw = jest.spyOn(
+      pixiApp as unknown as { scheduleDraw: (reason?: string) => void },
+      'scheduleDraw',
+    ).mockImplementation(() => undefined);
+
+    patchPixiApp(pixiApp, {
+      isInitialized: true,
+      scenePaintState: 'stable',
+      drawInProgress: false,
+      exportInProgress: false,
+      drawFrameScheduled: false,
+      hasCommittedWorld: true,
+      hasCommittedAxisStrokes: () => false,
+      app: { renderer: {} },
+      dirtyRegistry: {
+        isAnyUnsafeToPaint: () => false,
+      },
+      paint,
+    });
+
+    pixiApp.requestRender();
+    pixiApp.requestRender('hover');
+
+    expect(paint).not.toHaveBeenCalled();
+    expect(scheduleDraw).not.toHaveBeenCalled();
+    scheduleDraw.mockRestore();
   });
 
   it('retryDraw schedules a full draw via scheduleDraw', () => {
