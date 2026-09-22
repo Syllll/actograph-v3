@@ -198,20 +198,23 @@ Aucun bloquant pour le Lot 2.
 - [x] Stats présente ; Graphe / Stats disabled sans relevés
 - [x] `ctaGraph` FR : « graphe »
 
+### Extra (hors IDs recueil)
+
+- [x] Liste **Mes chroniques** (`my-observations`) : plus de bleu Quasar ni ripple. Active = fond `var(--button-rest-bg)` + filet gauche accent + nom accent. Hover = même gris. Date `--neutral`.
+
 ### Files affected
 
 - `front/src/pages/userspace/home/_components/active-chronicle/Index.vue` — chip sur la 3e ligne ; 4 CTA dans `.chronicle-header` (`outline` accent, fond blanc, `border-radius: 0.5rem`, icônes `useChronicleNavigation`) ; suppression cloud, props/emits, `isPrimary` / filtre `statistics`
 - `front/src/pages/userspace/home/Index.vue` — retrait `:is-cloud-authenticated` et `@cloud` sur `ActiveChronicle`
-- `front/src/i18n/fr/index.ts` — `chronicle.ctaGraph` (graphe), `chronicle.ctaStatistics`
-- `front/src/i18n/en-US/index.ts` — `chronicle.ctaStatistics`
+- `front/src/pages/userspace/home/_components/my-observations/Index.vue` — état actif / hover liste (accent + `--button-rest-bg`, `:ripple="false"`)
+- `front/src/i18n/fr/index.ts` — `chronicle.ctaGraph` (graphe), `chronicle.ctaStatistics` (déjà dans le commit lots 1 / 1bis)
+- `front/src/i18n/en-US/index.ts` — `chronicle.ctaStatistics` (idem)
 
 `use-chronicle-navigation/index.ts` : inchangé (déjà 4 steps + disabled graphe/stats sans relevés ; la carte ne filtre plus `statistics`).
 
 ### Écarts / I don’t know
 
 Aucun.
-
-
 
 ### Parcours
 
@@ -221,6 +224,7 @@ Page Mes chroniques, chronique ouverte.
 - 4 CTA dans le bandeau gris, tous au repos, filet orange / fond blanc
 - Plus de cloud sur la carte
 - Stats présente ; Graphe / Stats disabled sans relevés
+- Liste : chronique ouverte en orange + filet gauche ; hover gris projet (plus de bleu)
 
 
 
@@ -228,7 +232,7 @@ Page Mes chroniques, chronique ouverte.
 
 - [ ] Non faite
 - [ ] Code / grep seulement
-- [ ] UI Electron
+- [x] UI Electron
 
 Cliqué :
 
