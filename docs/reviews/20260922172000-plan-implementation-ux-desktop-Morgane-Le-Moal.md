@@ -58,6 +58,7 @@ Les libellés i18n et le chrome userspace (drawer, Mes chroniques, protocole, ob
 | Lot | Garde-fou |
 |-----|-----------|
 | 1 | Garder les gates Electron. Focus accent : préférer `_dialogs.scss` + userspace, pas restyler l’admin. |
+| 1Bis | Déconnecté : clic icône → `openCloud()`. `@click.stop`. Ne pas modifier le contenu de `CloudLoginDialog` (H.4). |
 | 3 | Titre **Protocole** en i18n sur la page. **Pas** d’écriture API. |
 | 4 | `order` reste en base ; on ne l’affiche plus à l’ajout. Mobile a son propre éditeur. |
 | 5 | Brancher Rec / Pause / Terminer sur `startTimer` / `pauseTimer` / `stopTimer` existants. |
@@ -82,6 +83,7 @@ Les libellés i18n et le chrome userspace (drawer, Mes chroniques, protocole, ob
 
 ```
 Lot 1  Drawer (nav, cloud, compte, Dupliquer, focus accent)
+  └─ Lot 1Bis  Indicateur cloud sur Mon compte (H.8)
   └─ Lot 2  Carte Mes chroniques
 Lot 3  Protocole libellés / grille / CTA
   └─ Lot 4  Protocole inline + D&D
@@ -92,7 +94,7 @@ Lot 7  ExportMenu (Graphe + Stats + cartes)
   └─ Lot 9  Statistiques onglets / gouttière (après Lots 6 et 7)
 ```
 
-Exécuter **dans l’ordre numérique**. Lots 3 et 5 peuvent démarrer après le Lot 1, mais ne pas paralléliser dans Composer : un lot à la fois.
+Exécuter **dans l’ordre numérique** (1 → 1Bis → 2 …). Lots 3 et 5 peuvent démarrer après le Lot 1, mais ne pas paralléliser dans Composer : un lot à la fois.
 
 ---
 
@@ -170,6 +172,47 @@ Réutiliser `d-action-btn` déjà utilisé pour Nouvelle / Importer. Ne pas modi
 - [ ] Caption Licence étudiante sur le **compte** (H.3). Pas de caption cloud / licence dans la modale login.
 - [ ] Toutes les chaînes saveAs → Dupliquer ; icône `mdi-content-duplicate` ; dialog `sm`.
 - [ ] Focus outlined = accent (vérifier Dupliquer **et** un autre champ, ex. login cloud).
+
+---
+
+## Lot 1Bis — Indicateur cloud sur Mon compte
+
+**IDs** : H.8  
+**Dépend de** : Lot 1 (barre `user-bar` déjà en place)  
+**Prompt** : `LOT-01BIS`  
+**CR** : [LOT-01BIS](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-01bis)
+
+Complément du Lot 1 après écart CR : le CTA orange « Se connecter au cloud » a été remplacé par **Importer depuis le cloud**. L’état de session n’a plus de voyant dans le chrome compte.
+
+### Décisions
+
+- Icône **accent** (`var(--accent)` / `color="accent"` si le token Quasar est branché sur la même couleur) dans la barre **Mon compte** (`user-bar`), à droite du nom / caption, **avant** le chevron.
+- Connecté (`useCloud().sharedState.isAuthenticated`) : `mdi-cloud-outline`.
+- Déconnecté : `mdi-cloud-off-outline`.
+- Tooltip + `aria-label` i18n : Connecté au cloud / Non connecté au cloud (FR + en-US).
+- **Déconnecté** : clic **icône** → `openCloud()` (même entrée que **Importer depuis le cloud**). `@click.stop` pour ne pas ouvrir le `q-menu` compte.
+- **Connecté** : pas d’action dédiée sur l’icône (le clic remonte à la barre = menu compte).
+- Avatar / nom / chevron : menu compte inchangé.
+- Ne pas modifier le contenu de `CloudLoginDialog` (H.4). Ne pas retoucher le Lot 2 (cloud sur la carte).
+
+### Fichiers
+
+- `front/src/pages/userspace/_components/drawer/Index.vue` (`user-bar`)
+- `front/src/i18n/fr/index.ts` / `en-US` (clés drawer, ex. `cloudConnected` / `cloudDisconnected`)
+
+Réutiliser `useCloud` déjà injecté dans le drawer. Pas de nouvelle dépendance.
+
+### Captures
+
+`accueil-02` (barre compte, **avant** — pas de voyant)
+
+### Critères d’acceptation
+
+- [ ] Déconnecté : nuage barré orange dans Mon compte.
+- [ ] Connecté : nuage non barré orange au même endroit.
+- [ ] Déconnecté + clic **icône** = modale connexion cloud (pas le menu compte).
+- [ ] Clic avatar / nom / chevron = menu compte. Connecté + clic icône = menu compte.
+- [ ] Tooltip / `aria-label` selon l’état.
 
 ---
 
@@ -549,7 +592,8 @@ Le script passe en Node 20, ouvre l’API (`yarn start:dev-electron`) dans un on
 
 | Lot | Où aller | Ce que tu dois voir |
 |-----|----------|---------------------|
-| 1 | Tiroir, menu compte, Dupliquer, login cloud | Mes chroniques ; CTA cloud orange ; **Préférences** ; Dupliquer `sm` ; focus orange ; **pas** de caption « licence étudiante / cloud » |
+| 1 | Tiroir, menu compte, Dupliquer, login cloud | Mes chroniques ; CTA / **Importer depuis le cloud** ; **Préférences** ; Dupliquer `sm` ; focus orange ; **pas** de caption « licence étudiante / cloud » |
+| 1Bis | Barre Mon compte, session cloud on/off | Nuage accent **barré** si déconnecté, **non barré** si connecté ; clic icône déconnecté = modale cloud |
 | 2 | Mes chroniques, chronique ouverte | Chip sur la 3e ligne ; 4 CTA dans le gris ; plus de cloud sur la carte |
 | 3 | Page Protocole | Titre Protocole - … ; continue / ponctuelle ; boutons alignés ; Aller à l’observation |
 | 4 | Liste vide + ajout + ordre | Inline, empty FR, pas de +, D&D |

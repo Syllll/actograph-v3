@@ -23,28 +23,48 @@
 
         <q-separator />
 
-        <div class="column q-mx-md q-py-sm">
-          <div class="row justify-center q-gutter-sm">
-            <d-action-btn
-              icon="mdi-new-box"
-              :tooltip="$t('chronicle.newChronicleTooltip')"
-              :label="$t('chronicle.newChronicle')"
-              @click="chronicleActions.createObservation"
-            />
-            <d-action-btn
-              icon="mdi-file-import"
-              :tooltip="$t('chronicle.importChronicleTooltip')"
-              :label="$t('chronicle.importFromFile')"
-              @click="chronicleActions.importObservation"
-            />
-          </div>
-        </div>
+        <q-list dense class="q-py-md">
+          <q-item
+            clickable
+            v-ripple
+            @click="chronicleActions.createObservation"
+          >
+            <q-item-section avatar>
+              <q-icon name="mdi-new-box" size="sm" />
+            </q-item-section>
+            <q-item-section>
+              {{ $t('chronicle.newChronicle') }}
+              <q-tooltip>{{ $t('chronicle.newChronicleTooltip') }}</q-tooltip>
+            </q-item-section>
+          </q-item>
+          <q-item
+            clickable
+            v-ripple
+            @click="chronicleActions.importObservation"
+          >
+            <q-item-section avatar>
+              <q-icon name="mdi-file-import" size="sm" />
+            </q-item-section>
+            <q-item-section>
+              {{ $t('chronicle.importFromFile') }}
+              <q-tooltip>{{ $t('chronicle.importChronicleTooltip') }}</q-tooltip>
+            </q-item-section>
+          </q-item>
+          <q-item clickable v-ripple @click="chronicleActions.openCloud">
+            <q-item-section avatar>
+              <q-icon name="mdi-cloud-download-outline" size="sm" />
+            </q-item-section>
+            <q-item-section>
+              {{ $t('chronicle.importFromCloud') }}
+              <q-tooltip>{{ $t('chronicle.importFromCloudTooltip') }}</q-tooltip>
+            </q-item-section>
+          </q-item>
+        </q-list>
 
         <q-separator />
 
         <q-scroll-area class="col drawer-nav-scroll">
           <q-list class="q-py-xs">
-            <!-- Accueil -->
             <template
               v-for="(menuItem, index) in computedState.menuList.value"
               :key="index"
@@ -142,10 +162,21 @@
                   <q-item
                     clickable
                     v-ripple
+                    @click="chronicleActions.uploadActiveChronicleToCloud"
+                  >
+                    <q-item-section avatar>
+                      <q-icon name="mdi-cloud-upload-outline" size="sm" />
+                    </q-item-section>
+                    <q-item-section>{{ $t('cloud.uploadSection') }}</q-item-section>
+                  </q-item>
+
+                  <q-item
+                    clickable
+                    v-ripple
                     @click="chronicleActions.saveAsObservation"
                   >
                     <q-item-section avatar>
-                      <q-icon name="mdi-content-save-edit" size="sm" />
+                      <q-icon name="mdi-content-duplicate" size="sm" />
                     </q-item-section>
                     <q-item-section>
                       {{ $t('chronicle.saveAs') }}
@@ -174,26 +205,21 @@
 
         <q-separator />
 
-        <q-list dense class="q-py-xs col-auto">
+        <q-list dense class="q-py-md col-auto">
           <q-item
+            v-if="computedState.hasAutosaveRestore.value"
             clickable
             v-ripple
-            class="relative-position"
-            @click="methods.openPreferencesDialog"
+            @click="methods.restoreAutosave"
           >
             <q-item-section avatar>
-              <q-icon name="settings" />
+              <q-icon name="mdi-backup-restore" size="sm" />
             </q-item-section>
-            <q-item-section>{{ $t('drawer.preferencesDisplay') }}</q-item-section>
+            <q-item-section>{{ $t('layout.menuAutosave') }}</q-item-section>
           </q-item>
-          <q-item
-            clickable
-            v-ripple
-            class="relative-position"
-            @click="methods.openHelpDialog"
-          >
+          <q-item clickable v-ripple @click="methods.openHelpDialog">
             <q-item-section avatar>
-              <q-icon name="help_outline" />
+              <q-icon name="help_outline" size="sm" />
             </q-item-section>
             <q-item-section>{{ $t('drawer.help') }}</q-item-section>
           </q-item>
@@ -201,59 +227,64 @@
 
         <q-separator />
 
-        <div class="user-bar q-px-sm q-py-xs col-auto">
-          <div
-            class="row items-center no-wrap cursor-pointer user-bar-trigger relative-position"
-            v-ripple
-          >
-            <q-avatar
-              size="28px"
-              color="primary"
-              text-color="white"
-              icon="person"
-              class="user-bar-avatar"
-            >
-              <q-tooltip anchor="top middle" self="bottom middle">
-                {{ $t('drawer.accountMenuTooltip') }}
-              </q-tooltip>
-            </q-avatar>
-            <div class="user-bar-text q-ml-sm">
-              <div class="text-weight-medium ellipsis user-name">
+        <q-list dense class="col-auto user-bar-list q-py-md">
+          <q-item clickable v-ripple class="user-bar-item">
+            <q-item-section avatar>
+              <q-avatar
+                size="28px"
+                color="primary"
+                text-color="white"
+                icon="person"
+              >
+                <q-tooltip anchor="top middle" self="bottom middle">
+                  {{ $t('drawer.accountMenuTooltip') }}
+                </q-tooltip>
+              </q-avatar>
+            </q-item-section>
+            <q-item-section>
+              <q-item-label class="text-weight-medium ellipsis">
                 {{ computedState.accountLabel.value }}
                 <q-tooltip anchor="top middle" self="bottom middle">
                   {{ computedState.accountLabel.value }}
                 </q-tooltip>
-              </div>
-              <div
+              </q-item-label>
+              <q-item-label
                 v-if="computedState.accountCaption.value"
-                class="text-caption text-grey-7 ellipsis"
+                caption
+                class="ellipsis"
               >
                 {{ computedState.accountCaption.value }}
+              </q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <div class="row items-center no-wrap q-gutter-xs">
+                <q-icon
+                  :name="computedState.cloudIndicatorIcon.value"
+                  size="20px"
+                  color="accent"
+                  :aria-label="computedState.cloudIndicatorLabel.value"
+                  @click.stop="methods.handleCloudIndicatorClick"
+                >
+                  <q-tooltip anchor="top middle" self="bottom middle">
+                    {{ computedState.cloudIndicatorLabel.value }}
+                  </q-tooltip>
+                </q-icon>
+                <q-icon name="mdi-chevron-up" size="18px" />
               </div>
-            </div>
-            <q-icon
-              name="mdi-chevron-up"
-              size="18px"
-              class="user-menu-chevron q-ml-xs"
-            />
+            </q-item-section>
 
-            <q-menu
-              anchor="top left"
-              self="bottom left"
-              :offset="[0, 8]"
-            >
+            <q-menu anchor="top left" self="bottom left" :offset="[0, 8]">
               <q-list dense style="min-width: 200px">
                 <q-item
-                  v-if="computedState.hasAutosaveRestore.value"
                   clickable
                   v-close-popup
                   v-ripple
-                  @click="methods.restoreAutosave"
+                  @click="methods.openPreferencesDialog"
                 >
                   <q-item-section avatar>
-                    <q-icon name="mdi-backup-restore" />
+                    <q-icon name="settings" />
                   </q-item-section>
-                  <q-item-section>{{ $t('layout.menuAutosave') }}</q-item-section>
+                  <q-item-section>{{ $t('drawer.preferences') }}</q-item-section>
                 </q-item>
 
                 <q-item
@@ -269,11 +300,10 @@
                   <q-item-section>{{ $t('drawer.changeLicense') }}</q-item-section>
                 </q-item>
 
-                <q-separator
-                  v-if="computedState.hasAutosaveRestore.value || computedState.isElectron.value"
-                />
+                <q-separator v-if="computedState.isElectron.value" />
 
                 <q-item
+                  v-if="computedState.isElectron.value"
                   clickable
                   v-close-popup
                   v-ripple
@@ -286,8 +316,8 @@
                 </q-item>
               </q-list>
             </q-menu>
-          </div>
-        </div>
+          </q-item>
+        </q-list>
       </div>
     </div>
   </q-drawer>
@@ -308,11 +338,11 @@ import { useNotifications } from 'src/composables/use-notifications';
 import { useAuth } from '@lib-improba/composables/use-auth';
 import { useLicense } from 'src/composables/use-license';
 import { useCloud } from 'src/composables/use-cloud';
-import securityService from '@services/security/index.service';
 import Logo from '@lib-improba/components/layouts/Logo.vue';
 import LicenseBadge from '@lib-improba/components/layouts/standard/toolbar/license/Index.vue';
 import HelpDialog from '@pages/userspace/_components/HelpDialog.vue';
 import PreferencesDialog from '@pages/userspace/_components/PreferencesDialog.vue';
+import ChangeLicenseDialog from '@pages/userspace/_components/ChangeLicenseDialog.vue';
 
 export default defineComponent({
   components: {
@@ -375,6 +405,17 @@ export default defineComponent({
         () => process.env.MODE === 'electron' && Boolean(autosaveRestore),
       ),
       isElectron: computed(() => process.env.MODE === 'electron'),
+      cloudIndicatorIcon: computed(() =>
+        cloud.sharedState.isAuthenticated
+          ? 'mdi-cloud-outline'
+          : 'mdi-cloud-off-outline',
+      ),
+      cloudIndicatorLabel: computed(() => {
+        void locale.value;
+        return cloud.sharedState.isAuthenticated
+          ? t('drawer.cloudConnected')
+          : t('drawer.cloudDisconnected');
+      }),
     };
 
     onMounted(() => {
@@ -382,6 +423,12 @@ export default defineComponent({
     });
 
     const methods = {
+      handleCloudIndicatorClick(event: MouseEvent) {
+        if (!cloud.sharedState.isAuthenticated) {
+          event.stopPropagation();
+          chronicleActions.openCloud();
+        }
+      },
       goToLicense: () => {
         void router.push({ name: 'user_license' });
       },
@@ -455,31 +502,10 @@ export default defineComponent({
       },
 
       changeLicense: () => {
-        $q.dialog({
-          class: 'actograph-dialog',
-          title: t('drawer.changeLicenseTitle'),
-          message: t('drawer.changeLicenseMessage'),
-          cancel: true,
+        createDialog({
+          component: ChangeLicenseDialog,
+          componentProps: {},
           persistent: true,
-          ok: {
-            label: t('drawer.changeLicenseConfirm'),
-            color: 'primary',
-          },
-        }).onOk(() => {
-          return securityService
-            .resetElectronAccess()
-            .then(async () => {
-              license.methods.clearAccess();
-              await router.replace({ name: 'gateway_choose-version' });
-            })
-            .catch((error) => {
-              console.error('Error resetting license access:', error);
-              $q.notify({
-                type: 'negative',
-                message: t('drawer.changeLicenseError'),
-              });
-              return Promise.reject(error);
-            });
         });
       },
 
@@ -530,32 +556,13 @@ export default defineComponent({
   border-bottom: 1px dashed rgba(0, 0, 0, 0.15);
 }
 
-.user-bar {
+.user-bar-list {
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
 }
 
-.user-bar-trigger {
-  border-radius: 6px;
-  padding: 6px 8px;
-  width: 100%;
-
-  &:hover {
-    background: rgba(0, 0, 0, 0.05);
-  }
-}
-
-.user-bar-avatar {
-  flex: 0 0 auto;
-}
-
-.user-bar-text {
-  flex: 1 1 auto;
+.user-bar-item {
   min-width: 0;
 }
 
-.user-menu-chevron {
-  flex: 0 0 auto;
-}
 </style>

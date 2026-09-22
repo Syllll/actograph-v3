@@ -275,6 +275,51 @@ export const useChronicleActions = () => {
     }
   };
 
+  const uploadActiveChronicleToCloud = async () => {
+    await cloud.methods.init();
+
+    const currentObservation = observation.sharedState.currentObservation;
+    if (!currentObservation?.id) {
+      $q.notify({ type: 'warning', message: t('cloud.noActiveChronicle') });
+      return;
+    }
+
+    if (!cloud.sharedState.isAuthenticated) {
+      await openCloud();
+      return;
+    }
+
+    try {
+      const result = await cloud.methods.uploadChronicle(
+        currentObservation.id,
+        currentObservation.name,
+        t('cloud.uploadDescriptionDefault'),
+      );
+
+      if (result.success) {
+        $q.notify({
+          type: 'positive',
+          message: t('cloud.uploadSuccess'),
+          caption: t('cloud.uploadActiveSuccessCaption', { name: currentObservation.name }),
+        });
+      } else {
+        $q.notify({
+          type: 'negative',
+          message: t('cloud.uploadError'),
+          caption: result.error || t('common.unknownError'),
+        });
+      }
+    } catch (error) {
+      console.error('uploadActiveChronicleToCloud failed:', error);
+      $q.notify({
+        type: 'negative',
+        message: t('cloud.uploadError'),
+        caption:
+          error instanceof Error ? error.message : t('common.unknownError'),
+      });
+    }
+  };
+
   const openCloudSyncDialog = () => {
     $q.dialog({
       component: CloudSyncDialog,
@@ -323,6 +368,7 @@ export const useChronicleActions = () => {
     saveAsObservation,
     mergeObservations,
     openCloud,
+    uploadActiveChronicleToCloud,
     loadExample,
     loadNamedExample,
   };

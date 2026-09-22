@@ -20,6 +20,7 @@ Captures : `docs/reviews/captures-test-manuel-desktop/`.
 | H.1 | Mes chroniques | Chip mode (Calendrier / Chronomètre) sur la ligne des **métadonnées**, pas contre le cloud. |
 | H.2 | Drawer | CTA cloud **orange** sous Nouvelle / Importer. Déconnecté : Se connecter au cloud. Connecté : Accéder aux chroniques cloud. **Envoyer vers le cloud** à côté d’Exporter. Plus de cloud sur la carte chronique. |
 | H.3 | Drawer | Caption **Licence étudiante**. Menu compte **dans** le drawer (vers le haut). Entrée **Préférences** (titre de modale). Sauvegardes → à côté d’Aide. |
+| H.8 | Drawer | Barre **Mon compte** : icône nuage **accent**, barrée ou non selon la session cloud. Déconnecté : clic → modale connexion. |
 | H.4 | Cloud | **Retiré.** Le cloud est accessible à toutes les licences. Pas de caption « licence étudiante / pro ». |
 | H.6 / H.7 | Carte chronique | 4 CTA **dans** le bandeau gris, repos, filet orange / fond blanc, icônes drawer + verbes. |
 | M.1 | Drawer | Garder **Exporter la chronique** (le dialogue OS dit Enregistrer sous, hors i18n). |
@@ -130,6 +131,30 @@ Menu = titre de modale : **Préférences** (`drawer.preferences`). Plus de « Pr
 ![Overlay compte](./captures-test-manuel-desktop/accueil-02-menu-compte-overlay.png)
 
 ![Préférences / Aide](./captures-test-manuel-desktop/accueil-03-drawer-bas-preferences-aide.png)
+
+### H.8 — Indicateur cloud sur Mon compte
+
+**Constat** : après le Lot 1, le CTA orange « Se connecter au cloud » n’est plus dans le haut du drawer (ligne **Importer depuis le cloud**). La barre **Mon compte** ne dit pas si une session cloud est ouverte.
+
+**Décision** : dans la barre `user-bar` (bas du drawer, section Mon compte), une icône **accent** (`var(--accent)`) :
+
+| Session cloud | Icône |
+|---------------|--------|
+| Connecté | `mdi-cloud-outline` (nuage, non barré) |
+| Déconnecté | `mdi-cloud-off-outline` (nuage barré) |
+
+Placement : à droite du libellé / caption, **avant** le chevron. Source : `useCloud().sharedState.isAuthenticated` (déjà dans le drawer).
+
+Clic **sur l’icône** :
+
+| Session | Action |
+|---------|--------|
+| Déconnecté | Ouvre la modale connexion cloud (`openCloud()` / `CloudLoginDialog`). `@click.stop` pour ne pas ouvrir le menu compte. |
+| Connecté | Pas de comportement dédié : le clic remonte à la barre (menu compte). Ne pas inventer « Accéder aux chroniques cloud » sur l’icône. |
+
+Le reste de la barre (avatar, nom, chevron) ouvre toujours le menu compte. H.4 inchangé : **ne pas modifier** le contenu de `CloudLoginDialog` (seulement l’ouvrir).
+
+Tooltip / `aria-label` (i18n FR + en-US) : **Connecté au cloud** / **Non connecté au cloud**.
 
 ---
 
