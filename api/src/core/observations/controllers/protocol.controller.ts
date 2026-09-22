@@ -83,6 +83,10 @@ class AddProtocolItemDto {
   @IsOptional()
   @IsNumber()
   order?: number;
+
+  @IsOptional()
+  @IsObject()
+  graphPreferences?: IGraphPreferences;
 }
 
 class EditProtocolItemDto {
@@ -400,6 +404,8 @@ export class ProtocolController extends BaseController {
         description: body.description,
         order: body.order ?? 0,
         categoryId: body.parentId,
+        action: body.action,
+        graphPreferences: body.graphPreferences,
       });
     } else {
       throw new BadRequestException('Invalid item type');

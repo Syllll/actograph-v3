@@ -6,7 +6,7 @@
           v-for="obs in state.recentObservations"
           :key="obs.id"
           clickable
-          v-ripple
+          :ripple="false"
           @click="methods.loadObservation(obs.id)"
           :active="methods.isActive(obs.id)"
           active-class="active-item"
@@ -180,14 +180,26 @@ export default defineComponent({
 .my-observations {
   .observation-item {
     border-radius: 0.25rem;
+    color: var(--primary);
     transition: background 0.15s ease;
     min-height: 40px;
     padding-top: 4px;
     padding-bottom: 4px;
+
+    &:hover {
+      background: var(--button-rest-bg);
+    }
   }
 
-  .active-item {
-    background: rgba(31, 41, 55, 0.08);
+  /* Quasar $primary is unset → Material blue on .q-item--active. Match drawer .active. */
+  .observation-item.active-item {
+    color: var(--accent);
+    background: var(--button-rest-bg);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .observation-item :deep(.q-item__label--caption) {
+    color: var(--neutral);
   }
 }
 </style>

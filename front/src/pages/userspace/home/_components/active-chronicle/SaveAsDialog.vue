@@ -2,14 +2,14 @@
   <q-dialog ref="dialogRef" class="actograph-dialog" @hide="onDialogHide">
     <DDialogCard
       :title="$t('dialogs.saveAs.title')"
-      size="md"
+      size="sm"
       :cancelLabel="$t('dialogs.cancel')"
       :submitLabel="$t('dialogs.saveAs.submit')"
       :submitDisable="!isValid"
       @cancel="onCancelClick"
       @submit="onOKClick"
     >
-      <div class="column q-gutter-md save-as-body">
+      <div class="column q-gutter-y-md save-as-body">
         <div v-if="currentName" class="text-body2 text-grey-8">
           {{ $t('dialogs.saveAs.sourceLabel', { name: currentName }) }}
         </div>

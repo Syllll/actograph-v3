@@ -58,8 +58,10 @@ Les libellés i18n et le chrome userspace (drawer, Mes chroniques, protocole, ob
 | Lot | Garde-fou |
 |-----|-----------|
 | 1 | Garder les gates Electron. Focus accent : préférer `_dialogs.scss` + userspace, pas restyler l’admin. |
+| 1Bis | Déconnecté : clic icône → `openCloud()`. `@click.stop`. Ne pas modifier le contenu de `CloudLoginDialog` (H.4). |
 | 3 | Titre **Protocole** en i18n sur la page. **Pas** d’écriture API. |
 | 4 | `order` reste en base ; on ne l’affiche plus à l’ajout. Mobile a son propre éditeur. |
+| 4Bis | Même séquence que la modale (delete + add, append). Correctif : passer `action` + `graphPreferences` dans `POST /item` (branche observable seulement). Pas d’insert. Pas `parentId` sur `EditItemDto`. Pas `mobile/` ni `packages/`. |
 | 5 | Brancher Rec / Pause / Terminer sur `startTimer` / `pauseTimer` / `stopTimer` existants. |
 | 6 | Bannière = composant front. Ne pas modifier `hasReadingsAfterLastStop` dans core. |
 | 7 | Conserver le branchement Electron (`saveImageViaElectron`) vs téléchargement navigateur déjà en place. |
@@ -82,9 +84,11 @@ Les libellés i18n et le chrome userspace (drawer, Mes chroniques, protocole, ob
 
 ```
 Lot 1  Drawer (nav, cloud, compte, Dupliquer, focus accent)
+  └─ Lot 1Bis  Indicateur cloud sur Mon compte (H.8)
   └─ Lot 2  Carte Mes chroniques
 Lot 3  Protocole libellés / grille / CTA
   └─ Lot 4  Protocole inline + D&D
+      └─ Lot 4Bis  D&D observable → autre catégorie (P.10)
 Lot 5  Observation session (Rec / Pause / Terminer + chrome)
 Lot 6  Observation relevés + bannière orphelins partagée
 Lot 7  ExportMenu (Graphe + Stats + cartes)
@@ -92,7 +96,7 @@ Lot 7  ExportMenu (Graphe + Stats + cartes)
   └─ Lot 9  Statistiques onglets / gouttière (après Lots 6 et 7)
 ```
 
-Exécuter **dans l’ordre numérique**. Lots 3 et 5 peuvent démarrer après le Lot 1, mais ne pas paralléliser dans Composer : un lot à la fois.
+Exécuter **dans l’ordre numérique** (1 → 1Bis → 2 …). Lots 3 et 5 peuvent démarrer après le Lot 1, mais ne pas paralléliser dans Composer : un lot à la fois.
 
 ---
 
@@ -170,6 +174,47 @@ Réutiliser `d-action-btn` déjà utilisé pour Nouvelle / Importer. Ne pas modi
 - [ ] Caption Licence étudiante sur le **compte** (H.3). Pas de caption cloud / licence dans la modale login.
 - [ ] Toutes les chaînes saveAs → Dupliquer ; icône `mdi-content-duplicate` ; dialog `sm`.
 - [ ] Focus outlined = accent (vérifier Dupliquer **et** un autre champ, ex. login cloud).
+
+---
+
+## Lot 1Bis — Indicateur cloud sur Mon compte
+
+**IDs** : H.8  
+**Dépend de** : Lot 1 (barre `user-bar` déjà en place)  
+**Prompt** : `LOT-01BIS`  
+**CR** : [LOT-01BIS](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-01bis)
+
+Complément du Lot 1 après écart CR : le CTA orange « Se connecter au cloud » a été remplacé par **Importer depuis le cloud**. L’état de session n’a plus de voyant dans le chrome compte.
+
+### Décisions
+
+- Icône **accent** (`var(--accent)` / `color="accent"` si le token Quasar est branché sur la même couleur) dans la barre **Mon compte** (`user-bar`), à droite du nom / caption, **avant** le chevron.
+- Connecté (`useCloud().sharedState.isAuthenticated`) : `mdi-cloud-outline`.
+- Déconnecté : `mdi-cloud-off-outline`.
+- Tooltip + `aria-label` i18n : Connecté au cloud / Non connecté au cloud (FR + en-US).
+- **Déconnecté** : clic **icône** → `openCloud()` (même entrée que **Importer depuis le cloud**). `@click.stop` pour ne pas ouvrir le `q-menu` compte.
+- **Connecté** : pas d’action dédiée sur l’icône (le clic remonte à la barre = menu compte).
+- Avatar / nom / chevron : menu compte inchangé.
+- Ne pas modifier le contenu de `CloudLoginDialog` (H.4). Ne pas retoucher le Lot 2 (cloud sur la carte).
+
+### Fichiers
+
+- `front/src/pages/userspace/_components/drawer/Index.vue` (`user-bar`)
+- `front/src/i18n/fr/index.ts` / `en-US` (clés drawer, ex. `cloudConnected` / `cloudDisconnected`)
+
+Réutiliser `useCloud` déjà injecté dans le drawer. Pas de nouvelle dépendance.
+
+### Captures
+
+`accueil-02` (barre compte, **avant** — pas de voyant)
+
+### Critères d’acceptation
+
+- [ ] Déconnecté : nuage barré orange dans Mon compte.
+- [ ] Connecté : nuage non barré orange au même endroit.
+- [ ] Déconnecté + clic **icône** = modale connexion cloud (pas le menu compte).
+- [ ] Clic avatar / nom / chevron = menu compte. Connecté + clic icône = menu compte.
+- [ ] Tooltip / `aria-label` selon l’état.
 
 ---
 
@@ -298,6 +343,74 @@ Les modales **Edit** / **Remove** / **Move** peuvent rester pour l’édition. L
 - [ ] Pas de champ ordre à l’ajout.
 - [ ] Empty FR + champ première catégorie déjà là.
 - [ ] D&D reorder + flèches clavier.
+
+---
+
+## Lot 4Bis — D&D observable vers une autre catégorie
+
+**IDs** : P.10  
+**Dépend de** : Lot 4 (D&D intra-catégorie déjà en place)  
+**Prompt** : `LOT-04BIS`  
+**CR** : [LOT-04BIS](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-04bis)
+
+Complément du Lot 4 : P.6 reste le réordre **dans** la catégorie. Ici le drop vers une autre catégorie **rejoue la modale Déplacer**, et **corrige** le payload (bug : `action` / `graphPreferences` perdus).
+
+Séquence inchangée (`MoveObservableModal.vue`) :
+
+```
+deleteItem(observable.id, protocolId)
+addObservable({ protocolId, parentId, name, description, order: target.children.length, action?, graphPreferences? })
+loadProtocol(currentObservation)
+```
+
+Sans correctif API, le front peut envoyer ces champs : le contrôleur `POST …/protocols/item` (branche observable) ne transmet que `protocolId`, `name`, `description`, `order`, `categoryId`. `addObservable` du service les accepte déjà. Les autres appels (inline, duplicate) ne les envoient pas → `undefined` → comportement actuel.
+
+### Pourquoi ce n’est pas un effet de bord Rec / stats
+
+| Surface | Mécanisme | Après le move (avec copie) |
+|---------|-----------|----------------------------|
+| Observation Rec | `category.action` + `category.children` ; bouton actif = `children.find(obs => obs.name === reading.name)` | Inchangé. Continue vs ponctuelle = **catégorie cible**. `observable.action` n’est pas lu. |
+| Relevés | `IReading.name` (pas d’id) | DATA **non** réécrits. |
+| Stats | Fratrie = noms des enfants ; mode = `category.action` | L’historique du nom change de fratrie / de mode **comme aujourd’hui** (effet métier du déplacement, pas de la copie). |
+| Graphe | `mergeGraphPreferences(catégorie, nœud)` — clés héritables seulement : `color`, `strokeWidth`, `backgroundPattern` | **Correctif** : si le nœud avait un override, il est conservé. Sinon (prefs absentes) : héritage de la **catégorie cible**, identique à aujourd’hui. `displayMode` / `supportCategoryId` / `visible` restent propres à la **catégorie** (non fusionnés). |
+
+Ne pas PATCH `graph-preferences` après coup : un seul `addObservable`. Ne pas recopier un objet vide (`{}`) — omettre le champ si le nœud n’a pas de prefs.
+
+### Décisions
+
+- Extraire **une** fonction `moveObservableToCategory(observable, targetCategoryId)` (dans `Index.vue` ou `protocol.service.ts` front existant — pas de nouveau package). Même try que la modale + `action` / `graphPreferences` **si définis**.
+- Brancher **D&D** et **MoveObservableModal** sur cette fonction (= le correctif de la modale).
+- Drop :
+  - sur une **ligne catégorie** dont l’id ≠ catégorie source → `targetCategoryId` = cet id ;
+  - sur un **observable d’une autre catégorie** → `targetCategoryId` = **parent** de cet observable (toujours un append ; la modale ne choisit pas l’index).
+- Intra-catégorie : inchangé (Lot 4, `editProtocolItem` + `order`). Ne pas passer par delete+add dans la même catégorie.
+- Flèches haut/bas : intra-catégorie.
+- API **minimale** (pas de migration, pas de `parentId` sur `EditItemDto`) :
+  1. `AddProtocolItemDto` : `graphPreferences?` optionnel (`@IsOptional()` `@IsObject()`, type `IGraphPreferences` déjà importé). `action` est déjà sur le DTO.
+  2. Branche observable de `addProtocolItem` : passer `action: body.action` et `graphPreferences: body.graphPreferences` à `items.addObservable`.
+- Front : `AddObservableDto` accepte `action?` et `graphPreferences?`.
+- Pas d’insert. Pas `vuedraggable`. Pas `mobile/` ni `packages/`. Pas d’autre route API.
+- Nouvel UUID : attendu. Unique `name` global : delete **avant** add (`ConflictException` sinon).
+
+### Fichiers
+
+- `front/src/pages/userspace/protocol/Index.vue` (`onRowDragOver` / `onRowDrop`)
+- `front/src/pages/userspace/protocol/_components/MoveObservableModal.vue`
+- `front/src/services/observations/protocol.service.ts` (`AddObservableDto` ; helper optionnel)
+- `api/src/core/observations/controllers/protocol.controller.ts` (`AddProtocolItemDto` + branche observable de `POST item`)
+- i18n seulement si un toast dédié manque déjà (`moveObservableSuccess` / `moveObservableFailed` existent)
+
+### Captures
+
+Aucune capture « avant » dédiée (comportement D&D absent). Vérifier sur le jeu Lieu / Action / Événements : drop **et** modale Déplacer vers la même cible.
+
+### Critères d’acceptation
+
+- [ ] Drop d’un observable sur une autre catégorie : même résultat que Déplacer vers cette catégorie (append, disparu de l’ancienne).
+- [ ] Payload add = `name` + `description` + `order: children.length` + `action` / `graphPreferences` **s’ils existent** sur le nœud.
+- [ ] Grep : `POST item` observable transmet `action` et `graphPreferences`. Les ajouts inline / duplicate **sans** ces champs restent comme aujourd’hui.
+- [ ] Rec / stats : même comportement qu’un move actuel (carte cible, fratrie par nom). Graphe : override `color` / `strokeWidth` / `backgroundPattern` du nœud **conservé** s’il existait.
+- [ ] D&D intra-catégorie + flèches inchangés.
 
 ---
 
@@ -549,10 +662,12 @@ Le script passe en Node 20, ouvre l’API (`yarn start:dev-electron`) dans un on
 
 | Lot | Où aller | Ce que tu dois voir |
 |-----|----------|---------------------|
-| 1 | Tiroir, menu compte, Dupliquer, login cloud | Mes chroniques ; CTA cloud orange ; **Préférences** ; Dupliquer `sm` ; focus orange ; **pas** de caption « licence étudiante / cloud » |
+| 1 | Tiroir, menu compte, Dupliquer, login cloud | Mes chroniques ; CTA / **Importer depuis le cloud** ; **Préférences** ; Dupliquer `sm` ; focus orange ; **pas** de caption « licence étudiante / cloud » |
+| 1Bis | Barre Mon compte, session cloud on/off | Nuage accent **barré** si déconnecté, **non barré** si connecté ; clic icône déconnecté = modale cloud |
 | 2 | Mes chroniques, chronique ouverte | Chip sur la 3e ligne ; 4 CTA dans le gris ; plus de cloud sur la carte |
 | 3 | Page Protocole | Titre Protocole - … ; continue / ponctuelle ; boutons alignés ; Aller à l’observation |
 | 4 | Liste vide + ajout + ordre | Inline, empty FR, pas de +, D&D |
+| 4Bis | Protocole, 2+ catégories | Drop = modale Déplacer (append) ; override couleur nœud **conservé** si présent ; Rec/stats = catégorie cible |
 | 5 | Observation **avec et sans** vidéo | Rec / Pause / Terminer ; Pause ≠ Fin ; timer à gauche |
 | 6 | Tableau relevés (+ Graphe / Stats pour la bannière) | Poubelle ligne ; replace dans la recherche ; datetime ; bannière au-dessus du tableau |
 | 7 | Graphe + Stats + une carte | Icône à droite ; 1 format = clic direct ; export hors du plot |

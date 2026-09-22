@@ -40,13 +40,11 @@ export default defineComponent({
 </script>
 
 <style lang="scss" scoped>
-$lineColor: var(--danger-low);
-$backgroundColor: white;
-
 .q-chip {
-  color: white;
-  font-weight: bold;
-  background-color: var(--danger);
+  color: var(--primary);
+  font-weight: 600;
+  background-color: #fff;
+  border: 1px solid var(--accent);
   padding-top: 0;
   padding-bottom: 0;
   min-height: 1.6em;

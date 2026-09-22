@@ -1,31 +1,11 @@
 <template>
   <div class="active-chronicle">
     <template v-if="observation.sharedState.currentObservation">
-      <!-- Header: name + stats -->
       <div class="chronicle-header q-pa-md q-mb-sm">
         <div class="row items-center q-mb-xs">
           <div class="text-h5 text-weight-bold text-primary col">
             {{ observation.sharedState.currentObservation.name }}
           </div>
-          <q-chip
-            v-if="observation.sharedState.currentObservation.mode"
-            dense
-            size="sm"
-            :label="methods.formatMode(observation.sharedState.currentObservation.mode)"
-            :color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-2' : 'orange-2'"
-            :text-color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-9' : 'orange-9'"
-          />
-          <q-btn
-            unelevated
-            no-caps
-            class="cloud-btn q-ml-sm"
-            :icon="isCloudAuthenticated ? 'mdi-cloud-check-outline' : 'mdi-cloud-upload-outline'"
-            :label="isCloudAuthenticated ? $t('chronicle.cloudSyncCaption') : $t('chronicle.cloudLoginCaption')"
-            :color="isCloudAuthenticated ? 'positive' : 'accent'"
-            @click="$emit('cloud')"
-          >
-            <q-tooltip>{{ $t('chronicle.cloudCardTitle') }}</q-tooltip>
-          </q-btn>
         </div>
         <div v-if="observation.sharedState.currentObservation.description" class="text-body2 text-grey-8 q-mb-sm">
           {{ observation.sharedState.currentObservation.description }}
@@ -63,22 +43,27 @@
             {{ $t('activeChronicle.modifiedPrefix') }}
             {{ methods.formatRelativeDate(observation.sharedState.currentObservation.updatedAt) }}
           </span>
+          <q-chip
+            v-if="observation.sharedState.currentObservation.mode"
+            dense
+            size="sm"
+            :label="methods.formatMode(observation.sharedState.currentObservation.mode)"
+            :color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-2' : 'orange-2'"
+            :text-color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-9' : 'orange-9'"
+          />
         </div>
-      </div>
-
-      <!-- Primary navigation actions -->
-      <div class="q-px-md">
-        <div class="row q-gutter-sm">
+        <div class="row q-gutter-sm q-mt-md">
           <q-btn
             v-for="step in navSteps"
             :key="step.key"
+            :icon="step.icon"
             :label="step.btnLabel"
-            @click="chronicleNav.navigateTo(step)"
-            :class="['col', 'action-btn', { 'primary-action': step.isPrimary }]"
-            :outline="!step.isPrimary"
-            color="primary"
+            class="col cta-btn"
+            outline
+            color="accent"
             no-caps
             :disable="step.disabled"
+            @click="chronicleNav.navigateTo(step)"
           >
             <q-tooltip v-if="step.tooltip">{{ step.tooltip }}</q-tooltip>
           </q-btn>
@@ -98,13 +83,6 @@ import { relativeDay } from '@lib-improba/utils/date-format.utils';
 
 export default defineComponent({
   name: 'ActiveChronicle',
-  props: {
-    isCloudAuthenticated: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  emits: ['cloud'],
   setup() {
     const observation = useObservation();
     const chronicleNav = useChronicleNavigation();
@@ -138,26 +116,18 @@ export default defineComponent({
       return count;
     });
 
-    const hasObservables = computed(() => observablesCount.value > 0);
-    const hasReadings = computed(() => chronicleNav.hasReadings.value);
-
     const navSteps = computed(() => {
       void locale.value;
       const btnLabels: Record<string, string> = {
         protocol: t('chronicle.ctaProtocol'),
         observation: t('chronicle.ctaObservation'),
         graph: t('chronicle.ctaGraph'),
+        statistics: t('chronicle.ctaStatistics'),
       };
-      return chronicleNav.steps.value
-        .filter(s => s.key !== 'statistics')
-        .map(step => ({
-          ...step,
-          btnLabel: btnLabels[step.key] ?? step.label,
-          isPrimary:
-            (step.key === 'protocol' && !hasObservables.value) ||
-            (step.key === 'observation' && hasObservables.value && !hasReadings.value) ||
-            (step.key === 'graph' && hasObservables.value && hasReadings.value),
-        }));
+      return chronicleNav.steps.value.map(step => ({
+        ...step,
+        btnLabel: btnLabels[step.key] ?? step.label,
+      }));
     });
 
     const methods = {
@@ -177,8 +147,6 @@ export default defineComponent({
     return {
       observation,
       chronicleNav,
-      hasObservables,
-      hasReadings,
       readingsCount,
       categoriesCount,
       observablesCount,
@@ -198,33 +166,10 @@ export default defineComponent({
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   }
 
-  .cloud-btn {
-    font-weight: 600;
+  .cta-btn {
+    background: #fff;
     border-radius: 0.5rem;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-    transition: all 0.2s ease;
-
-    &:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
-      transform: translateY(-1px);
-    }
-  }
-
-  .action-btn {
-    transition: all 0.3s ease;
-
-    &.primary-action {
-      font-weight: 600;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    }
-
-    &:not(.primary-action) {
-      opacity: 0.7;
-
-      &:hover {
-        opacity: 1;
-      }
-    }
+    font-weight: 500;
   }
 }
 </style>
