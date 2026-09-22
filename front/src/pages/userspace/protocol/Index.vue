@@ -135,9 +135,10 @@
                           icon="arrow_upward"
                           :disable="methods.getCategoryIndex(prop.node) <= 0 || state.movingCategory"
                           :loading="state.movingCategory"
+                          :aria-label="$t('protocolUi.tooltipMoveUp')"
                           @click.stop="methods.moveCategoryUp(prop.node)"
                         >
-                          <q-tooltip>Monter</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipMoveUp') }}</q-tooltip>
                         </q-btn>
                       </div>
                       <div class="protocol-tree-header__action-cell">
@@ -153,9 +154,10 @@
                             state.movingCategory
                           "
                           :loading="state.movingCategory"
+                          :aria-label="$t('protocolUi.tooltipMoveDown')"
                           @click.stop="methods.moveCategoryDown(prop.node)"
                         >
-                          <q-tooltip>Descendre</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipMoveDown') }}</q-tooltip>
                         </q-btn>
                       </div>
                       <div class="protocol-tree-header__action-cell">
@@ -167,9 +169,10 @@
                           icon="content_copy"
                           :disable="state.duplicatingCategory"
                           :loading="state.duplicatingCategory"
+                          :aria-label="$t('protocolUi.tooltipDuplicateCategory')"
                           @click.stop="methods.duplicateCategory(prop.node)"
                         >
-                          <q-tooltip>Dupliquer la catégorie</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipDuplicateCategory') }}</q-tooltip>
                         </q-btn>
                       </div>
                       <div class="protocol-tree-header__action-cell">
@@ -180,9 +183,10 @@
                           size="xs"
                           color="primary"
                           icon="edit"
+                          :aria-label="$t('protocolUi.tooltipEdit')"
                           @click.stop="methods.openEditCategoryModal(prop.node)"
                         >
-                          <q-tooltip>Modifier</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipEdit') }}</q-tooltip>
                         </q-btn>
                       </div>
                       <div class="protocol-tree-header__action-cell">
@@ -193,9 +197,10 @@
                           size="xs"
                           color="dark"
                           icon="delete"
+                          :aria-label="$t('protocolUi.tooltipRemove')"
                           @click.stop="methods.openRemoveCategoryModal(prop.node)"
                         >
-                          <q-tooltip>Supprimer</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipRemove') }}</q-tooltip>
                         </q-btn>
                       </div>
                     </div>
@@ -214,9 +219,10 @@
                           icon="arrow_upward"
                           :disable="!methods.canMoveObservableUp(prop.node) || state.movingObservable"
                           :loading="state.movingObservable"
+                          :aria-label="$t('protocolUi.tooltipMoveUp')"
                           @click.stop="methods.moveObservableUp(prop.node)"
                         >
-                          <q-tooltip>Monter</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipMoveUp') }}</q-tooltip>
                         </q-btn>
                       </div>
                       <div class="protocol-tree-header__action-cell">
@@ -231,9 +237,10 @@
                             !methods.canMoveObservableDown(prop.node) || state.movingObservable
                           "
                           :loading="state.movingObservable"
+                          :aria-label="$t('protocolUi.tooltipMoveDown')"
                           @click.stop="methods.moveObservableDown(prop.node)"
                         >
-                          <q-tooltip>Descendre</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipMoveDown') }}</q-tooltip>
                         </q-btn>
                       </div>
                       <div class="protocol-tree-header__action-cell">
@@ -243,9 +250,10 @@
                           dense
                           size="xs"
                           icon="drive_file_move_outline"
+                          :aria-label="$t('protocolUi.tooltipMoveObservable')"
                           @click.stop="methods.openMoveObservableModal(prop.node)"
                         >
-                          <q-tooltip>Déplacer vers une autre catégorie</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipMoveObservable') }}</q-tooltip>
                         </q-btn>
                       </div>
                       <div class="protocol-tree-header__action-cell">
@@ -256,9 +264,10 @@
                           size="xs"
                           color="primary"
                           icon="edit"
+                          :aria-label="$t('protocolUi.tooltipEdit')"
                           @click.stop="methods.openEditObservableModal(prop.node)"
                         >
-                          <q-tooltip>Modifier</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipEdit') }}</q-tooltip>
                         </q-btn>
                       </div>
                       <div class="protocol-tree-header__action-cell">
@@ -269,9 +278,10 @@
                           size="xs"
                           color="dark"
                           icon="delete"
+                          :aria-label="$t('protocolUi.tooltipRemove')"
                           @click.stop="methods.openRemoveObservableModal(prop.node)"
                         >
-                          <q-tooltip>Supprimer</q-tooltip>
+                          <q-tooltip>{{ $t('protocolUi.tooltipRemove') }}</q-tooltip>
                         </q-btn>
                       </div>
                     </div>
@@ -365,6 +375,8 @@ import {
   protocolService,
   isObservableNameInUse,
   moveObservableToCategory,
+  hasObservableGraphPreferences,
+  type AddObservableDto,
 } from '@services/observations/protocol.service';
 import { useRouter } from 'vue-router';
 import { useObservation } from 'src/composables/use-observation';
@@ -1045,13 +1057,20 @@ export default defineComponent({
           for (let i = 0; i < children.length; i++) {
             const child = children[i];
             if (child.type === ProtocolItemTypeEnum.Observable) {
-              await protocolService.addObservable({
+              const payload: Omit<AddObservableDto, 'type'> = {
                 protocolId,
                 parentId: newCategory.id,
                 name: `${child.name} (${copySuffix})`,
                 description: child.description,
                 order: i,
-              });
+              };
+              if (child.action) {
+                payload.action = child.action;
+              }
+              if (hasObservableGraphPreferences(child.graphPreferences)) {
+                payload.graphPreferences = child.graphPreferences;
+              }
+              await protocolService.addObservable(payload);
             }
           }
 
