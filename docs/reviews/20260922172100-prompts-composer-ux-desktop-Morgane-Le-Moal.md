@@ -21,6 +21,7 @@ Le **plan** porte Décisions, Fichiers, critères, SOP Electron. Le **recueil** 
 | `LOT-02` | Carte Mes chroniques | H.1 H.6 H.7 | [§ LOT-02](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-02) |
 | `LOT-03` | Protocole libellés / grille / CTA | P.1 P.2 P.3 P.7 | [§ LOT-03](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-03) |
 | `LOT-04` | Protocole inline + D&D | P.4 P.5 P.6 P.8 P.9 | [§ LOT-04](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-04) |
+| `LOT-04BIS` | D&D observable → autre catégorie | P.10 | [§ LOT-04BIS](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-04bis) |
 | `LOT-05` | Observation session | O.1 O.2 O.3 O.5 O.6 O.9 O.11 | [§ LOT-05](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-05) |
 | `LOT-06` | Relevés + bannière orphelins | O.4 O.7 O.8 O.10 S.1 | [§ LOT-06](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-06) |
 | `LOT-07` | ExportMenu | G.1 E.1 S.4 | [§ LOT-07](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-07) |
@@ -119,6 +120,23 @@ Pièges :
 - Pas de nouvelle lib, pas de vuedraggable.
 - Ne pas retoucher P.1 P.2 P.3 P.7.
 - Edit / Remove / Move peuvent rester ; AddCategory / AddObservable ne sont plus le flux d’ajout.
+```
+
+---
+
+## LOT-04BIS — D&D observable vers une autre catégorie
+
+```
+LOT-04BIS uniquement. Le Lot 4 est déjà en place. Métier : développeur interaction protocole (D&D + move). Pas l’inline (P.4). Pas Lot 5.
+
+Appliquer le plan « Lot 4Bis — D&D observable vers une autre catégorie ». ID P.10. CR § LOT-04BIS.
+
+Pièges :
+- Séquence = modale : deleteItem puis addObservable append. Correctif : passer action et graphPreferences s’ils existent sur le nœud (ne pas envoyer {}).
+- POST /item ignore ces champs aujourd’hui : les transmettre dans la branche observable seulement (AddProtocolItemDto.graphPreferences optionnel). Pas d’autre route. Pas de PATCH graph-preferences.
+- Rec/stats lisent category.action : la copie n’y change rien. Graphe : conserver color/strokeWidth/backgroundPattern du nœud ; displayMode/supportCategoryId restent à la catégorie.
+- Pas d’insert (append). Drop sur un observable d’une autre cat = parentId de cet observable.
+- Intra-catégorie : D&D Lot 4 (editProtocolItem + order). Pas de vuedraggable. Pas mobile/ ni packages/.
 ```
 
 ---

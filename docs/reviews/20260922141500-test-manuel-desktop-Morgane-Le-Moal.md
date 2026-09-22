@@ -32,6 +32,7 @@ Captures : `docs/reviews/captures-test-manuel-desktop/`.
 | P.3 | Protocole | Grille : noms à gauche, actions alignées à droite. |
 | P.4 / P.8 / P.9 | Protocole | Saisie **inline**. Pas de + sur la ligne catégorie. Empty state FR + champ première catégorie. |
 | P.5 / P.6 | Protocole | Pas de champ ordre à l’ajout. Réordonnancement **drag and drop** (flèches en complément clavier). |
+| P.10 | Protocole | D&D inter-catégories = modale Déplacer (delete + add, append). **Correctif** : envoyer aussi `action` + `graphPreferences` (le POST les ignore aujourd’hui). Pas d’insert. |
 | P.7 | Protocole | CTA **Aller à l’observation**. |
 | O.1–O.3 / O.5 | Observation | **Rec / Pause / Terminer** + timer + toaster. Pause ≠ Terminer. |
 | O.2 / O.6 / O.11 | Observation | Barre session sous le titre gauche. −/+ près des cartes, tooltips. Détacher **sur le cadre** des cartes. Titres alignés L/R. |
@@ -270,6 +271,12 @@ Parcours clair (deux chroniques + nom). **Inchangé.**
 ![Ordre 3 vs 4](./captures-test-manuel-desktop/protocole-06-ordre-affichage-3-au-lieu-de-4.png)
 
 ![Ordre 0](./captures-test-manuel-desktop/protocole-09-ordre-affichage-0-liste-vide.png)
+
+### P.10 — D&D observable vers une autre catégorie
+
+**Constat** : le D&D Lot 4 ne réordonne que **dans** la catégorie. Changer de catégorie = modale **Déplacer vers une autre catégorie** : `deleteItem` puis `addObservable` (`name`, `description`, `order` = fin de la cible). Pas d’`action`, pas de `graphPreferences`. `POST /item` ne les transmet pas non plus. `EditItemDto` n’a pas de `parentId`. Relevés = `IReading.name`. Rec / graphe / stats lisent **`category.action`** et les **enfants de la catégorie** (match par nom).
+
+**Décision** : un drop vers une **autre catégorie** = **la même fonction** que la modale (delete + add, append). Correctif du bug : le `addObservable` envoie aussi `action` et `graphPreferences` s’ils existent sur le nœud (le POST doit les transmettre — sinon le front envoie dans le vide). Rec / stats inchangés (`category.action`). Graphe : l’override héritables du nœud est **conservé** ; sans override, héritage de la catégorie cible comme aujourd’hui. Pas d’insert. Nouvel id accepté. Flèches = intra-catégorie. Pas de nouvelle lib. Pas de `parentId` sur `EditItemDto`.
 
 ---
 

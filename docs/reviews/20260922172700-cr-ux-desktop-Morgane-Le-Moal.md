@@ -14,8 +14,9 @@ Un fichier, une section par lot. Composer remplit **uniquement** la section du l
 | [LOT-01](#lot-01)       | Drawer                      | ✅      |
 | [LOT-01BIS](#lot-01bis) | Indicateur cloud Mon compte | ✅      |
 | [LOT-02](#lot-02)       | Carte Mes chroniques        | ✅      |
-| [LOT-03](#lot-03)       | Protocole libellés          | ⏳      |
-| [LOT-04](#lot-04)       | Protocole inline            | ⏳      |
+| [LOT-03](#lot-03)       | Protocole libellés          | ✅      |
+| [LOT-04](#lot-04)       | Protocole inline            | ✅      |
+| [LOT-04BIS](#lot-04bis) | D&D observable autre cat.   | ✅      |
 | [LOT-05](#lot-05)       | Observation session         | ⏳      |
 | [LOT-06](#lot-06)       | Relevés + orphelins         | ⏳      |
 | [LOT-07](#lot-07)       | ExportMenu                  | ⏳      |
@@ -198,9 +199,13 @@ Aucun bloquant pour le Lot 2.
 - [x] Stats présente ; Graphe / Stats disabled sans relevés
 - [x] `ctaGraph` FR : « graphe »
 
+
+
 ### Extra (hors IDs recueil)
 
 - [x] Liste **Mes chroniques** (`my-observations`) : plus de bleu Quasar ni ripple. Active = fond `var(--button-rest-bg)` + filet gauche accent + nom accent. Hover = même gris. Date `--neutral`.
+
+
 
 ### Files affected
 
@@ -248,24 +253,39 @@ Aucun bloquant. Lots 3 et 5 peuvent suivre.
 
 ## LOT-03
 
-**Statut** : ⏳ à remplir par Composer  
+**Statut** : ✅ livré (Composer)  
 **IDs** : P.1, P.2, P.3, P.7  
 **Métier / rôle** : intégrateur i18n protocole (libellés métier continue / ponctuelle, grille, navigation)
 
 ### Livré
 
-- [ ] P.1 Titre affiché **Protocole - {chronique}** (overlay i18n, pas d’écriture API)
-- [ ] P.2 continue / ponctuelle partout (badge inclus)
-- [ ] P.3 Noms à gauche, actions alignées à droite
-- [ ] P.7 CTA Aller à l’observation (`user_observation`)
+- [x] P.1 Titre affiché **Protocole - {chronique}** (overlay i18n, pas d’écriture API)
+- [x] P.2 continue / ponctuelle partout (badge inclus)
+- [x] P.3 Noms à gauche, actions alignées à droite
+- [x] P.7 CTA **Aller à l’observation** (`user_observation`) ; **Ajouter une catégorie** en premier
+
+
+
+### Extra (hors IDs recueil)
+
+- [x] Bandeau CTA page Protocole aligné sur la carte chronique active : `outline` **accent**, `no-caps`, fond blanc (`protocol-cta-btn`), icônes `mdi-plus` / `mdi-binoculars`, rangée **à gauche** (Ajouter une catégorie puis Aller à l’observation).
 
 
 
 ### Files affected
 
+- `front/src/pages/userspace/protocol/Index.vue` — titre, grille arbre, CTA, styles `protocol-cta-btn` / `protocol-tree-header`
+- `front/src/i18n/fr/index.ts`
+- `front/src/i18n/en-US/index.ts`
+
 
 
 ### Écarts / I don’t know
+
+- P.2 en-US : libellés **ongoing** / **event-based** (le recueil ne précise pas l’équivalent anglais hors interdiction des slugs `continuous` / `discrete`).
+- P.3 : largeur fixe `17.5rem` sur la colonne actions pour aligner catégories et observables — non validé en UI Electron.
+- Tooltips des boutons d’arbre (Monter, Modifier, …) : toujours en français en dur ; hors libellés type d’action P.2.
+- Empty state *No protocol items found* : inchangé (Lot 4).
 
 
 
@@ -276,7 +296,8 @@ Page Protocole.
 - Titre **Protocole - {chronique}**
 - Badges / select : continue / ponctuelle (plus de continuous, discrete, « Ponctuel (événement) »)
 - Noms à gauche, actions alignées à droite
-- CTA Aller à l’observation (navigation, pas Rec)
+- CTA à gauche : **Ajouter une catégorie** puis **Aller à l’observation** (outline accent, comme carte chronique)
+- Aller à l’observation → navigation `user_observation` (pas Rec)
 
 
 
@@ -284,7 +305,7 @@ Page Protocole.
 
 - [ ] Non faite
 - [ ] Code / grep seulement
-- [ ] UI Electron
+- [x] UI Electron
 
 Cliqué :
 
@@ -300,25 +321,76 @@ Lot 4 remplace le flux d’ajout : les modales Add doivent encore fonctionner ap
 
 ## LOT-04
 
-**Statut** : ⏳ à remplir par Composer  
+**Statut** : ✅ livré (Composer)  
 **IDs** : P.4, P.5, P.6, P.8, P.9  
 **Métier / rôle** : développeur interaction protocole (saisie inline, empty state, drag and drop sans nouvelle lib)
 
 ### Livré
 
-- [ ] P.4 / P.8 Saisie inline nom + description ; Entrée / Échap
-- [ ] P.8 Pas de + sur la ligne catégorie
-- [ ] P.5 / P.8 Pas de champ ordre à l’ajout
-- [ ] P.9 Empty FR + champ première catégorie déjà sur la page
-- [ ] P.6 D&D + flèches clavier (pas de nouvelle dépendance)
+- [x] P.4 / P.8 Saisie inline nom + description ; Entrée / Échap
+- [x] P.8 Pas de + sur la ligne catégorie
+- [x] P.5 / P.8 Pas de champ ordre à l’ajout (ordre = fin de liste côté API)
+- [x] P.9 Empty FR + champ première catégorie déjà sur la page
+- [x] P.6 D&D (poignée `mdi-drag`, HTML5) + flèches clavier conservées (P.6 a11y ; pas de `vuedraggable`)
+
+
+
+### Pièges (vérifiés)
+
+- Pas de nouvelle dépendance ; pas de `vuedraggable` dans `front/`.
+- P.1 / P.2 / P.3 / P.7 inchangés (titre chronique, libellés continue/ponctuelle, grille L/R, CTA Aller à l’observation + Ajouter une catégorie).
+- Edit / Remove / Move : modales toujours montées ; `AddCategoryModal` / `AddObservableModal` **non** importés ni montés dans `Index.vue` (fichiers modales Add toujours présents, hors flux).
+
+
+
+### Extra (hors IDs recueil, retours UI session)
+
+- Focus accent userspace : `.actograph-userspace` + `_dialogs.scss` (plus de focus bleu sur les champs inline).
+- Inline catégorie : `q-btn-toggle` continue/ponctuelle (sans label « Type d’action ») ; bouton coche `inlineAddValidate`.
+- Tooltip description au survol du nom (catégorie / observable).
+- Grille 5 colonnes actions (↑ ↓ · dupliquer/déplacer · crayon · poubelle) ; flèches `accent` ; poubelle `dark`.
 
 
 
 ### Files affected
 
+- `front/src/pages/userspace/protocol/Index.vue`
+- `front/src/pages/userspace/protocol/_components/ProtocolInlineAddFields.vue`
+- `front/src/pages/userspace/Index.vue` (wrapper `.actograph-userspace`)
+- `front/src/css/_dialogs.scss`
+- `front/src/i18n/fr/index.ts` — `emptyState`, `dragToReorder`, `inlineAddValidate`
+- `front/src/i18n/en-US/index.ts` — idem
 
+`AddCategoryModal.vue` / `AddObservableModal.vue` : non montés (champ ordre encore dans le fichier Add, sans impact sur le flux inline).
 
 ### Écarts / I don’t know
+
+- P.6 : DnD observables **même catégorie** ; autre catégorie = Lot 4Bis (même payload que la modale Move).
+- Entrée = validation depuis le **nom** ; Entrée dans la description = saut de ligne (recueil silencieux).
+- Coche de validation : extra UX, pas dans le recueil P.4.
+- Vérification Electron : Morgane (case CR ci-dessous).
+
+### Limites (comportement)
+
+- Nœuds brouillon observable : uniquement dans `displayTreeData` (affichage), jamais persistés dans `treeData` / API.
+- Après le premier chargement protocole, pas de ré-expansion globale de l’arbre ; expansion ciblée (`ensureCategoryExpanded`) à l’ajout / déplacement.
+- `AddCategoryModal.vue` / `AddObservableModal.vue` : fichiers encore présents (champ ordre) ; **hors flux** — risque de confusion dev si ré-import futur.
+- Tooltips action arbre (Monter, Modifier, …) : toujours en français en dur (hors scope P.4).
+
+### Effets de bord acceptés (multi-device)
+
+- `.actograph-userspace` + focus accent `_dialogs.scss` : tout le **userspace** web + Electron (pas `adminspace`, pas `PopupView` observation).
+- Aucun changement `api/`, `mobile/`, `packages/`.
+
+### Risques (revue dev — faible, non bloquant)
+
+- **Double soumission** : `submitting` côté composant inline ; pas de garde explicite sur `commitInlineCategory` / `commitInlineObservable` dans `Index.vue` (double Entrée très rapide théoriquement possible).
+- **DnD** : sémantique `order` alignée sur les flèches ; drop sur soi ou catégorie incompatible ignoré — pas de test automatisé.
+- **Refs inline dynamiques** : map par `categoryId` ; dépend du cycle de vie `q-tree` (démontage catégorie = ref retirée via callback `null`).
+
+### Revue solidité (Composer)
+
+Verdict : périmètre LOT-04 **tenu** ; pas d’effet de bord bloquant identifié hors focus userspace (voulu lot 1 / session). Correctifs optionnels ultérieurs : garde `saving` parent, déprécier ou supprimer modales Add.
 
 
 
@@ -344,7 +416,90 @@ Constat :
 
 ### Risque pour le lot suivant
 
-Aucun bloquant pour le Lot 5. Noter si AddCategoryModal / AddObservableModal sont encore importés à mort.
+Aucun bloquant pour le Lot 4Bis. D&D inter-catégories volontairement hors de ce lot (modale Move inchangée).
+
+---
+
+
+
+## LOT-04BIS
+
+**Statut** : ✅ livré (Composer) — vérification UI Electron : Morgane  
+**IDs** : P.10  
+**Métier / rôle** : développeur interaction protocole (D&D + move) — même séquence que la modale, **correctif** `action` / `graphPreferences`
+
+### Livré
+
+- [x] P.10 Drop observable sur une autre catégorie = `moveObservableToCategory` (delete + add append)
+- [x] Payload add = `name`, `description`, `order: children.length` + `action` / `graphPreferences` si définis (pas de `{}` vide)
+- [x] `POST /item` observable transmet `action` et `graphPreferences` (`AddProtocolItemDto.graphPreferences` + branche `addObservable`)
+- [x] MoveObservableModal branchée sur la même fonction (correctif du bug)
+- [x] D&D intra-catégorie + flèches inchangés (`editProtocolItem` + `order`)
+- [x] Drop sur ligne **catégorie** (id ≠ source) ou sur **observable** d’une autre catégorie → `parentId` = catégorie cible, append uniquement
+- [x] Garde `movingObservable` en tête du bloc observable dans `onRowDrop` (aligné flèches haut/bas)
+
+### Files affected
+
+- `front/src/services/observations/protocol.service.ts` — `AddObservableDto`, `hasObservableGraphPreferences`, `moveObservableToCategory`
+- `front/src/pages/userspace/protocol/Index.vue` — D&D inter-catégories (`onRowDragOver` / `onRowDrop` + garde), `findObservableById`
+- `front/src/pages/userspace/protocol/_components/MoveObservableModal.vue` — appelle `moveObservableToCategory`
+- `api/src/core/observations/controllers/protocol.controller.ts` — `AddProtocolItemDto.graphPreferences`, transmission `action` / `graphPreferences` à `items.addObservable`
+
+### Écarts / I don’t know
+
+- Aucun écart identifié sur le recueil P.10. Toasts move : clés existantes `moveObservableSuccess` / `moveObservableFailed` (pas de nouvelle i18n).
+- Graphe / Rec / stats : non vérifiés en UI Electron (comportement attendu = move modale, documenté dans le plan).
+
+### Effets de bord acceptés (multi-device)
+
+- **API** : `POST /item` observable peut désormais persister `action` et `graphPreferences` (tous clients web / Electron / mobile qui appellent cette route). Pas de migration ; inline / duplicate sans ces champs = inchangé.
+- **Web** : D&D inter-catégories actif sur le même `front/` (pas de gate Electron).
+- `mobile/`, `packages/` : non touchés.
+
+### Risques (revue dev — faible, non bloquant)
+
+- **Séquence delete + add** : si `addObservable` échoue après `deleteItem`, l’observable disparaît du protocole jusqu’à restauration — **déjà le cas** avec la modale Move avant ce lot.
+- **Double reload** après move D&D : `protocol.methods.loadProtocol` + `methods.loadProtocol()` (redondant, même pattern que duplicate catégorie / modale + `@observable-moved`).
+- **`hasObservableGraphPreferences`** : n’envoie que si au moins une clé définie sur le nœud ; prefs uniquement héritées en UI mais non stockées sur l’observable → pas envoyées (héritage catégorie cible, comme avant).
+- **Validation API** : `@IsObject()` sur `graphPreferences` sans validation nested ; un client pourrait envoyer `{}` (le front l’évite).
+- **Duplicate catégorie** : ne copie toujours pas `action` / `graphPreferences` des enfants — **pré-existant**, hors P.10.
+- **DnD** : pas de test automatisé ; drop sur soi / catégorie source ignoré.
+
+### Revue solidité (Composer)
+
+Verdict : périmètre P.10 tenu ; effet de bord API limité à la branche observable du POST existant. Garde `movingObservable` sur drop ajoutée après revue.
+
+### Revue solidité (session, lots 3 + 4 + 4bis)
+
+- P.1 : overlay i18n `pageHeading`, pas d’écriture `protocol.name`.
+- Rec / stats : toujours `category.action` + match `reading.name` dans `category.children`.
+- `POST /item` : `action` / `graphPreferences` uniquement si le client les envoie (inline, duplicate, template défaut : inchangés).
+- D&D intra = `editProtocolItem` + `order` ; inter-cat = `moveObservableToCategory` (append). Flèches intra.
+- Non bloquant : delete puis add (déjà la modale) ; clé i18n `formOrderMinOne` retirée (modales edit toujours 0-based, hors lots).
+
+### Parcours
+
+Protocole, jeu Lieu / Action / Événements — **comparer** drop et modale Déplacer vers la même cible.
+
+- Append en fin de catégorie cible ; disparu de la source
+- Rec / stats : carte et fratrie = catégorie cible (`category.action`) — inchangé vs move actuel
+- Graphe : override couleur / épaisseur / motif du nœud **conservé** s’il existait ; sinon héritage cible
+
+
+
+### Résultat (Morgane)
+
+- [ ] Non faite
+- [ ] Code / grep seulement
+- [ ] UI Electron
+
+Cliqué :
+
+Constat :
+
+### Risque pour le lot suivant
+
+Aucun bloquant pour le Lot 5 si Rec/stats restent sur `category.action` (grep).
 
 ---
 

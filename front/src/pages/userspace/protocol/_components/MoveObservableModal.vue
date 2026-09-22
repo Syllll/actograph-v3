@@ -49,7 +49,7 @@ import {
   ProtocolItem,
   ProtocolItemTypeEnum,
 } from '@services/observations/protocol.service';
-import { protocolService } from '@services/observations/protocol.service';
+import { moveObservableToCategory } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 
 import {
@@ -152,19 +152,11 @@ export default defineComponent({
         state.loading = true;
         state.error = '';
 
-        await protocolService.deleteItem(props.observable.id, protocolId);
-
-        const targetCategory = props.categories.find(
-          (c) => c.id === state.selectedCategoryId
-        );
-        const targetOrder = (targetCategory?.children?.length ?? 0);
-
-        await protocolService.addObservable({
+        await moveObservableToCategory({
+          observable: props.observable,
+          targetCategoryId: state.selectedCategoryId,
           protocolId,
-          parentId: state.selectedCategoryId,
-          name: props.observable.name,
-          description: props.observable.description,
-          order: targetOrder,
+          categories: props.categories,
         });
 
         await protocol.methods.loadProtocol(currentObservation);

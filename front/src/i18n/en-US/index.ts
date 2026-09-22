@@ -295,6 +295,11 @@ export default {
       'Add missing “pause end” after the “pause start” at {dateTime}',
   },
   protocolUi: {
+    pageHeading: 'Protocol - {chronicleName}',
+    goToObservation: 'Go to observation',
+    emptyState: 'Add at least one category, then one or more observables.',
+    dragToReorder: 'Drag to reorder',
+    inlineAddValidate: 'Confirm row',
     addCategory: 'Add a category',
     moveObservableFailed: 'Could not move the observable',
     moveCategoryFailed: 'Could not move the category',
@@ -341,8 +346,8 @@ export default {
     formNameRequired: 'Name is required',
     formOrderRequired: 'Order is required',
     formOrderNonNegative: 'Order must be zero or greater',
-    actionTypeContinuous: 'Continuous',
-    actionTypeDiscrete: 'Discrete',
+    actionTypeContinuous: 'ongoing',
+    actionTypeDiscrete: 'event-based',
     errCategoryNameRequired: 'Category name is required',
     errCannotAddCategoryNoProtocolId:
       'Cannot add a category: missing protocol id',

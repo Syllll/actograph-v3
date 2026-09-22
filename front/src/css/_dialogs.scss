@@ -2,7 +2,8 @@
   backdrop-filter: blur(2px);
 }
 
-// Outlined field focus: accent on userspace drawer and app dialogs (not admin).
+// Outlined field focus: accent on userspace pages, drawer and app dialogs (not admin).
+.actograph-userspace,
 .actograph-dialog,
 .q-drawer.bg-secondary {
   .q-field--outlined.q-field--focused:not(.q-field--error) .q-field__control:before {

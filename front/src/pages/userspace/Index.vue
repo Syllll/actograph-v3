@@ -3,7 +3,9 @@
     <template #drawer>
       <Drawer />
     </template>
-    <router-view />
+    <div class="actograph-userspace">
+      <router-view />
+    </div>
   </StandardLayout>
 </template>
 

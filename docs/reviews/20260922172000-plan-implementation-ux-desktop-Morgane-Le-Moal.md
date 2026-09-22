@@ -61,6 +61,7 @@ Les libellés i18n et le chrome userspace (drawer, Mes chroniques, protocole, ob
 | 1Bis | Déconnecté : clic icône → `openCloud()`. `@click.stop`. Ne pas modifier le contenu de `CloudLoginDialog` (H.4). |
 | 3 | Titre **Protocole** en i18n sur la page. **Pas** d’écriture API. |
 | 4 | `order` reste en base ; on ne l’affiche plus à l’ajout. Mobile a son propre éditeur. |
+| 4Bis | Même séquence que la modale (delete + add, append). Correctif : passer `action` + `graphPreferences` dans `POST /item` (branche observable seulement). Pas d’insert. Pas `parentId` sur `EditItemDto`. Pas `mobile/` ni `packages/`. |
 | 5 | Brancher Rec / Pause / Terminer sur `startTimer` / `pauseTimer` / `stopTimer` existants. |
 | 6 | Bannière = composant front. Ne pas modifier `hasReadingsAfterLastStop` dans core. |
 | 7 | Conserver le branchement Electron (`saveImageViaElectron`) vs téléchargement navigateur déjà en place. |
@@ -87,6 +88,7 @@ Lot 1  Drawer (nav, cloud, compte, Dupliquer, focus accent)
   └─ Lot 2  Carte Mes chroniques
 Lot 3  Protocole libellés / grille / CTA
   └─ Lot 4  Protocole inline + D&D
+      └─ Lot 4Bis  D&D observable → autre catégorie (P.10)
 Lot 5  Observation session (Rec / Pause / Terminer + chrome)
 Lot 6  Observation relevés + bannière orphelins partagée
 Lot 7  ExportMenu (Graphe + Stats + cartes)
@@ -344,6 +346,74 @@ Les modales **Edit** / **Remove** / **Move** peuvent rester pour l’édition. L
 
 ---
 
+## Lot 4Bis — D&D observable vers une autre catégorie
+
+**IDs** : P.10  
+**Dépend de** : Lot 4 (D&D intra-catégorie déjà en place)  
+**Prompt** : `LOT-04BIS`  
+**CR** : [LOT-04BIS](./20260922172700-cr-ux-desktop-Morgane-Le-Moal.md#lot-04bis)
+
+Complément du Lot 4 : P.6 reste le réordre **dans** la catégorie. Ici le drop vers une autre catégorie **rejoue la modale Déplacer**, et **corrige** le payload (bug : `action` / `graphPreferences` perdus).
+
+Séquence inchangée (`MoveObservableModal.vue`) :
+
+```
+deleteItem(observable.id, protocolId)
+addObservable({ protocolId, parentId, name, description, order: target.children.length, action?, graphPreferences? })
+loadProtocol(currentObservation)
+```
+
+Sans correctif API, le front peut envoyer ces champs : le contrôleur `POST …/protocols/item` (branche observable) ne transmet que `protocolId`, `name`, `description`, `order`, `categoryId`. `addObservable` du service les accepte déjà. Les autres appels (inline, duplicate) ne les envoient pas → `undefined` → comportement actuel.
+
+### Pourquoi ce n’est pas un effet de bord Rec / stats
+
+| Surface | Mécanisme | Après le move (avec copie) |
+|---------|-----------|----------------------------|
+| Observation Rec | `category.action` + `category.children` ; bouton actif = `children.find(obs => obs.name === reading.name)` | Inchangé. Continue vs ponctuelle = **catégorie cible**. `observable.action` n’est pas lu. |
+| Relevés | `IReading.name` (pas d’id) | DATA **non** réécrits. |
+| Stats | Fratrie = noms des enfants ; mode = `category.action` | L’historique du nom change de fratrie / de mode **comme aujourd’hui** (effet métier du déplacement, pas de la copie). |
+| Graphe | `mergeGraphPreferences(catégorie, nœud)` — clés héritables seulement : `color`, `strokeWidth`, `backgroundPattern` | **Correctif** : si le nœud avait un override, il est conservé. Sinon (prefs absentes) : héritage de la **catégorie cible**, identique à aujourd’hui. `displayMode` / `supportCategoryId` / `visible` restent propres à la **catégorie** (non fusionnés). |
+
+Ne pas PATCH `graph-preferences` après coup : un seul `addObservable`. Ne pas recopier un objet vide (`{}`) — omettre le champ si le nœud n’a pas de prefs.
+
+### Décisions
+
+- Extraire **une** fonction `moveObservableToCategory(observable, targetCategoryId)` (dans `Index.vue` ou `protocol.service.ts` front existant — pas de nouveau package). Même try que la modale + `action` / `graphPreferences` **si définis**.
+- Brancher **D&D** et **MoveObservableModal** sur cette fonction (= le correctif de la modale).
+- Drop :
+  - sur une **ligne catégorie** dont l’id ≠ catégorie source → `targetCategoryId` = cet id ;
+  - sur un **observable d’une autre catégorie** → `targetCategoryId` = **parent** de cet observable (toujours un append ; la modale ne choisit pas l’index).
+- Intra-catégorie : inchangé (Lot 4, `editProtocolItem` + `order`). Ne pas passer par delete+add dans la même catégorie.
+- Flèches haut/bas : intra-catégorie.
+- API **minimale** (pas de migration, pas de `parentId` sur `EditItemDto`) :
+  1. `AddProtocolItemDto` : `graphPreferences?` optionnel (`@IsOptional()` `@IsObject()`, type `IGraphPreferences` déjà importé). `action` est déjà sur le DTO.
+  2. Branche observable de `addProtocolItem` : passer `action: body.action` et `graphPreferences: body.graphPreferences` à `items.addObservable`.
+- Front : `AddObservableDto` accepte `action?` et `graphPreferences?`.
+- Pas d’insert. Pas `vuedraggable`. Pas `mobile/` ni `packages/`. Pas d’autre route API.
+- Nouvel UUID : attendu. Unique `name` global : delete **avant** add (`ConflictException` sinon).
+
+### Fichiers
+
+- `front/src/pages/userspace/protocol/Index.vue` (`onRowDragOver` / `onRowDrop`)
+- `front/src/pages/userspace/protocol/_components/MoveObservableModal.vue`
+- `front/src/services/observations/protocol.service.ts` (`AddObservableDto` ; helper optionnel)
+- `api/src/core/observations/controllers/protocol.controller.ts` (`AddProtocolItemDto` + branche observable de `POST item`)
+- i18n seulement si un toast dédié manque déjà (`moveObservableSuccess` / `moveObservableFailed` existent)
+
+### Captures
+
+Aucune capture « avant » dédiée (comportement D&D absent). Vérifier sur le jeu Lieu / Action / Événements : drop **et** modale Déplacer vers la même cible.
+
+### Critères d’acceptation
+
+- [ ] Drop d’un observable sur une autre catégorie : même résultat que Déplacer vers cette catégorie (append, disparu de l’ancienne).
+- [ ] Payload add = `name` + `description` + `order: children.length` + `action` / `graphPreferences` **s’ils existent** sur le nœud.
+- [ ] Grep : `POST item` observable transmet `action` et `graphPreferences`. Les ajouts inline / duplicate **sans** ces champs restent comme aujourd’hui.
+- [ ] Rec / stats : même comportement qu’un move actuel (carte cible, fratrie par nom). Graphe : override `color` / `strokeWidth` / `backgroundPattern` du nœud **conservé** s’il existait.
+- [ ] D&D intra-catégorie + flèches inchangés.
+
+---
+
 ## Lot 5 — Observation : session Rec / Pause / Terminer
 
 **IDs** : O.1, O.2, O.3, O.5, O.6, O.9, O.11  
@@ -597,6 +667,7 @@ Le script passe en Node 20, ouvre l’API (`yarn start:dev-electron`) dans un on
 | 2 | Mes chroniques, chronique ouverte | Chip sur la 3e ligne ; 4 CTA dans le gris ; plus de cloud sur la carte |
 | 3 | Page Protocole | Titre Protocole - … ; continue / ponctuelle ; boutons alignés ; Aller à l’observation |
 | 4 | Liste vide + ajout + ordre | Inline, empty FR, pas de +, D&D |
+| 4Bis | Protocole, 2+ catégories | Drop = modale Déplacer (append) ; override couleur nœud **conservé** si présent ; Rec/stats = catégorie cible |
 | 5 | Observation **avec et sans** vidéo | Rec / Pause / Terminer ; Pause ≠ Fin ; timer à gauche |
 | 6 | Tableau relevés (+ Graphe / Stats pour la bannière) | Poubelle ligne ; replace dans la recherche ; datetime ; bannière au-dessus du tableau |
 | 7 | Graphe + Stats + une carte | Icône à droite ; 1 format = clic direct ; export hors du plot |

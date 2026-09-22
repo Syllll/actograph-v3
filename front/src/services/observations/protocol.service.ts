@@ -49,7 +49,21 @@ export interface AddObservableDto {
   protocolId: number;
   parentId: string; // Category ID
   order?: number;
+  action?: ProtocolItemActionEnum;
+  graphPreferences?: IGraphPreferences;
 }
+
+/** True when the node carries at least one defined graph preference (omit empty `{}` on move). */
+export const hasObservableGraphPreferences = (
+  graphPreferences?: IGraphPreferences
+): boolean => {
+  if (!graphPreferences) {
+    return false;
+  }
+  return Object.values(graphPreferences).some(
+    (value) => value !== undefined && value !== null
+  );
+};
 
 export interface EditItemDto {
   id: string;
@@ -283,4 +297,39 @@ export const protocolService = {
     );
     return response.data;
   },
+};
+
+/**
+ * Move an observable to another category (delete then append), preserving
+ * action and graphPreferences when present on the source node.
+ */
+export const moveObservableToCategory = async (options: {
+  observable: ProtocolItem;
+  targetCategoryId: string;
+  protocolId: number;
+  categories: ProtocolItem[];
+}): Promise<void> => {
+  const { observable, targetCategoryId, protocolId, categories } = options;
+
+  await protocolService.deleteItem(observable.id, protocolId);
+
+  const targetCategory = categories.find((c) => c.id === targetCategoryId);
+  const targetOrder = targetCategory?.children?.length ?? 0;
+
+  const payload: Omit<AddObservableDto, 'type'> = {
+    protocolId,
+    parentId: targetCategoryId,
+    name: observable.name,
+    description: observable.description,
+    order: targetOrder,
+  };
+
+  if (observable.action) {
+    payload.action = observable.action;
+  }
+  if (hasObservableGraphPreferences(observable.graphPreferences)) {
+    payload.graphPreferences = observable.graphPreferences;
+  }
+
+  await protocolService.addObservable(payload);
 };

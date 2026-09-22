@@ -302,6 +302,12 @@ export default {
       'Ajouter un relevé « Fin de pause » manquant après le « Début de pause » du {dateTime}',
   },
   protocolUi: {
+    pageHeading: 'Protocole - {chronicleName}',
+    goToObservation: 'Aller à l\'observation',
+    emptyState:
+      'Ajoutez au moins une catégorie, puis un ou plusieurs observables.',
+    dragToReorder: 'Glisser pour réordonner',
+    inlineAddValidate: 'Valider la ligne',
     addCategory: 'Ajouter une catégorie',
     moveObservableFailed: 'Échec du déplacement de l\'observable',
     moveCategoryFailed: 'Échec du déplacement de la catégorie',
@@ -347,8 +353,8 @@ export default {
     formNameRequired: 'Le nom est obligatoire',
     formOrderRequired: 'L\'ordre est obligatoire',
     formOrderNonNegative: 'L\'ordre doit être positif ou nul',
-    actionTypeContinuous: 'Continue',
-    actionTypeDiscrete: 'Ponctuel (événement)',
+    actionTypeContinuous: 'continue',
+    actionTypeDiscrete: 'ponctuelle',
     errCategoryNameRequired: 'Le nom de la catégorie est obligatoire',
     errCannotAddCategoryNoProtocolId:
       'Impossible d\'ajouter une catégorie : identifiant de protocole manquant',
