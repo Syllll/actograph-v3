@@ -254,13 +254,18 @@ Pour déployer l'application en production :
 
 ```bash
 bash scripts/publish.sh prod [major|minor|patch]
+bash scripts/publish.sh prod desktop
+bash scripts/publish.sh preprod mobile
+bash scripts/publish.sh prod desktop-mobile patch
 ```
 
+`prod` seul équivaut à `prod desktop`. Le tag est `prod-vX.Y.Z` et la CI ne construit que le bureau. Un tag qui contient `mobile` construit l'AAB et l'envoie sur le Play Store : piste production pour `prod`, test ouvert pour `preprod`.
+
 Cette commande :
-1. Incrémente la version dans les `package.json`
+1. Incrémente la version des `package.json` de la cible
 2. Crée un commit avec la nouvelle version
-3. Crée un tag Git au format `prod-vX.Y.Z`
-4. Déclenche le pipeline CI/CD pour le déploiement
+3. Crée un tag Git `prod-vX.Y.Z`, `preprod-vX.Y.Z`, ou le même tag avec `-mobile` ou `-desktop-mobile`
+4. Déclenche le pipeline CI/CD pour les cibles du tag
 
 Consultez [deployment.md](docs/deployment.md) pour plus de détails.
 

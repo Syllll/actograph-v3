@@ -181,7 +181,7 @@ Ce projet n'utilise **pas** de yarn workspaces. Il n'y a donc pas de `node_modul
 
 ### Synchronisation des versions
 
-Les versions des sous-projets doivent être synchronisées manuellement. Le script `scripts/publish.sh` gère automatiquement l'incrémentation des versions dans tous les `package.json`.
+Les versions bureau (`front`, `api`) et mobile (`mobile`) avancent séparément. `scripts/publish.sh prod` n'incrémente que le bureau. `publish.sh prod mobile` n'incrémente que le mobile. `desktop-mobile` exige que ces versions soient déjà identiques, puis les incrémente ensemble.
 
 ### Ordre de build pour @actograph/core
 

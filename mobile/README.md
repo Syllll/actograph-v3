@@ -251,6 +251,10 @@ keyPassword=VOTRE_MOT_DE_PASSE
 bash scripts/build-android.sh release
 ```
 
+### Publication automatique
+
+Depuis la racine du monorepo, `bash scripts/publish.sh prod mobile` incrémente la version mobile, pousse un tag `prod-vX.Y.Z-mobile`, et la CI construit l'AAB signé puis le soumet sur la piste production de `com.actograph.mobile`. `bash scripts/publish.sh preprod mobile` vise le test ouvert. Le détail des secrets et du `versionCode` est dans [docs/deployment.md](../docs/deployment.md).
+
 ### Build iOS
 
 ```bash

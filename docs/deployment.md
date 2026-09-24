@@ -12,37 +12,75 @@ L'application peut être déployée de deux manières :
 
 ### Processus
 
-Le déploiement automatique est déclenché par la création d'un tag Git au format `prod-vX.Y.Z` ou `preprod-vX.Y.Z`.
+Le déploiement automatique est déclenché par un tag Git :
+
+| Tag | Canal | Build |
+|-----|-------|-------|
+| `prod-vX.Y.Z` ou `prod-vX.Y.Z-desktop` | production | bureau Electron |
+| `preprod-vX.Y.Z` ou `preprod-vX.Y.Z-desktop` | préproduction | bureau Electron, release GitHub en prerelease |
+| `prod-vX.Y.Z-mobile` | production | AAB Android, piste Play production |
+| `preprod-vX.Y.Z-mobile` | préproduction | AAB Android, piste Play test ouvert |
+| `prod-vX.Y.Z-desktop-mobile` | production | bureau et Android (piste production) |
+| `preprod-vX.Y.Z-desktop-mobile` | préproduction | bureau en prerelease et Android en test ouvert |
+
+`bash scripts/publish.sh prod` produit le même tag que `bash scripts/publish.sh prod desktop`.
 
 ### Script de publication
 
 Utilisez le script `scripts/publish.sh` pour créer automatiquement un tag et déclencher le déploiement :
 
 ```bash
-# Déploiement en production avec incrément patch (par défaut)
+# Bureau en production, incrément patch (défaut). Équivaut à : prod desktop
 bash scripts/publish.sh prod
 
-# Déploiement en production avec incrément spécifique
-bash scripts/publish.sh prod major   # Version majeure (X.0.0)
-bash scripts/publish.sh prod minor   # Version mineure (X.Y.0)
-bash scripts/publish.sh prod patch   # Version patch (X.Y.Z)
+# Bureau en production, incrément choisi
+bash scripts/publish.sh prod major
+bash scripts/publish.sh prod minor
+bash scripts/publish.sh prod patch
+
+# Android seul, ou bureau et Android ensemble
+bash scripts/publish.sh prod mobile
+bash scripts/publish.sh preprod desktop-mobile patch
 ```
 
 ### Ce que fait le script
 
-1. **Vérification des versions** : S'assure que les versions du frontend et de l'API sont identiques
-2. **Vérification des tags existants** : Vérifie qu'aucun tag plus récent n'existe déjà
-3. **Incrémentation de version** : Met à jour les `package.json` du frontend et de l'API
-4. **Commit et push** : Crée un commit avec la nouvelle version et le pousse sur le dépôt distant
-5. **Création du tag** : Crée un tag au format `prod-vX.Y.Z` ou `preprod-vX.Y.Z`
-6. **Push du tag** : Pousse le tag pour déclencher le pipeline CI/CD
+1. **Vérification des versions** : le bureau compare frontend et API. Le mobile compare `mobile/package.json` et `mobile/src-capacitor/package.json`. `desktop-mobile` exige que les trois lignes soient déjà au même numéro.
+2. **Vérification des tags existants** : compare avec les tags du même canal qui embarquent la même cible
+3. **Incrémentation de version** : met à jour les `package.json` de la cible
+4. **Commit et push** : crée un commit avec la nouvelle version et le pousse sur le dépôt distant
+5. **Création du tag** : `prod-vX.Y.Z` pour le bureau. Le suffixe `-mobile` ou `-desktop-mobile` est ajouté quand la cible n'est pas le bureau seul. Le canal `preprod` remplace le préfixe `prod`.
+6. **Push du tag** : pousse le tag pour déclencher `.github/workflows/publish.yml`
 
 ### Pipeline CI/CD
 
-Le pipeline CI/CD (configuré dans `bitbucket-pipelines.yml`) :
-- Build les images Docker
-- Exécute les tests
-- Déploie l'application sur le serveur de production
+Le workflow `.github/workflows/publish.yml` lit le tag (`scripts/release-tag.sh`), puis lance les jobs demandés. Le job bureau utilise toujours l'environnement GitHub `deploy`, là où sont les certificats Electron. Le job mobile utilise `deploy` en production et `preprod` en préproduction.
+
+Le bureau produit les installeurs Electron et une release GitHub. En `preprod`, cette release est marquée prerelease, donc les clients Electron de production ne la prennent pas.
+
+### Android
+
+`bash scripts/publish.sh prod mobile` enchaîne la publication mobile :
+
+1. Il incrémente `mobile/package.json` et `mobile/src-capacitor/package.json`, puis pousse le tag `prod-vX.Y.Z-mobile`.
+2. La CI réécrit cette version dans les deux `package.json`. Gradle en déduit `versionName` et `versionCode` (`major * 10000 + minor * 100 + patch`, donc `0.0.96` donne `96`).
+3. `scripts/build-android.sh release --aab` produit `mobile/actograph-mobile-release.aab`, signé avec le keystore.
+4. L'AAB est envoyé sur l'application `com.actograph.mobile`. La piste est `production` pour `prod`, et `beta` (test ouvert) pour `preprod`.
+5. Le même AAB est joint à la release GitHub.
+
+Secrets des environnements `deploy` et `preprod` :
+
+| Secret | Rôle |
+|--------|------|
+| `ANDROID_KEYSTORE_BASE64` | keystore d'envoi, fichier `actograph-release.jks` |
+| `ANDROID_KEYSTORE_PASSWORD` | mot de passe du keystore |
+| `ANDROID_KEY_ALIAS` | alias de la clé |
+| `ANDROID_KEY_PASSWORD` | mot de passe de la clé |
+| `PLAY_SERVICE_ACCOUNT_JSON` | clé du compte `actograph-play-service-account@actograph-play.iam.gserviceaccount.com` |
+
+Le `versionCode` envoyé doit être strictement supérieur à celui déjà présent sur Play. Le script refuse aussi de recréer un tag qui existe déjà.
+
+`desktop-mobile` n'est possible que si `front`, `api` et `mobile` sont déjà au même numéro. Le script les incrémente alors ensemble.
 
 ## Déploiement manuel
 

@@ -279,7 +279,9 @@ DB_NAME=actograph.sqlite
 
 ### Workflow : `.github/workflows/publish.yml`
 
-Le workflow build pour 3 plateformes en parallèle (4 jobs) :
+Le workflow part sur les tags `prod-v*` et `preprod-v*`. Un job `parse` lit le tag. Un tag sans suffixe, ou suffixé `-desktop`, ne lance que le bureau. `-mobile` lance l'AAB Android et l'envoi Play. `-desktop-mobile` lance les deux. `preprod` publie la release GitHub en prerelease. Le détail Android est dans [deployment.md](deployment.md).
+
+Le job bureau, lancé seulement si le tag contient le bureau, build pour 3 plateformes en parallèle (4 runners) :
 
 | Plateforme | Runner | Architecture | Artifact |
 |------------|--------|--------------|----------|
@@ -303,7 +305,13 @@ Le workflow build pour 3 plateformes en parallèle (4 jobs) :
 7. Build Electron (`quasar build -m electron --publish never`)
 8. Upload des artifacts (`.exe`, `.zip`, `.AppImage`, `latest*.yml`, `.blockmap`)
 
-**Job 2 : `create-release`** (après tous les builds)
+**Job mobile : `build-mobile`** (si le tag contient `mobile`)
+
+1. Build de l'AAB signé (`scripts/build-android.sh release --aab`)
+2. Envoi sur le Play Store (production ou test ouvert selon le canal)
+3. Conservation de l'AAB comme artefact
+
+**Job `create-release`** (après les builds demandés)
 
 1. Téléchargement de tous les artifacts
 2. Normalisation des fichiers YAML macOS (`latest-mac.yml` → `latest-mac-arm64.yml` / `latest-mac-x64.yml`)

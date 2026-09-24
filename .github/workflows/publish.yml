@@ -3,10 +3,50 @@ name: Build and Publish Release
 on:
   push:
     tags:
-      - 'prod-v*.*.*'
+      - 'prod-v*'
+      - 'preprod-v*'
 
 jobs:
+  parse:
+    runs-on: ubuntu-latest
+    outputs:
+      canal: ${{ steps.parse.outputs.canal }}
+      version: ${{ steps.parse.outputs.version }}
+      desktop: ${{ steps.parse.outputs.desktop }}
+      mobile: ${{ steps.parse.outputs.mobile }}
+      targets: ${{ steps.parse.outputs.targets }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Parse release tag
+        id: parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          parsed="$(mktemp)"
+          bash scripts/release-tag.sh parse "$tag" > "$parsed"
+          while IFS='=' read -r key value; do
+            case "$key" in
+              CANAL) echo "canal=$value" >> "$GITHUB_OUTPUT" ;;
+              VERSION) echo "version=$value" >> "$GITHUB_OUTPUT" ;;
+              DESKTOP) echo "desktop=$value" >> "$GITHUB_OUTPUT" ;;
+              MOBILE) echo "mobile=$value" >> "$GITHUB_OUTPUT" ;;
+              TARGETS) echo "targets=$value" >> "$GITHUB_OUTPUT" ;;
+            esac
+          done < "$parsed"
+          for key in canal version desktop mobile targets; do
+            if ! grep -q "^${key}=" "$GITHUB_OUTPUT"; then
+              echo "Missing parse output: $key" >&2
+              exit 1
+            fi
+          done
+          echo "Tag $tag -> canal=$(grep '^canal=' "$GITHUB_OUTPUT" | cut -d= -f2) version=$(grep '^version=' "$GITHUB_OUTPUT" | cut -d= -f2) targets=$(grep '^targets=' "$GITHUB_OUTPUT" | cut -d= -f2)"
+
   build-and-upload:
+    needs: parse
+    if: needs.parse.outputs.desktop == 'true'
     strategy:
       matrix:
         include:
@@ -22,11 +62,6 @@ jobs:
       contents: write 
 
     steps:
-      - name: Extract version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/prod-v}" >> $GITHUB_OUTPUT
-        shell: bash
-
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -103,11 +138,11 @@ jobs:
         shell: bash
         run: |
           # Update API package.json
-          jq '.version = "${{ steps.get_version.outputs.VERSION }}"' api/package.json > api/package.json.tmp
+          jq '.version = "${{ needs.parse.outputs.version }}"' api/package.json > api/package.json.tmp
           mv api/package.json.tmp api/package.json
           
           # Update Frontend package.json
-          jq '.version = "${{ steps.get_version.outputs.VERSION }}"' front/package.json > front/package.json.tmp
+          jq '.version = "${{ needs.parse.outputs.version }}"' front/package.json > front/package.json.tmp
           mv front/package.json.tmp front/package.json
 
       - name: Get package.json hash
@@ -413,31 +448,117 @@ jobs:
             front/dist/electron/Packaged/latest*.yaml
             front/dist/electron/Packaged/*.blockmap
 
+  build-mobile:
+    needs: parse
+    if: needs.parse.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.parse.outputs.canal == 'prod' && 'deploy' || 'preprod' }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          set -euo pipefail
+          if ! command -v sdkmanager >/dev/null; then
+            echo "sdkmanager not found after setup-android" >&2
+            exit 1
+          fi
+          mkdir -p "${ANDROID_HOME}/licenses"
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > "${ANDROID_HOME}/licenses/android-sdk-license"
+          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Setup Yarn
+        run: npm install -g yarn
+
+      - name: Write mobile versions from tag
+        shell: bash
+        run: |
+          version="${{ needs.parse.outputs.version }}"
+          for file in mobile/package.json mobile/src-capacitor/package.json; do
+            jq --arg version "$version" '.version = $version' "$file" > "$file.tmp"
+            mv "$file.tmp" "$file"
+          done
+
+      - name: Configure release keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD}" ] || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
+            echo "Missing Android signing secrets (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD)" >&2
+            exit 1
+          fi
+          umask 077
+          keystore_dir="mobile/src-capacitor/android"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$keystore_dir/app/actograph-release.jks"
+          printf 'storeFile=actograph-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEY_ALIAS" "$ANDROID_KEY_PASSWORD" \
+            > "$keystore_dir/keystore.properties"
+
+      - name: Build signed release AAB
+        shell: bash
+        run: bash scripts/build-android.sh release --aab
+
+      - name: Upload to Google Play
+        uses: r0adkll/upload-google-play@v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.actograph.mobile
+          releaseFiles: mobile/actograph-mobile-release.aab
+          track: ${{ needs.parse.outputs.canal == 'prod' && 'production' || 'beta' }}
+          status: completed
+
+      - name: Upload mobile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-aab
+          path: mobile/actograph-mobile-release.aab
+
   create-release:
-    needs: build-and-upload
+    needs: [parse, build-and-upload, build-mobile]
+    if: |
+      always() &&
+      needs.parse.result == 'success' &&
+      contains(fromJSON('["success","skipped"]'), needs.build-and-upload.result) &&
+      contains(fromJSON('["success","skipped"]'), needs.build-mobile.result)
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          # Fetch tags to enable git describe
-          fetch-depth: 0
-
-      - name: Extract version from tag
-        id: get_version
-        run: |
-          # Get the latest tag that matches prod-v*.*.* pattern
-          VERSION=$(git describe --tags --match 'prod-v*.*.*' --abbrev=0 | sed 's/prod-v//')
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Extracted version: $VERSION"
-        shell: bash
-
-      - name: Download all artifacts
+      - name: Download electron artifacts
+        if: needs.build-and-upload.result == 'success'
         uses: actions/download-artifact@v4
         with:
+          pattern: electron-artifacts-*
           path: artifacts
+
+      - name: Download mobile artifact
+        if: needs.build-mobile.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-aab
+          path: artifacts/mobile-aab
 
       - name: Normalize mac update files to avoid duplicate names
         run: |
@@ -506,6 +627,13 @@ jobs:
           if compgen -G "artifacts/electron-artifacts-windows-latest/latest.yml" > /dev/null; then
             cp -f artifacts/electron-artifacts-windows-latest/latest.yml artifacts/release/
           fi
+          if compgen -G "artifacts/mobile-aab/*.aab" > /dev/null; then
+            cp -f artifacts/mobile-aab/*.aab artifacts/release/
+          fi
+          if ! compgen -G "artifacts/release/*" > /dev/null; then
+            echo "No release files to publish" >&2
+            exit 1
+          fi
 
       - name: Setup Node.js (for YAML merge)
         uses: actions/setup-node@v4
@@ -544,11 +672,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: actograph-v3 v${{ steps.get_version.outputs.VERSION }}
-          # Use consistent tag naming: keep prod-v prefix to match trigger
-          tag_name: prod-v${{ steps.get_version.outputs.VERSION }}
+          name: actograph-v3 v${{ needs.parse.outputs.version }} (${{ needs.parse.outputs.canal }}, ${{ needs.parse.outputs.targets }})
+          tag_name: ${{ github.ref_name }}
           files: artifacts/release/*
           draft: false
-          prerelease: false
+          prerelease: ${{ needs.parse.outputs.canal == 'preprod' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
