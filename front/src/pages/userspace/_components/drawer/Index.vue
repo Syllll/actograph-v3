@@ -300,10 +300,10 @@
                   <q-item-section>{{ $t('drawer.changeLicense') }}</q-item-section>
                 </q-item>
 
-                <q-separator v-if="computedState.isElectron.value" />
+                <q-separator v-if="computedState.showElectronDevLogout.value" />
 
                 <q-item
-                  v-if="computedState.isElectron.value"
+                  v-if="computedState.showElectronDevLogout.value"
                   clickable
                   v-close-popup
                   v-ripple
@@ -312,7 +312,7 @@
                   <q-item-section avatar>
                     <q-icon name="logout" />
                   </q-item-section>
-                  <q-item-section>{{ $t('layout.menuQuit') }}</q-item-section>
+                  <q-item-section>{{ $t('layout.closeDevSession') }}</q-item-section>
                 </q-item>
               </q-list>
             </q-menu>
@@ -343,6 +343,7 @@ import LicenseBadge from '@lib-improba/components/layouts/standard/toolbar/licen
 import HelpDialog from '@pages/userspace/_components/HelpDialog.vue';
 import PreferencesDialog from '@pages/userspace/_components/PreferencesDialog.vue';
 import ChangeLicenseDialog from '@pages/userspace/_components/ChangeLicenseDialog.vue';
+import CloudDisconnectDialog from '@pages/userspace/home/_components/cloud/CloudDisconnectDialog.vue';
 
 export default defineComponent({
   components: {
@@ -405,6 +406,10 @@ export default defineComponent({
         () => process.env.MODE === 'electron' && Boolean(autosaveRestore),
       ),
       isElectron: computed(() => process.env.MODE === 'electron'),
+      // JWT logout is for local Electron dev (auth flows); end users auto-login at startup.
+      showElectronDevLogout: computed(
+        () => process.env.MODE === 'electron' && process.env.DEV,
+      ),
       cloudIndicatorIcon: computed(() =>
         cloud.sharedState.isAuthenticated
           ? 'mdi-cloud-outline'
@@ -427,7 +432,13 @@ export default defineComponent({
         if (!cloud.sharedState.isAuthenticated) {
           event.stopPropagation();
           chronicleActions.openCloud();
+          return;
         }
+
+        event.stopPropagation();
+        createDialog({
+          component: CloudDisconnectDialog,
+        });
       },
       goToLicense: () => {
         void router.push({ name: 'user_license' });
