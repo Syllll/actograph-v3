@@ -146,5 +146,20 @@ export default defineComponent({
     max-width: 900px;
     height: 85vh;
   }
+
+  // DCardTitle uses h5 + ellipsis: too large for sm dialogs and truncates long copy.
+  .row.q-px-sm.items-center {
+    align-items: flex-start;
+  }
+
+  h5.ellipsis {
+    font-size: 1rem;
+    line-height: 1.35;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    overflow-wrap: anywhere;
+  }
 }
 </style>

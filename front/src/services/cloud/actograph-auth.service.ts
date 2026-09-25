@@ -17,6 +17,15 @@ export interface ILoginResult {
   error?: string;
 }
 
+export interface IForgotPasswordResult {
+  success: boolean;
+  networkError?: boolean;
+}
+
+export interface IResetPasswordResult {
+  success: boolean;
+}
+
 /**
  * Service d'authentification vers actograph.io pour l'application desktop
  * 
@@ -119,6 +128,50 @@ class ActographAuthService {
         success: false,
         error: 'Erreur de connexion. Vérifiez votre connexion internet.',
       };
+    }
+  }
+
+  /**
+   * Demande d'email de réinitialisation (API site, pas auth-jwt local).
+   */
+  async requestForgotPassword(username: string): Promise<IForgotPasswordResult> {
+    try {
+      const response = await fetch(`${ACTOGRAPH_API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username }),
+      });
+
+      return { success: response.ok };
+    } catch {
+      return { success: false, networkError: true };
+    }
+  }
+
+  /**
+   * Réinitialise le mot de passe cloud. Ne persiste pas le JWT web éventuellement renvoyé.
+   */
+  async resetPassword(token: string, password: string): Promise<IResetPasswordResult> {
+    try {
+      const response = await fetch(`${ACTOGRAPH_API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, password }),
+      });
+
+      if (!response.ok) {
+        return { success: false };
+      }
+
+      await response.json().catch(() => undefined);
+
+      return { success: true };
+    } catch {
+      return { success: false };
     }
   }
 

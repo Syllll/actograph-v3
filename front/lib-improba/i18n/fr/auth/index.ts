@@ -4,18 +4,18 @@ export default {
   newPassword: 'Entrez votre nouveau mot de passe',
   passwordConfirm: 'Confirmez votre mot de passe',
   passwordNotConfirmed:
-    'Votre passort est différent de celui saisi pour confirmation',
+    'Votre mot de passe est différent de celui saisi pour confirmation',
   connect: 'Vous identifier',
   forgottenPwd: {
-    requestNewPwd: 'Avez-vous oubliez votre mot de passe?',
+    requestNewPwd: 'Avez-vous oublié votre mot de passe?',
     mailForNewPwd:
       "Un nouveau message vient d'arriver dans votre boîte mail pour réinitialiser votre mot de passe.",
-    goBackToHome: "Retour à l'acceuil",
+    goBackToHome: "Retour à l'accueil",
   },
   noAccount: "Vous n'avez pas de compte ?",
   alreadyRegistered: 'Vous avez déjà un compte ?',
   newAccount: "S'inscrire !",
-  errors: 'Des erreurs ont été rencontré.',
+  errors: 'Veuillez vérifier les champs du formulaire.',
   wrongAuth: 'Identifiants erronés.',
   register: 'Créer mon compte',
   passwordWrongFormatDialog: {
@@ -27,7 +27,7 @@ export default {
   },
   registerDoneDialog: {
     title: 'Compte créé',
-    message: 'Votre compté est enregistré',
+    message: 'Votre compte est enregistré',
   },
   resetPasswordDoneDialog: {
     title: 'Mot de passe réinitialisé',

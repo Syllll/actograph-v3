@@ -14,7 +14,7 @@ export default {
   noAccount: "Don't have an account?",
   alreadyRegistered: 'Already an account?',
   newAccount: 'Please register.',
-  errors: 'Errors were encountered.',
+  errors: 'Please check the form fields.',
   wrongAuth: 'Wrong credentials',
   register: 'Register',
   passwordWrongFormatDialog: {

@@ -1,5 +1,5 @@
 <template>
-  <div class="row justify-center q-pa-lg">
+  <div class="fit row justify-center items-center q-pa-lg">
     <DCard style="width: 40rem">
       <div class="column items-center">
         <p class="introText">
