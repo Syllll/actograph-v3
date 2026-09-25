@@ -1,10 +1,12 @@
 # Authentification
 
-Ce document décrit le système d'authentification de l'application ActoGraph v3, basé sur JWT (JSON Web Tokens).
+Ce document décrit l'**authentification JWT locale** de l'API embarquée ActoGraph v3 (SQLite, module `auth-jwt`). Ce n'est **pas** la doc des comptes hébergés sur actograph.io : voir la section [Cloud actograph.io](#cloud-actographio) (modale « Se connecter au cloud », sync des chroniques).
 
 ## Vue d'ensemble
 
-L'application utilise un système d'authentification JWT pour sécuriser l'accès à l'API. Les tokens JWT sont émis lors de la connexion et doivent être inclus dans toutes les requêtes authentifiées.
+L'API locale utilise des JWT pour sécuriser l'accès aux routes protégées. Les tokens sont émis à la connexion via `/auth-jwt/login` et doivent être inclus dans les requêtes authentifiées vers cette API.
+
+La connexion **cloud** (comptes importés ou créés sur le site, mot de passe partagé avec l'espace client web) est un flux séparé : elle ne passe pas par `use-auth` ni par `/auth-jwt/*`.
 
 ## Architecture
 
@@ -149,7 +151,7 @@ Le router Vue est configuré pour vérifier l'authentification :
 
 ## Gestion des utilisateurs
 
-### Création d'un utilisateur
+### Création d'un utilisateur (base locale uniquement)
 
 **Endpoint :**
 ```
@@ -158,6 +160,8 @@ Body: { username: string, password: string }
 ```
 
 Le mot de passe est automatiquement hashé avec `bcrypt` avant stockage.
+
+Cet endpoint crée un utilisateur dans la **base SQLite de l'app**, pas un compte actograph.io. Ne pas le confondre avec la création de compte sur le site (achat, admin, formulaire étudiant `/get`).
 
 ### Rôles et permissions
 
@@ -209,7 +213,9 @@ const hashedPassword = await bcrypt.hash(password, 10);
 const isValid = await bcrypt.compare(password, hashedPassword);
 ```
 
-## Réinitialisation de mot de passe
+## Réinitialisation de mot de passe (JWT local)
+
+Ces endpoints concernent uniquement les comptes **locaux** (`auth-jwt`). Pour un compte cloud, utiliser le flux de la modale décrit dans [Cloud actograph.io](#cloud-actographio).
 
 ### Demande de réinitialisation
 
@@ -228,6 +234,48 @@ Un token de réinitialisation est généré et envoyé par email.
 POST /auth-jwt/reset-password
 Body: { token: string, newPassword: string }
 ```
+
+## Cloud actograph.io
+
+Comptes gérés par l'**API site** (`actograph.io`), partagés avec l'espace client web. Dans l'app desktop, l'entrée utilisateur est la modale `CloudLoginDialog` (`front/src/pages/userspace/home/_components/cloud/CloudLoginDialog.vue`), branchée sur `actographAuthService` (`front/src/services/cloud/actograph-auth.service.ts`).
+
+Ne **pas** utiliser `front/lib-improba/components/auth/Login.vue` ni `use-auth` pour ce flux : c'est le login JWT **local** de l'API app, autre base de données.
+
+### Connexion cloud
+
+```
+POST https://actograph.io/api/auth-tokens
+Body: { login: string, password: string }
+Response: { value: string, ... }   // token cloud (JWT site)
+```
+
+- `login` : adresse e-mail **ou** nom d'utilisateur (comptes des versions antérieures d'ActoGraph, alias après migration côté site).
+- En cas d'échec, l'API renvoie un message du type `Invalid credentials` ; la modale affiche les erreurs i18n `cloud.*`.
+
+Le service stocke le token et les identifiants dans `localStorage` (desktop) pour la reconnexion automatique et les appels sync (`use-cloud`).
+
+Le nuage **connecté** du tiroir ouvre `CloudDisconnectDialog` : confirmation, puis `logout()` efface cette session. Le login cloud ne se rouvre pas. « Changer de compte », dans `CloudSyncDialog`, reste un autre geste (déconnexion puis nouvelle connexion).
+
+### Mot de passe oublié (modale cloud)
+
+L'utilisateur desktop ne repasse pas par la vitrine : tout se fait dans `CloudLoginDialog`.
+
+| Étape | Endpoint site | Corps |
+|-------|---------------|--------|
+| Demande d'e-mail | `POST https://actograph.io/api/auth/forgot-password` | `{ username }` (identifiant saisi : email ou nom d'utilisateur) |
+| Nouveau mot de passe | `POST https://actograph.io/api/auth/reset-password` | `{ token, password }` |
+
+- **Ne pas** appeler `/auth-jwt/password-forgot` ni `/auth-jwt/reset-password` : autre base, comptes locaux uniquement.
+- L'e-mail part vers l'adresse du compte, pas vers l'identifiant saisi si c'est un username.
+- Après réception du mail, l'utilisateur **colle le lien** (ou le jeton) dans la modale, choisit un nouveau mot de passe, puis revient à l'écran de connexion cloud (pas de connexion automatique ; le JWT web éventuellement renvoyé par l'API n'est pas persisté comme session cloud).
+
+### Licences et comptes cloud
+
+- **Licence** (clé reçue à l'achat ou à l'étudiant) et **compte cloud** restent deux objets distincts.
+- Les licences des **versions antérieures** restent actives : au gateway d'activation (`ChooseVersion` → `ActivatePro`), saisir la clé existante (28 caractères, masque `xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx`). Pas besoin d'en racheter une pour utiliser ActoGraph v3.
+- Une fois l'app activée, la connexion cloud permet la sync des chroniques ; les comptes des versions antérieures restent utilisables avec l'identifiant d'origine (email ou nom d'utilisateur).
+
+Documentation produit / comptes site (connexion web, étudiant `/get`, alias) : dépôt `actograph-site`, fichier `docs/auth-comptes.md`.
 
 ## Dépannage
 

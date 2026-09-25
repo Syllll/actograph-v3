@@ -8,7 +8,7 @@ Ce dossier suit les conventions de la **Knowledge Base Improba** (`.knowledge-ba
 docs/
 ├── README.md                    # Ce fichier
 ├── architecture.md              # (à créer si nécessaire)
-├── authentification.md          # Documentation authentification
+├── authentification.md          # JWT local API app + section Cloud actograph.io
 ├── chronic.md                   # Documentation format .chronic
 ├── deployment.md                # Documentation déploiement
 ├── electron-desktop-build.md    # Build Electron desktop
@@ -75,6 +75,10 @@ docs/features/
 │   └── 20251201000000-plan-implementation-mobile-Sylvain-Meylan.md
 └── 20250101000000-4-page-accueil-Sylvain-Meylan.md
 ```
+
+## Navigation rapide
+
+- [Authentification](authentification.md) : JWT local (`/auth-jwt/*`, `use-auth`, login embarqué) et [connexion cloud actograph.io](authentification.md#cloud-actographio) (modale desktop, API site).
 
 ## Référence
 
