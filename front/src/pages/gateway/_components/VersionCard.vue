@@ -1,6 +1,6 @@
 <template>
   <DCard>
-    <q-card-section>
+    <q-card-section class="text-center">
       <div class="text-h6">{{ title }}</div>
       <div class="text-subtitle2">{{ subtitle }}</div>
     </q-card-section>

@@ -1,9 +1,10 @@
 <template>
-  <div class="fit row justify-center items-start q-pt-xl">
+  <div class="fit row justify-center items-center">
     <DCard style="max-width: 60rem">
       <div class="row justify-center items-center">
-        <h1>{{ $t('gateway.chooseVersionTitle') }}</h1>
-        <p>{{ $t('gateway.chooseVersionSubtitle') }}</p>
+        <h1 class="col-12 text-center">{{ $t('gateway.chooseVersionTitle') }}</h1>
+        <p class="col-12 text-left q-mb-none">{{ $t('gateway.chooseVersionSubtitle') }}</p>
+        <p class="col-12 text-left">{{ $t('gateway.chooseVersionLegacyHint') }}</p>
       </div>
       <div class="row justify-center q-col-gutter-md">
         <VersionCard
