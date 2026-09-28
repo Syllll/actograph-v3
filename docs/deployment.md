@@ -64,9 +64,10 @@ Le bureau produit les installeurs Electron et une release GitHub. En `preprod`, 
 
 1. Il incrémente `mobile/package.json` et `mobile/src-capacitor/package.json`, puis pousse le tag `prod-vX.Y.Z-mobile`.
 2. La CI réécrit cette version dans les deux `package.json`. Gradle en déduit `versionName` et `versionCode` (`major * 10000 + minor * 100 + patch`, donc `0.0.96` donne `96`).
-3. `scripts/build-android.sh release --aab` produit `mobile/actograph-mobile-release.aab`, signé avec le keystore.
-4. L'AAB est envoyé sur l'application `com.actograph.mobile`. La piste est `production` pour `prod`, et `beta` (test ouvert) pour `preprod`.
-5. Le même AAB est joint à la release GitHub.
+3. Java 21 et les lockfiles Yarn figés sont utilisés pour produire `mobile/actograph-mobile-release.aab`, signé avec le keystore, via `scripts/build-android.sh release --aab`.
+4. `scripts/verify-android-16k.sh` contrôle l'alignement ZIP de l'AAB et les segments ELF de toutes les bibliothèques natives. La publication s'arrête si la compatibilité avec les pages mémoire de 16 Ko n'est pas démontrée.
+5. L'AAB est envoyé sur l'application `com.actograph.mobile`. La piste est `production` pour `prod`, et `beta` (test ouvert) pour `preprod`.
+6. Le même AAB est joint à la release GitHub.
 
 Secrets des environnements `deploy` et `preprod` :
 
@@ -338,4 +339,3 @@ docker logs --tail 100 actograph-v3-api
 1. Vérifiez l'utilisation des ressources : `docker stats`
 2. Optimisez les requêtes de base de données
 3. Augmentez les ressources allouées aux conteneurs
-

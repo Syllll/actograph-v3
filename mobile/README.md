@@ -68,8 +68,8 @@ export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin"
 export CAPACITOR_ANDROID_STUDIO_PATH="/chemin/vers/android-studio/bin/studio.sh"
 # Exemple : export CAPACITOR_ANDROID_STUDIO_PATH="$HOME/programs/android-studio/bin/studio.sh"
 
-# Java 17+ (OBLIGATOIRE pour le build Android en ligne de commande)
-export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+# Java 21+ (OBLIGATOIRE pour Capacitor 7 et le build Android en ligne de commande)
+export JAVA_HOME="/usr/lib/jvm/java-21-openjdk-amd64"
 ```
 
 Après modification, rechargez le fichier :

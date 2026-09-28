@@ -10,7 +10,7 @@
 #
 # Prerequisites:
 # - ANDROID_HOME or ANDROID_SDK_ROOT set in ~/.bashrc
-# - Java 17+
+# - Java 21+
 # - For release: keystore.properties configured (see keystore.properties.example)
 
 # Ensure script is run with bash
@@ -113,7 +113,13 @@ fi
 
 if ! command -v java &> /dev/null; then
     echo "Error: Java is not installed or not in PATH"
-    echo "Install JDK 17+: sudo apt install openjdk-17-jdk"
+    echo "Install JDK 21+: sudo apt install openjdk-21-jdk"
+    exit 1
+fi
+
+JAVA_MAJOR_VERSION=$(java -version 2>&1 | awk -F '[\".]' '/version/ { print $2; exit }')
+if [ -z "$JAVA_MAJOR_VERSION" ] || [ "$JAVA_MAJOR_VERSION" -lt 21 ]; then
+    echo "Error: Java 21 or newer is required (found Java ${JAVA_MAJOR_VERSION:-unknown})"
     exit 1
 fi
 
@@ -165,7 +171,7 @@ if [ -d "./node_modules" ] && [ -n "$(ls -A ./node_modules 2>/dev/null)" ]; then
     echo "Using cached node_modules for packages/core"
 else
     echo "Installing dependencies for packages/core"
-    yarn install
+    yarn install --frozen-lockfile
 fi
 yarn build
 echo "packages/core built successfully"
@@ -175,7 +181,7 @@ if [ -d "./node_modules" ] && [ -n "$(ls -A ./node_modules 2>/dev/null)" ]; then
     echo "Using cached node_modules for packages/graph"
 else
     echo "Installing dependencies for packages/graph"
-    yarn install
+    yarn install --frozen-lockfile
 fi
 yarn build
 echo "packages/graph built successfully"
@@ -191,7 +197,15 @@ if [ -d "./node_modules" ] && [ -n "$(ls -A ./node_modules 2>/dev/null)" ]; then
     echo "Using cached node_modules for mobile"
 else
     echo "Installing dependencies for mobile"
-    yarn install
+    yarn install --frozen-lockfile
+fi
+
+cd "$MOBILE_DIR/src-capacitor"
+if [ -d "./node_modules" ] && [ -n "$(ls -A ./node_modules 2>/dev/null)" ]; then
+    echo "Using cached node_modules for src-capacitor"
+else
+    echo "Installing dependencies for src-capacitor"
+    yarn install --frozen-lockfile
 fi
 
 # ==========================================

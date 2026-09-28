@@ -468,7 +468,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -519,6 +519,10 @@ jobs:
       - name: Build signed release AAB
         shell: bash
         run: bash scripts/build-android.sh release --aab
+
+      - name: Verify 16 KB page-size compatibility
+        shell: bash
+        run: bash scripts/verify-android-16k.sh mobile/actograph-mobile-release.aab
 
       - name: Upload to Google Play
         uses: r0adkll/upload-google-play@v1.1.5
