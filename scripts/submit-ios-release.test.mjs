@@ -70,6 +70,28 @@ test('never replaces a build already attached to an App Store version', async ()
   await assert.rejects(submitIosRelease({ version: '1.3.2', keyId: 'KEY', issuerId: 'ISSUER', keyPem, releaseNotes: notes, fetchImpl, now: () => 1_000_000 }), /different build/);
 });
 
+test('reuses an empty draft and reports Apple submission validation details', async () => {
+  const fetchImpl = async (url, options) => {
+    const { pathname } = url;
+    if (pathname === '/v1/apps') return json({ data: [{ id: '1320016064', attributes: { bundleId: 'com.symalgo-tech.actograph' } }] });
+    if (pathname === '/v1/preReleaseVersions') return json({ data: [{ id: 'prerelease-1' }] });
+    if (pathname === '/v1/builds') return json({ data: [{ id: 'build-1', attributes: { processingState: 'VALID' } }] });
+    if (pathname === '/v1/apps/1320016064/appStoreVersions') return json({ data: [{ id: 'version-1', attributes: { versionString: '1.3.2', platform: 'IOS', appStoreState: 'PREPARE_FOR_SUBMISSION', releaseType: 'AFTER_APPROVAL' } }] });
+    if (pathname === '/v1/appStoreVersions/version-1/relationships/build') return json({ data: { id: 'build-1' } });
+    if (pathname === '/v1/appStoreVersions/version-1/appStoreVersionLocalizations') return json({ data: [{ id: 'loc-1', attributes: { locale: 'fr-FR' } }] });
+    if (pathname === '/v1/appStoreVersionLocalizations/loc-1') return json({ data: { id: 'loc-1' } });
+    if (pathname === '/v1/apps/1320016064/reviewSubmissions') return json({ data: [{ id: 'draft-1', attributes: { state: 'READY_FOR_REVIEW' } }] });
+    if (pathname === '/v1/reviewSubmissions/draft-1/items') return json({ data: [] });
+    if (pathname === '/v1/reviewSubmissionItems' && options.method === 'POST') {
+      const body = JSON.parse(options.body);
+      assert.equal(body.data.relationships.reviewSubmission.data.id, 'draft-1');
+      return json({ errors: [{ code: 'STATE_ERROR.ENTITY_STATE_INVALID', detail: 'Check associated errors', meta: { associatedErrors: { '/v1/appScreenshots/': [{ code: 'STATE_ERROR.SCREENSHOT_REQUIRED.APP_IPHONE_65', detail: 'A screenshot is required' }] } } }] }, 409);
+    }
+    throw new Error(`Unexpected API call: ${options.method} ${pathname}`);
+  };
+  await assert.rejects(submitIosRelease({ version: '1.3.2', keyId: 'KEY', issuerId: 'ISSUER', keyPem, releaseNotes: notes, fetchImpl, now: () => 1_000_000 }), /APP_IPHONE_65: A screenshot is required/);
+});
+
 test('version and build-number validation prevents collisions', () => {
   assert.equal(iosBuildNumber('0.1.23'), '123');
   assert.throws(() => iosBuildNumber('0.0.100'), /below 100/);

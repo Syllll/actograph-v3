@@ -34,7 +34,10 @@ function token(keyId, issuerId, privateKey, now) {
 
 function apiError(method, url, status, body) {
   const details = (body?.errors || []).map((error) => `${error.code || error.title}: ${error.detail || error.title}`).join('; ');
-  return new Error(`${method} ${url.pathname} failed (${status}): ${details || JSON.stringify(body)}`);
+  const associated = (body?.errors || []).flatMap((error) =>
+    Object.entries(error.meta?.associatedErrors || {}).flatMap(([resource, errors]) =>
+      errors.map((issue) => `${resource}: ${issue.code || issue.title}: ${issue.detail || issue.title}`)));
+  return new Error(`${method} ${url.pathname} failed (${status}): ${[details || JSON.stringify(body), ...associated].join('; ')}`);
 }
 
 export async function submitIosRelease({ version, keyId, issuerId, keyPem, releaseNotes, fetchImpl = fetch, sleep = wait, now = Date.now, pollMinutes = 45, apiBaseUrl = baseUrl }) {
@@ -177,10 +180,12 @@ export async function submitIosRelease({ version, keyId, issuerId, keyPem, relea
   const submissions = await api('GET', query(`/v1/apps/${appId}/reviewSubmissions`, { limit: '200' }));
   if (submissions.links?.next) throw new Error('Too many review submissions to safely identify the current version');
   let review;
+  let emptyDraft;
   for (const candidate of submissions.data || []) {
     if (!['READY_FOR_REVIEW', 'WAITING_FOR_REVIEW', 'IN_REVIEW'].includes(candidate.attributes?.state)) continue;
     const items = await api('GET', query(`/v1/reviewSubmissions/${candidate.id}/items`, { limit: '200' }));
     if (items.links?.next) throw new Error('Too many items in a review submission');
+    if (candidate.attributes.state === 'READY_FOR_REVIEW' && !items.data?.length && !emptyDraft) emptyDraft = candidate;
     const matchingItem = (items.data || []).find((item) => item.relationships?.appStoreVersion?.data?.id === versionId);
     if (matchingItem) {
       review = candidate;
@@ -192,10 +197,14 @@ export async function submitIosRelease({ version, keyId, issuerId, keyPem, relea
       data: { type: 'reviewSubmissions', id: review.id, attributes: { submitted: true } },
     });
   } else if (!review) {
-    const created = await api('POST', '/v1/reviewSubmissions', {
-      data: { type: 'reviewSubmissions', attributes: { platform: 'IOS' }, relationships: { app: { data: ref('apps', appId) } } },
-    });
-    review = created.data;
+    if (emptyDraft) {
+      review = emptyDraft;
+    } else {
+      const created = await api('POST', '/v1/reviewSubmissions', {
+        data: { type: 'reviewSubmissions', attributes: { platform: 'IOS' }, relationships: { app: { data: ref('apps', appId) } } },
+      });
+      review = created.data;
+    }
     if (!review?.id) throw new Error('Apple did not return a review submission ID');
     await api('POST', '/v1/reviewSubmissionItems', {
       data: {
