@@ -26,6 +26,7 @@ yarn-error.log*
 # Built APKs/AABs
 *.apk
 *.aab
+*.ipa
 
 # local .env files
 .env.local*

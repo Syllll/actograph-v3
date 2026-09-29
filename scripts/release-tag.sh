@@ -1,24 +1,26 @@
 #!/bin/bash
 
-# Parse a release tag: {prod|preprod}-vX.Y.Z[-desktop|-mobile|-desktop-mobile]
+# Parse a release tag: {prod|preprod}-vX.Y.Z[-desktop|-mobile|-android|-ios|-desktop-mobile]
 #
 # A tag without a target suffix means desktop only.
 #   prod-v0.0.1                 -> desktop
 #   prod-v0.0.1-desktop         -> desktop
-#   prod-v0.0.1-mobile          -> mobile
-#   preprod-v0.0.1-desktop-mobile -> desktop and mobile
+#   prod-v0.0.1-mobile          -> Android and iOS
+#   prod-v0.0.1-android         -> Android only
+#   prod-v0.0.1-ios             -> iOS only
+#   preprod-v0.0.1-desktop-mobile -> desktop, Android and iOS
 #
 # Usage:
 #   bash scripts/release-tag.sh parse prod-v0.0.1
-# Prints KEY=value lines: CANAL, VERSION, DESKTOP, MOBILE, TARGETS
+# Prints KEY=value lines: CANAL, VERSION, DESKTOP, MOBILE, ANDROID, IOS, TARGETS
 
 parse_release_tag() {
     local tag="$1"
     local canal version suffix
 
-    if [[ ! "$tag" =~ ^(prod|preprod)-v([0-9]+)\.([0-9]+)\.([0-9]+)(-(desktop-mobile|desktop|mobile))?$ ]]; then
+    if [[ ! "$tag" =~ ^(prod|preprod)-v([0-9]+)\.([0-9]+)\.([0-9]+)(-(desktop-mobile|desktop|mobile|android|ios))?$ ]]; then
         echo "Invalid release tag: $tag" >&2
-        echo "Expected {prod|preprod}-vX.Y.Z[-desktop|-mobile|-desktop-mobile]" >&2
+        echo "Expected {prod|preprod}-vX.Y.Z[-desktop|-mobile|-android|-ios|-desktop-mobile]" >&2
         return 1
     fi
 
@@ -30,6 +32,8 @@ parse_release_tag() {
     RELEASE_VERSION="$version"
     RELEASE_DESKTOP=false
     RELEASE_MOBILE=false
+    RELEASE_ANDROID=false
+    RELEASE_IOS=false
 
     case "$suffix" in
         ""|desktop)
@@ -38,11 +42,25 @@ parse_release_tag() {
             ;;
         mobile)
             RELEASE_MOBILE=true
+            RELEASE_ANDROID=true
+            RELEASE_IOS=true
             RELEASE_TARGETS="mobile"
+            ;;
+        android)
+            RELEASE_MOBILE=true
+            RELEASE_ANDROID=true
+            RELEASE_TARGETS="android"
+            ;;
+        ios)
+            RELEASE_MOBILE=true
+            RELEASE_IOS=true
+            RELEASE_TARGETS="ios"
             ;;
         desktop-mobile)
             RELEASE_DESKTOP=true
             RELEASE_MOBILE=true
+            RELEASE_ANDROID=true
+            RELEASE_IOS=true
             RELEASE_TARGETS="desktop-mobile"
             ;;
         *)
@@ -52,7 +70,7 @@ parse_release_tag() {
     esac
 }
 
-# Return 0 when the tag ships the given target (desktop or mobile).
+# Return 0 when the tag ships the given target (desktop, mobile, android or ios).
 tag_includes_target() {
     local tag="$1"
     local target="$2"
@@ -63,6 +81,12 @@ tag_includes_target() {
         return 0
     fi
     if [ "$target" = "mobile" ] && [ "$RELEASE_MOBILE" = true ]; then
+        return 0
+    fi
+    if [ "$target" = "android" ] && [ "$RELEASE_ANDROID" = true ]; then
+        return 0
+    fi
+    if [ "$target" = "ios" ] && [ "$RELEASE_IOS" = true ]; then
         return 0
     fi
     return 1
@@ -85,6 +109,8 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
             echo "VERSION=$RELEASE_VERSION"
             echo "DESKTOP=$RELEASE_DESKTOP"
             echo "MOBILE=$RELEASE_MOBILE"
+            echo "ANDROID=$RELEASE_ANDROID"
+            echo "IOS=$RELEASE_IOS"
             echo "TARGETS=$RELEASE_TARGETS"
             ;;
         *)

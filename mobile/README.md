@@ -200,6 +200,16 @@ bash scripts/build-android.sh --help
 
 Le script copie automatiquement le fichier final dans `mobile/actograph-mobile-{debug|release}.{apk|aab}`.
 
+### Build iOS (macOS uniquement)
+
+Le projet Xcode est versionné dans `src-capacitor/ios/`. Il utilise le Bundle ID iOS historique `com.symalgo-tech.actograph`, distinct de l'identifiant Android `com.actograph.mobile`. Installer Xcode 26 ou supérieur, CocoaPods et les dépendances Yarn, puis importer un certificat **Apple Distribution** et un profil de provisioning **App Store** pour `com.symalgo-tech.actograph`. Avec `IOS_TEAM_ID` et `IOS_PROVISIONING_PROFILE_NAME` définis :
+
+```bash
+bash scripts/build-ios.sh
+```
+
+Le script produit `mobile/actograph-mobile-release.ipa`. La configuration des secrets CI et les tags `-mobile`, `-android` et `-ios` sont décrits dans [Déploiement](../docs/deployment.md).
+
 ### Build avec Android Studio (legacy)
 
 ```bash
@@ -253,7 +263,7 @@ bash scripts/build-android.sh release
 
 ### Publication automatique
 
-Depuis la racine du monorepo, `bash scripts/publish.sh prod mobile` incrémente la version mobile, pousse un tag `prod-vX.Y.Z-mobile`, et la CI construit l'AAB signé puis le soumet sur la piste production de `com.actograph.mobile`. `bash scripts/publish.sh preprod mobile` vise le test ouvert. Le détail des secrets et du `versionCode` est dans [docs/deployment.md](../docs/deployment.md).
+Depuis la racine du monorepo, `bash scripts/publish.sh prod mobile` incrémente la version mobile et pousse un tag `prod-vX.Y.Z-mobile`. La CI envoie alors l'AAB sur la piste production Android de `com.actograph.mobile` et soumet l'IPA à l'App Review pour l'app iOS existante `com.symalgo-tech.actograph`, avec publication après approbation. `preprod mobile` vise la piste Android de test ouvert et téléverse l'IPA iOS sans la soumettre. Les tags `prod android` et `prod ios` ciblent chaque plateforme séparément. Le détail des secrets est dans [docs/deployment.md](../docs/deployment.md).
 
 ### Build iOS
 

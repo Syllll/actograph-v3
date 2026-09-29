@@ -18,10 +18,12 @@ Le déploiement automatique est déclenché par un tag Git :
 |-----|-------|-------|
 | `prod-vX.Y.Z` ou `prod-vX.Y.Z-desktop` | production | bureau Electron |
 | `preprod-vX.Y.Z` ou `preprod-vX.Y.Z-desktop` | préproduction | bureau Electron, release GitHub en prerelease |
-| `prod-vX.Y.Z-mobile` | production | AAB Android, piste Play production |
-| `preprod-vX.Y.Z-mobile` | préproduction | AAB Android, piste Play test ouvert |
-| `prod-vX.Y.Z-desktop-mobile` | production | bureau et Android (piste production) |
-| `preprod-vX.Y.Z-desktop-mobile` | préproduction | bureau en prerelease et Android en test ouvert |
+| `prod-vX.Y.Z-mobile` | production | Android (Play production) et iOS (soumission App Review, publication après approbation) |
+| `preprod-vX.Y.Z-mobile` | préproduction | Android (Play beta) et téléversement iOS vers App Store Connect |
+| `prod-vX.Y.Z-android` / `preprod-vX.Y.Z-android` | selon préfixe | Android uniquement |
+| `prod-vX.Y.Z-ios` / `preprod-vX.Y.Z-ios` | selon préfixe | iOS uniquement : soumission App Review en `prod`, téléversement en `preprod` |
+| `prod-vX.Y.Z-desktop-mobile` | production | bureau, Android et iOS |
+| `preprod-vX.Y.Z-desktop-mobile` | préproduction | bureau, Android et iOS |
 
 `bash scripts/publish.sh prod` produit le même tag que `bash scripts/publish.sh prod desktop`.
 
@@ -38,31 +40,33 @@ bash scripts/publish.sh prod major
 bash scripts/publish.sh prod minor
 bash scripts/publish.sh prod patch
 
-# Android seul, ou bureau et Android ensemble
+# Les deux plateformes mobiles, Android seul, iOS seul, ou bureau + mobile
 bash scripts/publish.sh prod mobile
+bash scripts/publish.sh prod android
+bash scripts/publish.sh preprod ios
 bash scripts/publish.sh preprod desktop-mobile patch
 ```
 
 ### Ce que fait le script
 
 1. **Vérification des versions** : le bureau compare frontend et API. Le mobile compare `mobile/package.json` et `mobile/src-capacitor/package.json`. `desktop-mobile` exige que les trois lignes soient déjà au même numéro.
-2. **Vérification des tags existants** : compare avec les tags du même canal qui embarquent la même cible
+2. **Vérification des tags existants** : compare avec les tags du même canal qui embarquent la même plateforme. Un tag `-mobile` compte pour Android et iOS.
 3. **Incrémentation de version** : met à jour les `package.json` de la cible
 4. **Commit et push** : crée un commit avec la nouvelle version et le pousse sur le dépôt distant
-5. **Création du tag** : `prod-vX.Y.Z` pour le bureau. Le suffixe `-mobile` ou `-desktop-mobile` est ajouté quand la cible n'est pas le bureau seul. Le canal `preprod` remplace le préfixe `prod`.
+5. **Création du tag** : `prod-vX.Y.Z` pour le bureau. Le suffixe `-mobile`, `-android`, `-ios` ou `-desktop-mobile` sélectionne les autres cibles. Le canal `preprod` remplace le préfixe `prod`.
 6. **Push du tag** : pousse le tag pour déclencher `.github/workflows/publish.yml`
 
 ### Pipeline CI/CD
 
-Le workflow `.github/workflows/publish.yml` lit le tag (`scripts/release-tag.sh`), puis lance les jobs demandés. Le job bureau utilise toujours l'environnement GitHub `deploy`, là où sont les certificats Electron. Le job mobile utilise `deploy` en production et `preprod` en préproduction.
+Le workflow `.github/workflows/publish.yml` lit le tag (`scripts/release-tag.sh`), puis lance les jobs demandés. Le job bureau utilise toujours l'environnement GitHub `deploy`, là où sont les certificats Electron. Les jobs Android et iOS utilisent `deploy` en production et `preprod` en préproduction.
 
 Le bureau produit les installeurs Electron et une release GitHub. En `preprod`, cette release est marquée prerelease, donc les clients Electron de production ne la prennent pas.
 
 ### Android
 
-`bash scripts/publish.sh prod mobile` enchaîne la publication mobile :
+`bash scripts/publish.sh prod android` publie Android seul ; `prod mobile` déclenche Android et iOS :
 
-1. Il incrémente `mobile/package.json` et `mobile/src-capacitor/package.json`, puis pousse le tag `prod-vX.Y.Z-mobile`.
+1. Il incrémente `mobile/package.json` et `mobile/src-capacitor/package.json`, puis pousse le tag correspondant.
 2. La CI réécrit cette version dans les deux `package.json`. Gradle en déduit `versionName` et `versionCode` (`major * 10000 + minor * 100 + patch`, donc `0.0.96` donne `96`).
 3. Java 21 et les lockfiles Yarn figés sont utilisés pour produire `mobile/actograph-mobile-release.aab`, signé avec le keystore, via `scripts/build-android.sh release --aab`.
 4. `scripts/verify-android-16k.sh` contrôle l'alignement ZIP de l'AAB et les segments ELF de toutes les bibliothèques natives. La publication s'arrête si la compatibilité avec les pages mémoire de 16 Ko n'est pas démontrée.
@@ -80,6 +84,41 @@ Secrets des environnements `deploy` et `preprod` :
 | `PLAY_SERVICE_ACCOUNT_JSON` | clé du compte `actograph-play-service-account@actograph-play.iam.gserviceaccount.com` |
 
 Le `versionCode` envoyé doit être strictement supérieur à celui déjà présent sur Play. Le script refuse aussi de recréer un tag qui existe déjà.
+Avec cette formule, les composantes `minor` et `patch` doivent rester inférieures à 100 ; après `0.0.99`, utiliser un incrément `minor` plutôt qu'un `patch`.
+
+### iOS
+
+`bash scripts/publish.sh preprod ios` crée une release iOS seule. `-mobile` et `-desktop-mobile` lancent le même job iOS en plus des autres cibles.
+
+1. Le runner `macos-26` utilise Xcode 26 et CocoaPods pour synchroniser le projet Capacitor versionné dans `mobile/src-capacitor/ios/`.
+2. `scripts/build-ios.sh` construit les packages partagés, l'application Quasar, une archive Xcode signée et `mobile/actograph-mobile-release.ipa`. `MARKETING_VERSION` vient du tag ; `CURRENT_PROJECT_VERSION` suit la formule `major * 10000 + minor * 100 + patch`.
+3. La CI envoie l'IPA à App Store Connect avec une clé API. En `preprod`, le build reste disponible dans App Store Connect : l'affectation à un groupe TestFlight n'est pas automatisée. En `prod`, la CI attend que **ce build et cette version** soient traités, crée ou retrouve la version App Store, affecte le build, renseigne les notes de version de `mobile/app-store-release-notes.json`, choisit la publication automatique après approbation et soumet la version à l'App Review. Il n'est pas nécessaire de se connecter à App Store Connect à chaque sortie si la fiche est déjà complète.
+4. L'IPA est conservée comme artefact de la CI et jointe à la release GitHub.
+
+La release iOS met à jour la fiche App Store existante (Apple ID `1320016064`, Bundle ID `com.symalgo-tech.actograph`, version publiée `1.3.1`). Le projet Xcode, le profil de provisioning et la soumission API utilisent cet identifiant iOS. Android conserve `com.actograph.mobile` dans Gradle et dans la configuration Capacitor partagée. La version mobile de base est `1.3.1` : le prochain `bash scripts/publish.sh prod ios` avec incrément `patch` crée `1.3.2`, supérieure à la version iOS publiée. Les futurs tags `mobile` partageront cette version pour Android et iOS.
+
+Avant le premier tag iOS de production, installer la version App Store `1.3.1` sur un appareil avec des données réelles, puis installer le nouveau build via TestFlight et vérifier que ces données restent accessibles. Le Bundle ID identique conserve le conteneur de l'app, mais ne valide pas à lui seul la migration de la base SQLite ou des préférences de l'ancienne version.
+
+Retrouver l'App ID explicite existant `com.symalgo-tech.actograph` dans Apple Developer, puis vérifier qu'un certificat **Apple Distribution** avec sa clé privée et un profil **App Store** valide sont disponibles pour cet App ID. Ajouter les secrets suivants dans les environnements GitHub `deploy` et `preprod` (les mêmes valeurs peuvent servir aux deux) :
+
+Configuration actuelle : équipe Apple `JZ2M998YMV`, profil `ActoGraph App Store CI`, certificat et profil valides jusqu'au 29 septembre 2027. Leurs fichiers privés sont conservés hors du dépôt, dans le dossier `ios-signing` du workspace parent.
+
+| Secret | Rôle |
+|--------|------|
+| `IOS_TEAM_ID` | Team ID Apple Developer |
+| `IOS_CERTIFICATE_BASE64` | certificat de distribution `.p12` encodé en Base64 |
+| `IOS_CERTIFICATE_PASSWORD` | mot de passe du `.p12` |
+| `IOS_PROVISIONING_PROFILE_BASE64` | profil App Store `.mobileprovision` encodé en Base64 |
+| `IOS_PROVISIONING_PROFILE_NAME` | nom exact du profil dans Apple Developer |
+| `APP_STORE_CONNECT_API_KEY_ID` | identifiant de la clé API App Store Connect |
+| `APP_STORE_CONNECT_API_ISSUER_ID` | issuer ID de cette clé |
+| `APP_STORE_CONNECT_API_KEY_BASE64` | contenu du fichier `AuthKey_*.p8` encodé en Base64 |
+
+La clé API d'équipe doit pouvoir téléverser les builds **et soumettre les versions à l'App Review** (rôle App Manager). Une clé d'équipe a accès à toutes les apps du compte selon son rôle ; elle ne peut pas être limitée à ActoGraph. Le numéro de build iOS doit être inédit pour cette version dans App Store Connect. Les secrets ne sont jamais versionnés.
+
+Avant le premier tag iOS, vérifier la fiche iOS existante dans App Store Connect : contrats, informations de confidentialité, classement par âge, captures, disponibilité, détails nécessaires à l'examen et conformité du chiffrement. Au moins une localisation de la version doit être présente. La CI met à jour « Nouveautés » pour chaque localisation : ajouter toute nouvelle langue à `mobile/app-store-release-notes.json`, puis adapter les textes avant chaque tag `prod-ios` ou `prod-mobile`. `scripts/publish.sh` inclut les notes modifiées dans le commit du tag iOS de production. Si Apple signale une information manquante ou rejette la version, la CI échoue avec l'erreur API et une intervention dans App Store Connect peut être nécessaire. L'approbation humaine d'Apple reste obligatoire ; avec `AFTER_APPROVAL`, la mise en ligne se fait ensuite automatiquement selon la disponibilité configurée. Un nouveau tag `prod-ios` reconstruit et retéléverse une nouvelle version ; il ne promeut pas le build TestFlight précédent.
+
+Le premier `pod install` sur macOS génère `mobile/src-capacitor/ios/App/Podfile.lock`. Versionner ce fichier après un build local validé pour figer les dépendances natives avant la release CI.
 
 `desktop-mobile` n'est possible que si `front`, `api` et `mobile` sont déjà au même numéro. Le script les incrémente alors ensemble.
 

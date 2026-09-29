@@ -6,12 +6,14 @@
 # bash scripts/publish.sh prod desktop
 # bash scripts/publish.sh prod patch
 # bash scripts/publish.sh prod mobile
+# bash scripts/publish.sh prod android
+# bash scripts/publish.sh preprod ios
 # bash scripts/publish.sh prod desktop-mobile minor
 # bash scripts/publish.sh preprod desktop
 #
 # `prod` alone is the same as `prod desktop`.
 # A tag without a target suffix (prod-vX.Y.Z) builds desktop only.
-# Add -mobile or -desktop-mobile to also build Android.
+# -mobile builds Android and iOS; -android and -ios build only one platform.
 
 if [ -z "$BASH_VERSION" ]; then
     echo "This script must be run with bash, not sh"
@@ -36,7 +38,7 @@ versionType="patch"
 
 if [ -n "${2:-}" ]; then
     case "$2" in
-        desktop|mobile|desktop-mobile)
+        desktop|mobile|android|ios|desktop-mobile)
             target="$2"
             ;;
         major|minor|patch)
@@ -45,7 +47,7 @@ if [ -n "${2:-}" ]; then
             ;;
         *)
             echo "Invalid argument: $2"
-            echo "Expected a target (desktop, mobile, desktop-mobile) or an increment (major, minor, patch)"
+            echo "Expected a target (desktop, mobile, android, ios, desktop-mobile) or an increment (major, minor, patch)"
             exit 1
             ;;
     esac
@@ -144,7 +146,7 @@ case "$target" in
             "$repoRoot/api/package.json"
         )
         ;;
-    mobile)
+    mobile|android|ios)
         if [ "$mobileVersion" != "$mobileCapacitorVersion" ]; then
             echo "mobile/package.json and mobile/src-capacitor/package.json versions differ"
             exit 1
@@ -176,7 +178,9 @@ if [ "$target" = "desktop" ] || [ "$target" = "desktop-mobile" ]; then
     check_targets+=(desktop)
 fi
 if [ "$target" = "mobile" ] || [ "$target" = "desktop-mobile" ]; then
-    check_targets+=(mobile)
+    check_targets+=(android ios)
+elif [ "$target" = "android" ] || [ "$target" = "ios" ]; then
+    check_targets+=("$target")
 fi
 
 echo "Fetching tags..."
@@ -188,11 +192,7 @@ while IFS= read -r tag; do
     parse_release_tag "$tag" 2>/dev/null || continue
     included=false
     for check_target in "${check_targets[@]}"; do
-        if [ "$check_target" = "desktop" ] && [ "$RELEASE_DESKTOP" = true ]; then
-            included=true
-            break
-        fi
-        if [ "$check_target" = "mobile" ] && [ "$RELEASE_MOBILE" = true ]; then
+        if tag_includes_target "$tag" "$check_target"; then
             included=true
             break
         fi
@@ -218,6 +218,15 @@ fi
 newVersion=$(bump_version "$currentVersion")
 echo "New version: $newVersion"
 
+if [ "$target" != "desktop" ]; then
+    IFS=. read -r new_major new_minor new_patch <<< "$newVersion"
+    if [ "$((10#$new_minor))" -ge 100 ] || [ "$((10#$new_patch))" -ge 100 ]; then
+        echo "Mobile minor and patch versions must stay below 100 to keep Android/iOS build numbers unique" >&2
+        echo "Choose a minor or major increment instead" >&2
+        exit 1
+    fi
+fi
+
 if [ "$target" = "desktop" ]; then
     tagSuffix=""
 else
@@ -231,6 +240,16 @@ if git rev-parse -q --verify "refs/tags/$releaseTag" >/dev/null; then
     exit 1
 fi
 
+release_notes=""
+if [ "$deployType" = "prod" ] && { [ "$target" = "ios" ] || [ "$target" = "mobile" ] || [ "$target" = "desktop-mobile" ]; }; then
+    release_notes="$repoRoot/mobile/app-store-release-notes.json"
+    if [ ! -f "$release_notes" ]; then
+        echo "Missing iOS App Store release notes: $release_notes" >&2
+        exit 1
+    fi
+    jq -e 'type == "object" and length > 0 and all(.[]; type == "string" and length > 0)' "$release_notes" >/dev/null
+fi
+
 for file in "${files_to_bump[@]}"; do
     tmpFile="$(mktemp)"
     jq --arg version "$newVersion" '.version = $version' "$file" > "$tmpFile"
@@ -238,7 +257,13 @@ for file in "${files_to_bump[@]}"; do
     git add "$file"
 done
 
-git commit -m "Bump version to $newVersion" -- "${files_to_bump[@]}"
+commit_files=("${files_to_bump[@]}")
+if [ -n "$release_notes" ]; then
+    git add "$release_notes"
+    commit_files+=("$release_notes")
+fi
+
+git commit -m "Bump version to $newVersion" -- "${commit_files[@]}"
 git push
 git tag "$releaseTag"
 git push origin "$releaseTag"

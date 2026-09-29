@@ -8,6 +8,9 @@ def appVersionName = packageJson.version ?: "0.0.1"
 // Compute versionCode from semver: major * 10000 + minor * 100 + patch
 // e.g. "0.0.80" -> 80, "1.2.3" -> 10203, "2.0.0" -> 20000
 def versionParts = appVersionName.split('\\.')
+if ((versionParts[1] as int) >= 100 || (versionParts[2] as int) >= 100) {
+    throw new GradleException('Mobile minor and patch versions must stay below 100 to keep versionCode unique')
+}
 def appVersionCode = (versionParts[0] as int) * 10000 + (versionParts[1] as int) * 100 + (versionParts[2] as int)
 
 // Load keystore properties for release signing (if available)
