@@ -25,6 +25,12 @@ for command_name in xcodebuild pod yarn node; do
 done
 : "${IOS_TEAM_ID:?IOS_TEAM_ID is required}"
 : "${IOS_PROVISIONING_PROFILE_NAME:?IOS_PROVISIONING_PROFILE_NAME is required}"
+project_file="$ios_dir/App/App.xcodeproj/project.pbxproj"
+if ! grep -Fq "DEVELOPMENT_TEAM = $IOS_TEAM_ID;" "$project_file" ||
+   ! grep -Fq "PROVISIONING_PROFILE_SPECIFIER = \"$IOS_PROVISIONING_PROFILE_NAME\";" "$project_file"; then
+    echo "The App target's Release signing settings do not match the installed team and profile" >&2
+    exit 1
+fi
 
 version="$(cd "$mobile_dir" && node -p "require('./package.json').version")"
 if [[ ! "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
@@ -70,10 +76,6 @@ xcodebuild archive \
     -workspace "$ios_dir/App/App.xcworkspace" \
     -scheme App -configuration Release -destination 'generic/platform=iOS' \
     -archivePath "$archive_path" \
-    DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
-    CODE_SIGN_STYLE=Manual \
-    PROVISIONING_PROFILE_SPECIFIER="$IOS_PROVISIONING_PROFILE_NAME" \
-    CODE_SIGN_IDENTITY='Apple Distribution' \
     MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$build_number"
 
 shopt -s nullglob
