@@ -62,7 +62,7 @@ import { defineComponent, reactive, computed, onMounted } from 'vue';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { observationService } from '@services/observations/index.service';
-import { protocolService } from '@services/observations/protocol.service';
+import { protocolService, protocolHasAtLeastOneCategory } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 
 export default defineComponent({
@@ -94,6 +94,7 @@ export default defineComponent({
         const observations = await observationService.findAllForCurrentUser();
         state.observations = observations
           .filter((obs) => obs.id !== props.targetObservationId)
+          .filter((obs) => protocolHasAtLeastOneCategory(obs.protocol))
           .map((obs) => ({
             id: obs.id,
             name: obs.name || t('chronicle.fallbackName', { id: obs.id }),

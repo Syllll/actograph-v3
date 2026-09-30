@@ -77,6 +77,35 @@ export interface EditItemDto {
 }
 
 /**
+ * True when the protocol JSON contains at least one category node.
+ * Protocol-copy pickers (create / import) hide chronicles without one.
+ */
+export const protocolHasAtLeastOneCategory = (
+  protocol: IProtocol | null | undefined,
+): boolean => {
+  if (!protocol) {
+    return false;
+  }
+
+  let items: ProtocolItem[] = [];
+  if (typeof protocol.items === 'string' && protocol.items.length > 0) {
+    try {
+      const parsed = JSON.parse(protocol.items);
+      if (Array.isArray(parsed)) {
+        items = parsed as ProtocolItem[];
+      }
+    } catch {
+      items = [];
+    }
+  }
+  if (items.length === 0 && Array.isArray(protocol._items)) {
+    items = protocol._items as ProtocolItem[];
+  }
+
+  return items.some((item) => item.type === ProtocolItemTypeEnum.Category);
+};
+
+/**
  * Vérifie si un nom d'observable est déjà utilisé dans le protocole (tous
  * comptes confondus, toutes catégories confondues).
  *

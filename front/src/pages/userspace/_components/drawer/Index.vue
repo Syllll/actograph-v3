@@ -30,7 +30,7 @@
             @click="chronicleActions.createObservation"
           >
             <q-item-section avatar>
-              <q-icon name="mdi-new-box" size="sm" />
+              <q-icon name="mdi-plus-circle-outline" size="sm" />
             </q-item-section>
             <q-item-section>
               {{ $t('chronicle.newChronicle') }}
@@ -43,7 +43,7 @@
             @click="chronicleActions.importObservation"
           >
             <q-item-section avatar>
-              <q-icon name="mdi-file-import" size="sm" />
+              <q-icon name="mdi-file-import-outline" size="sm" />
             </q-item-section>
             <q-item-section>
               {{ $t('chronicle.importFromFile') }}

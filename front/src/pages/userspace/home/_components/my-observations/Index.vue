@@ -57,7 +57,6 @@
 
 <script lang="ts">
 import { defineComponent, reactive, watch, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useAppResume } from 'src/composables/use-app-resume';
@@ -76,7 +75,6 @@ export default defineComponent({
   },
   setup() {
     const $q = useQuasar();
-    const router = useRouter();
     const observation = useObservation();
     const { t, locale } = useI18n();
 
@@ -131,7 +129,6 @@ export default defineComponent({
 
       async loadObservation(id: number) {
         await observation.methods.loadObservation(id);
-        await router.push({ name: 'user_observation' });
       },
 
       openAllChronicles() {

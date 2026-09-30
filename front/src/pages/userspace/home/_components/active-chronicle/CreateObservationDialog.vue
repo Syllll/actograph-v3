@@ -109,6 +109,12 @@
             :loading="state.observationsLoading"
             :disable="state.observationsLoading"
           />
+          <div
+            v-if="!state.observationsLoading && state.observations.length === 0"
+            class="text-caption text-grey-7"
+          >
+            {{ $t('dialogs.createObservation.protocolEmpty') }}
+          </div>
         </div>
       </div>
     </DDialogCard>
@@ -131,6 +137,7 @@ import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { DDialogCard } from '@lib-improba/components';
 import { ObservationModeEnum } from '@services/observations/interface';
 import { observationService } from '@services/observations/index.service';
+import { protocolHasAtLeastOneCategory } from '@services/observations/protocol.service';
 
 type CreationEntry = 'direct' | 'chronometer' | 'video';
 
@@ -151,10 +158,12 @@ export default defineComponent({
       state.observationsLoading = true;
       try {
         const observations = await observationService.findAllForCurrentUser();
-        state.observations = observations.map((obs) => ({
-          id: obs.id,
-          name: obs.name || t('chronicle.fallbackName', { id: obs.id }),
-        }));
+        state.observations = observations
+          .filter((obs) => protocolHasAtLeastOneCategory(obs.protocol))
+          .map((obs) => ({
+            id: obs.id,
+            name: obs.name || t('chronicle.fallbackName', { id: obs.id }),
+          }));
       } catch (error) {
         console.error('CreateObservationDialog: failed to load observations', error);
       } finally {

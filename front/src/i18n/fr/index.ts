@@ -45,7 +45,7 @@ export default {
     changeLicenseConfirm: 'Continuer',
     changeLicenseError:
       'Impossible de réinitialiser l\'accès licence. Réessayez ou redémarrez l\'application.',
-    localAccount: 'Mon compte',
+    localAccount: 'Mon profil',
     accountMenuTooltip: 'Compte, licence et options',
     cloudConnected: 'Connecté au cloud',
     cloudDisconnected: 'Non connecté au cloud',
@@ -111,7 +111,9 @@ export default {
   },
   observation: {
     popoutVideoTooltip: 'Ouvrir la vidéo dans une fenêtre séparée',
-    popoutButtonsTooltip: 'Ouvrir les boutons dans une fenêtre séparée',
+    popoutButtonsTooltip: 'Détacher les boutons',
+    boardLayoutAria: 'Disposition du plateau',
+    resetLayoutLabel: 'Réinitialiser la disposition',
     popoutVideoActive: 'Vidéo ouverte dans une fenêtre séparée',
     popoutButtonsActive: 'Boutons ouverts dans une fenêtre séparée',
     popoutBringBack: 'Ramener ici',
@@ -138,8 +140,6 @@ export default {
     modeChangeError: 'Erreur lors du changement de mode',
     errorShort: 'Erreur',
     positionSaveError: 'Erreur lors de la sauvegarde de la position',
-    resetCategoriesTooltip:
-      'Réinitialiser la position des catégories et observables',
     categoriesResetSuccess: 'Les catégories ont été réinitialisées',
     resetCategoriesError: 'Erreur lors de la réinitialisation',
     resizeCategoryTooltip: 'Redimensionner la catégorie (glisser)',
@@ -169,9 +169,9 @@ export default {
     attachVideoTooltip: 'Optionnel : synchroniser le chronomètre sur une vidéo',
     attachVideoBlocked: 'Impossible d\'attacher une vidéo',
     attachVideoBlockedCaption:
-      'Arrêtez le chronomètre (bouton stop) avant d\'attacher une vidéo, pour éviter de perdre le temps écoulé.',
+      'Terminez l\'observation (bouton Terminer) avant d\'attacher une vidéo, pour éviter de perdre le temps écoulé.',
     attachVideoBlockedTooltip:
-      'Arrêtez le chronomètre avant d\'attacher une vidéo',
+      'Terminez l\'observation avant d\'attacher une vidéo',
     replaceVideoPauseCaption:
       'Mettez la lecture en pause avant de remplacer la vidéo.',
     videoBrowserUnsupported: 'Votre navigateur ne supporte pas la lecture de vidéos.',
@@ -221,7 +221,8 @@ export default {
     noProtocolImportSubmit: 'Importer',
     noProtocolImportSuccess: 'Protocole importé',
     noProtocolImportError: 'Erreur lors de l\'import du protocole',
-    noProtocolImportEmpty: 'Aucune autre chronique disponible',
+    noProtocolImportEmpty:
+      'Aucune chronique avec au moins une catégorie',
     noProtocolSessionDisabled:
       'Ajoutez un protocole pour démarrer l\'observation',
   },
@@ -795,6 +796,7 @@ export default {
       protocolLabel: 'Protocole (optionnel)',
       protocolNone: 'Aucun',
       sourceHint: 'Copie le protocole (catégories, observables) depuis une chronique existante',
+      protocolEmpty: 'Aucune chronique avec au moins une catégorie',
       submit: 'Créer',
       typeDirect: 'Observer en direct',
       typeDirectDesc: 'Temps réel, dates calendaires. Idéal pour l\'observation in situ',

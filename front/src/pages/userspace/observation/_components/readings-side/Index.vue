@@ -1,6 +1,24 @@
 <template>
   <div class="readings-side-container">
     <div class="readings-side-content q-pa-sm column">
+      <!-- Toolbar with search, add, and remove buttons -->
+      <readings-toolbar
+        class="col-auto"
+        v-model:search="search"
+        :has-selected="hasSelectedReading"
+        :match-count="filteredReadings.length"
+        :is-add-disabled="false"
+        :can-activate-chronometer-mode="canActivateChronometerMode"
+        @add-reading="handleAddReading"
+        @add-comment="handleAddComment"
+        @remove-reading="handleRemoveReading"
+        @remove-all-readings="handleRemoveAllReadings"
+        @activate-chronometer-mode="handleActivateChronometerMode"
+        @auto-correct-readings="handleAutoCorrectReadings"
+        @replace-selected="handleReplaceSelected"
+        @replace-all="handleReplaceAll"
+      />
+
       <q-banner
         v-if="hasReadingsAfterLastStop"
         dense
@@ -12,25 +30,6 @@
         </template>
         {{ t('graphUi.readingsAfterLastStopWarning') }}
       </q-banner>
-
-      <!-- Toolbar with search, add, and remove buttons -->
-      <readings-toolbar
-        class="col-auto"
-        v-model:search="search"
-        :has-selected="hasSelectedReading"
-        :match-count="filteredReadings.length"
-        :is-add-disabled="false"
-        :can-activate-chronometer-mode="canActivateChronometerMode"
-        :current-mode="currentObservationMode || undefined"
-        @add-reading="handleAddReading"
-        @add-comment="handleAddComment"
-        @remove-reading="handleRemoveReading"
-        @remove-all-readings="handleRemoveAllReadings"
-        @activate-chronometer-mode="handleActivateChronometerMode"
-        @auto-correct-readings="handleAutoCorrectReadings"
-        @replace-selected="handleReplaceSelected"
-        @replace-all="handleReplaceAll"
-      />
 
       <div class="col table-wrapper">
         <readings-table
@@ -75,11 +74,6 @@ export default defineComponent({
     // Local state for this component
     const search = ref('');
     const selectedReading = ref<IReading[]>([]);
-    
-    // Get current observation mode
-    const currentObservationMode = computed(() => {
-      return observation.sharedState.currentObservation?.mode || null;
-    });
     
     // Check if chronometer mode can be activated
     // Conditions:
@@ -391,7 +385,6 @@ export default defineComponent({
       selectedReading,
       hasSelectedReading,
       filteredReadings,
-      currentObservationMode,
       canActivateChronometerMode,
       hasReadingsAfterLastStop,
       handleAddReading,

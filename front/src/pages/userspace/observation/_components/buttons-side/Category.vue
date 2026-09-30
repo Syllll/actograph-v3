@@ -2,6 +2,7 @@
   <q-card
     class="category-container"
     :class="{ 'is-dragging': state.isDragging, 'is-resizing': state.isResizing }"
+    :data-category-id="category.id"
   >
     <q-card-section class="category-header">
       <div class="category-title">
@@ -177,8 +178,6 @@ export default defineComponent({
         // Le padding doit être soustrait car les positions sont calculées relativement
         // à la zone de contenu (sans le padding)
         const containerStyles = window.getComputedStyle(container);
-        const paddingLeft = parseFloat(containerStyles.paddingLeft) || 0;
-        const paddingRight = parseFloat(containerStyles.paddingRight) || 0;
         const paddingTop = parseFloat(containerStyles.paddingTop) || 0;
         const paddingBottom = parseFloat(containerStyles.paddingBottom) || 0;
 
@@ -210,9 +209,11 @@ export default defineComponent({
         const cardHeight = categoryRect.height; // Hauteur réelle variable
         const cardWidth = categoryRect.width; // Largeur réelle
 
-        // Constraintes de positionnement
-        const margin = 20; // Marge minimale depuis les bords du conteneur
-        const contentWidth = containerRect.width - paddingLeft - paddingRight;
+        // Padding-box width: absolute `left` is relative to this edge, not the
+        // content box. Subtracting padding here let the card's left edge sit
+        // near the right border while the rest of the card painted outside.
+        const boxWidth = container.clientWidth;
+        const margin = 20;
 
         // Calculer la hauteur totale du contenu basée sur toutes les catégories
         // On parcourt toutes les catégories pour trouver celle qui est le plus bas
@@ -245,10 +246,8 @@ export default defineComponent({
           newY + cardHeight + margin
         );
 
-        // Contraintes horizontales : empêcher la catégorie de sortir du conteneur
-        // IMPORTANT : On ne permet jamais de position négative en X, sinon la catégorie
-        // se loge tout à gauche et devient inaccessible (bug 2.2)
-        const maxX = Math.max(0, contentWidth - margin);
+        // Keep the whole card inside the plateau (left edge + width).
+        const maxX = Math.max(0, boxWidth - cardWidth);
         if (newX < 0) newX = 0;
         if (newX > maxX) newX = maxX;
         

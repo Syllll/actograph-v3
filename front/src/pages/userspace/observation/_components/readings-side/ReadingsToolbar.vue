@@ -1,7 +1,7 @@
 <template>
   <div class="readings-toolbar q-pb-md">
-    <div class="observation-panel-title-row row items-center q-mb-sm">
-      <div class="text-h6">{{ $t('readingsUi.toolbarTitle') }}</div>
+    <div class="col-auto observation-panel-title-row row items-center q-mb-sm dashboard-header">
+      <div class="col text-h6 dashboard-title">{{ $t('readingsUi.toolbarTitle') }}</div>
     </div>
 
     <div class="row justify-between items-center">
@@ -178,13 +178,6 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
-    currentMode: {
-      type: String,
-      default: null,
-      validator: (value: string | null) => {
-        return value === null || value === 'calendar' || value === 'chronometer';
-      },
-    },
   },
   
   emits: [
@@ -199,7 +192,7 @@ export default defineComponent({
     'replace-all',
   ],
 
-  setup(props, { emit }) {
+  setup(_, { emit }) {
     const { t } = useI18n();
     const state = reactive({
       showReplace: false,
@@ -261,5 +254,17 @@ export default defineComponent({
 <style scoped>
 .observation-panel-title-row {
   min-height: 32px;
+  flex-wrap: nowrap;
+}
+
+.dashboard-header {
+  flex-wrap: nowrap;
+}
+
+.dashboard-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 </style> 

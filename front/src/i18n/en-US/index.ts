@@ -45,7 +45,7 @@ export default {
     changeLicenseConfirm: 'Continue',
     changeLicenseError:
       'Could not reset license access. Try again or restart the application.',
-    localAccount: 'My account',
+    localAccount: 'My profile',
     accountMenuTooltip: 'Account, license and options',
     cloudConnected: 'Connected to the cloud',
     cloudDisconnected: 'Not connected to the cloud',
@@ -111,7 +111,9 @@ export default {
   },
   observation: {
     popoutVideoTooltip: 'Open video in a separate window',
-    popoutButtonsTooltip: 'Open buttons in a separate window',
+    popoutButtonsTooltip: 'Detach buttons',
+    boardLayoutAria: 'Button board layout',
+    resetLayoutLabel: 'Reset layout',
     popoutVideoActive: 'Video opened in a separate window',
     popoutButtonsActive: 'Buttons opened in a separate window',
     popoutBringBack: 'Bring back here',
@@ -138,7 +140,6 @@ export default {
     modeChangeError: 'Error while switching mode',
     errorShort: 'Error',
     positionSaveError: 'Could not save layout position',
-    resetCategoriesTooltip: 'Reset category and observable positions',
     categoriesResetSuccess: 'Categories have been reset',
     resetCategoriesError: 'Error while resetting layout',
     resizeCategoryTooltip: 'Resize category (drag)',
@@ -168,8 +169,8 @@ export default {
     attachVideoTooltip: 'Optional: sync the chronometer with a video',
     attachVideoBlocked: 'Cannot attach a video',
     attachVideoBlockedCaption:
-      'Stop the chronometer before attaching a video, to avoid losing the elapsed time.',
-    attachVideoBlockedTooltip: 'Stop the chronometer before attaching a video',
+      'End the observation (End) before attaching a video, to avoid losing the elapsed time.',
+    attachVideoBlockedTooltip: 'End the observation before attaching a video',
     replaceVideoPauseCaption: 'Pause playback before replacing the video.',
     videoBrowserUnsupported: 'Your browser does not support video playback.',
     videoExpectedFile: 'Expected file:',
@@ -218,7 +219,8 @@ export default {
     noProtocolImportSubmit: 'Import',
     noProtocolImportSuccess: 'Protocol imported',
     noProtocolImportError: 'Could not import the protocol',
-    noProtocolImportEmpty: 'No other chronicle available',
+    noProtocolImportEmpty:
+      'No chronicle with at least one category',
     noProtocolSessionDisabled:
       'Add a protocol before starting the observation',
   },
@@ -786,6 +788,7 @@ export default {
       protocolLabel: 'Protocol (optional)',
       protocolNone: 'None',
       sourceHint: 'Copies the protocol (categories, observables) from an existing chronicle',
+      protocolEmpty: 'No chronicle with at least one category',
       submit: 'Create',
       typeDirect: 'Live observation',
       typeDirectDesc: 'Real time, calendar dates. Ideal for in-situ observation.',
