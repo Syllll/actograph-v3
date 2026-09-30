@@ -1206,6 +1206,7 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
 }
 
 /* Header du dashboard : titre tronquable (ellipsis) si le panneau est étroit. */
