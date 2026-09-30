@@ -1,26 +1,11 @@
 <template>
   <div class="readings-toolbar q-pb-md">
+    <div class="observation-panel-title-row row items-center q-mb-sm">
+      <div class="text-h6">{{ $t('readingsUi.toolbarTitle') }}</div>
+    </div>
+
     <div class="row justify-between items-center">
-      <div class="row items-center q-gutter-md">
-        <div class="text-h6">{{ $t('readingsUi.toolbarTitle') }}</div>
-        <!-- Mode indicator - Always visible -->
-        <q-chip
-          :color="currentMode === 'chronometer' ? 'primary' : 'grey-7'"
-          text-color="white"
-          :icon="currentMode === 'chronometer' ? 'timer' : 'event'"
-          size="sm"
-        >
-          {{
-            currentMode === 'chronometer'
-              ? $t('readingsUi.modeChronometerChip')
-              : currentMode === 'calendar'
-                ? $t('readingsUi.modeCalendarChip')
-                : $t('readingsUi.modeUndefinedChip')
-          }}
-        </q-chip>
-      </div>
-      
-      <div class="column">
+      <div class="column col">
         <div class="row q-gutter-sm items-center">
           <!-- Search input -->
           <q-input
@@ -274,4 +259,7 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.observation-panel-title-row {
+  min-height: 32px;
+}
 </style> 

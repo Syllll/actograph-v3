@@ -63,6 +63,7 @@
                     <ButtonsSideIndex
                       class="col"
                       :popout-handler="methods.popOutButtons"
+                      :attach-in-progress="state.attachInProgress"
                     />
                   </template>
                   <div v-else class="popout-placeholder col column items-center justify-center q-pa-lg">
@@ -98,7 +99,11 @@
         v-else
         class="fit column no-wrap"
       >
-        <CalendarToolbar class="col-auto" />
+        <CalendarToolbar
+          v-if="showAttachVideoToolbar"
+          v-model:attach-in-progress="state.attachInProgress"
+          class="col-auto"
+        />
 
         <q-splitter
           v-model="state.splitterModel"
@@ -112,6 +117,7 @@
                 <ButtonsSideIndex
                   class="col"
                   :popout-handler="methods.popOutButtons"
+                  :attach-in-progress="state.attachInProgress"
                 />
               </template>
               <div v-else class="popout-placeholder col column items-center justify-center q-pa-lg">
@@ -173,10 +179,16 @@ export default defineComponent({
         && !!observation.sharedState.currentObservation?.videoPath;
     });
 
+    const showAttachVideoToolbar = computed(() => {
+      return observation.isChronometerMode.value
+        && !observation.sharedState.currentObservation?.videoPath;
+    });
+
     const state = reactive({
       splitterModel: 40,
       videoSplitterModel: 25,
       containerHeight: 600,
+      attachInProgress: false,
     });
 
     const popoutWindows: Record<PopoutComponent, Window | null> = {
@@ -281,6 +293,7 @@ export default defineComponent({
       popout,
       containerRef,
       hasVideo,
+      showAttachVideoToolbar,
       state,
       methods,
     };

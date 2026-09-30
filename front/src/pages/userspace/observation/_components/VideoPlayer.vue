@@ -85,29 +85,6 @@
     <!-- Controls bar -->
     <div class="video-controls col-auto">
       <div class="row items-center q-pa-sm q-gutter-md">
-        <!-- Play/Pause button -->
-        <q-btn
-          round
-          dense
-          :icon="state.isPlaying ? 'pause' : 'play_arrow'"
-          @click="togglePlayPause"
-          color="primary"
-          size="sm"
-        />
-        
-        <!-- Stop button -->
-        <q-btn
-          round
-          dense
-          icon="stop"
-          @click="handleStop"
-          color="grey-8"
-          size="sm"
-          :disable="!isObservationActive"
-        >
-          <q-tooltip>{{ $t('observation.stopObservationTooltip') }}</q-tooltip>
-        </q-btn>
-        
         <!-- Volume controls -->
         <div class="row items-center q-gutter-xs">
           <q-icon name="volume_up" size="sm" />
@@ -138,14 +115,6 @@
           </template>
         </q-select>
         
-        <!-- Mode toggle -->
-        <ModeToggle
-          v-if="canChangeMode"
-          :current-mode="currentMode"
-          :can-change-mode="canChangeMode"
-          @mode-change="handleModeChange"
-        />
-        
         <!-- Time display -->
         <div class="row items-center q-gutter-xs">
           <span class="text-caption">{{ formatTime(state.currentTime) }}</span>
@@ -164,14 +133,10 @@ import { useWindowSync } from 'src/composables/use-window-sync';
 import { IReading, ObservationModeEnum, ReadingTypeEnum } from '@services/observations/interface';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
-import ModeToggle from './ModeToggle.vue';
+import { pauseObservationWithFeedback } from './observation-session-actions';
 
 export default defineComponent({
   name: 'VideoPlayer',
-
-  components: {
-    ModeToggle,
-  },
 
   setup() {
     const $q = useQuasar();
@@ -712,8 +677,14 @@ export default defineComponent({
       },
 
       handlePlay: () => {
+        // Rec is blocked without a protocol; do not pause() here or the
+        // isPlaying watcher (play) and this handler (pause) fight in a loop.
+        if (observation.protocol.methods.isProtocolEmpty(
+          observation.protocol.sharedState.currentProtocol,
+        )) {
+          return;
+        }
         state.isPlaying = true;
-        // Start observation timer if not already started
         if (!observation.sharedState.isPlaying) {
           observation.timerMethods.startTimer();
         }
@@ -729,44 +700,10 @@ export default defineComponent({
 
       handleEnded: () => {
         state.isPlaying = false;
-        // Stop observation timer
-        observation.timerMethods.stopTimer();
-      },
-
-      togglePlayPause: () => {
-        if (videoSelectInProgress) return;
-        if (videoRef.value) {
-          if (state.isPlaying) {
-            videoRef.value.pause();
-          } else {
-            videoRef.value.play();
-          }
+        // `pause` often fires before `ended`; skip a second pauseTimer if already frozen.
+        if (observation.sharedState.isPlaying) {
+          pauseObservationWithFeedback(observation);
         }
-      },
-
-      handleStop: () => {
-        if (videoRef.value) {
-          // Stop the video
-          videoRef.value.pause();
-          // Reset video to beginning
-          videoRef.value.currentTime = 0;
-          state.isPlaying = false;
-          state.currentTime = 0;
-          state.progressPercent = 0;
-          
-          // IMPORTANT: Synchroniser elapsedTime et currentDate avec le temps vidéo (0)
-          // Utiliser la méthode unifiée pour garantir la cohérence
-          if (observation.isChronometerMode.value) {
-            observation.updateTimeFromSource(0);
-          }
-        }
-        // Stop observation timer
-        observation.timerMethods.stopTimer();
-        
-        // IMPORTANT: Appliquer automatiquement la correction des relevés
-        // Toutes les corrections sont appliquées sans demander de validation
-        // Cela garantit que les relevés sont toujours correctement structurés à la fin de l'observation
-        observation.readings.methods.autoCorrectReadings(true);
       },
 
       handleVolumeChange: (value: number | null) => {
@@ -1084,6 +1021,24 @@ export default defineComponent({
       }
     );
 
+    // Session bar Rec / Pause drives observation.isPlaying; keep the media element in sync.
+    const stopSessionPlayWatcher = watch(
+      () => observation.sharedState.isPlaying,
+      (playing) => {
+        const video = videoRef.value;
+        if (!video || videoSelectInProgress) {
+          return;
+        }
+        if (playing && video.paused) {
+          void video.play().catch(() => {
+            /* autoplay / decode errors */
+          });
+        } else if (!playing && !video.paused) {
+          video.pause();
+        }
+      },
+    );
+
     // Cleanup on unmount
     onUnmounted(() => {
       // Cleanup debounce timer
@@ -1098,6 +1053,7 @@ export default defineComponent({
       stopModeWatcher();
       stopReadingsWatcher();
       stopCurrentTimeWatcher();
+      stopSessionPlayWatcher();
       
       // Cleanup video element
       if (videoRef.value) {
@@ -1120,31 +1076,6 @@ export default defineComponent({
       }
     });
 
-    // Get current mode
-    const currentMode = computed(() => {
-      return observation.sharedState.currentObservation?.mode || null;
-    });
-
-    // Mode is frozen once a START exists, or once a video is attached
-    // (calendar + videoPath is not a product context).
-    const canChangeMode = computed(() => {
-      const hasStartReading = observation.readings.sharedState.currentReadings.some(
-        (reading: any) => reading.type === ReadingTypeEnum.START
-      );
-      const hasVideo = !!observation.sharedState.currentObservation?.videoPath;
-      return !hasStartReading && !hasVideo;
-    });
-
-    // Check if observation is active (playing or has elapsed time)
-    const isObservationActive = computed(() => {
-      return observation.sharedState.isPlaying || observation.sharedState.elapsedTime > 0;
-    });
-
-    const handleModeChange = (mode: ObservationModeEnum) => {
-      // Mode change is handled by ModeToggle component
-      // This handler is here for potential future use
-    };
-
     return {
       observation,
       readings,
@@ -1152,21 +1083,15 @@ export default defineComponent({
       state,
       videoSrc,
       playbackSpeeds,
-      currentMode,
-      canChangeMode,
       methods,
-      handleModeChange,
       getFileName, // Exposer pour le template
       // Expose methods used in template
       getNotchPosition: methods.getNotchPosition,
       getNotchTooltip: methods.getNotchTooltip,
       handleNotchClick: methods.handleNotchClick,
       handleTimelineClick: methods.handleTimelineClick,
-      togglePlayPause: methods.togglePlayPause,
-      handleStop: methods.handleStop,
       handleVolumeChange: methods.handleVolumeChange,
       formatTime: methods.formatTime,
-      isObservationActive,
     };
   },
 });

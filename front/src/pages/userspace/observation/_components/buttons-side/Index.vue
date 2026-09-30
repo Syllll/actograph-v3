@@ -1,7 +1,7 @@
 <template>
   <div class="buttons-side-container q-pa-sm column fit">
-    <div class="col-auto text-h6 q-mb-sm row items-center dashboard-header">
-      <div class="col dashboard-title">
+    <div class="col-auto observation-panel-title-row row items-center q-mb-sm dashboard-header">
+      <div class="col text-h6 dashboard-title">
         {{ $t('observation.observationDashboardTitle') }}
       </div>
       <div class="col-auto row items-center q-gutter-xs header-actions">
@@ -54,6 +54,11 @@
       </div>
     </div>
 
+    <ObservationSessionBar
+      class="col-auto q-mb-sm"
+      :attach-in-progress="attachInProgress"
+    />
+
     <div class="col buttons-scroll-wrapper position-relative" style="min-height: 0;">
       <!-- Voile "En pause" : uniquement en mode calendrier, quand la pause
            verrouille les relevés. Renforce visuellement que les boutons ci-
@@ -92,7 +97,24 @@
         <div v-else class="no-data text-center q-pa-lg">
           <q-icon name="info" size="2rem" color="grey-7" />
           <div class="text-subtitle1 q-mt-sm">{{ $t('observation.noProtocolLoadedTitle') }}</div>
-          <div class="text-caption q-mt-xs">{{ $t('observation.noProtocolLoadedHint') }}</div>
+          <div class="text-caption q-mt-xs q-mb-md">{{ $t('observation.noProtocolLoadedHint') }}</div>
+          <div class="column items-center q-gutter-sm">
+            <router-link
+              :to="{ name: 'user_protocol' }"
+              class="no-protocol-link"
+            >
+              {{ $t('chronicle.ctaProtocol') }}
+            </router-link>
+            <q-btn
+              outline
+              color="accent"
+              no-caps
+              class="no-protocol-cta"
+              :label="$t('observation.noProtocolImportCta')"
+              :disable="!observation.sharedState.currentObservation?.id"
+              @click="methods.openImportProtocol"
+            />
+          </div>
         </div>
       </div>
     </DScrollArea>
@@ -108,9 +130,12 @@ import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@ser
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { isRecordingActiveFromReadings } from '@actograph/core';
 import Category from './Category.vue';
+import ObservationSessionBar from '../ObservationSessionBar.vue';
+import ImportProtocolDialog from '../ImportProtocolDialog.vue';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { DScrollArea } from '@lib-improba/components/app/scroll-areas';
+import { createDialog } from '@lib-improba/utils/dialog.utils';
 
 // Largeur par défaut / bornes des boîtes catégories (px).
 // 220px ≈ 13.75rem, proche du 13rem historique.
@@ -131,9 +156,14 @@ export default defineComponent({
   components: {
     Category,
     DScrollArea,
+    ObservationSessionBar,
   },
 
   props: {
+    attachInProgress: {
+      type: Boolean,
+      default: false,
+    },
     // Handler pour ouvrir le panneau des boutons en fenêtre séparée (pop-out).
     // Fourni par le parent (observation/Index.vue). Mis dans le header pour
     // aligner l'icône pop-out avec les autres actions du dashboard.
@@ -268,6 +298,18 @@ export default defineComponent({
     let persistUiScaleTimer: number | null = null;
 
     const methods = {
+      openImportProtocol: async () => {
+        const targetObservationId = observation.sharedState.currentObservation?.id;
+        if (!targetObservationId) {
+          return;
+        }
+        await createDialog({
+          component: ImportProtocolDialog,
+          componentProps: { targetObservationId },
+          persistent: true,
+        });
+      },
+
       /**
        * Met à jour la hauteur minimale du conteneur pour s'assurer qu'il est assez grand
        * pour afficher toutes les catégories, même lorsqu'elles sont déplacées vers le bas.
@@ -1039,6 +1081,11 @@ export default defineComponent({
 /* Header du dashboard : titre tronquable (ellipsis) pour que les actions
    (zoom ±, reset, pop-out) restent toujours visibles même si le panneau
    est étroit (splitter réduit). */
+.observation-panel-title-row {
+  min-height: 32px;
+  flex-wrap: nowrap;
+}
+
 .dashboard-header {
   flex-wrap: nowrap;
 }
@@ -1089,6 +1136,22 @@ export default defineComponent({
 
 .body--dark .no-data .q-icon {
   color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.no-protocol-link {
+  color: var(--accent);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.no-protocol-cta {
+  background: #fff;
+  border-radius: 0.5rem;
+  font-weight: 500;
+}
+
+.body--dark .no-protocol-cta {
+  background: transparent;
 }
 
 /* Bouton "reset" : au repos Quasar applique .text-grey-7 (gris fixe #616161,

@@ -190,6 +190,15 @@ export default {
     modeActivated: 'Mode {mode} activé',
     modeActivatedCaption: 'L\'observation est maintenant en mode {mode}',
     observationDashboardTitle: 'Tableau de bord d\'observation',
+    sessionRec: 'Rec',
+    sessionPause: 'Pause',
+    sessionTerminer: 'Terminer',
+    observationPausedToast: 'Observation en pause',
+    observationEndedToast: 'Observation terminée',
+    terminateConfirmTitle: 'Terminer l\'observation',
+    terminateConfirmMessage:
+      'Mettre fin à cette session d\'observation ? Un relevé de fin sera enregistré.',
+    newSegmentStarted: 'Nouveau segment d\'observation démarré',
     recordingInProgress: 'Enregistrement en cours',
     readyState: 'Prêt',
     tooltipSwitchToCalendar: 'Passer en mode calendrier',
@@ -205,7 +214,16 @@ export default {
       'Démarrez l\'observation (lecture / START) avant d\'enregistrer un relevé.',
     noProtocolLoadedTitle: 'Aucun protocole chargé',
     noProtocolLoadedHint:
-      'Veuillez sélectionner une observation pour afficher son protocole.',
+      'Ajoutez au moins une catégorie, puis un ou plusieurs observables.',
+    noProtocolImportCta: 'Importer un protocole',
+    noProtocolImportTitle: 'Importer un protocole',
+    noProtocolImportLabel: 'Chronique source',
+    noProtocolImportSubmit: 'Importer',
+    noProtocolImportSuccess: 'Protocole importé',
+    noProtocolImportError: 'Erreur lors de l\'import du protocole',
+    noProtocolImportEmpty: 'Aucune autre chronique disponible',
+    noProtocolSessionDisabled:
+      'Ajoutez un protocole pour démarrer l\'observation',
   },
   readings: {
     defaultNewReading: 'Nouveau relevé',

@@ -187,6 +187,15 @@ export default {
     modeActivated: '{mode} mode enabled',
     modeActivatedCaption: 'The observation is now in {mode} mode',
     observationDashboardTitle: 'Observation dashboard',
+    sessionRec: 'Rec',
+    sessionPause: 'Pause',
+    sessionTerminer: 'End',
+    observationPausedToast: 'Observation paused',
+    observationEndedToast: 'Observation ended',
+    terminateConfirmTitle: 'End observation',
+    terminateConfirmMessage:
+      'End this observation session? A stop reading will be recorded.',
+    newSegmentStarted: 'New observation segment started',
     recordingInProgress: 'Recording',
     readyState: 'Ready',
     tooltipSwitchToCalendar: 'Switch to calendar mode',
@@ -202,7 +211,16 @@ export default {
       'Start the observation (play / START) before recording a reading.',
     noProtocolLoadedTitle: 'No protocol loaded',
     noProtocolLoadedHint:
-      'Select an observation to display its protocol.',
+      'Add at least one category, then one or more observables.',
+    noProtocolImportCta: 'Import a protocol',
+    noProtocolImportTitle: 'Import a protocol',
+    noProtocolImportLabel: 'Source chronicle',
+    noProtocolImportSubmit: 'Import',
+    noProtocolImportSuccess: 'Protocol imported',
+    noProtocolImportError: 'Could not import the protocol',
+    noProtocolImportEmpty: 'No other chronicle available',
+    noProtocolSessionDisabled:
+      'Add a protocol before starting the observation',
   },
   readings: {
     defaultNewReading: 'New reading',
