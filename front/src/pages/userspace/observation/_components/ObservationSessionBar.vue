@@ -1,46 +1,35 @@
 <template>
   <div class="observation-session-bar">
-    <div class="row items-center q-gutter-sm session-bar-row">
-      <span>
+    <div class="observation-toolbar-row">
+      <span class="observation-toolbar-host">
         <q-btn
-          :color="recPauseColor"
-          :text-color="recPauseTextColor"
-          :unelevated="!observation.sharedState.isPlaying"
-          :outline="observation.sharedState.isPlaying"
-          dense
+          unelevated
           no-caps
-          padding="6px 12px"
-          class="observation-session-cta"
+          class="observation-toolbar-control"
+          :class="recPauseBtnClass"
           :disable="recDisabled"
           :aria-label="recPauseLabel"
           @click="methods.onRecPauseClick"
         >
-          <span class="session-cta-content">
-            <q-icon :name="recPauseIcon" size="18px" />
-            <span>{{ recPauseLabel }}</span>
-          </span>
+          <q-icon :name="recPauseIcon" size="18px" />
+          <span>{{ recPauseLabel }}</span>
         </q-btn>
         <q-tooltip v-if="recDisabled && !attachInProgress">
           {{ $t('observation.noProtocolSessionDisabled') }}
         </q-tooltip>
       </span>
 
-      <span>
+      <span class="observation-toolbar-host">
         <q-btn
-          color="primary"
-          outline
-          dense
+          unelevated
           no-caps
-          padding="6px 12px"
-          class="observation-session-cta"
+          class="observation-toolbar-control observation-toolbar-btn--ghost"
           :disable="terminerDisabled"
           :aria-label="$t('observation.sessionTerminer')"
           @click="methods.onTerminerClick"
         >
-          <span class="session-cta-content">
-            <q-icon name="stop" size="18px" />
-            <span>{{ $t('observation.sessionTerminer') }}</span>
-          </span>
+          <q-icon name="stop" size="18px" />
+          <span>{{ $t('observation.sessionTerminer') }}</span>
         </q-btn>
         <q-tooltip v-if="terminerDisabled && protocolMissing">
           {{ $t('observation.noProtocolSessionDisabled') }}
@@ -54,31 +43,29 @@
         :disabled="attachInProgress"
       />
 
-      <q-chip
+      <div
         v-if="sessionStatusChip"
-        dense
-        :icon="sessionStatusChip.icon"
-        class="session-status-chip col-shrink"
+        class="observation-toolbar-control observation-toolbar-chip"
       >
-        {{ sessionStatusChip.label }}
-      </q-chip>
+        <q-icon :name="sessionStatusChip.icon" size="18px" />
+        <span>{{ sessionStatusChip.label }}</span>
+      </div>
 
       <q-space />
 
-      <div class="timer-chip-wrapper col-shrink">
-        <q-chip
-          color="accent"
-          text-color="white"
-          :icon="timerChipIcon"
+      <div class="timer-chip-wrapper">
+        <div
+          class="observation-toolbar-control observation-toolbar-chip observation-toolbar-chip--timer"
           :aria-label="timerChipAriaLabel"
         >
-          {{
+          <q-icon :name="timerChipIcon" size="18px" />
+          <span>{{
             currentMode === 'calendar'
               ? liveClockLabel
               : observation.timerMethods.formatDuration(observation.sharedState.elapsedTime)
-          }}
+          }}</span>
           <q-tooltip>{{ timerChipAriaLabel }}</q-tooltip>
-        </q-chip>
+        </div>
         <div
           v-if="currentMode === 'calendar' && isPausedState"
           class="timer-paused-veil"
@@ -212,12 +199,10 @@ export default defineComponent({
       return observation.sharedState.isPlaying ? 'pause' : 'fiber_manual_record';
     });
 
-    const recPauseColor = computed(() => {
-      return observation.sharedState.isPlaying ? 'primary' : 'accent';
-    });
-
-    const recPauseTextColor = computed(() => {
-      return observation.sharedState.isPlaying ? undefined : 'white';
+    const recPauseBtnClass = computed(() => {
+      return observation.sharedState.isPlaying
+        ? 'observation-toolbar-btn--ghost'
+        : 'observation-toolbar-btn--filled';
     });
 
     const protocolMissing = computed(() => isProtocolMissing(observation));
@@ -266,8 +251,7 @@ export default defineComponent({
       timerChipAriaLabel,
       recPauseLabel,
       recPauseIcon,
-      recPauseColor,
-      recPauseTextColor,
+      recPauseBtnClass,
       protocolMissing,
       recDisabled,
       terminerDisabled,
@@ -280,55 +264,15 @@ export default defineComponent({
 <style scoped lang="scss">
 .observation-session-bar {
   width: 100%;
-}
-
-.session-bar-row {
-  flex-wrap: wrap;
-}
-
-/* Aligné sur protocol-cta-btn / cta-btn (userspace). */
-.observation-session-cta {
-  border-radius: 0.5rem;
-  font-weight: 500;
   min-width: 0;
-  width: auto;
-}
-
-.observation-session-cta.q-btn--outline {
-  background: #fff;
-}
-
-.session-cta-content {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.observation-session-cta :deep(.q-btn__content) {
-  justify-content: center;
-}
-
-.body--dark .observation-session-cta.q-btn--outline {
-  background: transparent;
-}
-
-.session-status-chip {
-  max-width: 100%;
-  background: rgba(31, 41, 55, 0.08);
-  color: var(--primary);
-  font-weight: 500;
-}
-
-.body--dark .session-status-chip {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
 }
 
 .timer-chip-wrapper {
   position: relative;
   display: inline-flex;
+  flex-shrink: 0;
+  height: var(--observation-toolbar-h);
+  align-items: center;
 }
 
 .timer-paused-veil {
