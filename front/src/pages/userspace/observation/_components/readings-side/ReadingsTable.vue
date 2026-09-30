@@ -6,6 +6,7 @@
     :columns="columns"
     :row-key="getRowKey"
     binary-state-sort
+    v-model:pagination="pagination"
     virtual-scroll
     :virtual-scroll-sticky-size-start="48"
     table-style="max-height: 100%;"
@@ -15,20 +16,39 @@
   >
       <template v-slot:header="props">
         <q-tr :props="props">
-          <q-th v-for="col in props.cols" :key="col.name" :props="props">
-            {{ col.label }}
+          <q-th
+            v-for="col in props.cols"
+            :key="col.name"
+            :props="props"
+            :class="{ 'text-right': col.name === 'actions' }"
+          >
+            <span v-if="col.name === 'actions'">
+              <q-btn
+                flat
+                round
+                dense
+                size="xs"
+                color="dark"
+                icon="delete"
+                :disable="!canClearAll"
+                :aria-label="t('readingsUi.clearAllReadings')"
+                @click.stop="emitClearAll"
+              />
+              <q-tooltip>{{ t('readingsUi.clearAllReadingsTooltip') }}</q-tooltip>
+            </span>
+            <template v-else>
+              {{ col.label }}
+            </template>
           </q-th>
         </q-tr>
       </template>
 
       <template v-slot:body="props">
-        <q-tr 
-          :props="props" 
-          :class="{ 
-            'selected-row': isRowSelected(props.row),
+        <q-tr
+          :props="props"
+          :class="{
             'unrecognized-observable-row': isUnrecognizedObservable(props.row)
           }"
-          @click="toggleRowSelection(props.row)"
         >
           <q-td key="order" :props="props">
             {{ props.rowIndex + 1 }}
@@ -66,8 +86,9 @@
               </span>
               <q-popup-edit 
                 :model-value="observation.isChronometerMode.value ? formatDurationForEditDisplay(props.row.dateTime) : formatDateTimeForEdit(props.row.dateTime)"
-                :title="observation.isChronometerMode.value ? t('readingsUi.editDurationTitle') : t('readingsUi.editDateTimeTitle')" 
+                :title="observation.isChronometerMode.value ? t('readingsUi.editDurationTitle') : undefined"
                 buttons
+                :label-set="observation.isChronometerMode.value ? undefined : calendarPopupLabelSet"
                 @before-show="() => openDateTimeEditor(props.row)"
                 @hide="clearDateTimeEditTarget"
                 @save="handleDateTimeSave(props.row, $event)"
@@ -142,15 +163,14 @@
                 <!-- Date/time editor (calendar mode) -->
                 <div v-else class="column q-gutter-sm">
                   <q-input
-                    v-model="scope.value"
-                    mask="##/##/#### ##:##:##.###"
+                    :model-value="getDatePart(scope.value)"
+                    mask="##/##/####"
                     fill-mask="_"
                     dense
                     autofocus
-                    :hint="t('readingsUi.dateTimeMaskHint')"
-                    :label="t('readingsUi.dateTimeFieldLabel')"
+                    @update:model-value="updateDatePart(scope, $event)"
                   >
-                    <template v-slot:append>
+                    <template v-slot:prepend>
                       <q-icon name="event" class="cursor-pointer">
                         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
                           <q-date
@@ -164,6 +184,16 @@
                           </q-date>
                         </q-popup-proxy>
                       </q-icon>
+                    </template>
+                  </q-input>
+                  <q-input
+                    :model-value="getTimePart(scope.value)"
+                    mask="##:##:##.###"
+                    fill-mask="_"
+                    dense
+                    @update:model-value="updateTimePartFull(scope, $event)"
+                  >
+                    <template v-slot:prepend>
                       <q-icon name="access_time" class="cursor-pointer">
                         <q-popup-proxy cover transition-show="scale" transition-hide="scale">
                           <q-time
@@ -171,6 +201,7 @@
                             @update:model-value="updateTimePartFromPicker(scope, $event)"
                             mask="HH:mm:ss"
                             format24h
+                            with-seconds
                           >
                             <div class="row items-center justify-end">
                               <q-btn v-close-popup :label="t('common.ok')" color="primary" flat />
@@ -185,17 +216,21 @@
             </div>
           </q-td>
           <q-td key="name" :props="props">
-            <div class="editable-cell">
+            <div
+              class="editable-cell"
+              @click="onNameCellClick(props.row, $event)"
+            >
               <span 
                 :class="{ 
-                  'comment-reading': props.row.name?.startsWith('#'),
+                  'comment-reading': isCommentReading(props.row),
                   'unrecognized-observable': isUnrecognizedObservable(props.row)
                 }"
                 :title="getUnrecognizedObservableTitle(props.row)"
               >
                 {{ props.row.name }}
               </span>
-              <q-popup-edit 
+              <q-popup-edit
+                v-if="!isCommentReading(props.row)"
                 v-model="props.row.name" 
                 :title="t('readingsUi.editLabelTitle')" 
                 buttons
@@ -269,20 +304,59 @@
               </q-popup-edit>
             </div>
           </q-td>
+          <q-td key="actions" :props="props" class="text-right">
+            <q-btn
+              flat
+              round
+              dense
+              size="xs"
+              color="primary"
+              icon="edit"
+              :aria-label="t('readingsUi.editReadingTooltip')"
+              @click.stop="openEditReading(props.row)"
+            >
+              <q-tooltip>{{ t('readingsUi.editReadingTooltip') }}</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
+              size="xs"
+              icon="content_copy"
+              :aria-label="t('readingsUi.duplicateReadingTooltip')"
+              @click.stop="emitDuplicateReading(props.row)"
+            >
+              <q-tooltip>{{ t('readingsUi.duplicateReadingTooltip') }}</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
+              size="xs"
+              color="dark"
+              icon="delete"
+              :aria-label="t('readingsUi.deleteReadingOk')"
+              @click.stop="emitRemoveReading(props.row)"
+            >
+              <q-tooltip>{{ t('readingsUi.deleteReadingTooltip') }}</q-tooltip>
+            </q-btn>
+          </q-td>
         </q-tr>
       </template>
     </q-table>
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref, watch, reactive } from 'vue';
+import { defineComponent, computed, ref, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
-import { QTableColumn } from 'quasar';
+import { QTableColumn, Dialog } from 'quasar';
 import { date as qDate } from 'quasar';
 import { useObservation } from 'src/composables/use-observation';
 import { useDuration } from 'src/composables/use-duration';
+import AddCommentDialog from './AddCommentDialog.vue';
+import EditReadingDialog from './EditReadingDialog.vue';
 
 export default defineComponent({
   name: 'ReadingsTable',
@@ -292,16 +366,24 @@ export default defineComponent({
       type: Array as () => IReading[],
       required: true,
     },
-    selected: {
-      type: Array as () => IReading[],
-      default: () => [],
+    canClearAll: {
+      type: Boolean,
+      default: false,
     },
   },
   
-  emits: ['update:selected'],
+  emits: ['remove-reading', 'duplicate-reading', 'clear-all'],
   
   setup(props, { emit }) {
     const { t } = useI18n();
+
+    // Display-only ASC/DESC. Does not mutate currentReadings or persist.
+    const pagination = ref({
+      sortBy: 'dateTime',
+      descending: false,
+      rowsPerPage: 0,
+      page: 1,
+    });
 
     const columns = computed((): QTableColumn[] => [
       {
@@ -310,13 +392,17 @@ export default defineComponent({
         field: 'order',
         align: 'left',
         sortable: false,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
       },
       {
         name: 'type',
         label: t('readingsUi.colType'),
         field: 'type',
         align: 'left',
-        sortable: true,
+        sortable: false,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
       },
       {
         name: 'dateTime',
@@ -324,13 +410,22 @@ export default defineComponent({
         field: 'dateTime',
         align: 'left',
         sortable: true,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
+        sort: (a: Date | string, b: Date | string) => {
+          const ta = a instanceof Date ? a.getTime() : new Date(a).getTime();
+          const tb = b instanceof Date ? b.getTime() : new Date(b).getTime();
+          return ta - tb;
+        },
       },
       {
         name: 'name',
         label: t('readingsUi.colLabel'),
         field: 'name',
         align: 'left',
-        sortable: true,
+        sortable: false,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
       },
       {
         name: 'description',
@@ -338,8 +433,24 @@ export default defineComponent({
         field: 'description',
         align: 'left',
         sortable: false,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
+      },
+      {
+        name: 'actions',
+        label: '',
+        field: 'actions',
+        align: 'right',
+        sortable: false,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
       },
     ]);
+
+    const calendarPopupLabelSet = computed(() => ({
+      cancel: t('dialogs.cancel'),
+      ok: t('readingsUi.popupValidate'),
+    }));
 
     const observation = useObservation();
     const duration = useDuration();
@@ -461,49 +572,6 @@ export default defineComponent({
     });
     const dateTimeEditTarget = ref<{ id?: number; tempId?: string | null } | null>(null);
 
-    const selectedInternal = ref<IReading[]>([]);
-    
-    // Watch the parent's selected readings and update internal state
-    // This keeps the table's selection in sync with the parent component
-    watch(() => props.selected, (newVal) => {
-      selectedInternal.value = newVal || [];
-    }, { immediate: true });
-    
-    // Check if a row is selected using a safe comparison (supports both id and tempId)
-    // This function handles three cases:
-    // 1. Readings with id (persisted readings from backend)
-    // 2. Readings with tempId (newly created readings not yet saved)
-    // 3. Same object reference (direct comparison)
-    const isRowSelected = (row: IReading) => {
-      if (!row || selectedInternal.value.length === 0) {
-        return false;
-      }
-      
-      return selectedInternal.value.some(r => {
-        if (!r) return false;
-        // Compare by id if both have id
-        if (r.id && row.id && r.id === row.id) return true;
-        // Compare by tempId if both have tempId
-        if (r.tempId && row.tempId && r.tempId === row.tempId) return true;
-        // Compare by reference (same object)
-        return r === row;
-      });
-    };
-    
-    // Toggle row selection with improved safety (supports both id and tempId)
-    // This allows selecting readings whether they have an id or tempId
-    const toggleRowSelection = (row: IReading) => {
-      if (!row) return;
-      if (isRowSelected(row)) {
-        selectedInternal.value = [];
-      } else {
-        // Make sure we only select this row
-        selectedInternal.value = [row];
-      }
-      
-      emit('update:selected', selectedInternal.value);
-    };
-    
     // Format date and time for display
     const formatDateTime = (dateTime: Date | string) => {
       if (!dateTime) return '';
@@ -754,6 +822,24 @@ export default defineComponent({
       const msPart = currentTimePart.includes('.') ? currentTimePart.split('.')[1] : '000';
       scope.value = `${datePart || qDate.formatDate(new Date(), 'DD/MM/YYYY')} ${timeVal}.${msPart}`;
     };
+
+    const updateTimePartFull = (scope: any, timeVal: string | number | null) => {
+      if (timeVal === null) return;
+      const datePart = getDatePart(scope.value || '') || qDate.formatDate(new Date(), 'DD/MM/YYYY');
+      scope.value = `${datePart} ${String(timeVal)}`;
+    };
+
+    const emitRemoveReading = (row: IReading) => {
+      emit('remove-reading', row);
+    };
+
+    const emitDuplicateReading = (row: IReading) => {
+      emit('duplicate-reading', row);
+    };
+
+    const emitClearAll = () => {
+      emit('clear-all');
+    };
     
     const getReadingTypeLabel = (type: ReadingTypeEnum) => {
       const labels: Partial<Record<ReadingTypeEnum, string>> = {
@@ -850,8 +936,63 @@ export default defineComponent({
       if (targetRow) {
         targetRow.dateTime = dateValue;
         targetRow.updatedAt = new Date();
+        observation.readings.methods.sortReadingsChronologically();
       }
       clearDateTimeEditTarget();
+    };
+
+    const isCommentReading = (row: IReading): boolean =>
+      typeof row.name === 'string' && row.name.trimStart().startsWith('#');
+
+    const commentBodyFromName = (name: string | undefined): string =>
+      (name ?? '').replace(/^\s*#+\s*/, '');
+
+    const openCommentEditor = (row: IReading) => {
+      Dialog.create({
+        component: AddCommentDialog,
+        componentProps: {
+          initialText: commentBodyFromName(row.name),
+          edit: true,
+        },
+      }).onOk((commentText: string) => {
+        const trimmed = String(commentText).trim().replace(/^\s*#+\s*/, '');
+        if (!trimmed) return;
+        handleNameSave(row, `# ${trimmed}`);
+      });
+    };
+
+    const openEditReading = (row: IReading) => {
+      Dialog.create({
+        component: EditReadingDialog,
+        componentProps: {
+          reading: row,
+        },
+      }).onOk((payload: {
+        id?: number;
+        tempId?: string | null;
+        type: ReadingTypeEnum;
+        dateTime: Date;
+        name: string;
+        description?: string;
+      }) => {
+        observation.readings.methods.updateReading(
+          { id: payload.id, tempId: payload.tempId },
+          {
+            type: payload.type,
+            name: payload.name,
+            description: payload.description,
+            dateTime: payload.dateTime,
+          },
+        );
+      });
+    };
+
+    const onNameCellClick = (row: IReading, event: Event) => {
+      if (!isCommentReading(row)) {
+        return;
+      }
+      event.stopPropagation();
+      openCommentEditor(row);
     };
 
     // Handle name save
@@ -879,9 +1020,8 @@ export default defineComponent({
       }
     };
     
-    // Get row key for q-table (use id if available, otherwise tempId)
-    // This ensures that both persisted readings (with id) and new readings (with tempId)
-    // can be properly tracked by the table's virtual scrolling and selection system
+    // Stable identity only. Do not include updatedAt: virtual-scroll remounts
+    // the row on every stamp change (inline save flicker, backend sync jump).
     const getRowKey = (row: IReading) => {
       return row.id ? `id-${row.id}` : `tempId-${row.tempId || 'unknown'}`;
     };
@@ -894,11 +1034,13 @@ export default defineComponent({
     
     return {
       t,
+      pagination,
       observation,
       duration,
       isChronometerMode,
       durationEditState,
       columns,
+      calendarPopupLabelSet,
       formatDuration,
       formatDurationForEditDisplay,
       syncDurationEditStateFromRow,
@@ -915,12 +1057,17 @@ export default defineComponent({
       getTimePartWithoutMs,
       updateDatePart,
       updateTimePartFromPicker,
+      updateTimePartFull,
+      emitRemoveReading,
+      emitDuplicateReading,
+      emitClearAll,
       getReadingTypeLabel,
       readingTypeOptions,
-      isRowSelected,
-      toggleRowSelection,
       handleDateTimeSave,
       handleNameSave,
+      isCommentReading,
+      onNameCellClick,
+      openEditReading,
       handleDescriptionSave,
       handleTypeSave,
       getRowKey,
@@ -937,20 +1084,11 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.selected-row {
-  background-color: rgba(25, 118, 210, 0.1);
-}
-
-/* Style the selected row more clearly */
-tr.selected-row td {
-  font-weight: 500;
-}
-
-/* Make editable cells more visible */
 .editable-cell {
   position: relative;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 0;
+  margin: 0;
   border-radius: 4px;
   transition: background-color 0.2s;
 }
@@ -992,6 +1130,7 @@ tr.selected-row td {
   &:deep() {
     .q-table__container {
       height: 100%;
+      width: max-content;
     }
     
     /* Sticky header */
@@ -1000,6 +1139,23 @@ tr.selected-row td {
       top: 0;
       z-index: 1;
       background-color: white;
+    }
+
+    .q-table {
+      table-layout: auto;
+      width: max-content;
+    }
+
+    th,
+    td {
+      padding-left: 4px;
+      padding-right: 8px;
+      vertical-align: middle;
+    }
+
+    th:last-child,
+    td:last-child {
+      padding-right: 4px;
     }
   }
 }

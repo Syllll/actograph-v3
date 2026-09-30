@@ -1,59 +1,53 @@
 <template>
   <div class="readings-side-container">
-    <div class="readings-side-content q-pa-sm column">
+    <div ref="contentRef" class="readings-side-content q-pa-sm column">
       <!-- Toolbar with search, add, and remove buttons -->
       <readings-toolbar
         class="col-auto"
         v-model:search="search"
-        :has-selected="hasSelectedReading"
         :match-count="filteredReadings.length"
         :is-add-disabled="false"
         :can-activate-chronometer-mode="canActivateChronometerMode"
         @add-reading="handleAddReading"
         @add-comment="handleAddComment"
-        @remove-reading="handleRemoveReading"
-        @remove-all-readings="handleRemoveAllReadings"
         @activate-chronometer-mode="handleActivateChronometerMode"
         @auto-correct-readings="handleAutoCorrectReadings"
-        @replace-selected="handleReplaceSelected"
         @replace-all="handleReplaceAll"
       />
-
-      <q-banner
-        v-if="hasReadingsAfterLastStop"
-        dense
-        rounded
-        class="readings-scope-warning q-mb-sm"
-      >
-        <template #avatar>
-          <q-icon name="warning" color="warning" />
-        </template>
-        {{ t('graphUi.readingsAfterLastStopWarning') }}
-      </q-banner>
 
       <div class="col table-wrapper">
         <readings-table
           :readings="filteredReadings"
-          v-model:selected="selectedReading"
+          :can-clear-all="hasReadings"
+          @remove-reading="handleRemoveReading"
+          @duplicate-reading="handleDuplicateReading"
+          @clear-all="handleClearAllWithConfirm"
         />
       </div>
+
+      <readings-after-last-stop-banner
+        v-if="hasReadingsAfterLastStop"
+        class="readings-scope-warning q-mt-sm"
+      />
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch, onBeforeUnmount, nextTick } from 'vue';
+import { defineComponent, ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { useReadings } from 'src/composables/use-observation/use-readings';
 import { IReading, ReadingTypeEnum, ObservationModeEnum } from '@services/observations/interface';
 import ReadingsToolbar from './ReadingsToolbar.vue';
 import ReadingsTable from './ReadingsTable.vue';
+import ReadingsAfterLastStopBanner from 'src/pages/userspace/_components/ReadingsAfterLastStopBanner.vue';
 import { useObservation } from 'src/composables/use-observation';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
-import { createDialog } from '@lib-improba/utils/dialog.utils';
 import { Dialog } from 'quasar';
 import AutoCorrectReadingsDialog from './AutoCorrectReadingsDialog.vue';
+import AddCommentDialog from './AddCommentDialog.vue';
+import ReadingsConfirmDialog from './ReadingsConfirmDialog.vue';
 
 export default defineComponent({
   name: 'ReadingsSideIndex',
@@ -61,10 +55,13 @@ export default defineComponent({
   components: {
     ReadingsToolbar,
     ReadingsTable,
+    ReadingsAfterLastStopBanner,
     AutoCorrectReadingsDialog,
   },
 
-  setup() {
+  emits: ['content-width'],
+
+  setup(_, { emit }) {
     const $q = useQuasar();
     const { t } = useI18n();
     const observation = useObservation();
@@ -73,8 +70,9 @@ export default defineComponent({
 
     // Local state for this component
     const search = ref('');
-    const selectedReading = ref<IReading[]>([]);
-    
+    const contentRef = ref<HTMLElement | null>(null);
+    let contentResizeObserver: ResizeObserver | null = null;
+
     // Check if chronometer mode can be activated
     // Conditions:
     // 1. Observation mode is not Calendar (must be null or Chronometer)
@@ -90,19 +88,7 @@ export default defineComponent({
       // - No START reading exists (observation not started)
       return currentMode !== ObservationModeEnum.Calendar && !hasStartReading;
     });
-    
-    // Watch for selection changes to keep the composable's selected reading in sync
-    // This ensures that other components can access the selected reading via the composable
-    watch(selectedReading, (newValue) => {
-      methods.selectReading(newValue.length > 0 ? newValue[0] : null);
-    }, { immediate: true });
-    
-    // Computed property to check if a reading is selected
-    // Used to enable/disable the remove button in the toolbar
-    const hasSelectedReading = computed(() => {
-      return selectedReading.value.length > 0;
-    });
-    
+
     // Filtered readings based on search query
     // This computed property filters the current readings by name, id, or description
     const filteredReadings = computed(() => {
@@ -122,61 +108,27 @@ export default defineComponent({
       return result;
     });
 
-    // Handler for adding a new reading
-    // Behavior:
-    // - If a reading is selected: creates a copy of the selected reading with all its properties
-    // - If no reading is selected: creates a new empty reading
-    // After creation, the new reading is automatically selected
     const handleAddReading = () => {
-      let newReading: IReading;
-      const wasSelected = selectedReading.value.length > 0 && selectedReading.value[0];
-      
-      // If a reading is selected, create a copy of it
-      if (wasSelected) {
-        const selected = selectedReading.value[0];
-        
-        // Create a copy of the selected reading with all its properties
-        // Use a slightly later dateTime (+1 second) to avoid exact duplicates
-        const copiedDateTime = selected.dateTime 
-          ? new Date(new Date(selected.dateTime).getTime() + 1000) // Add 1 second
-          : new Date();
-        
-        newReading = methods.addReading({
-          name: selected.name,
-          description: selected.description,
-          type: selected.type,
-          dateTime: copiedDateTime,
-        });
-      } else {
-        // No selection, create a new empty reading with default values
-        newReading = methods.addReading();
-      }
-      
-      // Use nextTick to ensure the reading is added to the reactive array before selecting
-      // This is important because Vue's reactivity needs to process the array update first
-      nextTick(() => {
-        // Find the reading in the current readings array by tempId or id
-        // This ensures we use the correct reference from the reactive array
-        const readingToSelect = sharedState.currentReadings.find(
-          (r: IReading) => 
-            (newReading.tempId && r.tempId === newReading.tempId) ||
-            (newReading.id && r.id === newReading.id)
-        );
-        
-        if (readingToSelect) {
-          // Use the reading from the array to ensure proper reactivity
-          selectedReading.value = [readingToSelect];
-        } else {
-          // Fallback: use the returned reading (should not happen in normal flow)
-          selectedReading.value = [newReading];
-        }
-      });
+      methods.addReading();
+    };
+
+    const handleDuplicateReading = (source: IReading) => {
+      if (!source) return;
+      methods.addReading(
+        {
+          name: source.name,
+          description: source.description,
+          type: source.type,
+          dateTime: source.dateTime ? new Date(source.dateTime) : new Date(),
+        },
+        source,
+      );
     };
 
     // Handler for adding a comment (Bug 2.7 - Bouton Commentaire BULLE)
     // Opens a prompt dialog, then creates a reading with name '# ' + commentText
     // Uses current observation timestamp (currentDate + elapsedTime)
-    const handleAddComment = async () => {
+    const handleAddComment = () => {
       if (!observation.sharedState.currentObservation) {
         $q.notify({
           type: 'negative',
@@ -185,71 +137,53 @@ export default defineComponent({
         return;
       }
 
-      const commentText = await createDialog({
-        title: t('readingsUi.addCommentTitle'),
-        message: t('readingsUi.addCommentPrompt'),
-        prompt: {
-          model: '',
-          type: 'text',
-        },
-        cancel: t('dialogs.cancel'),
-        ok: {
-          label: t('readingsUi.addCommentOk'),
-          color: 'primary',
-        },
-        persistent: true,
-      });
+      Dialog.create({
+        component: AddCommentDialog,
+      }).onOk((commentText: string) => {
+        const trimmed = String(commentText).trim();
+        if (!trimmed) return;
 
-      if (commentText === false || commentText === undefined) return;
-
-      const trimmed = String(commentText).trim();
-      if (!trimmed) return;
-
-      const newReading = methods.addReading({
-        name: '# ' + trimmed,
-        type: ReadingTypeEnum.DATA,
-        currentDate: observation.sharedState.currentDate || new Date(),
-        elapsedTime: observation.sharedState.elapsedTime ?? 0,
-      });
-
-      nextTick(() => {
-        const readingToSelect = sharedState.currentReadings.find(
-          (r: IReading) =>
-            (newReading.tempId && r.tempId === newReading.tempId) ||
-            (newReading.id && r.id === newReading.id)
-        );
-        selectedReading.value = readingToSelect ? [readingToSelect] : [newReading];
+        methods.addReading({
+          name: '# ' + trimmed,
+          type: ReadingTypeEnum.DATA,
+          currentDate: observation.sharedState.currentDate || new Date(),
+          elapsedTime: observation.sharedState.elapsedTime ?? 0,
+        });
       });
     };
 
-    // Handler for removing all readings
-    // This clears the entire readings list
     const handleRemoveAllReadings = () => {
       methods.removeAllReadings();
-      // Clear selection after removing all readings
-      selectedReading.value = [];
-    }
+    };
 
-    // Handler for removing a reading
-    // This handler removes the currently selected reading from the list
-    // It supports both readings with an id (persisted) and tempId (newly created)
-    const handleRemoveReading = () => {
-      // Safety check: ensure we have a selected reading
-      if (selectedReading.value.length === 0 || !selectedReading.value[0]) {
-        return;
-      }
-      
-      const readingToRemove = selectedReading.value[0];
-      
-      // Remove the reading using the composable method
-      // Pass the reading object itself so the method can use either id or tempId
-      const wasRemoved = methods.removeReading(readingToRemove);
-      
-      // Clear the selection after removal
-      // This ensures the UI reflects that no reading is selected
-      if (wasRemoved) {
-        selectedReading.value = [];
-      }
+    const handleClearAllWithConfirm = () => {
+      Dialog.create({
+        component: ReadingsConfirmDialog,
+        componentProps: {
+          title: t('readingsUi.clearAllTitle'),
+          message: t('readingsUi.clearAllMessage'),
+          okLabel: t('readingsUi.clearAllOk'),
+          destructive: true,
+        },
+      }).onOk(() => {
+        handleRemoveAllReadings();
+      });
+    };
+
+    const handleRemoveReading = (readingToRemove: IReading) => {
+      if (!readingToRemove) return;
+
+      Dialog.create({
+        component: ReadingsConfirmDialog,
+        componentProps: {
+          title: t('readingsUi.deleteReadingTitle'),
+          message: t('readingsUi.deleteReadingMessage'),
+          okLabel: t('readingsUi.deleteReadingOk'),
+          destructive: true,
+        },
+      }).onOk(() => {
+        methods.removeReading(readingToRemove);
+      });
     };
     
     // Handler for auto-correcting readings
@@ -286,27 +220,46 @@ export default defineComponent({
       });
     };
 
-    // Handler for replace selected reading (Rechercher/Remplacer)
-    const handleReplaceSelected = async (replaceValue: string) => {
-      if (selectedReading.value.length === 0) return;
-      const reading = selectedReading.value[0];
-      const searchTerm = search.value;
-      if (!searchTerm) return;
-      const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(escaped, 'gi');
-      reading.name = (reading.name ?? '').replace(regex, replaceValue);
-      await methods.synchronizeReadings();
-    };
-
-    // Handler for replace all filtered readings (Rechercher/Remplacer)
+    // Handler for replace all filtered readings (search is a filter, not a selection).
     const handleReplaceAll = async ({ search: searchTerm, replace: replaceValue }: { search: string; replace: string }) => {
       const searchLower = searchTerm.toLowerCase();
+      const matchCount = filteredReadings.value.filter((reading) =>
+        reading.name?.toLowerCase().includes(searchLower)
+      ).length;
+
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Dialog.create({
+          component: ReadingsConfirmDialog,
+          componentProps: {
+            title: t('readingsUi.replaceAllTitle'),
+            message: t('readingsUi.replaceAllMessage', {
+              search: searchTerm,
+              replace: replaceValue,
+              count: matchCount,
+            }),
+            okLabel: t('readingsUi.replaceAllOk'),
+            destructive: false,
+          },
+        })
+          .onOk(() => resolve(true))
+          .onCancel(() => resolve(false))
+          .onDismiss(() => resolve(false));
+      });
+
+      if (!confirmed) return;
+
       const escapedSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(escapedSearch, 'gi');
-      for (const reading of filteredReadings.value) {
-        if (reading.name?.toLowerCase().includes(searchLower)) {
-          reading.name = reading.name.replace(regex, replaceValue);
-        }
+      // Snapshot identities first: updateReading replaces objects and re-sorts.
+      const replacements = filteredReadings.value
+        .filter((reading) => reading.name?.toLowerCase().includes(searchLower))
+        .map((reading) => ({
+          identity: { id: reading.id, tempId: reading.tempId },
+          name: (reading.name ?? '').replace(regex, replaceValue),
+        }));
+
+      for (const replacement of replacements) {
+        methods.updateReading(replacement.identity, { name: replacement.name });
       }
       await methods.synchronizeReadings();
     };
@@ -324,18 +277,22 @@ export default defineComponent({
       }
       
       // Confirm action
-      const dialog = await createDialog({
-        title: t('observation.activateChronometerTitle'),
-        message: t('observation.activateChronometerMessage'),
-        cancel: t('components.DModal.cancel'),
-        ok: {
-          label: t('observation.activateChronometerOk'),
-          color: 'primary',
-        },
-        persistent: true,
+      const confirmed = await new Promise<boolean>((resolve) => {
+        Dialog.create({
+          component: ReadingsConfirmDialog,
+          componentProps: {
+            title: t('observation.activateChronometerTitle'),
+            message: t('observation.activateChronometerMessage'),
+            okLabel: t('observation.activateChronometerOk'),
+            destructive: false,
+          },
+        })
+          .onOk(() => resolve(true))
+          .onCancel(() => resolve(false))
+          .onDismiss(() => resolve(false));
       });
-      
-      if (!dialog) return;
+
+      if (!confirmed) return;
       
       // Update observation mode
       const observationId = observation.sharedState.currentObservation?.id;
@@ -371,8 +328,51 @@ export default defineComponent({
       detectReadingsAfterLastStop(sharedState.currentReadings)
     );
 
+    const hasReadings = computed(() => sharedState.currentReadings.length > 0);
+
+    const measureContentWidth = () => {
+      const root = contentRef.value;
+      if (!root) return;
+      const headerRow = root.querySelector('table.q-table thead tr');
+      if (!(headerRow instanceof HTMLElement)) return;
+      const cells = headerRow.querySelectorAll('th');
+      if (cells.length === 0) return;
+      let tableWidth = 0;
+      cells.forEach((cell) => {
+        tableWidth += Math.max(cell.scrollWidth, cell.offsetWidth);
+      });
+      if (tableWidth < 80) return;
+      // Table thead only: the search/replace toolbar width must not clamp the splitter.
+      const styles = window.getComputedStyle(root);
+      const padding =
+        (Number.parseFloat(styles.paddingLeft) || 0)
+        + (Number.parseFloat(styles.paddingRight) || 0);
+      emit('content-width', Math.ceil(tableWidth + padding));
+    };
+
+    watch(filteredReadings, () => {
+      void nextTick(measureContentWidth);
+    });
+
+    onMounted(() => {
+      void nextTick(() => {
+        measureContentWidth();
+        const table = contentRef.value?.querySelector('table.q-table');
+        if (table && typeof ResizeObserver !== 'undefined') {
+          contentResizeObserver = new ResizeObserver(() => {
+            measureContentWidth();
+          });
+          contentResizeObserver.observe(table);
+        }
+      });
+    });
+
     // Lifecycle hook: synchronize readings when component is unmounted
     onBeforeUnmount(() => {
+      if (contentResizeObserver) {
+        contentResizeObserver.disconnect();
+        contentResizeObserver = null;
+      }
       if (!observation.sharedState.currentObservation?.id) {
         return;
       }
@@ -382,16 +382,16 @@ export default defineComponent({
     return {
       t,
       search,
-      selectedReading,
-      hasSelectedReading,
+      contentRef,
       filteredReadings,
       canActivateChronometerMode,
       hasReadingsAfterLastStop,
+      hasReadings,
       handleAddReading,
+      handleDuplicateReading,
       handleAddComment,
       handleRemoveReading,
-      handleRemoveAllReadings,
-      handleReplaceSelected,
+      handleClearAllWithConfirm,
       handleReplaceAll,
       handleActivateChronometerMode,
       handleAutoCorrectReadings,
@@ -418,7 +418,7 @@ export default defineComponent({
 .table-wrapper {
   flex: 1 1 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
   position: relative;
 }
 </style>

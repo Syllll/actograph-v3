@@ -112,6 +112,8 @@ export default {
   observation: {
     popoutVideoTooltip: 'Ouvrir la vidéo dans une fenêtre séparée',
     popoutButtonsTooltip: 'Détacher les boutons',
+    resizeReadingsPanesTooltip: 'Redimensionner les panneaux',
+    resizeVideoPanesTooltip: 'Redimensionner la vidéo',
     boardLayoutAria: 'Disposition du plateau',
     resetLayoutLabel: 'Réinitialiser la disposition',
     popoutVideoActive: 'Vidéo ouverte dans une fenêtre séparée',
@@ -237,6 +239,8 @@ export default {
     addCommentTitle: 'Ajouter un commentaire',
     addCommentPrompt: 'Votre commentaire…',
     addCommentOk: 'Ajouter',
+    addCommentRequired: 'Le commentaire ne peut pas être vide',
+    editCommentTitle: 'Éditer le commentaire',
     autoCorrectNone: 'Aucune correction nécessaire',
     autoCorrectNoneCaption:
       'Tous les relevés sont correctement ordonnés et structurés.',
@@ -244,7 +248,8 @@ export default {
     autoCorrectAppliedCaption:
       '{count} modification(s) sur la liste des relevés.',
     deleteReadingTitle: 'Supprimer ce relevé ?',
-    deleteReadingMessage: 'Voulez-vous supprimer le relevé sélectionné ?',
+    deleteReadingMessage: 'Voulez-vous supprimer ce relevé ?',
+    popupValidate: 'Valider',
     deleteReadingOk: 'Supprimer',
     clearAllTitle: 'Effacer toute la liste',
     clearAllMessage:
@@ -267,9 +272,14 @@ export default {
     addReadingTooltip: 'Ajouter un relevé',
     addCommentTooltip: 'Ajouter un commentaire horodaté',
     deleteReading: 'Supprimer',
-    deleteReadingTooltip: 'Supprimer le relevé sélectionné',
+    deleteReadingTooltip: 'Supprimer ce relevé',
+    duplicateReadingTooltip: 'Dupliquer ce relevé',
+    editReadingTitle: 'Modifier le relevé',
+    editReadingTooltip: 'Modifier ce relevé',
+    editReadingDate: 'Date',
+    editReadingTime: 'Heure',
     clearAllReadings: 'Tout effacer',
-    clearAllReadingsTooltip: 'Effacer toute la liste des relevés',
+    clearAllReadingsTooltip: 'Effacer tous les relevés',
     autoCorrectTooltip: 'Corriger automatiquement les relevés',
     chronometerModeButton: 'Mode chronomètre',
     chronometerModeButtonTooltip:
@@ -278,6 +288,10 @@ export default {
     matchCountFound: '{count} résultat(s) trouvé(s)',
     replaceOne: 'Remplacer',
     replaceAll: 'Tout remplacer',
+    replaceAllTitle: 'Tout remplacer',
+    replaceAllMessage:
+      'Remplacer « {search} » par « {replace} » dans {count} relevé(s) ?',
+    replaceAllOk: 'Tout remplacer',
     colOrder: 'N°',
     colType: 'Type',
     colDateTime: 'Date & heure',

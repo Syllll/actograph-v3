@@ -113,12 +113,25 @@ const reconstructReadingDates = (reading: IReading): IReading => ({
     : undefined,
 });
 
+const readingDateTimeMs = (reading: IReading): number => {
+  const date = reading.dateTime instanceof Date ? reading.dateTime : new Date(reading.dateTime);
+  const ms = date.getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+};
+
+const sortReadingsByDateTime = (readings: IReading[]): IReading[] =>
+  [...readings].sort((a, b) => readingDateTimeMs(a) - readingDateTimeMs(b));
+
 export const useReadings = (options: {
   sharedStateFromObservation: any,
 }) => {
   const { t, d } = useI18n();
   const observationSharedState = options.sharedStateFromObservation;
-  
+
+  const applyChronologicalOrder = () => {
+    sharedState.currentReadings = sortReadingsByDateTime(sharedState.currentReadings);
+  };
+
   const methods = {
     /**
      * Loads all readings associated with the provided observation
@@ -169,6 +182,7 @@ export const useReadings = (options: {
       
       stateless.initialReadings = readingsWithDates.map(cloneReadingSnapshot);
       sharedState.currentReadings = readingsWithDates;
+      applyChronologicalOrder();
     },
     
     /**
@@ -482,51 +496,73 @@ export const useReadings = (options: {
     },
     
     /**
-     * Adds a reading to the current readings list
-     * 
-     * If a reading is selected, the new reading will be inserted after it.
-     * Otherwise, the reading will be added at the end of the list.
-     * 
-     * @param options - Optional properties for the new reading, or a reading object to add
-     * @returns The added reading
+     * Adds a reading to the current readings list.
+     * Inserts after `insertAfter` when provided; otherwise after the leftover
+     * selectedReading; otherwise appends at the end.
      */
-    addReading: (options: IReading | {
-      name?: string;
-      description?: string;
-      type?: ReadingTypeEnum;
-      dateTime?: Date;
-      categoryName?: string;
-      observableName?: string;
-      observableDescription?: string;
-      currentDate?: Date;
-      elapsedTime?: number;
-    } = {}) => {
+    addReading: (
+      options: IReading | {
+        name?: string;
+        description?: string;
+        type?: ReadingTypeEnum;
+        dateTime?: Date;
+        categoryName?: string;
+        observableName?: string;
+        observableDescription?: string;
+        currentDate?: Date;
+        elapsedTime?: number;
+      } = {},
+      insertAfter?: IReading | null,
+    ) => {
       // Determine if we are adding an existing reading object or creating a new one
       const readingToAdd = 'id' in options 
         ? options as IReading 
         : methods.createReading(options);
       
-      // If a reading is selected, copy some of its properties (if not already specified)
-      // and insert after it in the list
-      if (sharedState.selectedReading) {
-        const selected = sharedState.selectedReading;
+      const after = insertAfter ?? sharedState.selectedReading;
+      if (after) {
         const selectedIndex = sharedState.currentReadings.findIndex(
           (r: IReading) =>
-            (selected.id != null && r.id === selected.id) ||
-            (selected.tempId != null && r.tempId === selected.tempId) ||
-            r === selected,
+            (after.id != null && r.id === after.id) ||
+            (after.tempId != null && r.tempId === after.tempId) ||
+            r === after,
         );
         
         if (selectedIndex !== -1) {
-          // Insert after the selected reading
           sharedState.currentReadings.splice(selectedIndex + 1, 0, readingToAdd);
-          return sharedState.currentReadings[selectedIndex + 1];
+          applyChronologicalOrder();
+          return readingToAdd;
         }
       }
-      
-      // No selection or selected reading not found, add to the end
+
       sharedState.currentReadings.push(readingToAdd);
-      return sharedState.currentReadings[sharedState.currentReadings.length - 1];
+      applyChronologicalOrder();
+      return readingToAdd;
+    },
+
+    sortReadingsChronologically: () => {
+      applyChronologicalOrder();
+    },
+
+    /**
+     * Replaces one reading by identity so Vue/q-table virtual-scroll sees a new
+     * object (in-place field mutation does not refresh recycled rows).
+     */
+    updateReading: (
+      identity: { id?: number; tempId?: string | null },
+      patch: Partial<IReading>,
+    ) => {
+      const idx = sharedState.currentReadings.findIndex((reading) => (
+        (identity.id != null && reading.id === identity.id)
+        || (Boolean(identity.tempId) && reading.tempId === identity.tempId)
+      ));
+      if (idx === -1) return;
+      sharedState.currentReadings[idx] = {
+        ...sharedState.currentReadings[idx],
+        ...patch,
+        updatedAt: new Date(),
+      };
+      applyChronologicalOrder();
     },
 
     removeAllReadings: () => {
@@ -779,6 +815,7 @@ export const useReadings = (options: {
         
         // Apply corrections to sharedState.currentReadings
         sharedState.currentReadings = correctedReadings;
+        applyChronologicalOrder();
       } else {
         // When not applying corrections, cast core IReading[] to frontend IReading[]
         correctedReadings = result.correctedReadings as IReading[];
@@ -871,6 +908,7 @@ export const useReadings = (options: {
           }
           return reading;
         });
+        applyChronologicalOrder();
       });
     });
 
