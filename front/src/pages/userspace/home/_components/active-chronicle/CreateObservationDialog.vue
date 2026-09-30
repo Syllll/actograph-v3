@@ -11,46 +11,36 @@
       @submit="onOKClick"
     >
       <div class="column q-gutter-md">
-        <q-input
-          v-model="state.name"
-          :placeholder="$t('dialogs.createObservation.namePlaceholder')"
-          outlined
-          dense
-          :rules="[validateName]"
-        />
-        <q-input
-          v-model="state.description"
-          :placeholder="$t('dialogs.createObservation.descriptionPlaceholder')"
-          outlined
-          dense
-          type="textarea"
-          :rows="4"
-        />
+        <div class="column q-gutter-xs">
+          <div class="text-body2">
+            {{ $t('dialogs.createObservation.observationTypeLabel') }}
+          </div>
+          <div class="text-caption text-neutral-high">
+            {{ $t('dialogs.createObservation.modeHint') }}
+          </div>
+          <q-select
+            v-model="state.creationEntry"
+            :options="creationEntryOptions"
+            option-label="label"
+            option-value="value"
+            emit-value
+            map-options
+            outlined
+            dense
+            hide-bottom-space
+          >
+            <template v-slot:option="scope">
+              <q-item v-bind="scope.itemProps">
+                <q-item-section>
+                  <q-item-label>{{ scope.opt.label }}</q-item-label>
+                  <q-item-label caption>{{ scope.opt.description }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </template>
+          </q-select>
+        </div>
 
-        <q-select
-          v-model="state.observationType"
-          :options="observationTypeOptions"
-          option-label="label"
-          option-value="value"
-          emit-value
-          map-options
-          outlined
-          dense
-          :label="$t('dialogs.createObservation.observationTypeLabel')"
-          :hint="$t('dialogs.createObservation.observationTypeHint')"
-          :rules="[validateObservationType]"
-        >
-          <template v-slot:option="scope">
-            <q-item v-bind="scope.itemProps">
-              <q-item-section>
-                <q-item-label>{{ scope.opt.label }}</q-item-label>
-                <q-item-label caption>{{ scope.opt.description }}</q-item-label>
-              </q-item-section>
-            </q-item>
-          </template>
-        </q-select>
-
-        <div v-if="state.observationType === 'video'" class="column q-gutter-sm">
+        <div v-if="state.creationEntry === 'video'" class="column q-gutter-sm">
           <q-btn
             v-if="!state.videoPath"
             color="primary"
@@ -73,53 +63,53 @@
           </div>
         </div>
 
-        <q-separator />
-        <div class="column q-gutter-sm">
-          <q-toggle
-            v-model="state.copyProtocol"
-            :label="$t('dialogs.createObservation.copyProtocol')"
-            color="primary"
+        <div class="column q-gutter-xs">
+          <div class="text-body2">
+            {{ $t('dialogs.createObservation.namePlaceholder') }}
+          </div>
+          <q-input
+            v-model="state.name"
+            outlined
+            dense
+            hide-bottom-space
+            :rules="[validateName]"
           />
+        </div>
+        <div class="column q-gutter-xs">
+          <div class="text-body2">
+            {{ $t('dialogs.createObservation.descriptionPlaceholder') }}
+          </div>
+          <q-input
+            v-model="state.description"
+            outlined
+            dense
+            type="textarea"
+            :rows="4"
+            hide-bottom-space
+          />
+        </div>
+
+        <div class="column q-gutter-xs">
+          <div class="text-body2">
+            {{ $t('dialogs.createObservation.protocolLabel') }}
+          </div>
+          <div class="text-caption text-neutral-high">
+            {{ $t('dialogs.createObservation.sourceHint') }}
+          </div>
           <q-select
-            v-if="state.copyProtocol"
             v-model="state.sourceObservationId"
-            :options="observationOptions"
+            :options="protocolOptions"
             option-label="label"
             option-value="value"
             emit-value
             map-options
             outlined
             dense
-            :placeholder="$t('dialogs.createObservation.sourcePlaceholder')"
+            hide-bottom-space
             :loading="state.observationsLoading"
             :disable="state.observationsLoading"
-            :hint="$t('dialogs.createObservation.sourceHint')"
           />
         </div>
-
-        <q-select
-          v-if="state.observationType === 'direct'"
-          v-model="state.mode"
-          :options="modeOptions"
-          option-label="label"
-          option-value="value"
-          emit-value
-          map-options
-          outlined
-          dense
-          :label="$t('dialogs.createObservation.modeLabel')"
-          :hint="$t('dialogs.createObservation.modeHint')"
-          :rules="[validateMode]"
-        >
-          <template v-slot:option="scope">
-            <q-item v-bind="scope.itemProps">
-              <q-item-section>
-                <q-item-label>{{ scope.opt.label }}</q-item-label>
-                <q-item-label caption>{{ scope.opt.description }}</q-item-label>
-              </q-item-section>
-            </q-item>
-          </template>
-        </q-select>
       </div>
     </DDialogCard>
   </q-dialog>
@@ -134,12 +124,15 @@ import {
   onMounted,
   onUnmounted,
   computed,
+  watch,
 } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { DDialogCard } from '@lib-improba/components';
 import { ObservationModeEnum } from '@services/observations/interface';
 import { observationService } from '@services/observations/index.service';
+
+type CreationEntry = 'direct' | 'chronometer' | 'video';
 
 export default defineComponent({
   name: 'CreateObservationDialog',
@@ -176,47 +169,57 @@ export default defineComponent({
     const state = reactive({
       name: '',
       description: '',
-      observationType: 'direct' as 'video' | 'direct',
+      creationEntry: 'direct' as CreationEntry,
       videoPath: null as string | null,
-      mode: ObservationModeEnum.Calendar as ObservationModeEnum,
-      copyProtocol: false,
       sourceObservationId: null as number | null,
       observations: [] as { id: number; name: string }[],
       observationsLoading: false,
       creating: false,
     });
 
-    const observationOptions = computed(() =>
-      state.observations.map((obs) => ({
-        label: obs.name,
-        value: obs.id,
-      }))
+    watch(
+      () => state.creationEntry,
+      (entry, previous) => {
+        if (previous === 'video' && entry !== 'video') {
+          state.videoPath = null;
+        }
+      }
     );
 
-    const observationTypeOptions = computed(() => {
+    const protocolOptions = computed(() => {
       void locale.value;
       return [
-        { label: t('dialogs.createObservation.typeDirect'), value: 'direct', description: t('dialogs.createObservation.typeDirectDesc') },
-        { label: t('dialogs.createObservation.typeVideo'), value: 'video', description: t('dialogs.createObservation.typeVideoDesc') },
+        { label: t('dialogs.createObservation.protocolNone'), value: null as number | null },
+        ...state.observations.map((obs) => ({
+          label: obs.name,
+          value: obs.id,
+        })),
       ];
     });
 
-    const modeOptions = computed(() => {
+    const creationEntryOptions = computed(() => {
       void locale.value;
       return [
-        { label: t('dialogs.createObservation.modeCalendar'), value: ObservationModeEnum.Calendar, description: t('dialogs.createObservation.modeCalendarDesc') },
-        { label: t('dialogs.createObservation.modeChronometer'), value: ObservationModeEnum.Chronometer, description: t('dialogs.createObservation.modeChronometerDesc') },
+        {
+          label: t('dialogs.createObservation.typeDirect'),
+          value: 'direct' as CreationEntry,
+          description: t('dialogs.createObservation.typeDirectDesc'),
+        },
+        {
+          label: t('dialogs.createObservation.typeChronometer'),
+          value: 'chronometer' as CreationEntry,
+          description: t('dialogs.createObservation.typeChronometerDesc'),
+        },
+        {
+          label: t('dialogs.createObservation.typeVideo'),
+          value: 'video' as CreationEntry,
+          description: t('dialogs.createObservation.typeVideoDesc'),
+        },
       ];
     });
 
     const validateName = (val: string | null | undefined): boolean | string =>
       Boolean(val && val.trim().length > 0) || t('dialogs.createObservation.nameRequired');
-
-    const validateObservationType = (val: string | null | undefined): boolean | string =>
-      (val !== null && val !== undefined) || t('dialogs.createObservation.observationTypeRequired');
-
-    const validateMode = (val: ObservationModeEnum | null | undefined): boolean | string =>
-      (val !== null && val !== undefined) || t('dialogs.createObservation.modeRequired');
 
     const handleDialogHide = async () => {
       if (!isMounted.value) return;
@@ -232,9 +235,7 @@ export default defineComponent({
     const methods = {
       get isValid(): boolean {
         if (!state.name || state.name.trim().length === 0) return false;
-        if (state.observationType === 'video' && !state.videoPath) return false;
-        if (state.observationType === 'direct' && !state.mode) return false;
-        if (state.copyProtocol && !state.sourceObservationId) return false;
+        if (state.creationEntry === 'video' && !state.videoPath) return false;
         return true;
       },
 
@@ -265,20 +266,29 @@ export default defineComponent({
 
       onOKClick: () => {
         if (!methods.isValid || state.creating) return;
-        const finalMode = state.observationType === 'video'
-          ? ObservationModeEnum.Chronometer
-          : state.mode;
 
-        const dialogResult: any = {
+        const finalMode =
+          state.creationEntry === 'direct'
+            ? ObservationModeEnum.Calendar
+            : ObservationModeEnum.Chronometer;
+
+        const dialogResult: {
+          name: string;
+          description?: string;
+          mode: ObservationModeEnum;
+          videoPath?: string;
+          sourceObservationId?: number;
+        } = {
           name: state.name.trim(),
           description: state.description.trim() || undefined,
           mode: finalMode,
         };
 
-        if (state.copyProtocol && state.sourceObservationId) {
+        if (state.sourceObservationId !== null) {
           dialogResult.sourceObservationId = state.sourceObservationId;
         }
-        if (state.observationType === 'video') {
+
+        if (state.creationEntry === 'video') {
           if (state.videoPath && typeof state.videoPath === 'string' && state.videoPath.trim() !== '') {
             dialogResult.videoPath = state.videoPath;
           }
@@ -292,16 +302,13 @@ export default defineComponent({
     return {
       dialogRef,
       state,
-      observationTypeOptions,
-      modeOptions,
-      observationOptions,
+      creationEntryOptions,
+      protocolOptions,
       methods,
       handleDialogHide,
       onOKClick: methods.onOKClick,
       onCancelClick: onDialogCancel,
       validateName,
-      validateObservationType,
-      validateMode,
     };
   },
 });
