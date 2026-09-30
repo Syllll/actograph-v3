@@ -72,16 +72,21 @@
       @mode-change="handleModeChange"
     />
 
-    <!-- Timer : en mode calendrier on affiche l'heure réelle (qui défile en
-         continu, y compris en pause) plutôt qu'un chrono qui repart de zéro.
-         En mode chronomètre on garde la durée écoulée. -->
+    <!-- Timer : calendrier = horloge murale (ou heure de STOP si terminé) ;
+         chronomètre = durée écoulée (icône pause si la durée est figée). -->
     <div class="timer-chip-wrapper">
-      <q-chip color="accent" text-color="white" icon="access_time">
+      <q-chip
+        color="accent"
+        text-color="white"
+        :icon="timerChipIcon"
+        :aria-label="timerChipAriaLabel"
+      >
         {{
           currentMode === 'calendar'
             ? liveClockLabel
             : observation.timerMethods.formatDuration(observation.sharedState.elapsedTime)
         }}
+        <q-tooltip>{{ timerChipAriaLabel }}</q-tooltip>
       </q-chip>
       <!-- Voile "En pause" sur l'horloge, cohérent avec celui du dashboard de
            boutons : l'heure continue de défiler dessous, le voile rappelle
@@ -194,6 +199,28 @@ export default defineComponent({
       return qDate.formatDate(displayDate, 'HH:mm:ss');
     });
 
+    const timerChipIcon = computed(() => {
+      if (currentMode.value === 'calendar') {
+        return isStoppedState.value ? 'outlined_flag' : 'access_time';
+      }
+      if (isPausedState.value) {
+        return 'pause';
+      }
+      return 'timer';
+    });
+
+    const timerChipAriaLabel = computed(() => {
+      if (currentMode.value === 'calendar') {
+        return isStoppedState.value
+          ? t('observation.timerChipEnded')
+          : t('observation.timerChipClock');
+      }
+      if (isPausedState.value) {
+        return t('observation.timerChipPaused');
+      }
+      return t('observation.timerChipElapsed');
+    });
+
     // Observation démarrée (ou déjà avancée) mais actuellement à l'arrêt :
     // affiche le badge "En pause" pour donner un retour visuel non ambigu,
     // distinct de la couleur du bouton lecture (bleu, "reprendre").
@@ -304,6 +331,8 @@ export default defineComponent({
       isObservationActive,
       isPausedState,
       liveClockLabel,
+      timerChipIcon,
+      timerChipAriaLabel,
       attachInProgress,
       showAttachVideo,
       attachVideoBlocked,

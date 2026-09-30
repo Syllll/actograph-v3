@@ -189,6 +189,9 @@ export const useReadings = (options: {
         return;
       }
       const syncObservationId = options.sharedStateFromObservation.currentObservation?.id ?? null;
+      if (syncObservationId === null) {
+        return;
+      }
       isSyncInFlight = true;
       try {
       // Make a local copy of the current readings
@@ -315,7 +318,7 @@ export const useReadings = (options: {
 
       // Create new readings with retry logic
       if (newReadings.length > 0) {
-        const obsId = options.sharedStateFromObservation.currentObservation.id;
+        const obsId = syncObservationId;
         const created = await executeWithRetry(
           () => readingService.createMany({
             observationId: obsId,
@@ -349,7 +352,7 @@ export const useReadings = (options: {
       // Only update readings that have an id (persisted readings)
       const readingsToUpdate = updatedReadings.filter((reading): reading is IReading & { id: number } => !!reading.id);
       if (readingsToUpdate.length > 0) {
-        const obsId = options.sharedStateFromObservation.currentObservation.id;
+        const obsId = syncObservationId;
         await executeWithRetry(
           () => readingService.updateMany({
             observationId: obsId,
@@ -378,7 +381,7 @@ export const useReadings = (options: {
       // Delete readings with retry logic (only those that have a persisted id)
       const deletablesWithId = deletedReadings.filter(r => !!r.id);
       if (deletablesWithId.length > 0) {
-        const obsId = options.sharedStateFromObservation.currentObservation.id;
+        const obsId = syncObservationId;
         await executeWithRetry(
           () => readingService.deleteMany({
             observationId: obsId,

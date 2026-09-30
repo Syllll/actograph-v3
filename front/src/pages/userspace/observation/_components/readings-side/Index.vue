@@ -379,6 +379,9 @@ export default defineComponent({
 
     // Lifecycle hook: synchronize readings when component is unmounted
     onBeforeUnmount(() => {
+      if (!observation.sharedState.currentObservation?.id) {
+        return;
+      }
       void methods.synchronizeReadings();
     });
 

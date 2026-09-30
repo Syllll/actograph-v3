@@ -1125,12 +1125,14 @@ export default defineComponent({
       return observation.sharedState.currentObservation?.mode || null;
     });
 
-    // Check if mode can be changed (observation not started)
+    // Mode is frozen once a START exists, or once a video is attached
+    // (calendar + videoPath is not a product context).
     const canChangeMode = computed(() => {
       const hasStartReading = observation.readings.sharedState.currentReadings.some(
         (reading: any) => reading.type === ReadingTypeEnum.START
       );
-      return !hasStartReading;
+      const hasVideo = !!observation.sharedState.currentObservation?.videoPath;
+      return !hasStartReading && !hasVideo;
     });
 
     // Check if observation is active (playing or has elapsed time)
