@@ -189,6 +189,8 @@ export default defineComponent({
         state.error = '';
 
         const previousName = props.observable?.name || '';
+        const previousDescription = props.observable?.description || '';
+        const newDescription = state.form.description || '';
         // Filet de sécurité pour les protocoles créés avant l'ajout de la
         // contrainte d'unicité ci-dessus : si l'ancien nom était déjà partagé
         // par un autre observable (legacy), on ne sait pas sans risque à qui
@@ -217,6 +219,20 @@ export default defineComponent({
           await observation.readings.methods.renameObservableReadings(
             previousName,
             state.form.name
+          );
+        }
+
+        // Same name-ambiguity guard as rename: readings are matched by label,
+        // not by id. After a rename the rows already carry the new name.
+        if (
+          !previousNameIsAmbiguous
+          && previousDescription.trim() !== newDescription.trim()
+          && newDescription.trim()
+        ) {
+          await observation.readings.methods.updateObservableReadingsDescription(
+            state.form.name,
+            previousDescription,
+            newDescription,
           );
         }
 

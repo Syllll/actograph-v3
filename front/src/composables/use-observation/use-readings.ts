@@ -682,6 +682,46 @@ export const useReadings = (options: {
       }
     },
 
+    /**
+     * Copies the protocol observable description onto existing DATA readings.
+     *
+     * A reading stores its own description (copied from the button at click
+     * time, then optionally edited in the table). When the protocol text
+     * changes, we only update rows that are still empty or still equal to the
+     * previous protocol text. Hand-written comments stay as-is.
+     */
+    updateObservableReadingsDescription: async (
+      observableName: string,
+      previousDescription: string,
+      newDescription: string,
+    ) => {
+      const previousTrimmed = previousDescription.trim();
+      const newTrimmed = newDescription.trim();
+      if (!observableName || !newTrimmed || previousTrimmed === newTrimmed) {
+        return;
+      }
+
+      let updated = false;
+      sharedState.currentReadings.forEach((reading) => {
+        if (reading.type !== ReadingTypeEnum.DATA || reading.name !== observableName) {
+          return;
+        }
+        const readingTrimmed = (reading.description || '').trim();
+        const stillProtocolText =
+          readingTrimmed === '' || readingTrimmed === previousTrimmed;
+        if (!stillProtocolText) {
+          return;
+        }
+        reading.description = newDescription;
+        reading.updatedAt = new Date();
+        updated = true;
+      });
+
+      if (updated) {
+        await methods.synchronizeReadings();
+      }
+    },
+
     addStartReading: async () => {
       // En mode chronomètre, le reading de début doit être à t0 (durée = 0)
       // On utilise directement t0 comme dateTime pour garantir que la durée affichée sera 0
