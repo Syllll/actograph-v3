@@ -5,6 +5,10 @@ export function truncateStack(stack: string, maxLines = 30): string {
   return stack.split('\n').slice(0, maxLines).join('\n');
 }
 
+export function isBenignResizeObserverError(message: string): boolean {
+  return /resizeobserver loop/i.test(message);
+}
+
 export function normalizeErrorMessage(message: string): string {
   let normalized = message.trim();
   if (normalized.startsWith('Uncaught ')) {

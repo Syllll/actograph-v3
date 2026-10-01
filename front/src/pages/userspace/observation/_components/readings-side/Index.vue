@@ -333,28 +333,36 @@ export default defineComponent({
 
     const hasReadings = computed(() => sharedState.currentReadings.length > 0);
 
+    let lastEmittedContentWidth = 0;
+    let measureRafId = 0;
+
     const measureContentWidth = () => {
       const root = contentRef.value;
       if (!root) return;
-      const headerRow = root.querySelector('table.q-table thead tr');
-      if (!(headerRow instanceof HTMLElement)) return;
-      const cells = headerRow.querySelectorAll('th');
-      if (cells.length === 0) return;
-      let tableWidth = 0;
-      cells.forEach((cell) => {
-        tableWidth += Math.max(cell.scrollWidth, cell.offsetWidth);
-      });
+      const table = root.querySelector('table.q-table');
+      if (!(table instanceof HTMLElement)) return;
+      const tableWidth = Math.max(table.scrollWidth, table.offsetWidth);
       if (tableWidth < 80) return;
-      // Table thead only: the search/replace toolbar width must not clamp the splitter.
       const styles = window.getComputedStyle(root);
       const padding =
         (Number.parseFloat(styles.paddingLeft) || 0)
         + (Number.parseFloat(styles.paddingRight) || 0);
-      emit('content-width', Math.ceil(tableWidth + padding));
+      const nextWidth = Math.ceil(tableWidth + padding);
+      if (nextWidth === lastEmittedContentWidth) return;
+      lastEmittedContentWidth = nextWidth;
+      emit('content-width', nextWidth);
+    };
+
+    const scheduleMeasureContentWidth = () => {
+      if (measureRafId) return;
+      measureRafId = window.requestAnimationFrame(() => {
+        measureRafId = 0;
+        measureContentWidth();
+      });
     };
 
     watch(filteredReadings, () => {
-      void nextTick(measureContentWidth);
+      void nextTick(scheduleMeasureContentWidth);
     });
 
     onMounted(() => {
@@ -363,15 +371,18 @@ export default defineComponent({
         const table = contentRef.value?.querySelector('table.q-table');
         if (table && typeof ResizeObserver !== 'undefined') {
           contentResizeObserver = new ResizeObserver(() => {
-            measureContentWidth();
+            scheduleMeasureContentWidth();
           });
           contentResizeObserver.observe(table);
         }
       });
     });
 
-    // Lifecycle hook: synchronize readings when component is unmounted
     onBeforeUnmount(() => {
+      if (measureRafId) {
+        window.cancelAnimationFrame(measureRafId);
+        measureRafId = 0;
+      }
       if (contentResizeObserver) {
         contentResizeObserver.disconnect();
         contentResizeObserver = null;

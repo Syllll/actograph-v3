@@ -237,10 +237,13 @@ export default defineComponent({
     };
 
     const onReadingsContentWidth = (width: number) => {
-      if (width <= 0) return;
+      if (width <= 0 || width === readingsContentWidth.value) return;
+      const previousWidth = readingsContentWidth.value;
       readingsContentWidth.value = width;
       if (!hasAppliedDefaultReadingsWidth) {
         hasAppliedDefaultReadingsWidth = true;
+        state.splitterModel = width;
+      } else if (previousWidth > 0 && state.splitterModel === previousWidth) {
         state.splitterModel = width;
       }
       clampReadingsSplitter();

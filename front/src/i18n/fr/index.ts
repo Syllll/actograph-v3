@@ -213,7 +213,7 @@ export default {
     pausedOverlayTitle: 'En pause',
     pausedOverlaySubtitle: 'Relevés verrouillés jusqu\'à la reprise',
     startBeforeRecording:
-      'Démarrez l\'observation (lecture / START) avant d\'enregistrer un relevé.',
+      'Pour enregistrer un relevé, appuyez d\'abord sur Rec.',
     noProtocolLoadedTitle: 'Aucun protocole chargé',
     noProtocolLoadedHint:
       'Ajoutez au moins une catégorie, puis un ou plusieurs observables.',

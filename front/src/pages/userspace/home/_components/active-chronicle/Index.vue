@@ -48,8 +48,8 @@
             dense
             size="sm"
             :label="methods.formatMode(observation.sharedState.currentObservation.mode)"
-            :color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-2' : 'orange-2'"
-            :text-color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-9' : 'orange-9'"
+            :color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-2' : 'amber-2'"
+            :text-color="observation.sharedState.currentObservation.mode === 'chronometer' ? 'blue-9' : 'amber-9'"
           />
         </div>
         <div class="row q-gutter-sm q-mt-md">

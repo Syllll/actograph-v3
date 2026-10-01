@@ -18,6 +18,7 @@
           outlined
           dense
           hide-bottom-space
+          color="accent"
           :label="t('readingsUi.colType')"
         />
 
@@ -27,6 +28,7 @@
           outlined
           dense
           hide-bottom-space
+          color="accent"
           :label="t('readingsUi.editCommentTitle')"
           :rules="[labelRequiredRule]"
         />
@@ -46,6 +48,7 @@
           outlined
           dense
           hide-bottom-space
+          color="accent"
           new-value-mode="add-unique"
           :label="t('readingsUi.colLabel')"
           :rules="[labelRequiredRule]"
@@ -78,6 +81,7 @@
           outlined
           dense
           hide-bottom-space
+          color="accent"
           :label="t('readingsUi.colLabel')"
           :rules="[labelRequiredRule]"
         />
@@ -89,6 +93,7 @@
             outlined
             dense
             hide-bottom-space
+            color="accent"
             :label="t('readingsUi.colDays')"
             :min="0"
           />
@@ -98,6 +103,7 @@
             outlined
             dense
             hide-bottom-space
+            color="accent"
             :label="t('readingsUi.colHours')"
             :min="0"
             :max="23"
@@ -108,6 +114,7 @@
             outlined
             dense
             hide-bottom-space
+            color="accent"
             :label="t('readingsUi.colMinutes')"
             :min="0"
             :max="59"
@@ -118,6 +125,7 @@
             outlined
             dense
             hide-bottom-space
+            color="accent"
             :label="t('readingsUi.colSeconds')"
             :min="0"
             :max="59"
@@ -129,6 +137,7 @@
             outlined
             dense
             hide-bottom-space
+            color="accent"
             :label="t('readingsUi.colMilliseconds')"
             :min="0"
             :max="999"
@@ -142,6 +151,7 @@
             outlined
             dense
             hide-bottom-space
+            color="accent"
             :label="t('readingsUi.editReadingDate')"
             @update:model-value="onDatePartChange"
           >
@@ -151,10 +161,11 @@
                   <q-date
                     :model-value="state.datePart"
                     mask="DD/MM/YYYY"
+                    color="accent"
                     @update:model-value="onDatePartChange"
                   >
                     <div class="row items-center justify-end">
-                      <q-btn v-close-popup :label="t('common.ok')" color="primary" flat />
+                      <q-btn v-close-popup :label="t('common.ok')" color="accent" flat />
                     </div>
                   </q-date>
                 </q-popup-proxy>
@@ -168,6 +179,7 @@
             outlined
             dense
             hide-bottom-space
+            color="accent"
             :label="t('readingsUi.editReadingTime')"
             @update:model-value="onTimePartChange"
           >
@@ -179,10 +191,11 @@
                     mask="HH:mm:ss"
                     format24h
                     with-seconds
+                    color="accent"
                     @update:model-value="onTimePickerChange"
                   >
                     <div class="row items-center justify-end">
-                      <q-btn v-close-popup :label="t('common.ok')" color="primary" flat />
+                      <q-btn v-close-popup :label="t('common.ok')" color="accent" flat />
                     </div>
                   </q-time>
                 </q-popup-proxy>
@@ -198,6 +211,7 @@
           outlined
           dense
           autogrow
+          color="accent"
           :label="t('readingsUi.colDescription')"
         />
       </q-card-section>

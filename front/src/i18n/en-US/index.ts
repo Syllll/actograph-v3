@@ -211,7 +211,7 @@ export default {
     pausedOverlayTitle: 'Paused',
     pausedOverlaySubtitle: 'Readings locked until resumed',
     startBeforeRecording:
-      'Start the observation (play / START) before recording a reading.',
+      'To record a reading, press Rec first.',
     noProtocolLoadedTitle: 'No protocol loaded',
     noProtocolLoadedHint:
       'Add at least one category, then one or more observables.',

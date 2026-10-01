@@ -5,6 +5,7 @@ import { getCurrentObservationSummary } from 'src/composables/use-observation';
 import {
   buildErrorReport,
   getErrorFingerprint,
+  isBenignResizeObserverError,
   normalizeError,
   type ErrorReportType,
 } from 'src/utils/error-report';
@@ -129,6 +130,9 @@ function handleReportedError(
   vueInfo?: string,
 ): void {
   try {
+    if (isBenignResizeObserverError(message)) {
+      return;
+    }
     const fingerprint = getErrorFingerprint(message, stack);
 
     const report = buildErrorReport({
