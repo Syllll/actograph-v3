@@ -101,3 +101,14 @@ fichier .env fourni au fils de bureau prime sur les variables DB/JWT héritées
 d’un terminal. Le test d’intégration lance volontairement le fils avec une
 configuration héritée contradictoire et vérifie qu’il utilise la base temporaire
 fournie par son .env.
+
+## État de la publication au 1er octobre 2026
+
+Le tag `prod-v0.0.181` pointe sur `a99baa4`. La publication
+[36875604466](https://github.com/Syllll/actograph-v3/actions/runs/36875604466)
+a échoué à la notarisation macOS ; la release 0.0.181 n'est pas publiée.
+Le [diagnostic indépendant](https://github.com/Syllll/actograph-v3/actions/runs/36879017785)
+confirme HTTP 403 « A required agreement is missing or has expired » avec
+Apple ID comme avec la clé API. L'accord doit être accepté par le titulaire
+du compte Apple Developer avant de relancer cette même publication.
+La dernière release de production publiée à cette date reste 0.0.180.

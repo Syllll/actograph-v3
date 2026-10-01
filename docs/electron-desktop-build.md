@@ -131,14 +131,26 @@ yarn build:bundle       # Génère le bundle esbuild
 │  4. TypeORM se connecte                                         │
 │     └─▶ Base: {userData}/actograph.sqlite                      │
 │                                                                 │
-│  5. Serveur NestJS démarre                                      │
-│     └─▶ Console: "*** App server starting... ***"              │
+│  5. NestJS termine son initialisation et écoute sur 127.0.0.1   │
+│     └─▶ IPC: { type: 'backend-ready', port }                   │
 │                                                                 │
-│  6. electron-main.ts détecte le message                         │
+│  6. Le superviseur vérifie la santé HTTP du même processus      │
 │     └─▶ Application prête !                                    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+La ligne de console `*** App server starting... ***` est uniquement un log :
+elle ne confirme pas que Nest écoute. Le superviseur sérialise le démarrage,
+les trois essais et la récupération après un crash. Avant de relancer, il
+attend la fermeture du processus précédent pour éviter deux accès concurrents
+à la même base SQLite. Electron refuse aussi une seconde instance de l'app.
+
+À la fermeture, Electron demande un arrêt par IPC, attend la fermeture de Nest
+et de SQLite, puis utilise SIGTERM et SIGKILL si les délais sont dépassés.
+L'API exige un secret de session transmis par `ACTOGRAPH_DESKTOP_TOKEN` ;
+le renderer obtient la connexion par le preload. La page de chargement peut
+reprendre après un statut d'erreur si le serveur redevient disponible.
 
 ### Arguments de ligne de commande
 

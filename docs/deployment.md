@@ -62,6 +62,39 @@ Le workflow `.github/workflows/publish.yml` lit le tag (`scripts/release-tag.sh`
 
 Le bureau produit les installeurs Electron et une release GitHub. En `preprod`, cette release est marquée prerelease, donc les clients Electron de production ne la prennent pas.
 
+### Diagnostic de notarisation macOS et reprise
+
+Le workflow manuel `desktop-notary-check.yml` vérifie l'accès à `notarytool`
+avec les deux méthodes configurées dans l'environnement `deploy` : Apple ID
+et clé API App Store Connect. Il ne construit ni ne publie d'application,
+et ne journalise pas les secrets ni l'historique des soumissions.
+
+```bash
+gh workflow run desktop-notary-check.yml --ref main
+gh run list --workflow desktop-notary-check.yml --limit 1
+gh run view <run-id> --log-failed
+```
+
+Une erreur JSON d'`@electron/notarize` peut masquer la réponse réelle d'Apple.
+Si le diagnostic affiche HTTP 403 avec « A required agreement is missing or
+has expired », le titulaire du compte (Account Holder) doit accepter l'accord
+demandé sur [Apple Developer](https://developer.apple.com/account/).
+Apple précise que [le titulaire signe les accords mis à jour pour son équipe](https://developer.apple.com/help/account/access/roles/).
+Changer de méthode d'authentification ne résout pas cet accord manquant.
+
+Après résolution et réussite du diagnostic, relancer **tout** le workflow de
+publication existant, car l'échec d'une plateforme peut annuler les autres :
+
+```bash
+gh run rerun <publication-run-id>
+```
+
+Ne pas relancer `scripts/publish.sh` pour cette reprise : le tag existe déjà et
+le script créerait une nouvelle version. Vérifier ensuite la réussite de toutes
+les plateformes, la publication effective de la release GitHub, ses installeurs
+et ses fichiers de mise à jour. Un tag poussé ou un build Linux réussi ne suffit
+pas à confirmer la mise en production.
+
 ### Android
 
 `bash scripts/publish.sh prod android` publie Android seul ; `prod mobile` déclenche Android et iOS :
