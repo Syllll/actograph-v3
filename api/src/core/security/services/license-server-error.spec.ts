@@ -32,7 +32,9 @@ describe('license-server-error', () => {
   it('maps HTTP 401 to an explicit invalid key', () => {
     const error = { response: { status: 401 } };
     expect(isExplicitLicenseRejection(error)).toBe(true);
-    expect(licenseServerErrorToException(error).message).toBe(LICENSE_INVALID_KEY);
+    expect(licenseServerErrorToException(error).message).toBe(
+      LICENSE_INVALID_KEY,
+    );
   });
 
   it('maps HTTP 404 to page not accessible', () => {
@@ -42,6 +44,23 @@ describe('license-server-error', () => {
     expect(isExplicitLicenseRejection({ response: { status: 404 } })).toBe(
       false,
     );
+  });
+
+  it('recognises the legacy 404 license rejection without treating an access failure as invalid', () => {
+    const unknownKey = {
+      response: { status: 404, data: { message: 'License not found' } },
+    };
+    expect(licenseServerErrorToException(unknownKey).message).toBe(
+      LICENSE_INVALID_KEY,
+    );
+    expect(isExplicitLicenseRejection(unknownKey)).toBe(true);
+    const wrongAccess = {
+      response: { status: 404, data: { message: 'Wrong access' } },
+    };
+    expect(licenseServerErrorToException(wrongAccess).message).toBe(
+      LICENSE_PAGE_NOT_ACCESSIBLE,
+    );
+    expect(isExplicitLicenseRejection(wrongAccess)).toBe(false);
   });
 
   it('maps other 4xx to unknown licence error', () => {
@@ -75,7 +94,9 @@ describe('license-server-error', () => {
 
   it('only treats mapped unavailability as a reachable fallback', () => {
     expect(
-      isLicenseServerUnreachable(new BadRequestException(LICENSE_SERVER_UNAVAILABLE)),
+      isLicenseServerUnreachable(
+        new BadRequestException(LICENSE_SERVER_UNAVAILABLE),
+      ),
     ).toBe(true);
     expect(
       isLicenseServerUnreachable(new BadRequestException(LICENSE_INVALID_KEY)),
@@ -83,7 +104,9 @@ describe('license-server-error', () => {
     expect(
       isLicenseServerUnreachable(new BadRequestException('License expired')),
     ).toBe(false);
-    expect(isLicenseServerUnreachable({ response: { status: 502 } })).toBe(true);
+    expect(isLicenseServerUnreachable({ response: { status: 502 } })).toBe(
+      true,
+    );
     expect(isLicenseServerUnreachable(new Error('toLowerCase'))).toBe(false);
   });
 });

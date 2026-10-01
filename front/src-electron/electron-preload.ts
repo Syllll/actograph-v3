@@ -29,6 +29,9 @@ const validChannels = [
   'app-resume', // System resume from sleep
   'ensure-backend', // Restart API subprocess if needed
   'get-server-status',
+  'get-backend-connection',
+  'cloud-request',
+  'open-logs',
   'log-renderer-error',
 ];
 
@@ -55,13 +58,25 @@ contextBridge.exposeInMainWorld('api', {
   on: (channel: string, func: any) => {
     if (validChannels.includes(channel)) {
       // Deliberately strip event as it includes `sender`
-      ipcRenderer.on(channel, (event, ...args) => func(...args));
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        ...args: unknown[]
+      ) => func(...args);
+      ipcRenderer.on(channel, listener);
+      return () => {
+        ipcRenderer.removeListener(channel, listener);
+      };
     }
+    throw new Error(`Invalid event channel: ${channel}`);
   },
+  getBackendConnection: (): Promise<{ port: number; token: string }> =>
+    ipcRenderer.invoke('get-backend-connection'),
   openExternal: (url: string) => {
     ipcRenderer.send('open-external', url);
   },
-  showItemInFolder: (filePath: string): Promise<{ success: boolean; error?: string }> => {
+  showItemInFolder: (
+    filePath: string
+  ): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('show-item-in-folder', filePath) as Promise<{
       success: boolean;
       error?: string;
@@ -76,11 +91,20 @@ contextBridge.exposeInMainWorld('api', {
       filePath?: string;
     }>;
   },
-  writeFile: (filePath: string, data: string, options?: { encoding?: 'utf8' | 'base64' }): Promise<{
+  writeFile: (
+    filePath: string,
+    data: string,
+    options?: { encoding?: 'utf8' | 'base64' }
+  ): Promise<{
     success: boolean;
     error?: string;
   }> => {
-    return ipcRenderer.invoke('write-file', filePath, data, options) as Promise<{
+    return ipcRenderer.invoke(
+      'write-file',
+      filePath,
+      data,
+      options
+    ) as Promise<{
       success: boolean;
       error?: string;
     }>;
@@ -94,7 +118,9 @@ contextBridge.exposeInMainWorld('api', {
       filePaths?: string[];
     }>;
   },
-  readFile: (filePath: string): Promise<{
+  readFile: (
+    filePath: string
+  ): Promise<{
     success: boolean;
     data?: string;
     error?: string;
@@ -105,7 +131,9 @@ contextBridge.exposeInMainWorld('api', {
       error?: string;
     }>;
   },
-  readFileBinary: (filePath: string): Promise<{
+  readFileBinary: (
+    filePath: string
+  ): Promise<{
     success: boolean;
     data?: string; // base64 encoded
     error?: string;
@@ -136,7 +164,9 @@ contextBridge.exposeInMainWorld('api', {
       error?: string;
     }>;
   },
-  getFileStats: (filePath: string): Promise<{
+  getFileStats: (
+    filePath: string
+  ): Promise<{
     success: boolean;
     size?: number;
     isFile?: boolean;
@@ -191,7 +221,9 @@ contextBridge.exposeInMainWorld('api', {
       error?: string;
     }>;
   },
-  deleteAutosaveFile: (filePath: string): Promise<{
+  deleteAutosaveFile: (
+    filePath: string
+  ): Promise<{
     success: boolean;
     error?: string;
   }> => {
@@ -200,7 +232,9 @@ contextBridge.exposeInMainWorld('api', {
       error?: string;
     }>;
   },
-  cleanupOldAutosave: (maxAgeDays?: number): Promise<{
+  cleanupOldAutosave: (
+    maxAgeDays?: number
+  ): Promise<{
     success: boolean;
     deleted: number;
     error?: string;

@@ -1,3 +1,4 @@
+import { desktopFetch } from 'src/utils/desktop-fetch';
 const ACTOGRAPH_API_URL = 'https://actograph.io/api';
 
 const STORAGE_KEYS = {
@@ -97,7 +98,7 @@ class ActographAuthService {
    */
   async login(email: string, password: string): Promise<ILoginResult> {
     try {
-      const response = await fetch(`${ACTOGRAPH_API_URL}/auth-tokens`, {
+      const response = await desktopFetch(`${ACTOGRAPH_API_URL}/auth-tokens`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -136,7 +137,7 @@ class ActographAuthService {
    */
   async requestForgotPassword(username: string): Promise<IForgotPasswordResult> {
     try {
-      const response = await fetch(`${ACTOGRAPH_API_URL}/auth/forgot-password`, {
+      const response = await desktopFetch(`${ACTOGRAPH_API_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +156,7 @@ class ActographAuthService {
    */
   async resetPassword(token: string, password: string): Promise<IResetPasswordResult> {
     try {
-      const response = await fetch(`${ACTOGRAPH_API_URL}/auth/reset-password`, {
+      const response = await desktopFetch(`${ACTOGRAPH_API_URL}/auth/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

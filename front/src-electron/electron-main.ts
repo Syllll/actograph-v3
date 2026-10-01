@@ -12,19 +12,20 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import http from 'http';
-import { fork, execSync } from 'child_process';
+import { fork } from 'child_process';
+import { randomBytes } from 'crypto';
+import { BackendSupervisor } from './backend-supervisor';
 import {
-  getPort,
-  checkPort,
-  getRandomPort,
-  waitForPort,
-} from 'get-port-please';
-import { Worker } from 'worker_threads';
-const { autoUpdater } = require('electron-updater');
+  isTrustedAppUrl,
+  isSafeExternalUrl,
+  isTrustedCloudUrl,
+} from './trusted-url';
+import { getPort } from 'get-port-please';
+import { autoUpdater } from 'electron-updater';
 const log = require('electron-log');
 
 autoUpdater.logger = log;
-autoUpdater.logger.transports.file.level = 'info';
+log.transports.file.level = 'info';
 
 // needed in case process is undefined under Linux
 const platform = process.platform || os.platform();
@@ -35,17 +36,17 @@ try {
       path.join(app.getPath('userData'), 'DevTools Extensions')
     );
   }
-} catch (_) { }
+} catch (_) {}
 
 let mainWindow: BrowserWindow | undefined;
-let serverProcess: any = null;
-let serverWorker: Worker | undefined;
+let backend: BackendSupervisor | undefined;
+const backendToken = randomBytes(32).toString('hex');
 let serverPort: number | undefined;
 let isAutoUpdaterConfigured = false;
-let isRestartingBackend = false;
-let intentionalBackendKill = false;
+let updateReadyToInstall = false;
 let isAppQuitting = false;
-let backendEnsurePromise: Promise<boolean> | null = null;
+let quitAllowed = false;
+let quitInProgress = false;
 let recreatingMainWindow = false;
 let lastServerStatus: {
   status: string;
@@ -53,8 +54,7 @@ let lastServerStatus: {
   progress?: number;
   serverPort?: number;
 } | null = null;
-const BACKEND_HEALTH_TIMEOUT_MS = 10_000;
-const BACKEND_STARTUP_TIMEOUT_MS = 60_000;
+const BACKEND_HEALTH_TIMEOUT_MS = 3_000;
 const publicFolder = path.resolve(
   __dirname,
   <string>process.env.QUASAR_PUBLIC_FOLDER
@@ -100,6 +100,7 @@ function setupAutoUpdaterEventListeners() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
+    updateReadyToInstall = true;
     log.info('Update downloaded');
 
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -157,9 +158,9 @@ async function createWindow() {
         __dirname,
         process.env.QUASAR_ELECTRON_PRELOAD || ''
       ),
-      // Allow loading local files via file:// protocol for video streaming
-      // This is safe in Electron desktop app context since we already have file system access via IPC
-      webSecurity: false,
+      // Dev is served over HTTP and still needs file: video access. Packaged
+      // renderers use file: and keep Chromium's security checks enabled.
+      webSecurity: Boolean(process.env.PROD),
       backgroundThrottling: false,
     },
   });
@@ -169,43 +170,12 @@ async function createWindow() {
     mainWindow?.show();
   });
 
-  // Pop-out (vidéo / boutons) ouverts via window.open() depuis le renderer.
-  // Sans setWindowOpenHandler, Electron crée la fenêtre fille avec des
-  // webPreferences par défaut : pas de preload (window.api absent) et
-  // webSecurity: true (les appels HTTP file:// -> http://127.0.0.1:serverPort
-  // sont bloqués). Résultat : le SPA boote mais ne peut s'authentifier ni
-  // charger l'observation => fenêtre blanche.
-  // On surcharge les webPreferences pour aligner sur la fenêtre principale.
-  //
-  // IMPORTANT : en mode dev, l'app elle-même est servie en http://localhost:PORT.
-  // Il ne faut donc PAS rediriger tous les http(s):// vers le navigateur système,
-  // sinon le pop-out (http://localhost:PORT/#/popup/...) s'ouvre dans Chrome =>
-  // "onglet chrome" + échec d'auth/chargement (pas d'accès au backend). On
-  // n'envo vers shell.openExternal que les URLs vraiment externes (autre origine
-  // que l'app). Les pop-out de l'app (dev http://localhost:PORT, prod file://)
-  // deviennent des fenêtres Electron propres.
-  const appOrigin = (() => {
-    try {
-      return new URL(String(process.env.APP_URL || '')).origin;
-    } catch {
-      return String(process.env.APP_URL || '');
-    }
-  })();
-  const safeOrigin = (raw: string): string => {
-    try {
-      return new URL(raw).origin;
-    } catch {
-      return '';
-    }
-  };
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!isTrustedAppUrl(url, String(process.env.APP_URL)))
+      event.preventDefault();
+  });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    const isFileUrl = url.startsWith('file://');
-    const isAppUrl = appOrigin.length > 0 && safeOrigin(url) === appOrigin;
-
-    if (isFileUrl || isAppUrl) {
-      // Pop-out de l'app => fenêtre Electron propre, mêmes webPreferences que
-      // la fenêtre principale (preload pour window.api, webSecurity:false pour
-      // autoriser les appels vers le backend local sans CORS).
+    if (isTrustedAppUrl(url, String(process.env.APP_URL))) {
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
@@ -216,27 +186,36 @@ async function createWindow() {
               __dirname,
               process.env.QUASAR_ELECTRON_PRELOAD || ''
             ),
-            webSecurity: false,
+            webSecurity: Boolean(process.env.PROD),
             backgroundThrottling: false,
           },
         },
       };
     }
-
-    // URL vraiment externe (http/https hors app) => navigateur système, pas
-    // une fenêtre Electron.
-    if (/^https?:\/\//i.test(url)) {
-      shell.openExternal(url);
-    }
+    if (isSafeExternalUrl(url))
+      void shell.openExternal(url).catch((error) => log.error(error));
     return { action: 'deny' };
+  });
+  mainWindow.webContents.on('did-create-window', (window) => {
+    window.webContents.on('will-navigate', (event, url) => {
+      if (!isTrustedAppUrl(url, String(process.env.APP_URL)))
+        event.preventDefault();
+    });
+    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  });
+  mainWindow.webContents.on('did-fail-load', (_event, code, description) => {
+    log.error('Renderer failed to load', code, description);
+  });
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    log.error('Renderer process exited', details);
   });
 
   // Load the URL with query parameters
   const loadPromise = mainWindow.loadURL(
     <string>process.env.APP_URL +
-    '?serverPort=' +
-    serverPort +
-    '&targetRoute=/gateway'
+      '?serverPort=' +
+      serverPort +
+      '&targetRoute=/gateway'
   );
 
   if (process.env.DEBUGGING) {
@@ -261,114 +240,62 @@ async function createWindow() {
   setupAutoUpdaterEventListeners();
 }
 
-/**
- * Creates a background process that runs the server.
- * In electron, the server is run as a subprocess. The server is a nestjs instance using better-sqlite3 as database.
- * The API is bundled into a single file (api.bundle.js) for faster installation and startup.
- * @param port The port to run the server on
- */
-function createBackgroundProcess(port: number): Promise<void> {
-  return new Promise((accept, reject) => {
-    let settled = false;
-
-    const settle = (action: 'accept' | 'reject', value?: unknown) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(startupTimeout);
-      if (action === 'accept') {
-        accept(undefined);
-      } else {
-        reject(value);
-      }
-    };
-
-    const startupTimeout = setTimeout(() => {
-      log.error('Backend startup timeout');
-      killServerProcess();
-      settle('reject', new Error('Backend startup timeout'));
-    }, BACKEND_STARTUP_TIMEOUT_MS);
-
-    try {
-      const envPath = path.join(
-        process.resourcesPath,
-        'src-electron/extra-resources/api/.env'
-      );
-      const serverPath = path.join(
-        process.resourcesPath,
-        'src-electron/extra-resources/api/api.bundle.js'
-      );
-      const dbPath = path.join(app.getPath('userData'));
-
-      serverProcess = fork(
-        serverPath,
-        ['--subprocess', port.toString(), envPath, dbPath],
+function createBackend(port: number): BackendSupervisor {
+  return new BackendSupervisor({
+    port,
+    spawn: () => {
+      const child = fork(
+        path.join(
+          process.resourcesPath,
+          'src-electron/extra-resources/api/api.bundle.js'
+        ),
+        [
+          '--subprocess',
+          String(port),
+          path.join(
+            process.resourcesPath,
+            'src-electron/extra-resources/api/.env'
+          ),
+          app.getPath('userData'),
+        ],
         {
           stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
           env: {
+            ...process.env,
             PROD: 'true',
             ELECTRON_RUN_AS_NODE: '1',
+            ACTOGRAPH_DESKTOP_TOKEN: backendToken,
           },
         }
       );
-
-      serverProcess.stdout?.on('data', (data: Buffer) => {
-        const message = `[Server Process] ${data.toString().trim()}`;
-        console.log(message);
-        log.info(message);
-
-        if (message.includes('*** App server starting... ***')) {
-          console.log('App server is starting...');
-          log.info('App server is starting...');
-          settle('accept');
-        }
-      });
-
-      serverProcess.stderr?.on('data', (data: Buffer) => {
-        const message = `[Server Process Error] ${data.toString().trim()}`;
-        console.error(message);
-        log.error(message);
-      });
-
-      serverProcess.on('message', (msg: string) => {
-        console.log('message:', msg);
-        log.info(`[Server IPC] ${msg}`);
-      });
-
-      serverProcess.on('error', (err) => {
-        console.error('Failed to start server process:', err);
-        log.error('Failed to start server process:', err);
-        if (!settled) {
-          settle('reject', err);
-        }
-      });
-
-      serverProcess.on('exit', (code, signal) => {
-        const wasIntentional = intentionalBackendKill;
-        intentionalBackendKill = false;
-        serverProcess = null;
-
-        if (!settled) {
-          settle(
-            'reject',
-            new Error(`Server process exited before ready (code=${code}, signal=${signal})`)
-          );
-          return;
-        }
-
-        if (!wasIntentional && !isAppQuitting) {
-          console.error(`Server process exited with code ${code} and signal ${signal}`);
-          log.error(`Server process exited with code ${code} and signal ${signal}`);
-          void ensureBackendRunning();
-        }
-      });
-    } catch (error) {
-      console.error('Error while creating background process', error);
-      log.error('Error while creating background process', error);
-      settle('reject', error);
-    }
+      child.stdout?.on('data', (data: Buffer) =>
+        log.info(`[Server Process] ${data.toString().trim()}`)
+      );
+      child.stderr?.on('data', (data: Buffer) =>
+        log.error(`[Server Process Error] ${data.toString().trim()}`)
+      );
+      log.info('Backend process created', { pid: child.pid, port });
+      return child;
+    },
+    health: checkBackendHealth,
+    notify: notifyBackendStatus,
+    log: (message, error) => log.error(message, error ?? ''),
   });
+}
+
+function broadcastAppEvent(channel: string, payload: unknown): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (
+      !window.isDestroyed() &&
+      isTrustedAppUrl(window.webContents.getURL(), String(process.env.APP_URL))
+    ) {
+      try {
+        window.webContents.send(channel, payload);
+      } catch (error) {
+        log.error('Unable to notify renderer', channel, error);
+      }
+    }
+  }
 }
 
 function notifyBackendStatus(
@@ -382,17 +309,7 @@ function notifyBackendStatus(
     serverPort,
     ...extra,
   };
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('server-status', lastServerStatus);
-  }
-}
-
-function killServerProcess() {
-  if (serverProcess) {
-    intentionalBackendKill = true;
-    serverProcess.kill();
-    serverProcess = null;
-  }
+  broadcastAppEvent('server-status', lastServerStatus);
 }
 
 function checkBackendHealth(): Promise<boolean> {
@@ -401,99 +318,51 @@ function checkBackendHealth(): Promise<boolean> {
   }
 
   return new Promise((resolve) => {
+    const deadline = setTimeout(() => {
+      req.destroy();
+      resolve(false);
+    }, BACKEND_HEALTH_TIMEOUT_MS);
+    const finish = (healthy: boolean) => {
+      clearTimeout(deadline);
+      resolve(healthy);
+    };
     const req = http.get(
       `http://127.0.0.1:${serverPort}/security/say-hi`,
-      { timeout: BACKEND_HEALTH_TIMEOUT_MS },
+      {
+        timeout: BACKEND_HEALTH_TIMEOUT_MS,
+        headers: { 'X-Actograph-Token': backendToken },
+      },
       (res) => {
         let body = '';
         res.on('data', (chunk: Buffer) => {
           body += chunk.toString();
         });
         res.on('end', () => {
-          resolve(res.statusCode === 200 && body.includes('hi'));
+          finish(res.statusCode === 200 && body === 'hi');
         });
-        res.on('error', () => resolve(false));
+        res.on('error', () => finish(false));
+        res.on('aborted', () => finish(false));
       }
     );
 
-    req.on('error', () => resolve(false));
+    req.on('error', () => finish(false));
     req.on('timeout', () => {
       req.destroy();
-      resolve(false);
+      finish(false);
     });
   });
 }
 
-async function restartBackend(): Promise<boolean> {
-  if (!serverPort) {
-    return false;
-  }
-
-  isRestartingBackend = true;
-  notifyBackendStatus('backend-restarting', 'Redémarrage du serveur...');
-  killServerProcess();
-
-  let started = false;
-  for (let tryCount = 0; tryCount < 3 && !started; tryCount++) {
-    try {
-      await createBackgroundProcess(serverPort);
-      await waitForPort(serverPort, {
-        host: '127.0.0.1',
-        retries: 60,
-        delay: 500,
-      });
-      started = await checkBackendHealth();
-      if (!started) {
-        killServerProcess();
-      }
-    } catch (err) {
-      killServerProcess();
-      console.error(err);
-      log.error(`Failed to restart backend (attempt ${tryCount + 1}/3):`, err);
-    }
-  }
-
-  isRestartingBackend = false;
-
-  if (started) {
-    notifyBackendStatus('backend-ready', 'Serveur prêt');
-    return true;
-  }
-
-  notifyBackendStatus('backend-error', 'Échec du redémarrage du serveur');
-  return false;
-}
-
 async function ensureBackendRunning(): Promise<boolean> {
-  if (!process.env.PROD || !serverPort) {
-    return true;
-  }
-
-  if (backendEnsurePromise) {
-    return backendEnsurePromise;
-  }
-
-  backendEnsurePromise = (async () => {
-    const healthy = await checkBackendHealth();
-    if (healthy) {
-      return true;
-    }
-    return restartBackend();
-  })();
-
-  try {
-    return await backendEnsurePromise;
-  } finally {
-    backendEnsurePromise = null;
-  }
+  if (isAppQuitting) return false;
+  if (!process.env.PROD) return true;
+  return backend ? backend.ensureRunning() : false;
 }
 
 function setupPowerMonitor() {
   powerMonitor.on('resume', () => {
     log.info('System resumed from sleep');
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('app-resume', {});
-    }
+    broadcastAppEvent('app-resume', {});
     void ensureBackendRunning();
   });
 }
@@ -512,56 +381,37 @@ function ensureActographFolder() {
   }
 }
 
-app.whenReady().then(async () => {
-  ensureActographFolder();
-
-  if (process.env.PROD) {
-    serverPort = await getPort();
-  }
-
-  // Create window
-  await createWindow();
-
-  if (process.env.PROD) {
-    // Notify renderer that we're starting the server
-    // Note: With the bundled API, no extraction is needed anymore - instant startup!
-    notifyBackendStatus('starting-server', 'Démarrage du serveur...');
-
-    // We try to start the backend several times, in case it does not work (windows...)
-    let backendStarted = false;
-    let tryCount = 0;
-    while (tryCount < 3 && backendStarted === false) {
-      tryCount++;
-      try {
-        await createBackgroundProcess(serverPort!);
-        await waitForPort(serverPort!, {
-          host: '127.0.0.1',
-          retries: 60,
-          delay: 500,
-        });
-        backendStarted = await checkBackendHealth();
-        if (!backendStarted) {
-          killServerProcess();
-        }
-      } catch (err) {
-        killServerProcess();
-        console.error(err);
-        log.error(`Failed to start backend (attempt ${tryCount}/3):`, err);
-        backendStarted = false;
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) {
+  isAppQuitting = true;
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow?.isMinimized()) mainWindow.restore();
+    mainWindow?.focus();
+    if (!mainWindow) app.emit('activate');
+  });
+  void app
+    .whenReady()
+    .then(async () => {
+      ensureActographFolder();
+      log.info('Application log:', log.transports.file.getFile().path);
+      if (process.env.PROD) {
+        serverPort = await getPort({ host: '127.0.0.1' });
+        if (isAppQuitting) return;
+        backend = createBackend(serverPort);
       }
-    }
-
-    // Notify renderer that app is ready — only if the backend actually started.
-    if (backendStarted) {
-      notifyBackendStatus('ready', 'Application prête !');
-    } else {
-      log.error('Backend failed to start after 3 attempts');
-      notifyBackendStatus('error', 'Impossible de démarrer le serveur local.');
-    }
-
-    setupPowerMonitor();
-  }
-});
+      await createWindow();
+      if (process.env.PROD) {
+        await ensureBackendRunning();
+        setupPowerMonitor();
+      }
+    })
+    .catch((error) => {
+      log.error('Application startup failed', error);
+      notifyBackendStatus('error', 'Impossible de démarrer l’application.');
+    });
+}
 
 app.on('window-all-closed', () => {
   if (platform !== 'darwin') {
@@ -570,7 +420,13 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (mainWindow !== undefined || recreatingMainWindow) {
+  if (
+    isAppQuitting ||
+    !app.isReady() ||
+    (process.env.PROD && !backend) ||
+    mainWindow !== undefined ||
+    recreatingMainWindow
+  ) {
     return;
   }
   recreatingMainWindow = true;
@@ -580,6 +436,7 @@ app.on('activate', () => {
       if (process.env.PROD) {
         backendOk = await ensureBackendRunning();
       }
+      if (isAppQuitting) return;
       if (mainWindow === undefined) {
         await createWindow();
       }
@@ -587,36 +444,45 @@ app.on('activate', () => {
         if (backendOk) {
           notifyBackendStatus('ready', 'Application prête !');
         } else {
-          notifyBackendStatus('error', 'Impossible de démarrer le serveur local.');
+          notifyBackendStatus(
+            'error',
+            'Impossible de démarrer le serveur local.'
+          );
         }
       }
+    } catch (error) {
+      log.error('Window recreation failed', error);
+      notifyBackendStatus('error', 'Impossible de démarrer l’application.');
     } finally {
       recreatingMainWindow = false;
     }
   })();
 });
 
-app.on('before-quit', () => {
+async function stopBackend(): Promise<void> {
   isAppQuitting = true;
-  if (serverProcess) {
-    killServerProcess();
-  }
-});
+  await backend?.shutdown();
+}
 
-// Add this to ensure proper cleanup
-process.on('exit', () => {
-  if (serverProcess) {
-    killServerProcess();
-  }
+app.on('before-quit', (event) => {
+  isAppQuitting = true;
+  if (quitAllowed || !backend) return;
+  event.preventDefault();
+  if (quitInProgress) return;
+  quitInProgress = true;
+  void stopBackend()
+    .catch((error) => {
+      log.error('Backend shutdown failed', error);
+      backend?.killImmediately();
+    })
+    .finally(() => {
+      quitAllowed = true;
+      app.quit();
+    });
 });
-
-// Handle uncaught exceptions
+process.on('exit', () => backend?.killImmediately());
 process.on('uncaughtException', (error) => {
   log.error('Uncaught Exception:', error);
-  isAppQuitting = true;
-  if (serverProcess) {
-    killServerProcess();
-  }
   app.quit();
 });
 
@@ -624,28 +490,110 @@ process.on('uncaughtException', (error) => {
 // IPC
 // ************
 
-ipcMain.handle('ensure-backend', async () => {
+function validateIpcSender(
+  event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent
+): void {
+  if (
+    !event.senderFrame ||
+    !isTrustedAppUrl(event.senderFrame.url, String(process.env.APP_URL))
+  ) {
+    throw new Error('Untrusted IPC sender');
+  }
+}
+const handleIpc: typeof ipcMain.handle = (channel, listener) => {
+  ipcMain.handle(channel, (event, ...args) => {
+    validateIpcSender(event);
+    return listener(event, ...args);
+  });
+};
+const onIpc = (
+  channel: string,
+  listener: (event: Electron.IpcMainEvent, ...args: any[]) => void
+) => {
+  ipcMain.on(channel, (event, ...args) => {
+    try {
+      validateIpcSender(event);
+      listener(event, ...args);
+    } catch (error) {
+      log.error('Rejected IPC message', channel, error);
+    }
+  });
+};
+
+handleIpc('ensure-backend', async () => {
   const ok = await ensureBackendRunning();
   return { ok };
 });
 
-ipcMain.handle('get-server-status', async () => {
+handleIpc(
+  'cloud-request',
+  async (
+    _event,
+    request: {
+      url: string;
+      method: string;
+      headers: Record<string, string>;
+      body?: ArrayBuffer;
+    }
+  ) => {
+    if (
+      !request ||
+      !isTrustedCloudUrl(request.url) ||
+      !['GET', 'POST', 'DELETE', 'HEAD'].includes(request.method)
+    ) {
+      throw new Error('Invalid cloud request');
+    }
+    const headers: Record<string, string> = {};
+    for (const [name, value] of Object.entries(request.headers || {})) {
+      if (
+        ['accept', 'content-type', 'x-auth-token'].includes(
+          name.toLowerCase()
+        ) &&
+        typeof value === 'string'
+      )
+        headers[name] = value;
+    }
+    const response = await fetch(request.url, {
+      method: request.method,
+      headers,
+      body: request.body ? Buffer.from(request.body) : undefined,
+      redirect: 'error',
+      signal: AbortSignal.timeout(30_000),
+    });
+    return {
+      status: response.status,
+      headers: Array.from(response.headers.entries()),
+      body: await response.arrayBuffer(),
+    };
+  }
+);
+
+handleIpc('get-backend-connection', () => ({
+  port: serverPort,
+  token: backendToken,
+}));
+
+handleIpc('open-logs', () =>
+  shell.showItemInFolder(log.transports.file.getFile().path)
+);
+
+handleIpc('get-server-status', async () => {
   return lastServerStatus;
 });
 
-ipcMain.handle('exit', (event, arg) => {
+handleIpc('exit', (event, arg) => {
   app.quit();
 });
 
-ipcMain.handle('maximize', (event, arg) => {
+handleIpc('maximize', (event, arg) => {
   mainWindow?.maximize();
 });
 
-ipcMain.handle('minimize', (event, arg) => {
+handleIpc('minimize', (event, arg) => {
   mainWindow?.minimize();
 });
 
-ipcMain.handle('ready-to-check-updates', async (event, arg) => {
+handleIpc('ready-to-check-updates', async (event, arg) => {
   // This just checks for updates but doesn't download automatically
   try {
     log.info('Checking for updates...');
@@ -662,7 +610,7 @@ ipcMain.handle('ready-to-check-updates', async (event, arg) => {
 });
 
 // Add these new IPC handlers
-ipcMain.handle('download-update', async (event, arg) => {
+handleIpc('download-update', async (event, arg) => {
   // Manually trigger the download when user approves
   try {
     log.info('Starting update download...');
@@ -675,26 +623,32 @@ ipcMain.handle('download-update', async (event, arg) => {
   }
 });
 
-ipcMain.handle('install-update', (event, arg) => {
+handleIpc('install-update', async (event, arg) => {
   // Manually trigger the installation
   try {
+    if (!updateReadyToInstall)
+      throw new Error('No downloaded update available');
     log.info('Installing update and quitting...');
     // quitAndInstall(isSilent, isForceRunAfter)
     // isSilent: if true, run installer in silent mode (Windows/NSIS only; ignored on macOS/Linux)
     // isForceRunAfter: if true, relaunch the app once the (silent) install is done
+    await stopBackend();
+    quitAllowed = true;
     autoUpdater.quitAndInstall(true, true);
   } catch (error) {
     log.error('Error installing update:', error);
+    if (isAppQuitting) app.quit();
     throw error;
   }
 });
 
-ipcMain.on('open-external', (event, url: string) => {
+onIpc('open-external', (event, url: string) => {
   // Open external links in the user's default browser
-  shell.openExternal(url);
+  if (isSafeExternalUrl(url))
+    void shell.openExternal(url).catch((error) => log.error(error));
 });
 
-ipcMain.handle('show-item-in-folder', async (event, filePath: string) => {
+handleIpc('show-item-in-folder', async (event, filePath: string) => {
   try {
     if (fs.existsSync(filePath)) {
       shell.showItemInFolder(filePath);
@@ -710,11 +664,11 @@ ipcMain.handle('show-item-in-folder', async (event, filePath: string) => {
   }
 });
 
-ipcMain.handle('get-actograph-folder', async (event) => {
+handleIpc('get-actograph-folder', async (event) => {
   // Get the Documents directory path
   const documentsPath = app.getPath('documents');
   const actographFolder = path.join(documentsPath, 'Actograph');
-  
+
   // Create the folder if it doesn't exist
   if (!fs.existsSync(actographFolder)) {
     try {
@@ -725,15 +679,15 @@ ipcMain.handle('get-actograph-folder', async (event) => {
       throw error;
     }
   }
-  
+
   return actographFolder;
 });
 
-ipcMain.handle('get-autosave-folder', async (event) => {
+handleIpc('get-autosave-folder', async (event) => {
   // Get the userData directory path (Electron app data folder)
   const userDataPath = app.getPath('userData');
   const autosaveFolder = path.join(userDataPath, 'autosave');
-  
+
   // Create the folder if it doesn't exist
   if (!fs.existsSync(autosaveFolder)) {
     try {
@@ -744,22 +698,23 @@ ipcMain.handle('get-autosave-folder', async (event) => {
       throw error;
     }
   }
-  
+
   return autosaveFolder;
 });
 
-ipcMain.handle('list-autosave-files', async (event) => {
+handleIpc('list-autosave-files', async (event) => {
   try {
     const userDataPath = app.getPath('userData');
     const autosaveFolder = path.join(userDataPath, 'autosave');
-    
+
     if (!fs.existsSync(autosaveFolder)) {
       return { success: true, files: [] };
     }
-    
-    const files = fs.readdirSync(autosaveFolder)
-      .filter(file => file.endsWith('.jchronic'))
-      .map(file => {
+
+    const files = fs
+      .readdirSync(autosaveFolder)
+      .filter((file) => file.endsWith('.jchronic'))
+      .map((file) => {
         const filePath = path.join(autosaveFolder, file);
         const stats = fs.statSync(filePath);
         return {
@@ -769,20 +724,23 @@ ipcMain.handle('list-autosave-files', async (event) => {
           modified: stats.mtime.toISOString(),
         };
       })
-      .sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime()); // Most recent first
-    
+      .sort(
+        (a, b) =>
+          new Date(b.modified).getTime() - new Date(a.modified).getTime()
+      ); // Most recent first
+
     return { success: true, files };
   } catch (error) {
     log.error('Error listing autosave files:', error);
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
-      files: [] 
+      files: [],
     };
   }
 });
 
-ipcMain.handle('delete-autosave-file', async (event, filePath: string) => {
+handleIpc('delete-autosave-file', async (event, filePath: string) => {
   try {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -792,33 +750,33 @@ ipcMain.handle('delete-autosave-file', async (event, filePath: string) => {
     return { success: false, error: 'File not found' };
   } catch (error) {
     log.error('Error deleting autosave file:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 });
 
-ipcMain.handle('cleanup-old-autosave', async (event, maxAgeDays: number = 7) => {
+handleIpc('cleanup-old-autosave', async (event, maxAgeDays: number = 7) => {
   try {
     const userDataPath = app.getPath('userData');
     const autosaveFolder = path.join(userDataPath, 'autosave');
-    
+
     if (!fs.existsSync(autosaveFolder)) {
       return { success: true, deleted: 0 };
     }
-    
+
     const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
     const now = Date.now();
     let deletedCount = 0;
-    
+
     const files = fs.readdirSync(autosaveFolder);
     for (const file of files) {
       if (file.endsWith('.jchronic')) {
         const filePath = path.join(autosaveFolder, file);
         const stats = fs.statSync(filePath);
         const age = now - stats.mtime.getTime();
-        
+
         if (age > maxAgeMs) {
           fs.unlinkSync(filePath);
           deletedCount++;
@@ -826,35 +784,43 @@ ipcMain.handle('cleanup-old-autosave', async (event, maxAgeDays: number = 7) => 
         }
       }
     }
-    
+
     return { success: true, deleted: deletedCount };
   } catch (error) {
     log.error('Error cleaning up old autosave files:', error);
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
-      deleted: 0 
+      deleted: 0,
     };
   }
 });
 
-ipcMain.handle(
+handleIpc(
   'log-renderer-error',
   async (
     _event,
-    payload: {
-      report?: string;
-      message?: string;
-      stack?: string;
-      type?: string;
-    } | null | undefined
+    payload:
+      | {
+          report?: string;
+          message?: string;
+          stack?: string;
+          type?: string;
+        }
+      | null
+      | undefined
   ) => {
     if (!payload || typeof payload !== 'object') {
       log.error('[renderer-error] Invalid or missing payload');
       return;
     }
 
-    const { report = '', message = '(no message)', stack = '', type = 'unknown' } = payload;
+    const {
+      report = '',
+      message = '(no message)',
+      stack = '',
+      type = 'unknown',
+    } = payload;
     log.error('[renderer-error]', type, message);
     if (stack) {
       log.error(stack);
@@ -865,102 +831,128 @@ ipcMain.handle(
   }
 );
 
-ipcMain.handle('show-save-dialog', async (event, options: {
-  defaultPath?: string;
-  filters?: { name: string; extensions: string[] }[];
-}) => {
-  if (!mainWindow) {
-    return { canceled: true };
-  }
+handleIpc(
+  'show-save-dialog',
+  async (
+    event,
+    options: {
+      defaultPath?: string;
+      filters?: { name: string; extensions: string[] }[];
+    }
+  ) => {
+    if (!mainWindow) {
+      return { canceled: true };
+    }
 
-  // Get the Actograph folder path (will be created if it doesn't exist)
-  let defaultFolder: string;
-  try {
+    // Get the Actograph folder path (will be created if it doesn't exist)
+    let defaultFolder: string;
+    try {
+      const documentsPath = app.getPath('documents');
+      defaultFolder = path.join(documentsPath, 'Actograph');
+
+      // Create the folder if it doesn't exist
+      if (!fs.existsSync(defaultFolder)) {
+        fs.mkdirSync(defaultFolder, { recursive: true });
+        log.info('Created Actograph folder:', defaultFolder);
+      }
+    } catch (error) {
+      // Fallback to Documents if Actograph folder creation fails
+      log.warn(
+        'Failed to get/create Actograph folder, using Documents:',
+        error
+      );
+      defaultFolder = app.getPath('documents');
+    }
+
+    // Use the provided defaultPath or construct one in the Actograph folder
+    const defaultPath = options.defaultPath
+      ? path.isAbsolute(options.defaultPath)
+        ? options.defaultPath
+        : path.join(defaultFolder, options.defaultPath)
+      : path.join(defaultFolder, 'chronique.jchronic');
+
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath,
+      filters: options.filters || [
+        { name: 'Fichiers Chronique', extensions: ['jchronic'] },
+        { name: 'Tous les fichiers', extensions: ['*'] },
+      ],
+    });
+
+    return result;
+  }
+);
+
+handleIpc(
+  'write-file',
+  async (
+    event,
+    filePath: string,
+    data: string,
+    options?: { encoding?: 'utf8' | 'base64' }
+  ) => {
+    try {
+      if (options?.encoding === 'base64') {
+        fs.writeFileSync(filePath, Buffer.from(data, 'base64'));
+      } else {
+        fs.writeFileSync(filePath, data, 'utf8');
+      }
+      return { success: true };
+    } catch (error) {
+      log.error('Error writing file:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+);
+
+handleIpc(
+  'show-open-dialog',
+  async (
+    event,
+    options: {
+      defaultPath?: string;
+      filters?: { name: string; extensions: string[] }[];
+    }
+  ) => {
+    if (!mainWindow) {
+      return { canceled: true };
+    }
+
+    // Utiliser le dossier fourni, sinon Documents/Actograph (dossier chroniques)
     const documentsPath = app.getPath('documents');
-    defaultFolder = path.join(documentsPath, 'Actograph');
-    
-    // Create the folder if it doesn't exist
-    if (!fs.existsSync(defaultFolder)) {
-      fs.mkdirSync(defaultFolder, { recursive: true });
-      log.info('Created Actograph folder:', defaultFolder);
-    }
-  } catch (error) {
-    // Fallback to Documents if Actograph folder creation fails
-    log.warn('Failed to get/create Actograph folder, using Documents:', error);
-    defaultFolder = app.getPath('documents');
+    const actographFolder = path.join(documentsPath, 'Actograph');
+    const defaultPath = options.defaultPath || actographFolder;
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      defaultPath,
+      filters: options.filters || [
+        { name: 'Fichiers Chronique', extensions: ['jchronic', 'chronic'] },
+        { name: 'Tous les fichiers', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    });
+
+    return result;
   }
-  
-  // Use the provided defaultPath or construct one in the Actograph folder
-  const defaultPath = options.defaultPath 
-    ? path.isAbsolute(options.defaultPath) 
-      ? options.defaultPath 
-      : path.join(defaultFolder, options.defaultPath)
-    : path.join(defaultFolder, 'chronique.jchronic');
-  
-  const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath,
-    filters: options.filters || [
-      { name: 'Fichiers Chronique', extensions: ['jchronic'] },
-      { name: 'Tous les fichiers', extensions: ['*'] },
-    ],
-  });
+);
 
-  return result;
-});
-
-ipcMain.handle('write-file', async (event, filePath: string, data: string, options?: { encoding?: 'utf8' | 'base64' }) => {
-  try {
-    if (options?.encoding === 'base64') {
-      fs.writeFileSync(filePath, Buffer.from(data, 'base64'));
-    } else {
-      fs.writeFileSync(filePath, data, 'utf8');
-    }
-    return { success: true };
-  } catch (error) {
-    log.error('Error writing file:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-});
-
-ipcMain.handle('show-open-dialog', async (event, options: {
-  defaultPath?: string;
-  filters?: { name: string; extensions: string[] }[];
-}) => {
-  if (!mainWindow) {
-    return { canceled: true };
-  }
-
-  // Utiliser le dossier fourni, sinon Documents/Actograph (dossier chroniques)
-  const documentsPath = app.getPath('documents');
-  const actographFolder = path.join(documentsPath, 'Actograph');
-  const defaultPath = options.defaultPath || actographFolder;
-  
-  const result = await dialog.showOpenDialog(mainWindow, {
-    defaultPath,
-    filters: options.filters || [
-      { name: 'Fichiers Chronique', extensions: ['jchronic', 'chronic'] },
-      { name: 'Tous les fichiers', extensions: ['*'] },
-    ],
-    properties: ['openFile'],
-  });
-
-  return result;
-});
-
-ipcMain.handle('read-file', async (event, filePath: string) => {
+handleIpc('read-file', async (event, filePath: string) => {
   try {
     const data = fs.readFileSync(filePath, 'utf8');
     return { success: true, data };
   } catch (error) {
     log.error('Error reading file:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 });
 
-ipcMain.handle('read-file-binary', async (event, filePath: string) => {
+handleIpc('read-file-binary', async (event, filePath: string) => {
   try {
     const data = fs.readFileSync(filePath);
     // Convert Buffer to base64 for transmission
@@ -968,14 +960,14 @@ ipcMain.handle('read-file-binary', async (event, filePath: string) => {
     return { success: true, data: base64 };
   } catch (error) {
     log.error('Error reading binary file:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 });
 
-ipcMain.handle(
+handleIpc(
   'copy-file',
   async (
     event,
@@ -1019,21 +1011,21 @@ ipcMain.handle(
   }
 );
 
-ipcMain.handle('get-file-stats', async (event, filePath: string) => {
+handleIpc('get-file-stats', async (event, filePath: string) => {
   try {
     const stats = fs.statSync(filePath);
-    return { 
-      success: true, 
+    return {
+      success: true,
       size: stats.size,
       isFile: stats.isFile(),
-      exists: true
+      exists: true,
     };
   } catch (error) {
     log.error('Error getting file stats:', error);
-    return { 
+    return {
       success: false,
       exists: false,
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
 });

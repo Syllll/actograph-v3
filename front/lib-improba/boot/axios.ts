@@ -54,6 +54,29 @@ export const boot = (options?: { app?: App<any> }) => {
         return searchParams.toString();
       },
     });
+    if (process.env.MODE === 'electron' && process.env.PROD) {
+      let connection: Promise<{ port: number; token: string }> | undefined;
+      apiSingleton.interceptors.request.use(async (config: any) => {
+        if (!window.api) throw new Error('Desktop bridge unavailable');
+        if (!connection) {
+          connection = window.api.getBackendConnection().catch((error) => {
+            connection = undefined;
+            throw error;
+          });
+        }
+        const { port, token } = await connection;
+        if (!Number.isInteger(port) || !token)
+          throw new Error('Desktop connection unavailable');
+        const baseURL = `http://127.0.0.1:${port}`;
+        // Pop-outs can lack the main window's query parameters. The main process
+        // is authoritative for every local API request, including absolute URLs.
+        const url = new URL(config.url || '/', config.baseURL || baseURL);
+        config.baseURL = baseURL;
+        config.url = url.pathname + url.search;
+        config.headers['X-Actograph-Token'] = token;
+        return config;
+      });
+    }
     //apiSingleton.defaults.headers.common['RandomId'] = Math.random().toString(36).substring(7);
     // for use inside Vue files (Options API) through this.$axios and this.$api
     /* if (options?.app) {

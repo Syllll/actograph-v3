@@ -1,6 +1,6 @@
 export default {
   apiUrl(): string {
-    let apiUrl = `${process.env.API_URL}`;
+    let apiUrl = process.env.API_URL || '';
     if (!apiUrl) {
       const w = window as any;
       const s = self as any;
@@ -15,10 +15,10 @@ export default {
 
       const serverPort = url.searchParams.get('serverPort');
       if (serverPort) {
-        return `http://localhost:${serverPort}`;
+        return `http://127.0.0.1:${serverPort}`;
       }
     }
 
-    return apiUrl;
+    return apiUrl || 'http://127.0.0.1';
   },
 };

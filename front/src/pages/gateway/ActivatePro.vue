@@ -61,6 +61,7 @@ import { defineComponent, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import securityService from 'src/services/security/index.service';
+import { activationErrorKey } from 'src/utils/activation-error';
 
 export default defineComponent({
   name: 'ActivatePro',
@@ -75,11 +76,12 @@ export default defineComponent({
 
     const methods = {
       activatePro: async () => {
+        if (loading.value) return;
         loading.value = true;
         errorInForm.value = '';
 
         try {
-          const key = activationKey.value.replace(/ /g, '');
+          const key = activationKey.value.replace(/\s/g, '');
           const result = await securityService.activatePro(key);
 
           if (result === true) {
@@ -90,7 +92,7 @@ export default defineComponent({
             errorInForm.value = t('gateway.invalidLicenseKey');
           }
         } catch (error) {
-          errorInForm.value = t('gateway.invalidLicenseKey');
+          errorInForm.value = t(activationErrorKey(error));
         } finally {
           loading.value = false;
         }

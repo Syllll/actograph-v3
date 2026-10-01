@@ -1,20 +1,10 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { KeyTestor } from '../key-testor';
-import * as os from 'os';
-import { getMode } from 'config/mode';
 import axios from 'axios';
-import { getConfigPath } from 'config/path';
-import * as fs from 'fs';
-import * as path from 'path';
 import { Electron } from './electron';
 import { LicenseService } from '../license/license.service';
-import { LicenseTypeEnum } from '@core/security/entities/license.entity';
 import { licenseServerErrorToException } from '../license-server-error';
+import { parseLicenseResponse } from '../license-response';
 
 interface LicenseOwner {
   id: number;
@@ -30,10 +20,10 @@ export interface LicenseResponse {
   type: string;
   dateMode: string;
   startDate: string;
-  endDate: string;
-  duration: number;
+  endDate: string | null;
+  duration: number | null;
   hasTimeLimit: boolean;
-  owner: LicenseOwner;
+  owner: LicenseOwner | null;
   renewable: boolean;
   key?: string;
 }
@@ -55,35 +45,18 @@ export class SecurityService {
   ): Promise<LicenseResponse> {
     let response: any;
     try {
-      response = await axios.post(`${process.env.ACTOGRAPH_API}/license`, {
-        key: key,
-        password: process.env.ACTOGRAPH_API_PASSWORD,
-      });
+      response = await axios.post(
+        `${process.env.ACTOGRAPH_API}/license`,
+        {
+          key: key,
+          password: process.env.ACTOGRAPH_API_PASSWORD,
+        },
+        { timeout: 10_000 },
+      );
     } catch (error: unknown) {
       throw licenseServerErrorToException(error);
     }
-    const responseData = response.data;
-    if (responseData.message) {
-      throw new BadRequestException(
-        responseData.message ?? 'Unknown error when checking licence',
-      );
-    }
-
-    // Make sure the type is in the enum format
-    // Loop on the enum and check if the type is in the enum
-    const enumValues = Object.values(LicenseTypeEnum);
-    for (const value of enumValues) {
-      // Here we check if the type is in the enum
-      // With put everything in lowercase to avoid case sensitivity
-      if (responseData.type.toLowerCase() === value.toLowerCase()) {
-        // If the type is in the enum, set the type to the enum value
-        // With correct case
-        responseData.type = value;
-        break;
-      }
-    }
-
-    return responseData;
+    return parseLicenseResponse(response.data);
   }
 
   public async checkKeyChecksum(key: string): Promise<boolean> {
@@ -91,15 +64,6 @@ export class SecurityService {
     if (!check) {
       throw new BadRequestException('Invalid key checksum');
     }
-    return true;
-  }
-
-  public async checkKey(key: string): Promise<boolean> {
-    const check = this._keyTestor.checkKey(key);
-    if (!check) {
-      throw new BadRequestException('Invalid key');
-    }
-
     return true;
   }
 }

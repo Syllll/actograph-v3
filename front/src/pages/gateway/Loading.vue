@@ -1,13 +1,21 @@
 <template>
   <div class="fit row justify-center items-center">
     <!-- First-launch extraction indicator -->
-    <div v-if="state.isExtracting" class="column items-center q-gutter-md extraction-container">
-      <q-icon name="mdi-package-variant" size="64px" color="primary" class="package-icon" />
+    <div
+      v-if="state.isExtracting"
+      class="column items-center q-gutter-md extraction-container"
+    >
+      <q-icon
+        name="mdi-package-variant"
+        size="64px"
+        color="primary"
+        class="package-icon"
+      />
       <div class="text-h5 text-center">{{ $t('gateway.loadingFirstUse') }}</div>
       <div class="text-body1 text-center text-grey-7">
         {{ state.extractionMessage }}
       </div>
-      
+
       <!-- Progress bar -->
       <div class="progress-container q-mt-md">
         <q-linear-progress
@@ -22,26 +30,35 @@
           {{ state.extractionProgress }}%
         </div>
       </div>
-      
+
       <div class="text-caption text-grey-5 q-mt-sm">
         {{ $t('gateway.loadingPleaseWait') }}
       </div>
     </div>
-    
+
     <!-- Normal loading -->
     <DInnerLoading v-else-if="state.loading">
       {{ $t('gateway.loadingApp') }}
     </DInnerLoading>
-    
+
     <!-- Error banner -->
     <q-banner class="bg-danger text-white rounded" v-else-if="state.error">
       {{ state.error }}
+      <template #action>
+        <q-btn flat :label="$t('gateway.retry')" @click="retryStartup" />
+        <q-btn
+          v-if="canOpenLogs"
+          flat
+          :label="$t('gateway.openLogs')"
+          @click="openLogs"
+        />
+      </template>
     </q-banner>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, reactive } from 'vue';
+import { defineComponent, onMounted, onUnmounted, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import EmptyLayout from '@lib-improba/components/layouts/empty/Index.vue';
 import { useRouter } from 'vue-router';
@@ -49,6 +66,7 @@ import { useAuth } from '@lib-improba/composables/use-auth';
 import securityService from '@services/security/index.service';
 import { useStartupLoading } from 'src/composables/use-startup-loading';
 import { deriveElectronLocalPassword } from '@actograph/core';
+import { createStartupRunner } from 'src/utils/startup-runner';
 
 // window.api type is already declared in lib-improba/boot/lib-improba.ts
 
@@ -69,6 +87,69 @@ export default defineComponent({
     });
 
     let appliedStatusFromEvent = false;
+    let disposed = false;
+    let removeStatusListener: (() => void) | undefined;
+    let backendError: string | null = null;
+    const runner = createStartupRunner(async () => {
+      state.loading = true;
+      state.error = null;
+      backendError = null;
+      let phase: 'backend' | 'auth' | 'access' = 'backend';
+      try {
+        if (process.env.MODE === 'electron' && process.env.PROD && window.api) {
+          const result = (await window.api.invoke('ensure-backend')) as {
+            ok: boolean;
+          };
+          if (!result.ok)
+            throw new Error(backendError || t('gateway.initBackendError'));
+        }
+        const deadline = Date.now() + 240_000;
+        let running = false;
+        while (!disposed && !backendError && Date.now() < deadline) {
+          try {
+            running = (await securityService.sayHi()) === 'hi';
+          } catch {
+            /* startup is still in progress */
+          }
+          if (running) break;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        if (disposed) return false;
+        if (!running || backendError)
+          throw new Error(backendError || t('gateway.initBackendError'));
+        state.isExtracting = false;
+        phase = 'auth';
+        const localUserName = await securityService.getLocalUserName();
+        if (disposed) return false;
+        await auth.methods.login(
+          localUserName,
+          deriveElectronLocalPassword(localUserName)
+        );
+        if (disposed) return false;
+        phase = 'access';
+        if (process.env.MODE === 'electron')
+          await startupLoading.methods.processLoadingAtStartup();
+        return true;
+      } catch (error) {
+        if (!disposed) {
+          console.error('Application initialization failed', error);
+          state.error =
+            phase === 'backend'
+              ? backendError || t('gateway.initBackendError')
+              : t(
+                  phase === 'auth'
+                    ? 'gateway.initAuthError'
+                    : 'gateway.initAccessError'
+                );
+          state.loading = false;
+          state.isExtracting = false;
+        }
+        return false;
+      }
+    });
+    const retryStartup = () => {
+      void runner.run();
+    };
 
     const applyServerStatus = (data: {
       status: string;
@@ -94,11 +175,16 @@ export default defineComponent({
           break;
         case 'backend-ready':
         case 'ready':
+          backendError = null;
+          state.error = null;
+          state.loading = true;
+          retryStartup();
           state.isExtracting = false;
           state.extractionMessage = data.message;
           break;
         case 'backend-error':
         case 'error':
+          backendError = data.message;
           state.isExtracting = false;
           state.loading = false;
           state.error = data.message;
@@ -109,16 +195,19 @@ export default defineComponent({
     // Listen for first-launch extraction events from Electron
     const setupExtractionListener = () => {
       if (process.env.MODE === 'electron' && window.api) {
-        window.api.on('server-status', (data: {
-          status: string;
-          message: string;
-          progress?: number;
-          serverPort?: number;
-        }) => {
-          console.log('First-launch extraction event:', data);
-          appliedStatusFromEvent = true;
-          applyServerStatus(data);
-        });
+        removeStatusListener = window.api.on(
+          'server-status',
+          (data: {
+            status: string;
+            message: string;
+            progress?: number;
+            serverPort?: number;
+          }) => {
+            console.log('First-launch extraction event:', data);
+            appliedStatusFromEvent = true;
+            applyServerStatus(data);
+          }
+        );
       }
     };
 
@@ -138,69 +227,25 @@ export default defineComponent({
           console.error('Error while reading last server status', error);
         }
       }
-      
-      const start = new Date();
-      // During this time, the app will check for update and initialize the backend
-      const timeout = 60000 * 4;
-      let isServerRunning = false;
 
-      while (
-        !isServerRunning &&
-        !state.error &&
-        new Date().getTime() - start.getTime() < timeout
-      ) {
-        // Wait 1 second before checking if the server is running
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        let result = null as string | null;
-        try {
-          result = await securityService.sayHi();
-        } catch (error) {
-          // Don't log error if we're still extracting - it's expected
-          if (!state.isExtracting) {
-            console.error('Error while checking if the server is running', error);
-          }
-        }
-        if (result === 'hi') {
-          isServerRunning = true;
-        }
-      }
-      if (state.error) {
-        state.loading = false;
-        state.isExtracting = false;
-        return;
-      }
-      if (!isServerRunning) {
-        state.error = t('gateway.initBackendError');
-        state.loading = false;
-        state.isExtracting = false;
-        return;
-      }
-
-      // Server is running, hide extraction indicator
-      state.isExtracting = false;
-
-      const localUserName = await securityService.getLocalUserName();
-
-      try {
-        await auth.methods.login(
-          localUserName,
-          deriveElectronLocalPassword(localUserName),
-        );
-      } catch (error) {
-        state.error = t('gateway.initAuthError');
-        state.loading = false;
-        return;
-      }
-
-      // If the application is running in electron mode, we need to check if there is an existing license on the pc
-      // If not, we need to redirect to the choose-version page
-      if (process.env.MODE === 'electron') {
-        await startupLoading.methods.processLoadingAtStartup();
-      }
+      retryStartup();
     });
 
+    onUnmounted(() => {
+      disposed = true;
+      runner.dispose();
+      removeStatusListener?.();
+    });
+
+    const openLogs = () => {
+      void window.api
+        ?.invoke('open-logs')
+        .catch((error) => console.error(error));
+    };
     return {
+      canOpenLogs: process.env.MODE === 'electron' && Boolean(window.api),
+      openLogs,
+      retryStartup,
       auth,
       state,
     };
@@ -219,7 +264,8 @@ export default defineComponent({
 }
 
 @keyframes bounce {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {

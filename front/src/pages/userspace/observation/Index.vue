@@ -268,7 +268,9 @@ export default defineComponent({
       // tourne sur 127.0.0.1:serverPort). En dev, http.utils tombe sur API_URL
       // et n'a pas besoin de serverPort.
       const appUrl = new URL(window.location.href);
-      const cleanUrl = new URL(appUrl.origin + appUrl.pathname);
+      const cleanUrl = new URL(appUrl.href);
+      cleanUrl.search = '';
+      cleanUrl.hash = '';
       const serverPort = appUrl.searchParams.get('serverPort');
       if (serverPort && /^\d+$/.test(serverPort)) {
         cleanUrl.searchParams.set('serverPort', serverPort);

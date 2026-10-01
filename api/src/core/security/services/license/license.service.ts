@@ -46,8 +46,8 @@ export class LicenseService extends BaseService<License, LicenseRepository> {
     type: LicenseTypeEnum;
     dateMode: DateModeEnum;
     startDate: Date;
-    endDate: Date;
-    duration: number;
+    endDate: Date | null;
+    duration: number | null;
     hasTimeLimit: boolean;
     renewable: boolean;
     owner: string;
@@ -104,8 +104,8 @@ export class LicenseService extends BaseService<License, LicenseRepository> {
     type: LicenseTypeEnum;
     dateMode: DateModeEnum;
     startDate: Date;
-    endDate: Date;
-    duration: number;
+    endDate: Date | null;
+    duration: number | null;
     hasTimeLimit: boolean;
     renewable: boolean;
     owner: string;

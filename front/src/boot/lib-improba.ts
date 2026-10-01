@@ -12,7 +12,8 @@ declare global {
     api?: {
       send: (channel: string, data: any) => void;
       invoke: (channel: string, data?: unknown) => Promise<unknown>;
-      on: (channel: string, func: any) => void;
+      on: (channel: string, func: any) => () => void;
+      getBackendConnection: () => Promise<{ port: number; token: string }>;
       openExternal: (url: string) => void;
       showItemInFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>;
       showSaveDialog: (options: {

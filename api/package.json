@@ -30,7 +30,8 @@
     "migration:revert": "yarn typeorm:cli-with-configs migration:revert",
     "migration:create": "typeorm migration:create",
     "console": "ts-node --project ./tsconfig.json ./src/core/scripts/console.ts",
-    "docker:dev": "sh docker/compose.sh console"
+    "docker:dev": "sh docker/compose.sh console",
+    "test:desktop": "node test/desktop/lifecycle.cjs"
   },
   "dependencies": {
     "@actograph/core": "file:../packages/core",
@@ -143,8 +144,8 @@
       "^@threshold/(.*)$": "core/threshold/$1",
       "^@experimentation/(.*)$": "core/experimentation/$1",
       "^@filesystem/(.*)$": "core/filesystem/$1",
-      "^@actograph/core/(.*)$": "../packages/core/dist/$1",
-      "^@actograph/core$": "../packages/core/dist"
+      "^@actograph/core/(.*)$": "<rootDir>/../../packages/core/dist/$1",
+      "^@actograph/core$": "<rootDir>/../../packages/core/dist"
     },
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"

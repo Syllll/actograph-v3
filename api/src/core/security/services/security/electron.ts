@@ -7,6 +7,7 @@ import { getMode } from 'config/mode';
 import * as os from 'os';
 import { LicenseService } from '../license/license.service';
 import { isLicenseServerUnreachable } from '../license-server-error';
+import { writeAccessFile, readAccessFile } from '../access-file';
 import {
   DateModeEnum,
   License,
@@ -54,43 +55,14 @@ export class Electron {
     // Do we have an access file in the config folder?
     const configPath = await getConfigPath();
     const accessFilePath = path.join(configPath, 'access.json');
-    const hasAccessFile = fs.existsSync(accessFilePath);
-
-    // If we do, we need to check if the license is valid
-    if (hasAccessFile) {
-      // Read the access file using fs.promises
-      const accessFile = await fs.promises.readFile(accessFilePath, 'utf8');
-      const accessFileData = JSON.parse(accessFile);
-
-      const type = accessFileData.type;
-      if (type === 'student') {
-        return {
-          nextStep: 'use-student-access',
-          message: 'Use free student access.',
-        };
-      } else if (type === 'license') {
-        const key = accessFileData.key;
-        if (!key) {
-          throw new InternalServerErrorException(
-            'No key found in the access file.',
-          );
-        }
-
-        return {
-          nextStep: 'use-license-access',
-          message: 'Use license access.',
-          key,
-        };
-      } else {
-        throw new InternalServerErrorException(`Invalid access type: ${type}`);
-      }
-    } else {
-      // If we don't, we need the user to choose an access type
-      return {
-        nextStep: 'choose-access-type',
-        message: 'No access file found. Please choose an access type.',
-      };
+    const access = await readAccessFile(accessFilePath);
+    if (access?.type === 'student') {
+      return { nextStep: 'use-student-access', message: 'Use free student access.' };
     }
+    if (access?.type === 'license') {
+      return { nextStep: 'use-license-access', message: 'Use license access.', key: access.key };
+    }
+    return { nextStep: 'choose-access-type', message: 'Please choose an access type.' };
   }
 
   /**
@@ -155,10 +127,8 @@ export class Electron {
 
     const configPath = await getConfigPath();
     const licensePath = path.join(configPath, 'access.json');
-    const licenseFile = await fs.promises.readFile(licensePath, 'utf8');
-    const licenseFileData = JSON.parse(licenseFile);
-    const type = licenseFileData.type;
-    if (type !== 'license') {
+    const licenseFileData = await readAccessFile(licensePath);
+    if (licenseFileData?.type !== 'license') {
       throw new InternalServerErrorException('Invalid access type.');
     }
 
@@ -178,7 +148,7 @@ export class Electron {
           type: <LicenseTypeEnum>responseData.type,
           dateMode: <DateModeEnum>responseData.dateMode,
           startDate: new Date(responseData.startDate),
-          endDate: new Date(responseData.endDate),
+          endDate: responseData.endDate ? new Date(responseData.endDate) : null,
           duration: responseData.duration,
           hasTimeLimit: responseData.hasTimeLimit,
           renewable: responseData.renewable,
@@ -230,23 +200,18 @@ export class Electron {
     }
 
     await this._securityService.checkKeyChecksum(key);
-    await this._securityService.checkKey(key);
-    const responseData =
-      await this._securityService.checkKeyOnActoGraphWebsiteServer(key);
+    await this._securityService.checkKeyOnActoGraphWebsiteServer(key);
 
     const configPath = await getConfigPath();
 
     const accessContent = {
-      type: 'license',
+      type: 'license' as const,
       key: key,
     };
 
     // Save the response data in a license.json file
     const accessPath = path.join(configPath, 'access.json');
-    await fs.promises.writeFile(
-      accessPath,
-      JSON.stringify(accessContent, null, 2),
-    );
+    await writeAccessFile(accessPath, accessContent);
 
     return true;
   }
@@ -281,13 +246,10 @@ export class Electron {
     const accessFilePath = path.join(configPath, 'access.json');
 
     const accessContent = {
-      type: 'student',
+      type: 'student' as const,
     };
 
-    await fs.promises.writeFile(
-      accessFilePath,
-      JSON.stringify(accessContent, null, 2),
-    );
+    await writeAccessFile(accessFilePath, accessContent);
 
     return true;
   }

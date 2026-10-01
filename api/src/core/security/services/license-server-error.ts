@@ -9,7 +9,8 @@ export function httpStatusFromUnknownError(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') {
     return undefined;
   }
-  const status = (error as { response?: { status?: unknown } }).response?.status;
+  const status = (error as { response?: { status?: unknown } }).response
+    ?.status;
   return typeof status === 'number' ? status : undefined;
 }
 
@@ -41,7 +42,10 @@ export function httpExceptionMessage(error: unknown): string | undefined {
  */
 export function isExplicitLicenseRejection(error: unknown): boolean {
   const status = httpStatusFromUnknownError(error);
-  if (status === 401) {
+  if (
+    status === 401 ||
+    (status === 404 && axiosResponseMessage(error) === 'License not found')
+  ) {
     return true;
   }
   const message = httpExceptionMessage(error);
@@ -77,9 +81,14 @@ function axiosResponseMessage(error: unknown): string | undefined {
   return undefined;
 }
 
-export function licenseServerErrorToException(error: unknown): BadRequestException {
+export function licenseServerErrorToException(
+  error: unknown,
+): BadRequestException {
   const status = httpStatusFromUnknownError(error);
-  if (status === 401) {
+  if (
+    status === 401 ||
+    (status === 404 && axiosResponseMessage(error) === 'License not found')
+  ) {
     return new BadRequestException(LICENSE_INVALID_KEY);
   }
   if (status === 404) {

@@ -1,3 +1,4 @@
+import { desktopFetch } from 'src/utils/desktop-fetch';
 import { actographAuthService } from './actograph-auth.service';
 
 const ACTOGRAPH_API_URL = 'https://actograph.io/api';
@@ -71,7 +72,7 @@ class ActographCloudService {
     }
 
     // Première tentative
-    let response = await fetch(url, {
+    let response = await desktopFetch(url, {
       ...options,
       headers: {
         ...options.headers,
@@ -85,7 +86,7 @@ class ActographCloudService {
       
       if (reconnected) {
         const newToken = actographAuthService.getToken();
-        response = await fetch(url, {
+        response = await desktopFetch(url, {
           ...options,
           headers: {
             ...options.headers,
