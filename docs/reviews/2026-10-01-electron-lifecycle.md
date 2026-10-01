@@ -78,8 +78,11 @@ indépendamment du port Quasar. Le fils dispose aussi de son propre délai d’a
 si le père disparaît.
 
 La validation native des fenêtres, vidéos, installeurs et mises à jour sur
-Windows/macOS reste nécessaire avant publication d'une nouvelle version : cet
-environnement ne dispose pas de serveur graphique ni de ces systèmes.
+Windows/macOS reste à faire sur ces systèmes. Un test natif Linux, avec un
+profil Electron et une base SQLite temporaires, a vérifié le vrai renderer,
+le preload, CORS, la connexion locale, l'accès étudiant et un pop-out dépourvu
+du paramètre serverPort. Les deux fenêtres ont terminé leur initialisation,
+puis le serveur s'est arrêté avec le code 0.
 
 ## Review avant publication bureau 0.0.181
 
