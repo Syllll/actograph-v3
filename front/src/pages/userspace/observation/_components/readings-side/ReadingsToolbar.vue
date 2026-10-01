@@ -136,7 +136,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, ref } from 'vue';
+import { defineComponent, reactive, ref, onMounted, onBeforeUnmount } from 'vue';
 import type { QInput } from 'quasar';
 
 export default defineComponent({
@@ -197,6 +197,33 @@ export default defineComponent({
         searchInputRef.value?.focus();
       }
     };
+
+    // Global Cmd/Ctrl+F so the shortcut works without the field being focused
+    // first (matches standard find-in-page UX). Ignores inputs that are not
+    // the search field (let the user type freely in other fields).
+    const onGlobalFindKeydown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f') {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (target && target !== searchInputRef.value?.$el) {
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+      }
+      event.preventDefault();
+      state.showReplace = true;
+      searchInputRef.value?.focus();
+    };
+
+    onMounted(() => {
+      window.addEventListener('keydown', onGlobalFindKeydown);
+    });
+
+    onBeforeUnmount(() => {
+      window.removeEventListener('keydown', onGlobalFindKeydown);
+    });
     
     return {
       searchInputRef,

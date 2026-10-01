@@ -169,6 +169,11 @@ const DEFAULT_CATEGORY_WIDTH = 220;
 const MIN_CATEGORY_WIDTH = 160;
 const MAX_CATEGORY_WIDTH = 600;
 
+// Délai laissant aux cartes le temps de rejouer leur transition de
+// repositionnement (left/top 0.5s cubic-bezier) avant de relâcher le
+// bouton "Réinitialiser" et de notifier le succès.
+const RESET_POSITIONS_SETTLE_MS = 600;
+
 // Échelle d'affichage des boutons d'observable (comme en mobile).
 const UI_SCALE_MIN = 0.7;
 const UI_SCALE_MAX = 1.6;
@@ -934,7 +939,7 @@ export default defineComponent({
               timeout: 2000,
             });
             state.isResetting = false;
-          }, 600);
+          }, RESET_POSITIONS_SETTLE_MS);
         }).catch(error => {
           console.error('Failed to reset positions:', error);
           state.isResetting = false;

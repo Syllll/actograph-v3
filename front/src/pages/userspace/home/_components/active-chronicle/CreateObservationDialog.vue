@@ -153,6 +153,17 @@ export default defineComponent({
 
     const isMounted = ref(true);
 
+    const state = reactive({
+      name: '',
+      description: '',
+      creationEntry: 'direct' as CreationEntry,
+      videoPath: null as string | null,
+      sourceObservationId: null as number | null,
+      observations: [] as { id: number; name: string }[],
+      observationsLoading: false,
+      creating: false,
+    });
+
     onMounted(async () => {
       isMounted.value = true;
       state.observationsLoading = true;
@@ -173,17 +184,6 @@ export default defineComponent({
 
     onUnmounted(() => {
       isMounted.value = false;
-    });
-
-    const state = reactive({
-      name: '',
-      description: '',
-      creationEntry: 'direct' as CreationEntry,
-      videoPath: null as string | null,
-      sourceObservationId: null as number | null,
-      observations: [] as { id: number; name: string }[],
-      observationsLoading: false,
-      creating: false,
     });
 
     watch(

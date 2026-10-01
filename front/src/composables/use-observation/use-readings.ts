@@ -281,8 +281,6 @@ export const useReadings = (options: {
           currentDateTime !== initialDateTime
         );
         if (hasChanged) {
-          console.log('Updated reading:', current);
-          console.log('Initial reading:', initialReading);
           return current;
         }
         return false;
@@ -294,16 +292,6 @@ export const useReadings = (options: {
           return !doesReadingExistInCurrentReadings(initial);
         }
       );
-
-      if (newReadings.length > 0) {
-        console.log('New readings:', newReadings);
-      }
-      if (updatedReadings.length > 0) {
-        console.log('Updated readings:', updatedReadings);
-      }
-      if (deletedReadings.length > 0) {
-        console.log('Deleted readings:', deletedReadings);
-      }
 
       const maxTryCount = 3; // Maximum number of retry attempts
       
