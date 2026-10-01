@@ -325,7 +325,6 @@
 
 <script lang="ts">
 import { defineComponent, computed, inject, onMounted } from 'vue';
-import { useQuasar } from 'quasar';
 import { menu } from './menu';
 import { useDrawer } from 'src/composables/use-drawer';
 import { useRouter } from 'vue-router';
@@ -344,6 +343,7 @@ import HelpDialog from '@pages/userspace/_components/HelpDialog.vue';
 import PreferencesDialog from '@pages/userspace/_components/PreferencesDialog.vue';
 import ChangeLicenseDialog from '@pages/userspace/_components/ChangeLicenseDialog.vue';
 import CloudDisconnectDialog from '@pages/userspace/home/_components/cloud/CloudDisconnectDialog.vue';
+import CloseChronicleDialog from './CloseChronicleDialog.vue';
 
 export default defineComponent({
   components: {
@@ -358,7 +358,6 @@ export default defineComponent({
     const { isStudentAccess, isProfessionalAccess } = license;
     const cloud = useCloud();
     const observation = useObservation();
-    const $q = useQuasar();
     const { t, locale } = useI18n();
     const chronicleActions = useChronicleActions();
     const chronicleNav = useChronicleNavigation();
@@ -459,29 +458,20 @@ export default defineComponent({
         }
       },
 
-      confirmCloseChronicle: () => {
+      confirmCloseChronicle: async () => {
         const name = observation.sharedState.currentObservation?.name;
         if (!name) return;
 
-        $q.dialog({
-          class: 'actograph-dialog',
-          title: t('chronicle.closeActiveTitle'),
-          message: t('chronicle.closeActiveMessage', { name }),
-          cancel: {
-            label: t('dialogs.cancel'),
-            flat: true,
-          },
-          ok: {
-            label: t('chronicle.closeActiveConfirm'),
-            color: 'negative',
-          },
-          persistent: true,
-        }).onOk(() => {
-          observation.methods.closeObservation();
-          if (router.currentRoute.value.name !== 'user_home') {
-            void router.push({ name: 'user_home' });
-          }
+        const confirmed = await createDialog({
+          component: CloseChronicleDialog,
+          componentProps: { chronicleName: name },
         });
+        if (!confirmed) return;
+
+        observation.methods.closeObservation();
+        if (router.currentRoute.value.name !== 'user_home') {
+          void router.push({ name: 'user_home' });
+        }
       },
 
       openHelpDialog: () => {
