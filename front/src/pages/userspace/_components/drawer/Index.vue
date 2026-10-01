@@ -575,6 +575,7 @@ import { useNotifications } from 'src/composables/use-notifications';
 import { useAuth } from '@lib-improba/composables/use-auth';
 import { useLicense } from 'src/composables/use-license';
 import { useCloud } from 'src/composables/use-cloud';
+import { getLicenseOwnerLabel } from 'src/utils/license-owner-label';
 import Logo from '@lib-improba/components/layouts/Logo.vue';
 import LicenseBadge from '@lib-improba/components/layouts/standard/toolbar/license/Index.vue';
 import HelpDialog from '@pages/userspace/_components/HelpDialog.vue';
@@ -627,11 +628,10 @@ export default defineComponent({
         if (cloud.sharedState.isAuthenticated && cloud.sharedState.currentEmail) {
           return cloud.sharedState.currentEmail;
         }
-        const owner = license.sharedState.license?.owner;
-        if (owner) {
-          return owner;
-        }
-        return t('drawer.localAccount');
+        return (
+          getLicenseOwnerLabel(license.sharedState.license?.owner) ||
+          t('drawer.localAccount')
+        );
       }),
       accountCaption: computed(() => {
         void locale.value;
