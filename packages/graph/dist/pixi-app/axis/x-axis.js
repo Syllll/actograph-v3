@@ -5,6 +5,7 @@ import { formatAxisLabel, formatChronoAxisLabel, formatCalendarFixed, formatChro
 import { CHRONOMETER_T0 } from '../../utils/chronometer.constants';
 import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
 import { worldTickLengthForStretch } from '../../utils/tick-stretch.utils';
+import { AxisStrokeCommitState } from '../../utils/axis-stroke-commit';
 import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
 const timeSteps = {
     '10ms': 10,
@@ -68,6 +69,7 @@ export class xAxis extends BaseGroup {
         this.totalDurationMs = 0;
         this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS };
         this.axisStretch = { x: 1, y: 1 };
+        this.strokeCommit = new AxisStrokeCommitState();
         this.styleOptions = {
             axis: { color: 'black', width: 2 },
             tick: { color: 'black', width: 1, length: 10 },
@@ -95,11 +97,13 @@ export class xAxis extends BaseGroup {
         this.y = 0;
         this.scale.set(1);
         this.rotation = 0;
+        this.strokeCommit.beginPaint();
     }
     commitPaint() {
         if (!this.hasPaintContent()) {
             this.paintGraphic.clear();
             this.graphic = this.displayGraphic;
+            this.strokeCommit.commit(false);
             return;
         }
         this.displayGraphic.visible = false;
@@ -110,11 +114,15 @@ export class xAxis extends BaseGroup {
         this.paintGraphic.visible = false;
         this.paintGraphic.clear();
         this.graphic = this.displayGraphic;
+        this.strokeCommit.commit(true);
+    }
+    /** True when the visible display Graphic has committed axis strokes. */
+    hasDrawnContent() {
+        return this.axisStart !== null && this.strokeCommit.hasDrawnContent();
     }
     /** True when the back buffer has stroke geometry ready to swap in. */
     hasPaintContent() {
-        const bounds = this.paintGraphic.getLocalBounds();
-        return bounds.width > 0 || bounds.height > 0;
+        return this.strokeCommit.hasPaintContent(this.paintGraphic);
     }
     getReadingTimeInMsec(reading) {
         const timeInMsec = new Date(reading.dateTime).getTime();
@@ -155,6 +163,9 @@ export class xAxis extends BaseGroup {
         this.minTimeInMsec = 0;
         this.maxTimeInMsec = 0;
         this.totalDurationMs = 0;
+        this.axisStart = null;
+        this.axisEnd = null;
+        this.strokeCommit.clear();
         super.clear();
     }
     /**
@@ -171,6 +182,14 @@ export class xAxis extends BaseGroup {
                 label: this.computeLabelForTick(tick.dateTime),
             }));
         }
+    }
+    /** True when setData has produced ticks that a format change can relabel. */
+    hasTicks() {
+        return this.ticks.length > 0;
+    }
+    /** Labels currently stored on ticks (positions unchanged). */
+    getTickLabels() {
+        return this.ticks.map((tick) => tick.label);
     }
     /**
      * Largeur d'un texte pour le style des labels de tick, via un canvas 2D
@@ -369,6 +388,7 @@ export class xAxis extends BaseGroup {
         safeLineTo(this.graphic, xAxisEnd.x, xAxisEnd.y);
         this.graphic.closePath();
         this.graphic.fill({ color: this.styleOptions.axis.color });
+        this.strokeCommit.markPaintStrokes();
         const axisLengthInPixels = xAxisEnd.x - xAxisStart.x - 20;
         // Bug 3.3: Use stored min/max from setData (START/STOP bounds)
         this.axisStartTimeInMsec = this.minTimeInMsec;

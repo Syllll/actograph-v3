@@ -110,7 +110,11 @@ export const useAuth = (router: Router) => {
         }
       }
     },
-    async login(login: string, password: string) {
+    async login(
+      login: string,
+      password: string,
+      options?: { redirect?: boolean }
+    ) {
       const userLogin = await authService.login(login, password);
 
       setCookiesWithToken(userLogin.token);
@@ -118,7 +122,7 @@ export const useAuth = (router: Router) => {
       await getAndSetCurrentUser();
       startRefreshTimer();
 
-      router.push('/');
+      if (options?.redirect !== false) router.push('/');
     },
     logout() {
       removeCurrentUser();

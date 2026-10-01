@@ -2,6 +2,9 @@
 
 Ce document décrit l'architecture du build de l'application ActoGraph v3 pour la distribution desktop (Windows, macOS, Linux).
 
+La séparation entre code public et validateur privé de licences, ainsi que son
+injection dans les builds CI, est décrite dans [Validation des licences](./license-validation.md).
+
 ## Vue d'ensemble
 
 L'application desktop embarque une API NestJS bundlée qui s'exécute en arrière-plan. Cette architecture permet :

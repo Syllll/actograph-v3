@@ -23,7 +23,10 @@ if (_dbPath && !_dbPath.endsWith(path.sep) && !_dbPath.endsWith('/')) {
 export const dbPath = _dbPath;
 
 config({
-  path: envPath
+  path: envPath,
+  // Desktop installs must use their bundled configuration even when launched
+  // from a shell with unrelated DB/JWT variables already exported.
+  override: Boolean(envPath),
 });
 
 export const typeOrmConfig: TypeOrmModuleOptions = {

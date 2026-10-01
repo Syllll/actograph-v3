@@ -6,7 +6,7 @@
  */
 export { PixiApp } from './pixi-app';
 export type { IGraphRenderOptions } from './types/graph-render-options';
-export { DEFAULT_GRAPH_RENDER_OPTIONS } from './types/graph-render-options';
+export { DEFAULT_GRAPH_RENDER_OPTIONS, hasGraphRenderOptionsChanged, isTimeFormatOnlyChange, } from './types/graph-render-options';
 export { computePauseOverlayRects, shouldDrawPauseOverlay, resolveMaskPausesOption, } from './utils/pause-overlay.utils';
 export type { PauseOverlayRect, PauseOverlayBounds } from './utils/pause-overlay.utils';
 export { getObservableGraphPreferences, parseProtocolItems, hydrateProtocolItemsFromStringIfNeeded, } from './utils/protocol.utils';

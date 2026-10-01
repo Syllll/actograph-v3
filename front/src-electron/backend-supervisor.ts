@@ -102,8 +102,8 @@ export class BackendSupervisor {
         // Never open the database again until the previous child has closed.
         await this.stopChild();
         if (this.quitting) return false;
-        const child = this.startChild();
         try {
+          const child = this.startChild();
           await child.ready;
           const healthy = await this.options.health();
           if (

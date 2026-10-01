@@ -81,6 +81,20 @@ describe('BackendSupervisor', () => {
     await supervisor.shutdown();
   });
 
+  it('also retries when creating the process throws before returning a child', async () => {
+    const { supervisor, children, spawn } = setup();
+    spawn.mockImplementationOnce(() => {
+      throw new Error('Temporary fork failure');
+    });
+    const first = supervisor.ensureRunning();
+    await flush();
+    await jest.advanceTimersByTimeAsync(1);
+    expect(spawn).toHaveBeenCalledTimes(2);
+    children[0].listen();
+    expect(await first).toBe(true);
+    await supervisor.shutdown();
+  });
+
   it('waits for the old child to close before spawning its replacement', async () => {
     const { supervisor, children, spawn, health } = setup();
     const first = supervisor.ensureRunning();

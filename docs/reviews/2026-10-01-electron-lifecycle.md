@@ -35,15 +35,19 @@ La validation des licences vérifie la structure des réponses, borne l'appel au
 site à dix secondes et distingue refus explicite, panne distante et panne locale.
 Le 404 « License not found » est un refus de clé ; les autres 404 restent des
 erreurs de service. Le checksum local et le serveur distant sont les deux
-contrôles utilisés : l'ancien checkKey sans validation réelle n'est plus appelé.
+contrôles publics. La CI injecte aussi une implémentation privée de checkKey :
+cet appel est conservé avant la validation distante. Voir [la séparation entre
+code public et validation privée](../license-validation.md).
 L'écriture d'access.json utilise un fichier temporaire et un renommage atomique.
 
 ## Validation
 
-- Suites Jest complètes : frontend 131 tests / 19 suites, API 52 tests / 8 suites,
+- Suites Jest complètes : frontend 134 tests / 20 suites, API 55 tests / 9 suites,
   tous verts après intégration des commits distants de main.
+- Packages partagés : core 157 tests / 19 suites, graph 313 tests / 39 suites.
+- Script d’injection du validateur privé : 5 cas avec des exemples synthétiques.
 - TypeScript API, Vue et main/preload Electron : sans erreur.
-- Build Nest et bundle esbuild API : réussis.
+- Build Nest, bundle esbuild API et build Quasar Electron non empaqueté : réussis.
 - ESLint des fichiers touchés, y compris src-electron (ignoré par défaut).
 - `cd api && node test/desktop/lifecycle.cjs`, avec la version Node correspondant
   au module better-sqlite3 installé : vraie API Nest, migrations sur SQLite
@@ -76,3 +80,21 @@ si le père disparaît.
 La validation native des fenêtres, vidéos, installeurs et mises à jour sur
 Windows/macOS reste nécessaire avant publication d'une nouvelle version : cet
 environnement ne dispose pas de serveur graphique ni de ces systèmes.
+
+## Review avant publication bureau 0.0.181
+
+La connexion locale est effectuée sans navigation automatique vers l’accueil :
+la page de chargement termine le contrôle d’accès avant de choisir une route.
+Cela évite de démonter la page pendant l’initialisation de la licence. Les appels
+ordinaires à login conservent leur redirection.
+
+L’appel au validateur PKV a été rétabli après vérification du pipeline : ses
+bouchons publics sont remplacés par des corps de fonctions privés fournis par
+les secrets GitHub. L’injection échoue si une valeur manque ou si une signature
+ne correspond plus, et préserve les littéraux `$` des implémentations privées.
+
+Les trois essais couvrent aussi une exception synchrone de fork. Enfin, le
+fichier .env fourni au fils de bureau prime sur les variables DB/JWT héritées
+d’un terminal. Le test d’intégration lance volontairement le fils avec une
+configuration héritée contradictoire et vérifie qu’il utilise la base temporaire
+fournie par son .env.

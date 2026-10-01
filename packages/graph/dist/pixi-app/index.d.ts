@@ -1,7 +1,7 @@
 import { EventEmitter } from 'pixi.js';
 import type { IObservation, IProtocol, IGraphPreferences, IPeriod } from '@actograph/core';
 import type { DrawError } from '../engine/types';
-import type { IGraphRenderOptions } from '../types/graph-render-options';
+import { type IGraphRenderOptions } from '../types/graph-render-options';
 import { type PaintReason } from '../utils/scene-paint.utils';
 interface IPixiAppInitOptions {
     view: HTMLCanvasElement;
@@ -92,9 +92,9 @@ export declare class PixiApp {
     private forcePatternTextureClear;
     /**
      * Per-layer dirty/midDraw state. midDraw is true while a full draw has
-     * cleared axis graphics but not yet flushed app.render(). Partial paints
-     * (hover, redrawCategory, pan) must not call app.render() while any layer
-     * is midDraw — they would show empty axes.
+     * started rebuilding and has not yet flushed a successful present.
+     * requestRender must not present (and never rebuild) while any layer is
+     * midDraw.
      */
     private dirtyRegistry;
     private contextRestoring;
@@ -112,6 +112,13 @@ export declare class PixiApp {
      * (Windows/ANGLE). Next full label sync recreates the pool.
      */
     private needsLabelTextureRefresh;
+    /**
+     * True after a successful world build has been presented *with* axis
+     * stroke Graphics on the display buffers. Until then a resize or
+     * requestRender must not present: last frame is still the empty init
+     * paint, or series committed without axis lines.
+     */
+    private hasCommittedWorld;
     /** Scene coherence for partial WebGL paints (hover/pan). */
     private scenePaintState;
     /** At most one auto-retry per failed draw until the next success. */
@@ -142,9 +149,10 @@ export declare class PixiApp {
      */
     init(options: IPixiAppInitOptions): Promise<void>;
     /**
-     * Sole entry point for `app.render()` in PixiApp. Authoritative reasons paint
-     * when the caller guarantees scene readiness; `resize` refills the default
-     * framebuffer from the last committed scene; partial reasons only when idle.
+     * Sole present entry: `app.render()` only. Never rebuilds the world.
+     * Authoritative reasons paint when the caller guarantees scene readiness;
+     * `resize` refills the canvas from the last committed scene; partial reasons
+     * only when idle.
      */
     private paint;
     private cancelDrawFailureAutoRetryRaf;
@@ -152,10 +160,12 @@ export declare class PixiApp {
     /**
      * Resize the renderer to match the current CSS size of the canvas element.
      * Interactive path: updates layout, reprojects existing labels, presents the
-     * last committed scene into the new framebuffer (Windows/ANGLE clears it on
+     * last committed scene into the new canvas (Windows/ANGLE clears it on
      * resize), then the caller should coalesce a full `draw()`.
+     * No present until a world has been committed (`hasCommittedWorld`) : the
+     * init paint is empty (no axes).
      * @param options.skipRender - Non-interactive: skip `requestRender()`.
-     *   Interactive present still runs (cheap framebuffer refill).
+     *   Interactive present still runs when a world is committed.
      */
     resizeFromCanvas(options?: {
         skipRender?: boolean;
@@ -215,6 +225,18 @@ export declare class PixiApp {
     setGraphRenderOptions(options: Partial<IGraphRenderOptions>, drawOptions?: {
         redraw?: boolean;
     }): void;
+    /**
+     * Format-only present: relabel X ticks already in memory, sync screen-space
+     * overlay, flush. Must not call prepareWorld (that path clears Y ticks and
+     * swaps series buffers: missing axes / duplicated readings).
+     */
+    private canPresentTimeFormatWithoutWorldRebuild;
+    /**
+     * True when both axis *display* Graphics hold committed strokes.
+     * Overlay tick labels in memory are not sufficient.
+     */
+    private hasCommittedAxisStrokes;
+    private presentTimeFormatChange;
     setProtocol(protocol: IProtocol): void;
     getObservablePreferences(observableId: string): IGraphPreferences | null;
     updateObservablePreference(observableId: string, preference: Partial<IGraphPreferences>, options?: {
@@ -228,11 +250,14 @@ export declare class PixiApp {
     /** Emit once per draw with the full error list (empty array on success). */
     private emitDrawErrors;
     /**
-     * Renders only when the app is ready and no full draw/export is in flight.
-     * If axis graphics were cleared and not yet redrawn, schedules a full draw
-     * instead of painting the empty-axes scene (hover/pan must not "exclude" axes).
+     * Present-only: display the last committed scene (axis strokes included).
+     * Never starts a world rebuild. Hover, pan, zoom, and time-format labels
+     * must go through this path. If the scene is mutating, failed, still
+     * mid-draw, or has no committed axis strokes, skip: the in-flight build
+     * will present, or retryDraw / autoRetry will rebuild.
      */
     requestRender(reason?: PaintReason): void;
+    /** Build entry: rebuild the world, then present once. Never called from requestRender. */
     private scheduleDraw;
     draw(): Promise<void>;
     /** Queues an exclusive full redraw on drawChain (used by draw + export). */

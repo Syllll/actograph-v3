@@ -61,9 +61,10 @@ const {
             DEV_ELECTRON: '',
             TS_NODE_PROJECT: path.join(apiRoot, 'tsconfig.json'),
             ACTOGRAPH_DESKTOP_TOKEN: token,
-            DB_TYPE: 'better-sqlite3',
-            DB_NAME: 'desktop-test.db',
-            JWT_SECRET: 'desktop-test-jwt',
+            // An inherited shell must not override the desktop's supplied .env.
+            DB_TYPE: 'postgres',
+            DB_NAME: 'inherited-wrong-database',
+            JWT_SECRET: 'inherited-wrong-jwt',
             ADMINUSER_LOGIN: '',
             ADMINUSER_PASSWORD: '',
             ACTOGRAPH_API: 'http://127.0.0.1:1',

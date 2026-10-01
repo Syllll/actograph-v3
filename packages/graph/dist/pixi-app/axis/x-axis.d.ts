@@ -21,6 +21,7 @@ export declare class xAxis extends BaseGroup {
     private totalDurationMs;
     private graphRenderOptions;
     private axisStretch;
+    private readonly strokeCommit;
     private styleOptions;
     private ticks;
     private axisStart;
@@ -40,6 +41,8 @@ export declare class xAxis extends BaseGroup {
     constructor(app: Application, yAxis: YAxis);
     beginPaint(): void;
     commitPaint(): void;
+    /** True when the visible display Graphic has committed axis strokes. */
+    hasDrawnContent(): boolean;
     /** True when the back buffer has stroke geometry ready to swap in. */
     hasPaintContent(): boolean;
     private getReadingTimeInMsec;
@@ -53,6 +56,10 @@ export declare class xAxis extends BaseGroup {
      * chaud sans recharger l'observation.
      */
     setGraphRenderOptions(options: IGraphRenderOptions): void;
+    /** True when setData has produced ticks that a format change can relabel. */
+    hasTicks(): boolean;
+    /** Labels currently stored on ticks (positions unchanged). */
+    getTickLabels(): readonly string[];
     /**
      * Largeur d'un texte pour le style des labels de tick, via un canvas 2D
      * hors-DOM réutilisé (measureText). Fallback grossier si `document` n'est

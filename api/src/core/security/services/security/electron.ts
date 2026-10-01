@@ -57,12 +57,22 @@ export class Electron {
     const accessFilePath = path.join(configPath, 'access.json');
     const access = await readAccessFile(accessFilePath);
     if (access?.type === 'student') {
-      return { nextStep: 'use-student-access', message: 'Use free student access.' };
+      return {
+        nextStep: 'use-student-access',
+        message: 'Use free student access.',
+      };
     }
     if (access?.type === 'license') {
-      return { nextStep: 'use-license-access', message: 'Use license access.', key: access.key };
+      return {
+        nextStep: 'use-license-access',
+        message: 'Use license access.',
+        key: access.key,
+      };
     }
-    return { nextStep: 'choose-access-type', message: 'Please choose an access type.' };
+    return {
+      nextStep: 'choose-access-type',
+      message: 'Please choose an access type.',
+    };
   }
 
   /**
@@ -200,6 +210,7 @@ export class Electron {
     }
 
     await this._securityService.checkKeyChecksum(key);
+    await this._securityService.checkKey(key);
     await this._securityService.checkKeyOnActoGraphWebsiteServer(key);
 
     const configPath = await getConfigPath();

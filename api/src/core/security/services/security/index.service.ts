@@ -66,4 +66,12 @@ export class SecurityService {
     }
     return true;
   }
+
+  public async checkKey(key: string): Promise<boolean> {
+    // CI replaces KeyTestor's development stub with the production verifier.
+    if (!this._keyTestor.checkKey(key)) {
+      throw new BadRequestException('Invalid key');
+    }
+    return true;
+  }
 }

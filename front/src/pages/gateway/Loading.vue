@@ -123,7 +123,8 @@ export default defineComponent({
         if (disposed) return false;
         await auth.methods.login(
           localUserName,
-          deriveElectronLocalPassword(localUserName)
+          deriveElectronLocalPassword(localUserName),
+          { redirect: false }
         );
         if (disposed) return false;
         phase = 'access';

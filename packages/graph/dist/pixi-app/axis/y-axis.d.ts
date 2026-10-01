@@ -21,6 +21,7 @@ export declare class YAxis extends BaseGroup {
      * labels (screen-space via AxisLabelOverlay).
      */
     private axisStretch;
+    private readonly strokeCommit;
     constructor(app: Application);
     beginPaint(): void;
     commitPaint(): void;
@@ -31,11 +32,12 @@ export declare class YAxis extends BaseGroup {
     getAxisStart(): IPosition | null;
     getAxisEnd(): IPosition | null;
     /**
-     * True when axis endpoints are set and stroke geometry or tick labels are
-     * present. Used by hover to detect a cleared axis still referenced by stale
-     * plot bounds (a stale framebuffer can hide the mismatch until hover).
+     * True when the visible display Graphic has committed axis strokes.
+     * Overlay labels (ticks in memory) are not enough.
      */
     hasDrawnContent(): boolean;
+    /** True when draw() has produced ticks (format overlay can keep their positions). */
+    hasTicks(): boolean;
     /** True when the back buffer has stroke geometry ready to swap in. */
     hasPaintContent(): boolean;
     getPosFromLabel(label: string): number;

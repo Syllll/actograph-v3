@@ -8,27 +8,21 @@ export function isAuthoritativePaintReason(reason) {
 }
 /** Partial paints (hover/pan/…) are allowed only on a coherent idle scene. */
 export function canPaintPartial(options) {
-    return (options.scenePaintState === 'stable' &&
+    return (options.hasCommittedWorld &&
+        options.scenePaintState === 'stable' &&
         !options.drawInProgress &&
         !options.exportInProgress &&
         !options.drawQueued);
 }
 /**
- * Present after a canvas resize: refill the (cleared) default framebuffer
- * from the last committed scene. Ignores `drawQueued` so a coalesced full
- * draw can still follow; refuses mutating/failed scenes.
+ * Present after a canvas resize: refill the canvas from the last committed
+ * scene. Ignores `drawQueued` so a coalesced full draw can still follow;
+ * refuses mutating/failed scenes and the empty init paint.
  */
 export function canPaintResizePresent(options) {
-    return (options.scenePaintState === 'stable' &&
+    return (options.hasCommittedWorld &&
+        options.scenePaintState === 'stable' &&
         !options.drawInProgress &&
         !options.exportInProgress);
-}
-/** Reasons that should trigger a full draw when a partial paint is refused. */
-export function shouldScheduleDrawOnPaintGate(reason) {
-    return (reason !== 'leave' &&
-        reason !== 'init' &&
-        reason !== 'draw-complete' &&
-        reason !== 'export' &&
-        reason !== 'resize');
 }
 //# sourceMappingURL=scene-paint.utils.js.map
