@@ -102,13 +102,29 @@ d’un terminal. Le test d’intégration lance volontairement le fils avec une
 configuration héritée contradictoire et vérifie qu’il utilise la base temporaire
 fournie par son .env.
 
-## État de la publication au 1er octobre 2026
+## Publication bureau 0.0.181 — 1er octobre 2026
 
-Le tag `prod-v0.0.181` pointe sur `a99baa4`. La publication
+Le tag `prod-v0.0.181` pointe sur `a99baa4`. Les premières tentatives de publication
 [36875604466](https://github.com/Syllll/actograph-v3/actions/runs/36875604466)
-a échoué à la notarisation macOS ; la release 0.0.181 n'est pas publiée.
+ont échoué à la notarisation macOS.
 Le [diagnostic indépendant](https://github.com/Syllll/actograph-v3/actions/runs/36879017785)
 confirme HTTP 403 « A required agreement is missing or has expired » avec
-Apple ID comme avec la clé API. L'accord doit être accepté par le titulaire
-du compte Apple Developer avant de relancer cette même publication.
-La dernière release de production publiée à cette date reste 0.0.180.
+Apple ID comme avec la clé API. Le titulaire du compte Apple Developer a ensuite
+accepté l'accord. Le [contrôle renouvelé](https://github.com/Syllll/actograph-v3/actions/runs/36881027405)
+a validé l'accès Apple ID utilisé par le build bureau ; la méthode API alternative
+renvoyait encore HTTP 403 à ce moment-là.
+
+La troisième tentative du même workflow et du même tag a réussi sur Linux,
+Windows, macOS Intel et macOS Apple Silicon. La signature Windows Symalgo,
+les signatures macOS Developer ID et les deux contrôles Gatekeeper sont validés.
+La sauvegarde du cache Windows a prolongé la fin du job après l'envoi des
+installeurs, puis la publication automatique s'est terminée normalement.
+
+La [release 0.0.181](https://github.com/Syllll/actograph-v3/releases/tag/prod-v0.0.181)
+est publique depuis le 1er octobre à 17 h 43 (Europe/Paris) et l'API GitHub
+`releases/latest` la désigne comme dernière version de production. Ses dix
+fichiers comprennent les quatre installeurs, le blockmap Windows et les cinq
+métadonnées de mise à jour. Les quatre empreintes SHA-512 des installeurs CI ont
+été recalculées et correspondent aux YAML. Les versions, références et tailles
+des fichiers publiés correspondent aussi ; `latest-mac.yml` contient les deux
+architectures. Android et iOS ont été exclus de cette publication bureau.
