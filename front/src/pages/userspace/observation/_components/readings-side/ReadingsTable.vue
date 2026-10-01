@@ -1,307 +1,235 @@
 <template>
-  <q-table
-    class="readings-table"
-    dense
+  <div class="readings-table">
+    <q-table
+      class="readings-q-table"
+      dense
     :rows="readings"
     :columns="columns"
     :row-key="getRowKey"
     binary-state-sort
+    v-model:pagination="pagination"
     virtual-scroll
     :virtual-scroll-sticky-size-start="48"
-    table-style="max-height: 100%;"
+    table-style="max-height: 100%; width: max-content;"
     :rows-per-page-options="[0]"
     hide-pagination
     hide-bottom
   >
-      <template v-slot:header="props">
-        <q-tr :props="props">
-          <q-th v-for="col in props.cols" :key="col.name" :props="props">
-            {{ col.label }}
-          </q-th>
-        </q-tr>
-      </template>
-
-      <template v-slot:body="props">
-        <q-tr 
-          :props="props" 
-          :class="{ 
-            'selected-row': isRowSelected(props.row),
-            'unrecognized-observable-row': isUnrecognizedObservable(props.row)
-          }"
-          @click="toggleRowSelection(props.row)"
+    <template v-slot:header="props">
+      <q-tr :props="props">
+        <q-th
+          v-for="col in props.cols"
+          :key="col.name"
+          :props="props"
+          :class="{ 'text-right': col.name === 'actions' }"
         >
-          <q-td key="order" :props="props">
-            {{ props.rowIndex + 1 }}
-          </q-td>
-          <q-td key="type" :props="props">
-            <div class="editable-cell">
-              {{ getReadingTypeLabel(props.row.type) }}
-              <q-popup-edit 
-                v-model="props.row.type" 
-                :title="t('readingsUi.editTypeTitle')" 
-                buttons
-                @save="handleTypeSave(props.row, $event)"
-                v-slot="scope"
-              >
-                <q-select
-                  v-model="scope.value"
-                  :options="readingTypeOptions"
-                  option-label="label"
-                  option-value="value"
-                  emit-value
-                  map-options
+          <span v-if="col.name === 'actions'">
+            <q-btn
+              flat
+              round
+              dense
+              size="xs"
+              color="dark"
+              icon="delete"
+              :disable="!canClearAll"
+              :aria-label="t('readingsUi.clearAllReadings')"
+              @click.stop="emitClearAll"
+            />
+            <q-tooltip>{{ t('readingsUi.clearAllReadingsTooltip') }}</q-tooltip>
+          </span>
+          <template v-else>
+            {{ col.label }}
+          </template>
+        </q-th>
+      </q-tr>
+    </template>
+
+    <template v-slot:body="props">
+      <q-tr
+        :props="props"
+        :class="{
+          'unrecognized-observable-row': isUnrecognizedObservable(props.row)
+        }"
+      >
+        <q-td key="order" :props="props">
+          {{ props.rowIndex + 1 }}
+        </q-td>
+
+        <q-td key="type" :props="props">
+          <span
+            class="readings-inline-control readings-type-trigger"
+            tabindex="0"
+            role="button"
+            :aria-label="t('readingsUi.colType')"
+            @click.stop
+          >
+            {{ getReadingTypeLabel(props.row.type) }}
+            <q-menu>
+              <q-list dense>
+                <q-item
+                  v-for="opt in readingTypeOptions"
+                  :key="opt.value"
+                  clickable
+                  v-close-popup
                   dense
-                  autofocus
-                />
-              </q-popup-edit>
-            </div>
-          </q-td>
-          <q-td key="dateTime" :props="props">
-            <div class="editable-cell">
-              <span v-if="observation.isChronometerMode.value">
-                {{ formatDuration(props.row.dateTime) }}
-              </span>
-              <span v-else>
-              {{ formatDateTime(props.row.dateTime) }}
-              </span>
-              <q-popup-edit 
-                :model-value="observation.isChronometerMode.value ? formatDurationForEditDisplay(props.row.dateTime) : formatDateTimeForEdit(props.row.dateTime)"
-                :title="observation.isChronometerMode.value ? t('readingsUi.editDurationTitle') : t('readingsUi.editDateTimeTitle')" 
-                buttons
-                @before-show="() => openDateTimeEditor(props.row)"
-                @hide="clearDateTimeEditTarget"
-                @save="handleDateTimeSave(props.row, $event)"
-                v-slot="scope"
-              >
-                <!-- Duration editor (chronometer mode) -->
-                <div v-if="observation.isChronometerMode.value" class="column q-gutter-sm">
-                  <!-- Champ texte pour copier-coller rapide (Bug 2b.4) -->
-                  <q-input
-                    :model-value="formatDurationCompact()"
-                    @update:model-value="onDurationTextChange(scope, $event)"
-                    :label="t('readingsUi.durationCopyPaste')"
-                    dense
-                    :placeholder="t('readingsUi.durationPlaceholder')"
-                    :hint="t('readingsUi.durationFormatsHint')"
-                  />
-                  <div class="row q-gutter-sm">
-                    <q-input
-                      :model-value="durationEditState.days"
-                      @update:model-value="onDurationPartChange(scope, 'days', $event)"
-                      type="number"
-                      :label="t('readingsUi.colDays')"
-                      dense
-                      autofocus
-                      :min="0"
-                      style="width: 100px"
-                    />
-                    <q-input
-                      :model-value="durationEditState.hours"
-                      @update:model-value="onDurationPartChange(scope, 'hours', $event)"
-                      type="number"
-                      :label="t('readingsUi.colHours')"
-                      dense
-                      :min="0"
-                      :max="23"
-                      style="width: 100px"
-                    />
-                    <q-input
-                      :model-value="durationEditState.minutes"
-                      @update:model-value="onDurationPartChange(scope, 'minutes', $event)"
-                      type="number"
-                      :label="t('readingsUi.colMinutes')"
-                      dense
-                      :min="0"
-                      :max="59"
-                      style="width: 100px"
-                    />
-                  </div>
-                  <div class="row q-gutter-sm">
-                    <q-input
-                      :model-value="durationEditState.seconds"
-                      @update:model-value="onDurationPartChange(scope, 'seconds', $event)"
-                      type="number"
-                      :label="t('readingsUi.colSeconds')"
-                      dense
-                      :min="0"
-                      :max="59"
-                      style="width: 100px"
-                    />
-                    <q-input
-                      :model-value="durationEditState.milliseconds"
-                      @update:model-value="onDurationPartChange(scope, 'milliseconds', $event)"
-                      type="number"
-                      :label="t('readingsUi.colMilliseconds')"
-                      dense
-                      :min="0"
-                      :max="999"
-                      style="width: 150px"
-                    />
-                  </div>
-                </div>
-                <!-- Date/time editor (calendar mode) -->
-                <div v-else class="column q-gutter-sm">
-                  <q-input
-                    v-model="scope.value"
-                    mask="##/##/#### ##:##:##.###"
-                    fill-mask="_"
-                    dense
-                    autofocus
-                    :hint="t('readingsUi.dateTimeMaskHint')"
-                    :label="t('readingsUi.dateTimeFieldLabel')"
-                  >
-                    <template v-slot:append>
-                      <q-icon name="event" class="cursor-pointer">
-                        <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                          <q-date
-                            :model-value="getDatePart(scope.value)"
-                            @update:model-value="updateDatePart(scope, $event)"
-                            mask="DD/MM/YYYY"
-                          >
-                            <div class="row items-center justify-end">
-                              <q-btn v-close-popup :label="t('common.ok')" color="primary" flat />
-                            </div>
-                          </q-date>
-                        </q-popup-proxy>
-                      </q-icon>
-                      <q-icon name="access_time" class="cursor-pointer">
-                        <q-popup-proxy cover transition-show="scale" transition-hide="scale">
-                          <q-time
-                            :model-value="getTimePartWithoutMs(scope.value)"
-                            @update:model-value="updateTimePartFromPicker(scope, $event)"
-                            mask="HH:mm:ss"
-                            format24h
-                          >
-                            <div class="row items-center justify-end">
-                              <q-btn v-close-popup :label="t('common.ok')" color="primary" flat />
-                            </div>
-                          </q-time>
-                        </q-popup-proxy>
-                      </q-icon>
-                    </template>
-                  </q-input>
-                </div>
-              </q-popup-edit>
-            </div>
-          </q-td>
-          <q-td key="name" :props="props">
-            <div class="editable-cell">
-              <span 
-                :class="{ 
-                  'comment-reading': props.row.name?.startsWith('#'),
-                  'unrecognized-observable': isUnrecognizedObservable(props.row)
-                }"
-                :title="getUnrecognizedObservableTitle(props.row)"
-              >
-                {{ props.row.name }}
-              </span>
-              <q-popup-edit 
-                v-model="props.row.name" 
-                :title="t('readingsUi.editLabelTitle')" 
-                buttons
-                @save="handleNameSave(props.row, $event)"
-                v-slot="scope"
-              >
-                <q-select
-                  v-if="protocolObservableOptions.length > 0"
-                  v-model="scope.value"
-                  :options="filteredObservableOptions"
-                  option-label="label"
-                  option-value="value"
-                  :option-disable="isObservableOptionDisabled"
-                  use-input
-                  fill-input
-                  hide-selected
-                  input-debounce="0"
-                  emit-value
-                  map-options
-                  dense
-                  autofocus
-                  new-value-mode="add-unique"
-                  @filter="filterObservables"
-                  :rules="[labelRequiredRule]"
-                  class="observable-autocomplete"
+                  class="readings-type-option"
+                  :active="props.row.type === opt.value"
+                  active-class="readings-type-option--active"
+                  @click="commitType(props.row, opt.value)"
                 >
-                  <template v-slot:option="optScope">
-                    <q-item v-if="optScope.opt.isCategory" dense class="text-weight-bold non-selectable" :style="{ color: optScope.opt.categoryColor || 'var(--primary)' }">
-                      <q-item-section>{{ optScope.opt.label }}</q-item-section>
-                    </q-item>
-                    <q-item v-else v-bind="optScope.itemProps" dense class="q-pl-lg">
-                      <q-item-section>{{ optScope.opt.label }}</q-item-section>
-                    </q-item>
-                  </template>
-                  <template v-slot:no-option>
-                    <q-item dense>
-                      <q-item-section class="text-grey text-italic">
-                        {{ t('readingsUi.freeLabelAutocompleteHint') }}
-                      </q-item-section>
-                    </q-item>
-                  </template>
-                </q-select>
-                <q-input
-                  v-else
-                  type="text"
-                  v-model="scope.value"
-                  dense
-                  autofocus
-                  :rules="[labelRequiredRule]"
-                />
-              </q-popup-edit>
-            </div>
-          </q-td>
-          <q-td key="description" :props="props">
-            <div class="editable-cell">
-              {{ props.row.description || t('readingsUi.emptyCell') }}
-              <q-popup-edit 
-                v-model="props.row.description" 
-                :title="t('readingsUi.editDescriptionTitle')" 
-                buttons
-                @save="handleDescriptionSave(props.row, $event)"
-                v-slot="scope"
-              >
-                <q-input 
-                  type="textarea" 
-                  v-model="scope.value" 
-                  dense 
-                  autofocus
-                  autogrow
-                />
-              </q-popup-edit>
-            </div>
-          </q-td>
-        </q-tr>
-      </template>
-    </q-table>
+                  <q-item-section>{{ opt.label }}</q-item-section>
+                  <q-item-section
+                    v-if="props.row.type === opt.value"
+                    side
+                  >
+                    <q-icon name="check" size="xs" />
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-menu>
+          </span>
+        </q-td>
+
+        <q-td key="dateTime" :props="props">
+          <input
+            v-if="isChronometerMode"
+            class="readings-inline-control"
+            type="text"
+            :value="getDurationInputValue(props.row)"
+            :aria-label="t('readingsUi.editDurationTitle')"
+            :placeholder="t('readingsUi.durationPlaceholder')"
+            :title="t('readingsUi.durationFormatsHint')"
+            @input="onDurationInput(props.row, $event)"
+            @blur="commitDuration(props.row)"
+            @keydown.enter.prevent="commitDuration(props.row)"
+            @keydown.esc.stop="clearDurationDraft(props.row)"
+            @click.stop
+          >
+          <input
+            v-else
+            class="readings-inline-control"
+            type="text"
+            :value="getCalendarDateTimeValue(props.row)"
+            :aria-label="t('readingsUi.colDateTime')"
+            @input="onCalendarInput(props.row, $event)"
+            @blur="commitCalendarDateTime(props.row)"
+            @keydown.enter.prevent="commitCalendarDateTime(props.row)"
+            @keydown.esc.stop="clearCalendarDraft(props.row)"
+            @click.stop
+          >
+        </q-td>
+
+        <q-td key="name" :props="props">
+          <span class="readings-label-cell">
+            <input
+              v-if="isCommentReading(props.row)"
+              class="readings-inline-control comment-reading"
+              type="text"
+              :value="commentBodyFromName(props.row.name)"
+              :aria-label="t('readingsUi.editCommentTitle')"
+              @focus="snapshotName(props.row)"
+              @input="onCommentNativeInput(props.row, $event)"
+              @blur="commitComment(props.row)"
+              @keydown.enter.prevent="commitComment(props.row)"
+              @click.stop
+            >
+            <span
+              v-else
+              class="readings-label-text"
+              :class="{ 'unrecognized-observable': isUnrecognizedObservable(props.row) }"
+            >
+              {{ props.row.name }}
+            </span>
+            <q-tooltip
+              v-if="getLabelTooltip(props.row)"
+              anchor="top middle"
+              self="bottom middle"
+            >
+              <span class="readings-label-tooltip-text">{{ getLabelTooltip(props.row) }}</span>
+            </q-tooltip>
+          </span>
+        </q-td>
+
+        <q-td key="actions" :props="props" class="text-right">
+          <q-btn
+            flat
+            round
+            dense
+            size="xs"
+            color="primary"
+            icon="edit"
+            :aria-label="t('readingsUi.editReadingTooltip')"
+            @click.stop="openEditReading(props.row)"
+          >
+            <q-tooltip>{{ t('readingsUi.editReadingTooltip') }}</q-tooltip>
+          </q-btn>
+          <q-btn
+            flat
+            round
+            dense
+            size="xs"
+            icon="content_copy"
+            :aria-label="t('readingsUi.duplicateReadingTooltip')"
+            @click.stop="emitDuplicateReading(props.row)"
+          >
+            <q-tooltip>{{ t('readingsUi.duplicateReadingTooltip') }}</q-tooltip>
+          </q-btn>
+          <q-btn
+            flat
+            round
+            dense
+            size="xs"
+            color="dark"
+            icon="delete"
+            :aria-label="t('readingsUi.deleteReadingOk')"
+            @click.stop="emitRemoveReading(props.row)"
+          >
+            <q-tooltip>{{ t('readingsUi.deleteReadingTooltip') }}</q-tooltip>
+          </q-btn>
+        </q-td>
+      </q-tr>
+    </template>
+  </q-table>
+  </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref, watch, reactive } from 'vue';
+import { defineComponent, computed, ref, reactive } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
-import { QTableColumn } from 'quasar';
+import { QTableColumn, Dialog } from 'quasar';
 import { date as qDate } from 'quasar';
 import { useObservation } from 'src/composables/use-observation';
 import { useDuration } from 'src/composables/use-duration';
+import EditReadingDialog from './EditReadingDialog.vue';
 
 export default defineComponent({
   name: 'ReadingsTable',
-  
+
   props: {
     readings: {
       type: Array as () => IReading[],
       required: true,
     },
-    selected: {
-      type: Array as () => IReading[],
-      default: () => [],
+    canClearAll: {
+      type: Boolean,
+      default: false,
     },
   },
-  
-  emits: ['update:selected'],
-  
+
+  emits: ['remove-reading', 'duplicate-reading', 'clear-all'],
+
   setup(props, { emit }) {
     const { t } = useI18n();
+
+    // Display-only ASC/DESC. Does not mutate currentReadings or persist.
+    const pagination = ref({
+      sortBy: 'dateTime',
+      descending: false,
+      rowsPerPage: 0,
+      page: 1,
+    });
 
     const columns = computed((): QTableColumn[] => [
       {
@@ -310,13 +238,17 @@ export default defineComponent({
         field: 'order',
         align: 'left',
         sortable: false,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
       },
       {
         name: 'type',
         label: t('readingsUi.colType'),
         field: 'type',
         align: 'left',
-        sortable: true,
+        sortable: false,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
       },
       {
         name: 'dateTime',
@@ -324,20 +256,31 @@ export default defineComponent({
         field: 'dateTime',
         align: 'left',
         sortable: true,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
+        sort: (a: Date | string, b: Date | string) => {
+          const ta = a instanceof Date ? a.getTime() : new Date(a).getTime();
+          const tb = b instanceof Date ? b.getTime() : new Date(b).getTime();
+          return ta - tb;
+        },
       },
       {
         name: 'name',
         label: t('readingsUi.colLabel'),
         field: 'name',
         align: 'left',
-        sortable: true,
+        sortable: false,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
       },
       {
-        name: 'description',
-        label: t('readingsUi.colDescription'),
-        field: 'description',
-        align: 'left',
+        name: 'actions',
+        label: '',
+        field: 'actions',
+        align: 'right',
         sortable: false,
+        style: 'width: 1%; white-space: nowrap',
+        headerStyle: 'width: 1%; white-space: nowrap',
       },
     ]);
 
@@ -345,7 +288,13 @@ export default defineComponent({
     const duration = useDuration();
     const isChronometerMode = computed(() => observation.isChronometerMode.value);
 
-    // Bug 2.6 : Liste des noms d'observables reconnus dans le protocole
+    const getRowKey = (row: IReading) => {
+      return row.id ? `id-${row.id}` : `tempId-${row.tempId || 'unknown'}`;
+    };
+
+    const calendarDrafts = ref<Record<string, string>>({});
+    const durationDrafts = ref<Record<string, string>>({});
+
     const protocolObservableNames = computed(() => {
       const protocol = observation.protocol.sharedState.currentProtocol;
       if (!protocol?._items) return new Set<string>();
@@ -361,82 +310,12 @@ export default defineComponent({
       return names;
     });
 
-    // Bug 2.8 : Options pour le menu déroulant des observables (groupées par catégorie)
-    type ProtocolObservableOption = {
-      label: string;
-      value: string;
-      isCategory?: boolean;
-      categoryColor?: string;
-      disable?: boolean;
-    };
-    const protocolObservableOptions = computed((): ProtocolObservableOption[] => {
-      const protocol = observation.protocol.sharedState.currentProtocol;
-      if (!protocol?._items) return [];
-      const options: ProtocolObservableOption[] = [];
-      for (const item of protocol._items) {
-        const isCategory = item.type === ProtocolItemTypeEnum.Category;
-        if (isCategory) {
-          options.push({
-            label: item.name,
-            value: `__cat_${item.id}`,
-            isCategory: true,
-            categoryColor: item.graphPreferences?.color || undefined,
-            disable: true,
-          });
-          if (item.children) {
-            for (const child of item.children) {
-              if (child.name) {
-                options.push({
-                  label: child.name,
-                  value: child.name,
-                });
-              }
-            }
-          }
-        }
-      }
-      return options;
-    });
-
-    // Options filtrées pour l'autocomplétion (réactif, mis à jour par @filter)
-    const filteredObservableOptions = ref<ProtocolObservableOption[]>([]);
-
-    // Filtre les options d'observables selon la saisie utilisateur
-    // Affiche les catégories uniquement si elles ont des enfants correspondants
-    const filterObservables = (val: string, update: (fn: () => void) => void) => {
-      update(() => {
-        if (!val) {
-          filteredObservableOptions.value = protocolObservableOptions.value;
-          return;
-        }
-        const needle = val.toLowerCase();
-        const allOptions = protocolObservableOptions.value;
-        const result: ProtocolObservableOption[] = [];
-
-        for (let i = 0; i < allOptions.length; i++) {
-          const opt = allOptions[i];
-          if (opt.isCategory) {
-            // Collecter les enfants correspondants de cette catégorie
-            const children: ProtocolObservableOption[] = [];
-            let j = i + 1;
-            while (j < allOptions.length && !allOptions[j].isCategory) {
-              if (allOptions[j].label.toLowerCase().includes(needle)) {
-                children.push(allOptions[j]);
-              }
-              j++;
-            }
-            // Ajouter la catégorie uniquement si elle a des enfants correspondants
-            if (children.length > 0) {
-              result.push(opt);
-              result.push(...children);
-            }
-          }
-        }
-        filteredObservableOptions.value = result;
-      });
+    const isUnrecognizedObservable = (row: IReading): boolean => {
+      if (row.type !== ReadingTypeEnum.DATA || !row.name) return false;
+      if (row.name.startsWith('#')) return false;
+      return !protocolObservableNames.value.has(row.name);
     };
 
-    // Bug 2.6 : Titre tooltip pour un observable non reconnu
     const getUnrecognizedObservableTitle = (row: IReading): string | undefined => {
       if (!isUnrecognizedObservable(row)) return undefined;
       return t('readingsUi.unrecognizedObservableTooltip', {
@@ -444,14 +323,19 @@ export default defineComponent({
       });
     };
 
-    // Bug 2.6 : Vérifie si un relevé DATA a un observable non reconnu
-    const isUnrecognizedObservable = (row: IReading): boolean => {
-      if (row.type !== ReadingTypeEnum.DATA || !row.name) return false;
-      if (row.name.startsWith('#')) return false; // Commentaires
-      return !protocolObservableNames.value.has(row.name);
+    const getDescriptionTooltip = (row: IReading): string | undefined => {
+      const text = (row.description || '').trim();
+      return text || undefined;
     };
-    
-    // State for duration editing
+
+    const getLabelTooltip = (row: IReading): string | undefined => {
+      const parts = [
+        getUnrecognizedObservableTitle(row),
+        getDescriptionTooltip(row),
+      ].filter((part): part is string => Boolean(part));
+      return parts.length > 0 ? parts.join('\n') : undefined;
+    };
+
     const durationEditState = reactive({
       days: 0,
       hours: 0,
@@ -459,150 +343,60 @@ export default defineComponent({
       seconds: 0,
       milliseconds: 0,
     });
-    const dateTimeEditTarget = ref<{ id?: number; tempId?: string | null } | null>(null);
 
-    const selectedInternal = ref<IReading[]>([]);
-    
-    // Watch the parent's selected readings and update internal state
-    // This keeps the table's selection in sync with the parent component
-    watch(() => props.selected, (newVal) => {
-      selectedInternal.value = newVal || [];
-    }, { immediate: true });
-    
-    // Check if a row is selected using a safe comparison (supports both id and tempId)
-    // This function handles three cases:
-    // 1. Readings with id (persisted readings from backend)
-    // 2. Readings with tempId (newly created readings not yet saved)
-    // 3. Same object reference (direct comparison)
-    const isRowSelected = (row: IReading) => {
-      if (!row || selectedInternal.value.length === 0) {
-        return false;
-      }
-      
-      return selectedInternal.value.some(r => {
-        if (!r) return false;
-        // Compare by id if both have id
-        if (r.id && row.id && r.id === row.id) return true;
-        // Compare by tempId if both have tempId
-        if (r.tempId && row.tempId && r.tempId === row.tempId) return true;
-        // Compare by reference (same object)
-        return r === row;
-      });
-    };
-    
-    // Toggle row selection with improved safety (supports both id and tempId)
-    // This allows selecting readings whether they have an id or tempId
-    const toggleRowSelection = (row: IReading) => {
-      if (!row) return;
-      if (isRowSelected(row)) {
-        selectedInternal.value = [];
-      } else {
-        // Make sure we only select this row
-        selectedInternal.value = [row];
-      }
-      
-      emit('update:selected', selectedInternal.value);
-    };
-    
-    // Format date and time for display
-    const formatDateTime = (dateTime: Date | string) => {
-      if (!dateTime) return '';
-      
-      const date = dateTime instanceof Date ? dateTime : new Date(dateTime);
-      
-      return qDate.formatDate(date, 'DD/MM/YYYY HH:mm:ss.SSS');
-    };
+    const toDate = (dateTime: Date | string): Date =>
+      dateTime instanceof Date ? dateTime : new Date(dateTime);
 
-    // Format date and time for editing (returns string)
-    const formatDateTimeForEdit = (dateTime: Date | string) => {
-      if (!dateTime) return '';
-      return formatDateTime(dateTime);
-    };
+    const formatDateTime = (dateTime: Date | string) =>
+      qDate.formatDate(toDate(dateTime), 'DD/MM/YYYY HH:mm:ss.SSS');
 
-    // Format duration for display (chronometer mode)
-    const formatDuration = (dateTime: Date | string): string => {
-      if (!dateTime) return '';
-      
-      const date = dateTime instanceof Date ? dateTime : new Date(dateTime);
-      
-      if (!isChronometerMode.value) {
-        return formatDateTime(dateTime);
-      }
-      
-      return observation.chronometerMethods.formatDateAsDuration(date);
-    };
-
-    // Keep this side-effect free. It is called during render in virtual-scroll rows.
-    const formatDurationForEditDisplay = (dateTime: Date | string) => {
-      if (!dateTime) {
-        return '';
-      }
-      
-      const date = dateTime instanceof Date ? dateTime : new Date(dateTime);
-      
-      if (!isChronometerMode.value) {
-        return formatDateTimeForEdit(dateTime);
-      }
-      
-      const durationMs = observation.chronometerMethods.dateToDuration(date);
+    const formatDurationCompactFromRow = (row: IReading) => {
+      if (!row.dateTime) return '';
+      const durationMs = observation.chronometerMethods.dateToDuration(toDate(row.dateTime));
       return duration.formatCompact(durationMs);
     };
 
-    const setDurationEditStateFromDateTime = (dateTime: Date | string) => {
-      if (!dateTime) {
-        durationEditState.days = 0;
-        durationEditState.hours = 0;
-        durationEditState.minutes = 0;
-        durationEditState.seconds = 0;
-        durationEditState.milliseconds = 0;
-        return;
-      }
-      const date = dateTime instanceof Date ? dateTime : new Date(dateTime);
-      if (!isChronometerMode.value) {
-        return;
-      }
-      const durationMs = observation.chronometerMethods.dateToDuration(date);
-      const parts = duration.millisecondsToParts(durationMs);
-      durationEditState.days = parts.days;
-      durationEditState.hours = parts.hours;
-      durationEditState.minutes = parts.minutes;
-      durationEditState.seconds = parts.seconds;
-      durationEditState.milliseconds = parts.milliseconds;
-    };
+    const getCalendarDateTimeValue = (row: IReading) =>
+      calendarDrafts.value[getRowKey(row)] ?? formatDateTime(row.dateTime);
 
-    // Bug 2b.3 : Synchronise l'état d'édition avec la ligne correcte à l'ouverture du popup.
-    const syncDurationEditStateFromRow = (row: IReading) => {
-      if (row?.dateTime) {
-        setDurationEditStateFromDateTime(row.dateTime);
-      }
-    };
-
-    const openDateTimeEditor = (row: IReading) => {
-      dateTimeEditTarget.value = {
-        id: row.id,
-        tempId: row.tempId || null,
+    const setCalendarDraft = (row: IReading, val: string | number | null) => {
+      calendarDrafts.value = {
+        ...calendarDrafts.value,
+        [getRowKey(row)]: val == null ? '' : String(val),
       };
-      syncDurationEditStateFromRow(row);
     };
 
-    const clearDateTimeEditTarget = () => {
-      dateTimeEditTarget.value = null;
+    const clearCalendarDraft = (row: IReading) => {
+      const key = getRowKey(row);
+      if (!(key in calendarDrafts.value)) return;
+      const next = { ...calendarDrafts.value };
+      delete next[key];
+      calendarDrafts.value = next;
     };
 
-    // Aligné sur formatDurationForEditDisplay / duration.formatCompact
-    // (ex: "1j 2h 30m 45s 500ms", durée nulle → "0ms") pour que scope.value
-    // reste comparable à la valeur initiale du q-popup-edit.
-    const formatDurationCompact = () => {
-      return duration.formatCompact(duration.partsToMilliseconds(durationEditState));
+    const getDurationInputValue = (row: IReading) =>
+      durationDrafts.value[getRowKey(row)] ?? formatDurationCompactFromRow(row);
+
+    const setDurationDraft = (row: IReading, val: string | number | null) => {
+      durationDrafts.value = {
+        ...durationDrafts.value,
+        [getRowKey(row)]: val == null ? '' : String(val),
+      };
     };
 
-    // Bug 2b.4 : Parse du format compact (ex: "1j 2h 30m 45s 500ms", "2h30m", "45s")
+    const clearDurationDraft = (row: IReading) => {
+      const key = getRowKey(row);
+      if (!(key in durationDrafts.value)) return;
+      const next = { ...durationDrafts.value };
+      delete next[key];
+      durationDrafts.value = next;
+    };
+
     const parseDurationFromText = (text: string) => {
       if (!text || typeof text !== 'string') return;
       const normalized = text.trim().toLowerCase();
       if (!normalized) return;
 
-      // Support formats like HH:MM:SS.mmm or MM:SS
       if (normalized.includes(':')) {
         const parts = normalized.split(':');
         const parseSecMs = (secPart: string): { sec: number; ms: number } => {
@@ -641,7 +435,6 @@ export default defineComponent({
         return;
       }
 
-      // Support plain milliseconds value (e.g. "12345")
       if (/^\d+$/.test(normalized)) {
         const durationMs = Number.parseInt(normalized, 10);
         const parsedParts = duration.millisecondsToParts(durationMs);
@@ -653,7 +446,6 @@ export default defineComponent({
         return;
       }
 
-      // ms avant m pour éviter que "500ms" soit interprété comme "500s"
       const regex = /(\d+)\s*(j|h|ms|m|s)/gi;
       let match;
       let days = 0;
@@ -689,81 +481,57 @@ export default defineComponent({
       durationEditState.milliseconds = milliseconds;
     };
 
-    // q-popup-edit ne déclenche @save que si scope.value a changé (comparaison deep-equal
-    // avec sa valeur initiale). Les champs de durée ci-dessous modifient uniquement
-    // durationEditState ; on répercute donc systématiquement l'état courant dans scope.value
-    // pour que le popup détecte la modification et émette bien l'événement save.
-    //
-    // Important : les handlers doivent être invoqués avec la valeur (pas des factories
-    // retournant une fonction) — Vue compile `@event="factory(x)"` en
-    // `$event => factory(x)` et ignore la fonction retournée.
-    const syncScopeFromDurationState = (scope: { value: any }) => {
-      scope.value = formatDurationCompact();
+    const findRowSafe = (row: IReading): IReading | undefined => {
+      return props.readings.find((r: IReading) =>
+        (row.id && r.id === row.id) || (row.tempId && r.tempId === row.tempId) || r === row
+      );
     };
 
-    const onDurationTextChange = (scope: { value: any }, text: string | number | null) => {
-      parseDurationFromText(text == null ? '' : String(text));
-      syncScopeFromDurationState(scope);
+    const applyDateTime = (row: IReading, dateValue: Date) => {
+      const targetRow = findRowSafe(row);
+      if (!targetRow) return;
+      targetRow.dateTime = dateValue;
+      targetRow.updatedAt = new Date();
+      observation.readings.methods.sortReadingsChronologically();
     };
 
-    const onDurationPartChange = (
-      scope: { value: any },
-      field: 'days' | 'hours' | 'minutes' | 'seconds' | 'milliseconds',
-      val: string | number | null
-    ) => {
-      const num = typeof val === 'number' ? val : Number(val);
-      durationEditState[field] = Number.isFinite(num) ? num : 0;
-      syncScopeFromDurationState(scope);
+    const parseCalendarDateTime = (value: string): Date | null => {
+      if (!value || value.includes('_')) {
+        return null;
+      }
+      const parsed = qDate.extractDate(value, 'DD/MM/YYYY HH:mm:ss.SSS');
+      if (!parsed || isNaN(parsed.getTime()) || parsed.getFullYear() < 1970) {
+        return null;
+      }
+      return parsed;
     };
 
-    // Extract date part from datetime string (DD/MM/YYYY)
-    const getDatePart = (dateTimeStr: string) => {
-      if (!dateTimeStr) return '';
-      const parts = dateTimeStr.split(' ');
-      return parts[0] || '';
+    const commitCalendarDateTime = (row: IReading) => {
+      const parsed = parseCalendarDateTime(getCalendarDateTimeValue(row));
+      clearCalendarDraft(row);
+      if (!parsed) return;
+      applyDateTime(row, parsed);
     };
 
-    // Extract time part from datetime string without milliseconds (HH:mm:ss)
-    const getTimePartWithoutMs = (dateTimeStr: string) => {
-      if (!dateTimeStr) return '';
-      const parts = dateTimeStr.split(' ');
-      const timePart = parts[1] || '';
-      // Remove milliseconds if present
-      return timePart.split('.')[0] || '';
+    const commitDuration = (row: IReading) => {
+      const text = getDurationInputValue(row);
+      parseDurationFromText(text);
+      clearDurationDraft(row);
+      if (!duration.validateParts(durationEditState)) return;
+      const durationMs = duration.partsToMilliseconds(durationEditState);
+      applyDateTime(row, observation.chronometerMethods.durationToDate(durationMs));
     };
 
-    // Extract time part from datetime string (HH:mm:ss.SSS)
-    const getTimePart = (dateTimeStr: string) => {
-      if (!dateTimeStr) return '';
-      const parts = dateTimeStr.split(' ');
-      return parts[1] || '';
+    const emitRemoveReading = (row: IReading) => {
+      emit('remove-reading', row);
     };
 
-    // Update date part in scope value
-    const updateDatePart = (scope: any, dateVal: string) => {
-      const timePart = getTimePart(scope.value || '');
-      scope.value = `${dateVal} ${timePart || '00:00:00.000'}`;
+    const emitDuplicateReading = (row: IReading) => {
+      emit('duplicate-reading', row);
     };
 
-    // Update time part in scope value from time picker (without ms)
-    const updateTimePartFromPicker = (scope: any, timeVal: string | null) => {
-      if (timeVal === null) return;
-      const datePart = getDatePart(scope.value || '');
-      const currentTimePart = getTimePart(scope.value || '');
-      // Preserve milliseconds if they exist, otherwise add .000
-      const msPart = currentTimePart.includes('.') ? currentTimePart.split('.')[1] : '000';
-      scope.value = `${datePart || qDate.formatDate(new Date(), 'DD/MM/YYYY')} ${timeVal}.${msPart}`;
-    };
-    
-    const getReadingTypeLabel = (type: ReadingTypeEnum) => {
-      const labels: Partial<Record<ReadingTypeEnum, string>> = {
-        [ReadingTypeEnum.START]: t('readingsUi.readingTypeStart'),
-        [ReadingTypeEnum.STOP]: t('readingsUi.readingTypeStop'),
-        [ReadingTypeEnum.PAUSE_START]: t('readingsUi.readingTypePauseStart'),
-        [ReadingTypeEnum.PAUSE_END]: t('readingsUi.readingTypePauseEnd'),
-        [ReadingTypeEnum.DATA]: t('readingsUi.readingTypeData'),
-      };
-      return labels[type] ?? String(type);
+    const emitClearAll = () => {
+      emit('clear-all');
     };
 
     const readingTypeOptions = computed(() => [
@@ -774,202 +542,191 @@ export default defineComponent({
       { label: t('readingsUi.readingTypeData'), value: ReadingTypeEnum.DATA },
     ]);
 
-    // Retrouve la ligne réelle par id/tempId dans le tableau readings.
-    // Nécessaire car le virtual-scroll de q-table peut recycler les références d'objets row.
-    const findRowSafe = (row: IReading): IReading | undefined => {
-      return props.readings.find((r: IReading) =>
-        (row.id && r.id === row.id) || (row.tempId && r.tempId === row.tempId) || r === row
-      );
+    const getReadingTypeLabel = (type: ReadingTypeEnum) => {
+      const opt = readingTypeOptions.value.find((item) => item.value === type);
+      return opt?.label ?? String(type);
     };
 
-    const findRowByIdentity = (
-      identity: { id?: number; tempId?: string | null } | null
-    ): IReading | undefined => {
-      if (!identity) return undefined;
-      return props.readings.find((r: IReading) =>
-        (identity.id && r.id === identity.id) ||
-        (identity.tempId && r.tempId === identity.tempId)
-      );
-    };
-
-    // Handle type save
-    const handleTypeSave = (row: IReading, val: ReadingTypeEnum, _initialVal?: ReadingTypeEnum) => {
+    const commitType = (row: IReading, val: ReadingTypeEnum | null) => {
       if (!val) return;
       const targetRow = findRowSafe(row);
-      if (targetRow) {
-        targetRow.type = val;
-        targetRow.updatedAt = new Date();
-      }
+      if (!targetRow || targetRow.type === val) return;
+      targetRow.type = val;
+      targetRow.updatedAt = new Date();
     };
 
-    // Handle date/time save with proper conversion
-    const handleDateTimeSave = (
-      row: IReading,
-      val: Date | string | null | undefined,
-      _initialVal?: Date | string | null | undefined
-    ) => {
-      if (!val && !isChronometerMode.value) return;
-      
-      let dateValue: Date;
-      
-      if (isChronometerMode.value) {
-        // In chronometer mode, convert duration parts to date
-        if (!duration.validateParts(durationEditState)) {
-          return; // Invalid duration parts
-        }
-        
-        const durationMs = duration.partsToMilliseconds(durationEditState);
-        dateValue = observation.chronometerMethods.durationToDate(durationMs);
-      } else {
-        // In calendar mode, parse date string
-        if (val instanceof Date) {
-          dateValue = val;
-        } else if (typeof val === 'string') {
-          // Reject strings still containing mask placeholders
-          if (val.includes('_')) {
-            return;
-          }
-          const parsed = qDate.extractDate(val, 'DD/MM/YYYY HH:mm:ss.SSS');
-          if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() >= 1970) {
-            dateValue = parsed;
-          } else {
-            return;
-          }
-        } else {
-          if (val == null) return;
-          dateValue = new Date(val);
-        }
-
-        // Final guard: reject invalid or obviously wrong dates
-        if (isNaN(dateValue.getTime()) || dateValue.getFullYear() < 1970) {
-          return;
-        }
+    const eventValue = (event: Event): string => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return '';
       }
-      
-      const targetRow = findRowByIdentity(dateTimeEditTarget.value) || findRowSafe(row);
-      if (targetRow) {
-        targetRow.dateTime = dateValue;
-        targetRow.updatedAt = new Date();
-      }
-      clearDateTimeEditTarget();
+      return target.value;
     };
 
-    // Handle name save
-    // Utilise le même pattern de row-lookup que handleDateTimeSave (sécurité virtual-scroll)
-    const handleNameSave = (row: IReading, val: string, _initialVal?: string) => {
-      if (!val || !val.trim()) return;
+    const onCalendarInput = (row: IReading, event: Event) => {
+      setCalendarDraft(row, eventValue(event));
+    };
+
+    const onDurationInput = (row: IReading, event: Event) => {
+      setDurationDraft(row, eventValue(event));
+    };
+
+    const onCommentNativeInput = (row: IReading, event: Event) => {
+      onCommentInput(row, eventValue(event));
+    };
+
+    const isCommentReading = (row: IReading): boolean =>
+      typeof row.name === 'string' && row.name.trimStart().startsWith('#');
+
+    const commentBodyFromName = (name: string | undefined): string =>
+      (name ?? '').replace(/^\s*#+\s*/, '');
+
+    const nameSnapshots = ref<Record<string, string>>({});
+
+    const snapshotName = (row: IReading) => {
       const targetRow = findRowSafe(row);
-      if (targetRow) {
-        targetRow.name = val.trim();
-        targetRow.updatedAt = new Date();
-      }
+      if (!targetRow) return;
+      nameSnapshots.value = {
+        ...nameSnapshots.value,
+        [getRowKey(row)]: targetRow.name,
+      };
     };
 
-    // Handle description save
-    // Utilise le même pattern de row-lookup que handleDateTimeSave (sécurité virtual-scroll)
-    const handleDescriptionSave = (
-      row: IReading,
-      val: string | undefined,
-      _initialVal?: string | undefined
-    ) => {
+    const restoreNameIfEmpty = (row: IReading, candidate: string): boolean => {
+      if (candidate.trim()) return false;
       const targetRow = findRowSafe(row);
-      if (targetRow) {
-        targetRow.description = val || undefined;
-        targetRow.updatedAt = new Date();
-      }
-    };
-    
-    // Get row key for q-table (use id if available, otherwise tempId)
-    // This ensures that both persisted readings (with id) and new readings (with tempId)
-    // can be properly tracked by the table's virtual scrolling and selection system
-    const getRowKey = (row: IReading) => {
-      return row.id ? `id-${row.id}` : `tempId-${row.tempId || 'unknown'}`;
+      const previous = nameSnapshots.value[getRowKey(row)];
+      if (!targetRow || previous == null) return true;
+      targetRow.name = previous;
+      targetRow.updatedAt = new Date();
+      return true;
     };
 
-    const labelRequiredRule = (val: string | null | undefined): boolean | string =>
-      Boolean(val && val.length > 0) || t('readingsUi.labelRequired');
+    const onCommentInput = (row: IReading, val: string | number | null) => {
+      const targetRow = findRowSafe(row);
+      if (!targetRow) return;
+      const body = String(val ?? '').replace(/^\s*#+\s*/, '');
+      targetRow.name = body ? `# ${body}` : '# ';
+      targetRow.updatedAt = new Date();
+    };
 
-    const isObservableOptionDisabled = (opt: ProtocolObservableOption): boolean =>
-      opt.disable === true;
-    
+    const commitComment = (row: IReading) => {
+      const targetRow = findRowSafe(row);
+      if (!targetRow) return;
+      const body = commentBodyFromName(targetRow.name).trim();
+      if (restoreNameIfEmpty(row, body)) return;
+      targetRow.name = `# ${body}`;
+      targetRow.updatedAt = new Date();
+    };
+
+    const openEditReading = (row: IReading) => {
+      Dialog.create({
+        component: EditReadingDialog,
+        componentProps: {
+          reading: row,
+        },
+      }).onOk((payload: {
+        id?: number;
+        tempId?: string | null;
+        type: ReadingTypeEnum;
+        dateTime: Date;
+        name: string;
+        description?: string;
+      }) => {
+        observation.readings.methods.updateReading(
+          { id: payload.id, tempId: payload.tempId },
+          {
+            type: payload.type,
+            name: payload.name,
+            description: payload.description,
+            dateTime: payload.dateTime,
+          },
+        );
+      });
+    };
+
     return {
       t,
-      observation,
-      duration,
+      pagination,
       isChronometerMode,
-      durationEditState,
       columns,
-      formatDuration,
-      formatDurationForEditDisplay,
-      syncDurationEditStateFromRow,
-      openDateTimeEditor,
-      clearDateTimeEditTarget,
-      formatDurationCompact,
-      parseDurationFromText,
-      onDurationTextChange,
-      onDurationPartChange,
-      formatDateTime,
-      formatDateTimeForEdit,
-      getDatePart,
-      getTimePart,
-      getTimePartWithoutMs,
-      updateDatePart,
-      updateTimePartFromPicker,
-      getReadingTypeLabel,
-      readingTypeOptions,
-      isRowSelected,
-      toggleRowSelection,
-      handleDateTimeSave,
-      handleNameSave,
-      handleDescriptionSave,
-      handleTypeSave,
       getRowKey,
+      getDurationInputValue,
+      setDurationDraft,
+      clearDurationDraft,
+      commitDuration,
+      getCalendarDateTimeValue,
+      setCalendarDraft,
+      clearCalendarDraft,
+      commitCalendarDateTime,
+      emitRemoveReading,
+      emitDuplicateReading,
+      emitClearAll,
+      readingTypeOptions,
+      getReadingTypeLabel,
+      commitType,
+      onCalendarInput,
+      onDurationInput,
+      onCommentNativeInput,
+      isCommentReading,
+      commentBodyFromName,
+      snapshotName,
+      onCommentInput,
+      commitComment,
+      getLabelTooltip,
+      openEditReading,
       isUnrecognizedObservable,
-      getUnrecognizedObservableTitle,
-      protocolObservableOptions,
-      filteredObservableOptions,
-      filterObservables,
-      labelRequiredRule,
-      isObservableOptionDisabled,
     };
   },
 });
 </script>
 
 <style scoped>
-.selected-row {
-  background-color: rgba(25, 118, 210, 0.1);
+.readings-inline-control {
+  display: inline-block;
+  box-sizing: content-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  line-height: inherit;
+  vertical-align: middle;
+  width: auto;
+  min-width: 0;
+  field-sizing: content;
+  accent-color: var(--accent);
 }
 
-/* Style the selected row more clearly */
-tr.selected-row td {
-  font-weight: 500;
+.readings-inline-control:focus,
+.readings-inline-control:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
-/* Make editable cells more visible */
-.editable-cell {
-  position: relative;
+.readings-type-trigger {
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
 }
 
-.editable-cell:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+.readings-type-option {
+  color: var(--primary);
 }
 
-.editable-cell:active {
-  background-color: rgba(0, 0, 0, 0.1);
+.readings-type-option--active {
+  color: var(--accent);
+  background: var(--button-rest-bg);
 }
 
-/* Style for comment readings (name starting with "#") */
 .comment-reading {
-  color: #3b82f6; /* Blue color */
+  color: #3b82f6;
   font-weight: 500;
 }
 
-/* Bug 2.6 : Observable non reconnu dans le protocole */
+.readings-label-tooltip-text {
+  white-space: pre-line;
+}
+
 .unrecognized-observable {
   color: var(--danger, #ef4444) !important;
   font-weight: 600;
@@ -979,28 +736,44 @@ tr.selected-row td {
   background-color: rgba(239, 68, 68, 0.08);
 }
 
-/* Autocomplete observable : largeur minimale pour le popup */
-.observable-autocomplete {
-  min-width: 250px;
-}
-
-/* Table container for virtual scroll */
 .readings-table {
   position: absolute;
   inset: 0;
-  
+}
+
+.readings-q-table {
+  position: absolute;
+  inset: 0;
+
   &:deep() {
     .q-table__container {
       height: 100%;
+      width: max-content;
     }
-    
-    /* Sticky header */
+
     thead tr th {
       position: sticky;
       top: 0;
       z-index: 1;
       background-color: white;
     }
+
+    .q-table {
+      table-layout: auto;
+      width: max-content;
+    }
+
+    th,
+    td {
+      padding-left: 4px;
+      padding-right: 8px;
+      vertical-align: middle;
+    }
+
+    th:last-child,
+    td:last-child {
+      padding-right: 4px;
+    }
   }
 }
-</style> 
+</style>

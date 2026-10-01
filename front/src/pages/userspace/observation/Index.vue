@@ -44,9 +44,12 @@
             color="accent"
             text-color="white"
             size="md"
-            icon="drag_indicator"
+            icon="mdi-arrow-up-down"
             class="video-resize-handle"
-          />
+            :aria-label="$t('observation.resizeVideoPanesTooltip')"
+          >
+            <q-tooltip>{{ $t('observation.resizeVideoPanesTooltip') }}</q-tooltip>
+          </q-avatar>
         </template>
 
         <template v-slot:after>
@@ -54,8 +57,12 @@
             <q-splitter
               v-model="state.splitterModel"
               class="col"
-              :limits="[20, 80]"
+              before-class="observation-plateau-panel"
+              after-class="observation-readings-panel"
+              unit="px"
               reverse
+              emit-immediately
+              :limits="readingsSplitterLimits"
             >
               <template v-slot:before>
                 <div class="buttons-panel-wrapper column fit position-relative">
@@ -63,6 +70,7 @@
                     <ButtonsSideIndex
                       class="col"
                       :popout-handler="methods.popOutButtons"
+                      :attach-in-progress="state.attachInProgress"
                     />
                   </template>
                   <div v-else class="popout-placeholder col column items-center justify-center q-pa-lg">
@@ -83,11 +91,15 @@
                   color="accent"
                   text-color="white"
                   size="md"
-                  icon="drag_indicator"
-                />
+                  icon="mdi-arrow-left-right"
+                  class="readings-resize-handle"
+                  :aria-label="$t('observation.resizeReadingsPanesTooltip')"
+                >
+                  <q-tooltip>{{ $t('observation.resizeReadingsPanesTooltip') }}</q-tooltip>
+                </q-avatar>
               </template>
               <template v-slot:after>
-                <ReadingsSideIndex />
+                <ReadingsSideIndex @content-width="onReadingsContentWidth" />
               </template>
             </q-splitter>
           </div>
@@ -98,13 +110,21 @@
         v-else
         class="fit column no-wrap"
       >
-        <CalendarToolbar class="col-auto" />
+        <CalendarToolbar
+          v-if="showAttachVideoToolbar"
+          v-model:attach-in-progress="state.attachInProgress"
+          class="col-auto"
+        />
 
         <q-splitter
           v-model="state.splitterModel"
           class="col"
-          :limits="[20, 80]"
+          before-class="observation-plateau-panel"
+          after-class="observation-readings-panel"
+          unit="px"
           reverse
+          emit-immediately
+          :limits="readingsSplitterLimits"
         >
           <template v-slot:before>
             <div class="buttons-panel-wrapper column fit position-relative">
@@ -112,6 +132,7 @@
                 <ButtonsSideIndex
                   class="col"
                   :popout-handler="methods.popOutButtons"
+                  :attach-in-progress="state.attachInProgress"
                 />
               </template>
               <div v-else class="popout-placeholder col column items-center justify-center q-pa-lg">
@@ -132,11 +153,15 @@
               color="accent"
               text-color="white"
               size="md"
-              icon="drag_indicator"
-            />
+              icon="mdi-arrow-left-right"
+              class="readings-resize-handle"
+              :aria-label="$t('observation.resizeReadingsPanesTooltip')"
+            >
+              <q-tooltip>{{ $t('observation.resizeReadingsPanesTooltip') }}</q-tooltip>
+            </q-avatar>
           </template>
           <template v-slot:after>
-            <ReadingsSideIndex />
+            <ReadingsSideIndex @content-width="onReadingsContentWidth" />
           </template>
         </q-splitter>
       </div>
@@ -173,11 +198,56 @@ export default defineComponent({
         && !!observation.sharedState.currentObservation?.videoPath;
     });
 
+    const showAttachVideoToolbar = computed(() => {
+      return observation.isChronometerMode.value
+        && !observation.sharedState.currentObservation?.videoPath;
+    });
+
     const state = reactive({
-      splitterModel: 40,
+      splitterModel: 0,
       videoSplitterModel: 25,
       containerHeight: 600,
+      attachInProgress: false,
     });
+
+    const READINGS_PANEL_MIN_PX = 240;
+    const BUTTONS_PANEL_MIN_PX = 200;
+    const readingsContentWidth = ref(0);
+    let hasAppliedDefaultReadingsWidth = false;
+
+    const readingsSplitterLimits = computed((): [number, number] => {
+      const containerWidth = containerRef.value?.clientWidth ?? 0;
+      const containerCap = containerWidth > 0
+        ? Math.max(READINGS_PANEL_MIN_PX, containerWidth - BUTTONS_PANEL_MIN_PX)
+        : Infinity;
+      if (readingsContentWidth.value <= 0) {
+        return [READINGS_PANEL_MIN_PX, containerCap];
+      }
+      return [
+        READINGS_PANEL_MIN_PX,
+        Math.min(readingsContentWidth.value, containerCap),
+      ];
+    });
+
+    const clampReadingsSplitter = () => {
+      const [min, max] = readingsSplitterLimits.value;
+      if (!Number.isFinite(max)) return;
+      if (state.splitterModel > max) state.splitterModel = max;
+      if (state.splitterModel < min) state.splitterModel = min;
+    };
+
+    const onReadingsContentWidth = (width: number) => {
+      if (width <= 0 || width === readingsContentWidth.value) return;
+      const previousWidth = readingsContentWidth.value;
+      readingsContentWidth.value = width;
+      if (!hasAppliedDefaultReadingsWidth) {
+        hasAppliedDefaultReadingsWidth = true;
+        state.splitterModel = width;
+      } else if (previousWidth > 0 && state.splitterModel === previousWidth) {
+        state.splitterModel = width;
+      }
+      clampReadingsSplitter();
+    };
 
     const popoutWindows: Record<PopoutComponent, Window | null> = {
       video: null,
@@ -258,9 +328,15 @@ export default defineComponent({
     onMounted(() => {
       updateContainerHeight();
 
+      const containerWidth = containerRef.value?.clientWidth ?? 0;
+      if (containerWidth > 0 && state.splitterModel === 0) {
+        state.splitterModel = Math.round(containerWidth * 0.5);
+      }
+
       if (containerRef.value) {
         resizeObserver = new ResizeObserver(() => {
           updateContainerHeight();
+          clampReadingsSplitter();
         });
         resizeObserver.observe(containerRef.value);
       }
@@ -281,8 +357,11 @@ export default defineComponent({
       popout,
       containerRef,
       hasVideo,
+      showAttachVideoToolbar,
       state,
       methods,
+      readingsSplitterLimits,
+      onReadingsContentWidth,
     };
   },
 });
@@ -291,6 +370,22 @@ export default defineComponent({
 <style scoped>
 .video-resize-handle {
   cursor: ns-resize;
+}
+
+.readings-resize-handle {
+  cursor: col-resize;
+}
+
+:deep(.observation-plateau-panel) {
+  min-width: 0;
+}
+
+:deep(.observation-readings-panel) {
+  min-width: 0;
+}
+
+.buttons-panel-wrapper {
+  min-width: 0;
 }
 
 .popout-btn {

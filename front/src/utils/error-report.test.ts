@@ -3,12 +3,26 @@ import {
   formatRouteLabel,
   getErrorFingerprint,
   getStackFingerprintLines,
+  isBenignResizeObserverError,
   normalizeError,
   normalizeErrorMessage,
   truncateStack,
 } from './error-report';
 
 describe('error-report', () => {
+  it('isBenignResizeObserverError ignore la notification Chromium', () => {
+    expect(
+      isBenignResizeObserverError(
+        'ResizeObserver loop completed with undelivered notifications.',
+      ),
+    ).toBe(true);
+    expect(isBenignResizeObserverError('ResizeObserver loop limit exceeded')).toBe(
+      true,
+    );
+    expect(isBenignResizeObserverError('TypeError: foo is not a function')).toBe(
+      false,
+    );
+  });
   it('buildErrorReport produit le format attendu', () => {
     const report = buildErrorReport({
       type: 'VueError',

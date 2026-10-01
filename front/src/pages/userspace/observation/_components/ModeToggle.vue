@@ -34,6 +34,7 @@ import { useQuasar } from 'quasar';
 import { createDialog } from '@lib-improba/utils/dialog.utils';
 import { useObservation } from 'src/composables/use-observation';
 import { useI18n } from 'vue-i18n';
+import SwitchModeDialog from './SwitchModeDialog.vue';
 
 export default defineComponent({
   name: 'ModeToggle',
@@ -67,19 +68,26 @@ export default defineComponent({
      * Gère le changement de mode entre Calendrier et Chronomètre
      * 
      * Cette fonction :
-     * 1. Vérifie que le mode peut être changé (observation non démarrée)
-     * 2. Demande confirmation à l'utilisateur (action irréversible)
-     * 3. Met à jour l'observation via l'API
-     * 4. Émet un événement pour notifier les composants parents
-     * 
-     * IMPORTANT : Le mode est figé une fois choisi. Il ne peut être changé que
-     * si l'observation n'a pas encore été démarrée (pas de reading de type START).
+     * 1. Checks that mode can still change (no START reading, no attached video)
+     * 2. Asks for confirmation
+     * 3. Updates the observation via the API
+     * 4. Emits an event for parent components
+     *
+     * Mode is frozen after the first START reading, or once a video is attached.
      * 
      * @param newMode - Le nouveau mode à activer ('calendar' ou 'chronometer')
      */
     const handleModeChange = async (newMode: 'calendar' | 'chronometer') => {
       // Ne pas changer si déjà dans ce mode
       if (props.currentMode === newMode) {
+        return;
+      }
+
+      if (observation.sharedState.currentObservation?.videoPath) {
+        $q.notify({
+          type: 'negative',
+          message: t('observation.modeChangeImpossible'),
+        });
         return;
       }
 
@@ -108,13 +116,8 @@ export default defineComponent({
           ? t('observation.modeLabelChronometer')
           : t('observation.modeLabelCalendar');
       const dialog = await createDialog({
-        title: t('observation.switchToModeTitle', { mode: modeLabel }),
-        message: t('observation.switchToModeMessage', { mode: modeLabel }),
-        cancel: t('dialogs.cancel'),
-        ok: {
-          label: t('observation.switchModeConfirm'),
-          color: 'primary',
-        },
+        component: SwitchModeDialog,
+        componentProps: { modeLabel },
         persistent: true,
       });
 

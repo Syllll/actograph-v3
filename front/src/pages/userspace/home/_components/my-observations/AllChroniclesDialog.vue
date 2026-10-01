@@ -1,12 +1,19 @@
 <template>
   <q-dialog v-model="localShow" class="actograph-dialog" @hide="methods.handleHide">
-    <q-card class="q-dialog-plugin d-dialog-card d-dialog-card--wide all-chronicles-dialog column">
+    <q-card class="all-chronicles-dialog column">
       <q-card-section class="col-auto row items-center q-pb-none">
-        <div class="text-h5 text-weight-bold">
+        <h5 class="all-chronicles-dialog__title q-ma-none">
           {{ $t('observationsList.dialogTitle') }}
-        </div>
+        </h5>
         <q-space />
-        <q-btn icon="close" flat round dense @click="methods.handleHide" />
+        <q-btn
+          icon="mdi-close"
+          flat
+          round
+          dense
+          :aria-label="$t('observationsList.close')"
+          @click="methods.handleHide"
+        />
       </q-card-section>
 
       <q-card-section class="col-auto q-pb-none">
@@ -23,6 +30,8 @@
             :label="$t('observationsList.sortBy')"
             dense
             outlined
+            hide-bottom-space
+            color="accent"
             emit-value
             map-options
             class="col-auto"
@@ -55,12 +64,15 @@
                 <q-icon
                   v-if="methods.isActive(cellProps.row.id)"
                   name="mdi-check-circle"
-                  color="positive"
+                  color="accent"
                   size="xs"
                   class="q-mr-sm"
                 />
                 <span
-                  :class="{ 'text-weight-bold text-primary': methods.isActive(cellProps.row.id) }"
+                  :class="{
+                    'text-weight-bold all-chronicles-dialog__active-name':
+                      methods.isActive(cellProps.row.id),
+                  }"
                 >
                   {{ cellProps.row.name }}
                 </span>
@@ -74,8 +86,8 @@
                 :label="methods.formatMode(cellProps.row.mode)"
                 dense
                 size="sm"
-                :color="cellProps.row.mode === 'chronometer' ? 'blue-2' : 'orange-2'"
-                :text-color="cellProps.row.mode === 'chronometer' ? 'blue-9' : 'orange-9'"
+                :color="cellProps.row.mode === 'chronometer' ? 'blue-2' : 'amber-2'"
+                :text-color="cellProps.row.mode === 'chronometer' ? 'blue-9' : 'amber-9'"
               />
             </q-td>
           </template>
@@ -106,9 +118,12 @@
             }}
           </div>
           <q-btn
-            flat
+            unelevated
+            no-caps
+            rounded
+            color="accent"
+            text-color="white"
             :label="$t('observationsList.close')"
-            color="primary"
             @click="methods.handleHide"
           />
         </div>
@@ -303,6 +318,29 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .all-chronicles-dialog {
+  width: 90vw;
+  max-width: 900px;
+  height: 85vh;
+  border: 1px solid var(--neutral-low);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px var(--neutral-high-20);
+  overflow: hidden;
+
+  &__title {
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  &__active-name {
+    color: var(--accent);
+  }
+
+  :deep(.q-field--filled.q-field--focused:not(.q-field--error) .q-field__control:before) {
+    border-color: var(--accent);
+  }
+
   .virtual-table {
     :deep(.q-table__middle) {
       max-height: 100%;
@@ -318,7 +356,7 @@ export default defineComponent({
       cursor: pointer;
 
       &:hover td {
-        background: var(--neutral-lower);
+        background: var(--button-rest-bg);
       }
     }
   }

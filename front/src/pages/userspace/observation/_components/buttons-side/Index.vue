@@ -1,60 +1,21 @@
 <template>
   <div class="buttons-side-container q-pa-sm column fit">
-    <div class="col-auto text-h6 q-mb-sm row items-center dashboard-header">
-      <div class="col dashboard-title">
+    <div class="col-auto observation-panel-title-row row items-center q-mb-sm dashboard-header">
+      <div class="col text-h6 dashboard-title">
         {{ $t('observation.observationDashboardTitle') }}
-      </div>
-      <div class="col-auto row items-center q-gutter-xs header-actions">
-        <q-btn
-          flat
-          round
-          dense
-          icon="mdi-magnify-minus"
-          size="sm"
-          class="ui-scale-btn"
-          :disable="state.uiScale <= UI_SCALE_MIN"
-          :title="$t('observation.uiScaleDecreaseTooltip')"
-          @click="methods.decreaseUiScale()"
-        />
-        <q-btn
-          flat
-          round
-          dense
-          icon="mdi-magnify-plus"
-          size="sm"
-          class="ui-scale-btn"
-          :disable="state.uiScale >= UI_SCALE_MAX"
-          :title="$t('observation.uiScaleIncreaseTooltip')"
-          @click="methods.increaseUiScale()"
-        />
-        <q-btn
-          class="reset-categories-btn"
-          :icon="state.isResetting ? 'mdi-loading mdi-spin' : 'mdi-restart'"
-          :color="state.isResetting ? 'accent' : 'grey-7'"
-          flat
-          round
-          dense
-          size="sm"
-          :disable="state.isResetting"
-          :tooltip="$t('observation.resetCategoriesTooltip')"
-          @click="methods.resetPositions()"
-        />
-        <q-btn
-          v-if="popoutHandler"
-          flat
-          round
-          dense
-          size="sm"
-          icon="open_in_new"
-          class="popout-btn-inline"
-          :disable="!observation.sharedState.currentObservation?.id"
-          :title="$t('observation.popoutButtonsTooltip')"
-          @click="methods.handlePopout()"
-        />
       </div>
     </div>
 
-    <div class="col buttons-scroll-wrapper position-relative" style="min-height: 0;">
+    <ObservationSessionBar
+      class="col-auto q-mb-sm"
+      :attach-in-progress="attachInProgress"
+    />
+
+    <div
+      ref="buttonsScrollWrapper"
+      class="col buttons-scroll-wrapper position-relative"
+      style="min-height: 0;"
+    >
       <!-- Voile "En pause" : uniquement en mode calendrier, quand la pause
            verrouille les relevés. Renforce visuellement que les boutons ci-
            dessous sont désactivés (isContinuousDisabled/isDiscreteDisabled). -->
@@ -69,6 +30,76 @@
         ref="categoriesWrapper"
         :style="{ '--ui-scale': state.uiScale }"
       >
+        <div
+          class="board-layout-group column items-center no-wrap"
+          role="group"
+          :aria-label="$t('observation.boardLayoutAria')"
+        >
+          <span>
+            <q-btn
+              flat
+              round
+              dense
+              icon="mdi-magnify-plus"
+              size="sm"
+              color="grey-8"
+              class="ui-scale-btn"
+              :disable="state.uiScale >= UI_SCALE_MAX"
+              :aria-label="$t('observation.uiScaleIncreaseTooltip')"
+              @click="methods.increaseUiScale()"
+            />
+            <q-tooltip>{{ $t('observation.uiScaleIncreaseTooltip') }}</q-tooltip>
+          </span>
+          <span>
+            <q-btn
+              flat
+              round
+              dense
+              icon="mdi-magnify-minus"
+              size="sm"
+              color="grey-8"
+              class="ui-scale-btn"
+              :disable="state.uiScale <= UI_SCALE_MIN"
+              :aria-label="$t('observation.uiScaleDecreaseTooltip')"
+              @click="methods.decreaseUiScale()"
+            />
+            <q-tooltip>{{ $t('observation.uiScaleDecreaseTooltip') }}</q-tooltip>
+          </span>
+          <q-separator />
+          <span>
+            <q-btn
+              class="reset-categories-btn"
+              :icon="state.isResetting ? 'mdi-loading mdi-spin' : 'mdi-restart'"
+              :color="state.isResetting ? 'accent' : 'grey-8'"
+              flat
+              round
+              dense
+              size="sm"
+              :disable="state.isResetting"
+              :aria-label="$t('observation.resetLayoutLabel')"
+              @click="methods.resetPositions()"
+            />
+            <q-tooltip>{{ $t('observation.resetLayoutLabel') }}</q-tooltip>
+          </span>
+          <template v-if="popoutHandler">
+            <q-separator />
+            <span>
+              <q-btn
+                flat
+                round
+                dense
+                size="sm"
+                color="grey-8"
+                icon="open_in_new"
+                class="popout-btn-inline"
+                :disable="!observation.sharedState.currentObservation?.id"
+                :aria-label="$t('observation.popoutButtonsTooltip')"
+                @click="methods.handlePopout()"
+              />
+              <q-tooltip>{{ $t('observation.popoutButtonsTooltip') }}</q-tooltip>
+            </span>
+          </template>
+        </div>
       <template v-if="sharedState.currentProtocol && sharedState.currentProtocol._items && computedState.categories.value.length > 0">
         <Category
           v-for="category in computedState.categories.value"
@@ -92,7 +123,24 @@
         <div v-else class="no-data text-center q-pa-lg">
           <q-icon name="info" size="2rem" color="grey-7" />
           <div class="text-subtitle1 q-mt-sm">{{ $t('observation.noProtocolLoadedTitle') }}</div>
-          <div class="text-caption q-mt-xs">{{ $t('observation.noProtocolLoadedHint') }}</div>
+          <div class="text-caption q-mt-xs q-mb-md">{{ $t('observation.noProtocolLoadedHint') }}</div>
+          <div class="column items-center q-gutter-sm">
+            <router-link
+              :to="{ name: 'user_protocol' }"
+              class="no-protocol-link"
+            >
+              {{ $t('chronicle.ctaProtocol') }}
+            </router-link>
+            <q-btn
+              outline
+              color="accent"
+              no-caps
+              class="no-protocol-cta"
+              :label="$t('observation.noProtocolImportCta')"
+              :disable="!observation.sharedState.currentObservation?.id"
+              @click="methods.openImportProtocol"
+            />
+          </div>
         </div>
       </div>
     </DScrollArea>
@@ -101,22 +149,30 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, watch, PropType } from 'vue';
+import { defineComponent, ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, PropType } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
 import { observationService } from '@services/observations/index.service';
 import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { isRecordingActiveFromReadings } from '@actograph/core';
 import Category from './Category.vue';
+import ObservationSessionBar from '../ObservationSessionBar.vue';
+import ImportProtocolDialog from '../ImportProtocolDialog.vue';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { DScrollArea } from '@lib-improba/components/app/scroll-areas';
+import { createDialog } from '@lib-improba/utils/dialog.utils';
 
 // Largeur par défaut / bornes des boîtes catégories (px).
 // 220px ≈ 13.75rem, proche du 13rem historique.
 const DEFAULT_CATEGORY_WIDTH = 220;
 const MIN_CATEGORY_WIDTH = 160;
 const MAX_CATEGORY_WIDTH = 600;
+
+// Délai laissant aux cartes le temps de rejouer leur transition de
+// repositionnement (left/top 0.5s cubic-bezier) avant de relâcher le
+// bouton "Réinitialiser" et de notifier le succès.
+const RESET_POSITIONS_SETTLE_MS = 600;
 
 // Échelle d'affichage des boutons d'observable (comme en mobile).
 const UI_SCALE_MIN = 0.7;
@@ -131,12 +187,16 @@ export default defineComponent({
   components: {
     Category,
     DScrollArea,
+    ObservationSessionBar,
   },
 
   props: {
+    attachInProgress: {
+      type: Boolean,
+      default: false,
+    },
     // Handler pour ouvrir le panneau des boutons en fenêtre séparée (pop-out).
-    // Fourni par le parent (observation/Index.vue). Mis dans le header pour
-    // aligner l'icône pop-out avec les autres actions du dashboard.
+    // Fourni par le parent (observation/Index.vue). Affiché dans le groupe Disposition.
     popoutHandler: {
       type: Function as PropType<() => void>,
       default: null,
@@ -151,6 +211,7 @@ export default defineComponent({
     const readings = observation.readings;
     const { sharedState } = protocol;
     const categoriesWrapper = ref<HTMLElement | null>(null);
+    const buttonsScrollWrapper = ref<HTMLElement | null>(null);
 
     // Reactive state
     const state = reactive({
@@ -266,8 +327,23 @@ export default defineComponent({
     // arrête de cliquer sur +/- pour n'émettre qu'un seul appel API par rafale.
     const PERSIST_UI_SCALE_DEBOUNCE_MS = 400;
     let persistUiScaleTimer: number | null = null;
+    const PERSIST_CLAMP_DEBOUNCE_MS = 400;
+    let persistClampTimer: number | null = null;
+    const pendingClampPersistIds = new Set<string>();
 
     const methods = {
+      openImportProtocol: async () => {
+        const targetObservationId = observation.sharedState.currentObservation?.id;
+        if (!targetObservationId) {
+          return;
+        }
+        await createDialog({
+          component: ImportProtocolDialog,
+          componentProps: { targetObservationId },
+          persistent: true,
+        });
+      },
+
       /**
        * Met à jour la hauteur minimale du conteneur pour s'assurer qu'il est assez grand
        * pour afficher toutes les catégories, même lorsqu'elles sont déplacées vers le bas.
@@ -340,15 +416,18 @@ export default defineComponent({
           maxHeight = 250; // Hauteur approximative d'une catégorie moyenne
         }
         
-        // Calculer la hauteur minimale nécessaire pour le conteneur
-        // Formule : position Y la plus basse + hauteur de cette catégorie + marge inférieure
-        const minHeight = maxY + maxHeight + 50; // 50px de marge pour le confort visuel
-        
-        // Appliquer la hauteur minimale au conteneur
-        // On utilise Math.max pour garantir une hauteur minimale de 300px même si toutes
-        // les catégories sont en haut (pour éviter un conteneur trop petit)
-        // Cette hauteur permet le scroll vertical quand les catégories sont déplacées vers le bas
-        categoriesWrapper.value.style.minHeight = `${Math.max(minHeight, 300)}px`;
+        const contentMin = maxY + maxHeight + 50;
+        // Pane height, not `.q-scrollarea` clientHeight: that inner box can
+        // shrink when a classic scrollbar appears, which would fight this
+        // minHeight and oscillate.
+        const viewportH = buttonsScrollWrapper.value?.clientHeight ?? 0;
+        // Fill the pane (viewport) so the dashed board isn't a card-sized box;
+        // grow past the pane when cards are dragged below so DScrollArea scrolls.
+        const nextMin = Math.max(contentMin, viewportH, 300);
+        const nextMinPx = `${nextMin}px`;
+        if (categoriesWrapper.value.style.minHeight !== nextMinPx) {
+          categoriesWrapper.value.style.minHeight = nextMinPx;
+        }
       },
 
       // Calculate grid-based positions for categories
@@ -387,6 +466,10 @@ export default defineComponent({
           }
         });
         methods.updateWrapperHeight();
+        void nextTick(() => {
+          methods.clampCategoriesInPlateau();
+          methods.updateWrapperHeight();
+        });
       },
 
       getDefaultContinuousObservableId: (category: ProtocolItem): string | null => {
@@ -579,8 +662,9 @@ export default defineComponent({
        * par pixel.
        */
       handleCategoryResize: ({ categoryId, width }: { categoryId: string; width: number }) => {
-        const maxW = methods.getCategoryMaxWidth();
-        const clamped = Math.max(MIN_CATEGORY_WIDTH, Math.min(maxW, width));
+        const maxW = methods.getCategoryMaxWidth(categoryId);
+        const minW = Math.min(MIN_CATEGORY_WIDTH, maxW);
+        const clamped = Math.max(minW, Math.min(maxW, width));
         const current = state.categorySizes[categoryId];
         if (!current || current.width !== clamped) {
           state.categorySizes[categoryId] = { width: clamped };
@@ -634,6 +718,10 @@ export default defineComponent({
         } catch (_) {
           /* ignore quota / privacy mode */
         }
+        void nextTick(() => {
+          methods.clampCategoriesInPlateau();
+          methods.updateWrapperHeight();
+        });
       },
       increaseUiScale: () => {
         methods.setUiScale(state.uiScale + UI_SCALE_STEP);
@@ -720,22 +808,85 @@ export default defineComponent({
       },
 
       // Largeur effective d'une catégorie : valeur personnalisée persistée sinon défaut.
-      // Bornée à [MIN, max dynamique] où max = largeur du conteneur (pour éviter
-      // qu'une catégorie déborde horizontalement du panneau).
-      getCategoryMaxWidth: (): number => {
-        const containerWidth = state.containerWidth;
-        if (containerWidth > 0) {
-          return Math.max(MIN_CATEGORY_WIDTH, Math.min(MAX_CATEGORY_WIDTH, containerWidth - 16));
+      // Max = largeur du plateau restante à droite de la position x (cartes
+      // en `position: absolute` : origine = padding box, pas le content box).
+      getPlateauBoxWidth: (): number => {
+        if (categoriesWrapper.value) {
+          return categoriesWrapper.value.clientWidth;
         }
-        return MAX_CATEGORY_WIDTH;
+        return state.containerWidth > 0 ? state.containerWidth : MAX_CATEGORY_WIDTH;
+      },
+
+      // Largeur max d'une carte : elle doit tenir dans le plateau à sa position x.
+      // Max width that still fits at this card's x. May be below MIN_CATEGORY_WIDTH
+      // when the pane itself is narrower than the usual minimum.
+      getCategoryMaxWidth: (categoryId?: string): number => {
+        const boxW = methods.getPlateauBoxWidth();
+        const x = categoryId
+          ? (state.categoryPositions[categoryId]?.x ?? 0)
+          : 0;
+        const remaining = Math.max(0, boxW - Math.max(0, x));
+        const fit = remaining > 0 ? remaining : boxW;
+        return Math.max(0, Math.min(MAX_CATEGORY_WIDTH, fit));
       },
       getCategoryWidth: (categoryId: string): number => {
+        const maxW = methods.getCategoryMaxWidth(categoryId);
+        const minW = Math.min(MIN_CATEGORY_WIDTH, maxW);
         const stored = state.categorySizes[categoryId];
-        const maxW = methods.getCategoryMaxWidth();
         if (stored && typeof stored.width === 'number' && !isNaN(stored.width)) {
-          return Math.max(MIN_CATEGORY_WIDTH, Math.min(maxW, stored.width));
+          return Math.max(minW, Math.min(maxW, stored.width));
         }
-        return Math.min(maxW, DEFAULT_CATEGORY_WIDTH);
+        return Math.max(minW, Math.min(maxW, DEFAULT_CATEGORY_WIDTH));
+      },
+
+      schedulePersistClampedPositions: (categoryIds: string[]) => {
+        if (state.isDragging || state.isResetting) {
+          return;
+        }
+        categoryIds.forEach((id) => pendingClampPersistIds.add(id));
+        if (persistClampTimer !== null) {
+          window.clearTimeout(persistClampTimer);
+        }
+        persistClampTimer = window.setTimeout(() => {
+          persistClampTimer = null;
+          const ids = Array.from(pendingClampPersistIds);
+          pendingClampPersistIds.clear();
+          ids.forEach((id) => {
+            void methods.saveCategoryPosition(id);
+          });
+        }, PERSIST_CLAMP_DEBOUNCE_MS);
+      },
+
+      // Pull overflowing cards back inside the dashed plateau (x only;
+      // y grows the wrapper via updateWrapperHeight).
+      clampCategoriesInPlateau: () => {
+        const wrapper = categoriesWrapper.value;
+        if (!wrapper) return;
+
+        const boxW = wrapper.clientWidth;
+        const movedIds: string[] = [];
+
+        computedState.categories.value.forEach((category: ProtocolItem) => {
+          const pos = state.categoryPositions[category.id] || { x: 0, y: 0 };
+          const el = wrapper.querySelector(
+            `.category-container[data-category-id="${CSS.escape(category.id)}"]`,
+          ) as HTMLElement | null;
+          const cardWidth = el
+            ? el.getBoundingClientRect().width
+            : methods.getCategoryWidth(category.id);
+          const maxX = Math.max(0, Math.floor(boxW - cardWidth));
+          const nextX = Math.min(Math.max(0, Math.round(pos.x)), maxX);
+          const nextY = Math.max(0, Math.round(pos.y));
+          if (nextX !== pos.x || nextY !== pos.y) {
+            state.categoryPositions[category.id] = { x: nextX, y: nextY };
+            movedIds.push(category.id);
+          }
+        });
+
+        if (movedIds.length > 0) {
+          methods.updateWrapperHeight();
+          methods.schedulePersistClampedPositions(movedIds);
+        }
       },
 
       // Update dragging state when Category component signals drag
@@ -788,7 +939,7 @@ export default defineComponent({
               timeout: 2000,
             });
             state.isResetting = false;
-          }, 600);
+          }, RESET_POSITIONS_SETTLE_MS);
         }).catch(error => {
           console.error('Failed to reset positions:', error);
           state.isResetting = false;
@@ -916,6 +1067,7 @@ export default defineComponent({
     // Observe la largeur du conteneur pour réappliquer dynamiquement la borne
     // max des catégories quand le splitter / la fenêtre est redimensionné.
     let containerWidthObserver: ResizeObserver | null = null;
+    let paneHeightObserver: ResizeObserver | null = null;
 
     onMounted(() => {
       // Restore UI scale from previous session (boutons).
@@ -942,6 +1094,17 @@ export default defineComponent({
       // Initialize category positions
       methods.calculateCategoryPositions();
       methods.updateWrapperHeight();
+      void nextTick(() => {
+        methods.clampCategoriesInPlateau();
+        methods.updateWrapperHeight();
+      });
+
+      if (buttonsScrollWrapper.value && typeof ResizeObserver !== 'undefined') {
+        paneHeightObserver = new ResizeObserver(() => {
+          methods.updateWrapperHeight();
+        });
+        paneHeightObserver.observe(buttonsScrollWrapper.value);
+      }
 
       // Suivi réactif de la largeur du conteneur (borne max des catégories).
       if (categoriesWrapper.value && typeof ResizeObserver !== 'undefined') {
@@ -950,6 +1113,10 @@ export default defineComponent({
           const entry = entries[0];
           if (entry) {
             state.containerWidth = Math.round(entry.contentRect.width);
+            void nextTick(() => {
+              methods.clampCategoriesInPlateau();
+              methods.updateWrapperHeight();
+            });
           }
         });
         containerWidthObserver.observe(categoriesWrapper.value);
@@ -967,11 +1134,20 @@ export default defineComponent({
         containerWidthObserver.disconnect();
         containerWidthObserver = null;
       }
+      if (paneHeightObserver) {
+        paneHeightObserver.disconnect();
+        paneHeightObserver = null;
+      }
       // Annule un éventuel write uiScale en attente (debounce) pour éviter
       // un appel API / une mutation du store après démontage.
       if (persistUiScaleTimer !== null) {
         window.clearTimeout(persistUiScaleTimer);
         persistUiScaleTimer = null;
+      }
+      if (persistClampTimer !== null) {
+        window.clearTimeout(persistClampTimer);
+        persistClampTimer = null;
+        pendingClampPersistIds.clear();
       }
     });
 
@@ -988,6 +1164,7 @@ export default defineComponent({
       state,
       computedState,
       categoriesWrapper,
+      buttonsScrollWrapper,
       methods,
       UI_SCALE_MIN,
       UI_SCALE_MAX,
@@ -1034,11 +1211,15 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
 }
 
-/* Header du dashboard : titre tronquable (ellipsis) pour que les actions
-   (zoom ±, reset, pop-out) restent toujours visibles même si le panneau
-   est étroit (splitter réduit). */
+/* Header du dashboard : titre tronquable (ellipsis) si le panneau est étroit. */
+.observation-panel-title-row {
+  min-height: 32px;
+  flex-wrap: nowrap;
+}
+
 .dashboard-header {
   flex-wrap: nowrap;
 }
@@ -1057,12 +1238,39 @@ export default defineComponent({
 
 .categories-wrapper {
   position: relative;
+  flex: 1 1 auto;
+  width: 100%;
   border: 1px dashed #ddd;
   border-radius: 8px;
   padding: 16px;
   background-color: #fcfcfc;
   min-height: 100%;
   box-sizing: border-box;
+}
+
+/* Vertical icon rail, same surface as graph `.zoom-controls`. */
+.board-layout-group {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--neutral-low, rgba(0, 0, 0, 0.08));
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 4px 2px;
+}
+
+.board-layout-group :deep(.q-separator) {
+  width: 18px;
+  align-self: center;
+  margin: 4px 0;
+}
+
+.body--dark .board-layout-group {
+  background-color: var(--secondary);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 /* Thème sombre : fond du panneau adapté au thème (var(--secondary), gris-bleu foncé)
@@ -1091,10 +1299,23 @@ export default defineComponent({
   color: rgba(255, 255, 255, 0.6) !important;
 }
 
-/* Bouton "reset" : au repos Quasar applique .text-grey-7 (gris fixe #616161,
-   ~2.4:1 sur fond sombre). En thème sombre on le passe en blanc semi-transparent.
-   Limité à .text-grey-7 pour ne pas écraser la variante accent pendant le reset. */
-.body--dark .reset-categories-btn.text-grey-7 {
+.no-protocol-link {
+  color: var(--accent);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.no-protocol-cta {
+  background: #fff;
+  border-radius: 0.5rem;
+  font-weight: 500;
+}
+
+.body--dark .no-protocol-cta {
+  background: transparent;
+}
+
+.body--dark .board-layout-group .q-btn.text-grey-8 {
   color: rgba(255, 255, 255, 0.7) !important;
 }
 </style>

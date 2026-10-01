@@ -166,18 +166,10 @@
       </div>
     </div>
 
-    <q-banner
+    <readings-after-last-stop-banner
       v-if="hasReadingsAfterLastStop"
-      dense
-      rounded
       class="graph-scope-warning q-mx-sm q-mb-xs"
-      inline-actions
-    >
-      <template #avatar>
-        <q-icon name="warning" color="warning" />
-      </template>
-      {{ $t('graphUi.readingsAfterLastStopWarning') }}
-    </q-banner>
+    />
 
     <q-banner
       v-if="hasCategoryDrawErrors"
@@ -246,6 +238,7 @@ import {
   resolveGraphColor,
 } from '@services/observations/protocol-graph-preferences.utils';
 import StudentWatermark from '@components/student-watermark/Index.vue';
+import ReadingsAfterLastStopBanner from 'src/pages/userspace/_components/ReadingsAfterLastStopBanner.vue';
 import { payloadFromImageDataUrl } from 'src/utils/image-data-url';
 import { mergeMetaIfSameObservation, observationGraphMetaPersistQueue } from 'src/utils/observation-meta-update';
 
@@ -264,6 +257,7 @@ import { mergeMetaIfSameObservation, observationGraphMetaPersistQueue } from 'sr
 export default defineComponent({
   components: {
     StudentWatermark,
+    ReadingsAfterLastStopBanner,
   },
   props: {
     drawerWidthPx: {

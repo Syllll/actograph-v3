@@ -137,7 +137,7 @@ export default defineComponent({
 
       async onChronicleSelected(id: number) {
         state.showAllDialog = false;
-        await observation.methods.loadObservation(id);
+        await methods.loadObservation(id);
       },
 
       isActive(id: number): boolean {

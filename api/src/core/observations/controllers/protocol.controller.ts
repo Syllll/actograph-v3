@@ -298,12 +298,28 @@ export class ProtocolController extends BaseController {
       
       output = await this.protocolService.items.editCategory(categoryUpdates);
     } else if (body.type === ProtocolItemTypeEnum.Observable) {
-      output = await this.protocolService.items.editObservable({
+      /**
+       * Même mise à jour partielle que pour les catégories : ne passer que les
+       * champs fournis. Sans ça, `description` (pourtant dans le DTO) n'était
+       * jamais persistée à l'édition d'un observable.
+       */
+      const observableUpdates: {
+        protocolId: number;
+        observableId: string;
+        name?: string;
+        description?: string;
+        order?: number;
+      } = {
         protocolId: body.protocolId,
         observableId: id,
-        name: body.name,
-        order: body.order,
-      });
+      };
+      if (body.name !== undefined) observableUpdates.name = body.name;
+      if (body.description !== undefined) {
+        observableUpdates.description = body.description;
+      }
+      if (body.order !== undefined) observableUpdates.order = body.order;
+
+      output = await this.protocolService.items.editObservable(observableUpdates);
     } else {
       throw new BadRequestException('Invalid item type');
     }

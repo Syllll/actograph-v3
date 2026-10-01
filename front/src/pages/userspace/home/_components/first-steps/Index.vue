@@ -33,7 +33,7 @@
             <q-item
               clickable
               v-ripple
-              @click="methods.openExternalLink('https://www.actograph.io/web/fr/software/description')"
+              @click="methods.openExternalLink('https://www.actograph.io/fr/features')"
               class="help-link"
             >
               <q-item-section avatar>
@@ -50,24 +50,7 @@
             <q-item
               clickable
               v-ripple
-              @click="methods.openExternalLink('https://www.actograph.io/web/fr/software/install')"
-              class="help-link"
-            >
-              <q-item-section avatar>
-                <q-icon name="mdi-file-document-outline" color="primary" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label>{{ $t('helpLinks.documentation') }}</q-item-label>
-              </q-item-section>
-              <q-item-section side>
-                <q-icon name="open_in_new" size="xs" color="primary" />
-              </q-item-section>
-            </q-item>
-
-            <q-item
-              clickable
-              v-ripple
-              @click="methods.openExternalLink('https://www.actograph.io/web/fr/software/tutorial')"
+              @click="methods.openExternalLink('https://www.actograph.io/fr/resources#tutorials')"
               class="help-link"
             >
               <q-item-section avatar>
@@ -84,7 +67,7 @@
             <q-item
               clickable
               v-ripple
-              @click="methods.openExternalLink('https://www.actograph.io/web/fr/faq')"
+              @click="methods.openExternalLink('https://www.actograph.io/fr/resources#faq')"
               class="help-link"
             >
               <q-item-section avatar>

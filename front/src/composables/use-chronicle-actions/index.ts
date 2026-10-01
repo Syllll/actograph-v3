@@ -69,7 +69,7 @@ export const useChronicleActions = () => {
 
       await nextTick();
       await new Promise(resolve => setTimeout(resolve, 100));
-      await router.push({ name: 'user_home' });
+      await router.push({ name: 'user_observation' });
     } catch (error) {
       console.error('createObservation failed:', error);
       $q.notify({

@@ -12,6 +12,10 @@ import { useI18n } from 'vue-i18n';
 import { readingService } from '@services/observations/reading.service';
 import { v4 as uuidv4 } from 'uuid';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
+import {
+  chronometerDateTimeFromElapsed,
+  resolveChronometerStartDateTime,
+} from '@utils/chronometer-start-datetime';
 import { useWindowSync } from '../use-window-sync';
 import {
   autoCorrectReadings as coreAutoCorrectReadings,
@@ -113,12 +117,25 @@ const reconstructReadingDates = (reading: IReading): IReading => ({
     : undefined,
 });
 
+const readingDateTimeMs = (reading: IReading): number => {
+  const date = reading.dateTime instanceof Date ? reading.dateTime : new Date(reading.dateTime);
+  const ms = date.getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+};
+
+const sortReadingsByDateTime = (readings: IReading[]): IReading[] =>
+  [...readings].sort((a, b) => readingDateTimeMs(a) - readingDateTimeMs(b));
+
 export const useReadings = (options: {
   sharedStateFromObservation: any,
 }) => {
   const { t, d } = useI18n();
   const observationSharedState = options.sharedStateFromObservation;
-  
+
+  const applyChronologicalOrder = () => {
+    sharedState.currentReadings = sortReadingsByDateTime(sharedState.currentReadings);
+  };
+
   const methods = {
     /**
      * Loads all readings associated with the provided observation
@@ -169,6 +186,7 @@ export const useReadings = (options: {
       
       stateless.initialReadings = readingsWithDates.map(cloneReadingSnapshot);
       sharedState.currentReadings = readingsWithDates;
+      applyChronologicalOrder();
     },
     
     /**
@@ -189,6 +207,9 @@ export const useReadings = (options: {
         return;
       }
       const syncObservationId = options.sharedStateFromObservation.currentObservation?.id ?? null;
+      if (syncObservationId === null) {
+        return;
+      }
       isSyncInFlight = true;
       try {
       // Make a local copy of the current readings
@@ -260,8 +281,6 @@ export const useReadings = (options: {
           currentDateTime !== initialDateTime
         );
         if (hasChanged) {
-          console.log('Updated reading:', current);
-          console.log('Initial reading:', initialReading);
           return current;
         }
         return false;
@@ -273,16 +292,6 @@ export const useReadings = (options: {
           return !doesReadingExistInCurrentReadings(initial);
         }
       );
-
-      if (newReadings.length > 0) {
-        console.log('New readings:', newReadings);
-      }
-      if (updatedReadings.length > 0) {
-        console.log('Updated readings:', updatedReadings);
-      }
-      if (deletedReadings.length > 0) {
-        console.log('Deleted readings:', deletedReadings);
-      }
 
       const maxTryCount = 3; // Maximum number of retry attempts
       
@@ -315,7 +324,7 @@ export const useReadings = (options: {
 
       // Create new readings with retry logic
       if (newReadings.length > 0) {
-        const obsId = options.sharedStateFromObservation.currentObservation.id;
+        const obsId = syncObservationId;
         const created = await executeWithRetry(
           () => readingService.createMany({
             observationId: obsId,
@@ -349,7 +358,7 @@ export const useReadings = (options: {
       // Only update readings that have an id (persisted readings)
       const readingsToUpdate = updatedReadings.filter((reading): reading is IReading & { id: number } => !!reading.id);
       if (readingsToUpdate.length > 0) {
-        const obsId = options.sharedStateFromObservation.currentObservation.id;
+        const obsId = syncObservationId;
         await executeWithRetry(
           () => readingService.updateMany({
             observationId: obsId,
@@ -378,7 +387,7 @@ export const useReadings = (options: {
       // Delete readings with retry logic (only those that have a persisted id)
       const deletablesWithId = deletedReadings.filter(r => !!r.id);
       if (deletablesWithId.length > 0) {
-        const obsId = options.sharedStateFromObservation.currentObservation.id;
+        const obsId = syncObservationId;
         await executeWithRetry(
           () => readingService.deleteMany({
             observationId: obsId,
@@ -446,30 +455,20 @@ export const useReadings = (options: {
         }
       }
       
-      // Calculate the exact timestamp based on observation time if provided.
-      // IMPORTANT: Use getTime() + elapsedTime instead of setMilliseconds() because
-      // setMilliseconds() only accepts 0-999, but elapsedTime can be much larger.
-      //
-      // currentDate est déjà l'horodatage absolu courant dans les deux modes :
-      // - chronomètre : t0 + elapsedTime (mis à jour par updateTimeFromSource)
-      // - calendrier : heure murale réelle (idem)
-      // On l'utilise donc directement. Ajouter elapsedTime en calendrier
-      // double-comptait (currentDate=now puis +elapsed → lecture dans le futur).
-      if (options.elapsedTime !== undefined) {
-        const isChronometerMode = observationSharedState?.currentObservation?.mode === 'chronometer';
-
+      // Chronometer: always t0 + elapsed. `currentDate || new Date()` is wall
+      // clock (~37 years from t0 → "13748j" in the table). Calendar still uses
+      // currentDate as absolute time (do not add elapsed, that double-counts).
+      const isChronometerMode = observationSharedState?.currentObservation?.mode === 'chronometer';
+      if (options.dateTime) {
         if (isChronometerMode) {
-          // Autorise l'enregistrement même si currentDate n'est pas initialisé
-          // (clics avant START ou pendant une pause).
           const t0Ms = CHRONOMETER_T0.getTime();
-          const dateTimeMs = options.currentDate
-            ? options.currentDate.getTime()
-            : t0Ms + (options.elapsedTime * 1000);
-          // Bug 2b.1 : Clamp to t0 minimum - évite les horodatages négatifs (-2ms)
-          newReading.dateTime = new Date(Math.max(dateTimeMs, t0Ms));
-        } else if (options.currentDate) {
-          newReading.dateTime = new Date(options.currentDate.getTime());
+          newReading.dateTime = new Date(Math.max(options.dateTime.getTime(), t0Ms));
         }
+      } else if (isChronometerMode) {
+        const elapsed = options.elapsedTime ?? observationSharedState.elapsedTime ?? 0;
+        newReading.dateTime = chronometerDateTimeFromElapsed(elapsed);
+      } else if (options.elapsedTime !== undefined && options.currentDate) {
+        newReading.dateTime = new Date(options.currentDate.getTime());
       }
 
       // add the reading to the current readings
@@ -479,51 +478,73 @@ export const useReadings = (options: {
     },
     
     /**
-     * Adds a reading to the current readings list
-     * 
-     * If a reading is selected, the new reading will be inserted after it.
-     * Otherwise, the reading will be added at the end of the list.
-     * 
-     * @param options - Optional properties for the new reading, or a reading object to add
-     * @returns The added reading
+     * Adds a reading to the current readings list.
+     * Inserts after `insertAfter` when provided; otherwise after the leftover
+     * selectedReading; otherwise appends at the end.
      */
-    addReading: (options: IReading | {
-      name?: string;
-      description?: string;
-      type?: ReadingTypeEnum;
-      dateTime?: Date;
-      categoryName?: string;
-      observableName?: string;
-      observableDescription?: string;
-      currentDate?: Date;
-      elapsedTime?: number;
-    } = {}) => {
+    addReading: (
+      options: IReading | {
+        name?: string;
+        description?: string;
+        type?: ReadingTypeEnum;
+        dateTime?: Date;
+        categoryName?: string;
+        observableName?: string;
+        observableDescription?: string;
+        currentDate?: Date;
+        elapsedTime?: number;
+      } = {},
+      insertAfter?: IReading | null,
+    ) => {
       // Determine if we are adding an existing reading object or creating a new one
       const readingToAdd = 'id' in options 
         ? options as IReading 
         : methods.createReading(options);
       
-      // If a reading is selected, copy some of its properties (if not already specified)
-      // and insert after it in the list
-      if (sharedState.selectedReading) {
-        const selected = sharedState.selectedReading;
+      const after = insertAfter ?? sharedState.selectedReading;
+      if (after) {
         const selectedIndex = sharedState.currentReadings.findIndex(
           (r: IReading) =>
-            (selected.id != null && r.id === selected.id) ||
-            (selected.tempId != null && r.tempId === selected.tempId) ||
-            r === selected,
+            (after.id != null && r.id === after.id) ||
+            (after.tempId != null && r.tempId === after.tempId) ||
+            r === after,
         );
         
         if (selectedIndex !== -1) {
-          // Insert after the selected reading
           sharedState.currentReadings.splice(selectedIndex + 1, 0, readingToAdd);
-          return sharedState.currentReadings[selectedIndex + 1];
+          applyChronologicalOrder();
+          return readingToAdd;
         }
       }
-      
-      // No selection or selected reading not found, add to the end
+
       sharedState.currentReadings.push(readingToAdd);
-      return sharedState.currentReadings[sharedState.currentReadings.length - 1];
+      applyChronologicalOrder();
+      return readingToAdd;
+    },
+
+    sortReadingsChronologically: () => {
+      applyChronologicalOrder();
+    },
+
+    /**
+     * Replaces one reading by identity so Vue/q-table virtual-scroll sees a new
+     * object (in-place field mutation does not refresh recycled rows).
+     */
+    updateReading: (
+      identity: { id?: number; tempId?: string | null },
+      patch: Partial<IReading>,
+    ) => {
+      const idx = sharedState.currentReadings.findIndex((reading) => (
+        (identity.id != null && reading.id === identity.id)
+        || (Boolean(identity.tempId) && reading.tempId === identity.tempId)
+      ));
+      if (idx === -1) return;
+      sharedState.currentReadings[idx] = {
+        ...sharedState.currentReadings[idx],
+        ...patch,
+        updatedAt: new Date(),
+      };
+      applyChronologicalOrder();
     },
 
     removeAllReadings: () => {
@@ -643,22 +664,59 @@ export const useReadings = (options: {
       }
     },
 
+    /**
+     * Copies the protocol observable description onto existing DATA readings.
+     *
+     * A reading stores its own description (copied from the button at click
+     * time, then optionally edited in the table). When the protocol text
+     * changes, we only update rows that are still empty or still equal to the
+     * previous protocol text. Hand-written comments stay as-is.
+     */
+    updateObservableReadingsDescription: async (
+      observableName: string,
+      previousDescription: string,
+      newDescription: string,
+    ) => {
+      const previousTrimmed = previousDescription.trim();
+      const newTrimmed = newDescription.trim();
+      if (!observableName || !newTrimmed || previousTrimmed === newTrimmed) {
+        return;
+      }
+
+      let updated = false;
+      sharedState.currentReadings.forEach((reading) => {
+        if (reading.type !== ReadingTypeEnum.DATA || reading.name !== observableName) {
+          return;
+        }
+        const readingTrimmed = (reading.description || '').trim();
+        const stillProtocolText =
+          readingTrimmed === '' || readingTrimmed === previousTrimmed;
+        if (!stillProtocolText) {
+          return;
+        }
+        reading.description = newDescription;
+        reading.updatedAt = new Date();
+        updated = true;
+      });
+
+      if (updated) {
+        await methods.synchronizeReadings();
+      }
+    },
+
     addStartReading: async () => {
-      // En mode chronomètre, le reading de début doit être à t0 (durée = 0)
-      // On utilise directement t0 comme dateTime pour garantir que la durée affichée sera 0
       const isChronometerMode = observationSharedState.currentObservation?.mode === 'chronometer';
-      
+
       if (isChronometerMode) {
-        // En mode chronomètre, utiliser CHRONOMETER_T0 directement pour que la durée soit 0
-        // CHRONOMETER_T0 est la date de référence définie dans @utils/chronometer.constants.ts
-        // (9 février 1989 à 00:00:00.000 UTC)
         methods.addReading({
           name: t('readings.defaultChronicleStart'),
           type: ReadingTypeEnum.START,
-          dateTime: CHRONOMETER_T0, // Utiliser t0 directement pour garantir une durée de 0
+          dateTime: resolveChronometerStartDateTime(
+            sharedState.currentReadings,
+            observationSharedState.elapsedTime || 0,
+          ),
         });
       } else {
-        // En mode calendrier, utiliser currentDate et elapsedTime normalement
         methods.addReading({
           name: t('readings.defaultChronicleStart'),
           type: ReadingTypeEnum.START,
@@ -668,12 +726,21 @@ export const useReadings = (options: {
       }
     },
     addStopReading: async () => {
-      methods.addReading({
-        name: t('readings.defaultChronicleEnd'),
-        type: ReadingTypeEnum.STOP,
-        currentDate: observationSharedState.currentDate || new Date(),
-        elapsedTime: observationSharedState.elapsedTime || 0,
-      });
+      const isChronometerMode = observationSharedState.currentObservation?.mode === 'chronometer';
+      if (isChronometerMode) {
+        methods.addReading({
+          name: t('readings.defaultChronicleEnd'),
+          type: ReadingTypeEnum.STOP,
+          elapsedTime: observationSharedState.elapsedTime || 0,
+        });
+      } else {
+        methods.addReading({
+          name: t('readings.defaultChronicleEnd'),
+          type: ReadingTypeEnum.STOP,
+          currentDate: observationSharedState.currentDate || new Date(),
+          elapsedTime: observationSharedState.elapsedTime || 0,
+        });
+      }
     },
     // Bug 2b.2 : En mode vidéo, ne pas enregistrer les événements pause
     addPauseStartReading: async () => {
@@ -776,6 +843,7 @@ export const useReadings = (options: {
         
         // Apply corrections to sharedState.currentReadings
         sharedState.currentReadings = correctedReadings;
+        applyChronologicalOrder();
       } else {
         // When not applying corrections, cast core IReading[] to frontend IReading[]
         correctedReadings = result.correctedReadings as IReading[];
@@ -868,6 +936,7 @@ export const useReadings = (options: {
           }
           return reading;
         });
+        applyChronologicalOrder();
       });
     });
 

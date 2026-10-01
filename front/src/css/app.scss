@@ -11,3 +11,94 @@
 
 @import './colors';
 @import './dialogs';
+
+// Observation page toolbar track: Rec, Terminer, chips and the readings
+// search share one height and one vertical axis. Fill vs ghost is a modifier,
+// never Quasar outline (its :before border stacks with a CSS border).
+.observation-toolbar-row {
+  --observation-toolbar-h: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--observation-toolbar-h);
+  min-width: 0;
+}
+
+.observation-toolbar-row--nowrap {
+  flex-wrap: nowrap;
+}
+
+.observation-toolbar-control {
+  box-sizing: border-box;
+  height: var(--observation-toolbar-h);
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.observation-toolbar-control.q-btn {
+  min-height: var(--observation-toolbar-h);
+  width: auto;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+
+.observation-toolbar-control.q-btn .q-btn__content {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.observation-toolbar-host {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: var(--observation-toolbar-h);
+}
+
+.observation-toolbar-control.q-btn.observation-toolbar-btn--filled {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.observation-toolbar-control.q-btn.observation-toolbar-btn--ghost {
+  background: #fff;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.body--dark .observation-toolbar-control.q-btn.observation-toolbar-btn--ghost {
+  background: transparent;
+}
+
+.observation-toolbar-chip {
+  border-radius: 16px;
+  background: rgba(31, 41, 55, 0.08);
+  color: var(--primary);
+}
+
+.body--dark .observation-toolbar-chip {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.observation-toolbar-chip--timer {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}

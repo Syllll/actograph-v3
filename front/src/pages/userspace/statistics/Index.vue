@@ -80,17 +80,10 @@
         {{ t('statisticsUi.missingStartWarning') }}
       </q-banner>
 
-      <q-banner
+      <readings-after-last-stop-banner
         v-if="hasReadingsAfterLastStop"
-        dense
-        rounded
         class="readings-scope-warning q-ma-sm"
-      >
-        <template #avatar>
-          <q-icon name="warning" color="warning" />
-        </template>
-        {{ t('graphUi.readingsAfterLastStopWarning') }}
-      </q-banner>
+      />
 
       <q-tab-panels v-model="state.activeTab" animated class="col">
         <!-- Vue globale -->
@@ -138,6 +131,7 @@ import { DPage } from '@lib-improba/components';
 import GeneralStatisticsView from './_components/GeneralStatisticsView.vue';
 import CategoryStatisticsView from './_components/CategoryStatisticsView.vue';
 import ConditionalStatisticsView from './_components/ConditionalStatisticsView.vue';
+import ReadingsAfterLastStopBanner from 'src/pages/userspace/_components/ReadingsAfterLastStopBanner.vue';
 
 export default defineComponent({
   name: 'StatisticsPage',
@@ -145,6 +139,7 @@ export default defineComponent({
     GeneralStatisticsView,
     CategoryStatisticsView,
     ConditionalStatisticsView,
+    ReadingsAfterLastStopBanner,
   },
   setup() {
     const { t } = useI18n();

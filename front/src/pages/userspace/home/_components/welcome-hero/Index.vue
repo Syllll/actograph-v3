@@ -9,37 +9,37 @@
       </div>
     </div>
 
-    <div class="row q-gutter-md justify-center q-mb-md">
+    <div class="action-cards q-mb-md">
       <div
-        class="action-card column items-center q-pa-lg cursor-pointer"
+        class="action-card cursor-pointer"
         v-ripple
         @click="$emit('create')"
       >
-        <q-icon name="mdi-plus-circle-outline" size="40px" color="accent" class="q-mb-sm" />
-        <div class="text-subtitle1 text-weight-bold">
+        <q-icon name="mdi-plus-circle-outline" size="40px" color="accent" class="action-card__icon" />
+        <div class="action-card__title text-subtitle1 text-weight-bold">
           {{ $t('chronicle.newChronicle') }}
         </div>
-        <div class="text-caption text-grey-6">
+        <div class="action-card__caption text-caption text-grey-6">
           {{ $t('chronicle.newChronicleBlank') }}
         </div>
       </div>
 
       <div
-        class="action-card column items-center q-pa-lg cursor-pointer"
+        class="action-card cursor-pointer"
         v-ripple
         @click="$emit('import')"
       >
-        <q-icon name="mdi-file-import-outline" size="40px" color="accent" class="q-mb-sm" />
-        <div class="text-subtitle1 text-weight-bold">
+        <q-icon name="mdi-file-import-outline" size="40px" color="accent" class="action-card__icon" />
+        <div class="action-card__title text-subtitle1 text-weight-bold">
           {{ $t('chronicle.importShort') }}
         </div>
-        <div class="text-caption text-grey-6">
+        <div class="action-card__caption text-caption text-grey-6">
           {{ $t('chronicle.importFromJchronic') }}
         </div>
       </div>
 
       <div
-        class="action-card column items-center q-pa-lg cursor-pointer"
+        class="action-card cursor-pointer"
         v-ripple
         @click="$emit('cloud')"
       >
@@ -47,12 +47,12 @@
           :name="isCloudAuthenticated ? 'mdi-cloud-sync-outline' : 'mdi-cloud-upload-outline'"
           size="40px"
           :color="isCloudAuthenticated ? 'positive' : 'accent'"
-          class="q-mb-sm"
+          class="action-card__icon"
         />
-        <div class="text-subtitle1 text-weight-bold">
+        <div class="action-card__title text-subtitle1 text-weight-bold">
           {{ $t('chronicle.cloudCardTitle') }}
         </div>
-        <div class="text-caption text-grey-6">
+        <div class="action-card__caption text-caption text-grey-6">
           {{
             isCloudAuthenticated
               ? $t('chronicle.cloudSyncCaption')
@@ -95,12 +95,30 @@ export default defineComponent({
   padding: 2rem 1rem;
 }
 
-.action-card {
-  width: 180px;
+.action-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 1rem;
+  width: 100%;
+  max-width: 40.5rem;
+
   @media (max-width: 600px) {
-    width: 100%;
+    grid-template-columns: 1fr;
     max-width: 280px;
   }
+}
+
+.action-card {
+  display: grid;
+  grid-template-rows: 40px 3.5rem 2.5rem;
+  justify-items: center;
+  align-items: start;
+  row-gap: 0.5rem;
+  text-align: center;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 1.5rem 1rem;
   border-radius: 0.75rem;
   border: 1px solid $grey-4;
   // Fond adapté au thème (clair/sombre) au lieu d'un blanc fixe, qui rendait
@@ -114,6 +132,25 @@ export default defineComponent({
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     transform: translateY(-2px);
   }
+}
+
+.action-card__icon {
+  width: 40px;
+  height: 40px;
+}
+
+// Fixed row heights: wrapped FR titles/captions stay on the same
+// horizontal lines as the one-line cards (Importer / Cloud).
+.action-card__title {
+  width: 100%;
+  margin: 0;
+  line-height: 1.75rem;
+}
+
+.action-card__caption {
+  width: 100%;
+  margin: 0;
+  line-height: 1.25rem;
 }
 
 /* Captions : .text-grey-6 est un gris Quasar fixe, illisible sur var(--secondary) en sombre */

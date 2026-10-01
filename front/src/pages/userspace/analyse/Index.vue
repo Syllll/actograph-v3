@@ -33,7 +33,7 @@
             color="accent"
             text-color="white"
             size="md"
-            icon="drag_indicator"
+            icon="mdi-arrow-left-right"
             style="cursor: col-resize;"
           />
         </template>

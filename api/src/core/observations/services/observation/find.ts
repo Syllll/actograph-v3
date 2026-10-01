@@ -44,6 +44,8 @@ export class Find {
       where: {
         user: { id: userId },
       },
+      // Protocol JSON is needed by protocol-copy pickers (create / import).
+      relations: ['protocol'],
     });
   }
 
