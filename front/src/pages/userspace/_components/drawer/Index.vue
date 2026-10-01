@@ -86,14 +86,19 @@
               <q-separator :key="'sep' + index" v-if="menuItem.separator" />
             </template>
 
-            <!-- Chronique active avec sous-menus -->
-            <template v-if="observation.sharedState.currentObservation">
+            <!-- Active chronicle: grouped card so the open file stands out from global nav -->
+            <div
+              v-if="observation.sharedState.currentObservation"
+              class="chronicle-nav-block"
+              role="group"
+              :aria-label="computedState.chronicleDisplayName.value ?? ''"
+            >
               <q-item class="chronicle-header-item">
                 <q-item-section avatar>
                   <q-icon name="mdi-book-open-variant" />
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label lines="1">
+                  <q-item-label lines="1" class="text-weight-medium">
                     {{ computedState.chronicleDisplayName.value ?? '' }}
                   </q-item-label>
                   <q-tooltip
@@ -199,7 +204,7 @@
                   </q-item>
                 </q-list>
               </div>
-            </template>
+            </div>
           </q-list>
         </q-scroll-area>
 
@@ -532,10 +537,17 @@ export default defineComponent({
   color: var(--accent);
 }
 
+.chronicle-nav-block {
+  margin: 4px 8px 8px;
+  padding: 4px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  /* accent-lowest lightens to white; mix keeps a readable peach on light and dark. */
+  background: color-mix(in srgb, var(--accent) 14%, var(--secondary));
+}
+
 .chronicle-subitems {
-  margin-left: 20px;
-  padding-left: 4px;
-  border-left: 2px solid rgba(0, 0, 0, 0.12);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .drawer-nav-scroll {
@@ -550,6 +562,8 @@ export default defineComponent({
 }
 
 .chronicle-header-item {
+  /* 8px + the 8px card gutter = 16px, same as Mes chroniques above. */
+  padding-left: 8px;
   padding-right: 4px;
 }
 
