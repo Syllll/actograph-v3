@@ -83,6 +83,7 @@ import { date as qDate } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { useObservation } from 'src/composables/use-observation';
 import { ReadingTypeEnum } from '@services/observations/interface';
+import { isRecordingActiveFromReadings } from '@actograph/core';
 import ModeToggle from './ModeToggle.vue';
 import {
   confirmAndCompleteObservationStop,
@@ -216,11 +217,20 @@ export default defineComponent({
       () => !isSessionStarted(observation),
     );
 
-    // Exclusive: new segment while recording after a STOP, else pause, else ended.
+    // Exclusive: new segment while recording after a STOP, else ended if the
+    // last START/STOP is STOP (Terminer), else pause. Ended must beat pause:
+    // video timeupdate used to restore elapsedTime after stopTimer, which
+    // made the chip stay on "paused".
     const sessionStatusChip = computed(() => {
       const hasStop = hasAnyStopReading(observation);
+      const recordingActive = isRecordingActiveFromReadings(
+        observation.readings.sharedState.currentReadings,
+      );
       if (observation.sharedState.isPlaying && hasStop) {
         return { icon: 'info', label: t('observation.newSegmentStarted') };
+      }
+      if (hasStop && !recordingActive && !observation.sharedState.isPlaying) {
+        return { icon: 'outlined_flag', label: t('observation.observationEndedToast') };
       }
       if (isPausedState.value) {
         return { icon: 'pause', label: t('observation.observationPausedToast') };

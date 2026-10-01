@@ -109,7 +109,10 @@ export default defineComponent({
     });
 
     const handleAddReading = () => {
-      methods.addReading();
+      methods.addReading({
+        currentDate: observation.sharedState.currentDate || undefined,
+        elapsedTime: observation.sharedState.elapsedTime ?? 0,
+      });
     };
 
     const handleDuplicateReading = (source: IReading) => {

@@ -12,6 +12,10 @@ import { useI18n } from 'vue-i18n';
 import { readingService } from '@services/observations/reading.service';
 import { v4 as uuidv4 } from 'uuid';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
+import {
+  chronometerDateTimeFromElapsed,
+  resolveChronometerStartDateTime,
+} from '@utils/chronometer-start-datetime';
 import { useWindowSync } from '../use-window-sync';
 import {
   autoCorrectReadings as coreAutoCorrectReadings,
@@ -463,30 +467,20 @@ export const useReadings = (options: {
         }
       }
       
-      // Calculate the exact timestamp based on observation time if provided.
-      // IMPORTANT: Use getTime() + elapsedTime instead of setMilliseconds() because
-      // setMilliseconds() only accepts 0-999, but elapsedTime can be much larger.
-      //
-      // currentDate est déjà l'horodatage absolu courant dans les deux modes :
-      // - chronomètre : t0 + elapsedTime (mis à jour par updateTimeFromSource)
-      // - calendrier : heure murale réelle (idem)
-      // On l'utilise donc directement. Ajouter elapsedTime en calendrier
-      // double-comptait (currentDate=now puis +elapsed → lecture dans le futur).
-      if (options.elapsedTime !== undefined) {
-        const isChronometerMode = observationSharedState?.currentObservation?.mode === 'chronometer';
-
+      // Chronometer: always t0 + elapsed. `currentDate || new Date()` is wall
+      // clock (~37 years from t0 → "13748j" in the table). Calendar still uses
+      // currentDate as absolute time (do not add elapsed, that double-counts).
+      const isChronometerMode = observationSharedState?.currentObservation?.mode === 'chronometer';
+      if (options.dateTime) {
         if (isChronometerMode) {
-          // Autorise l'enregistrement même si currentDate n'est pas initialisé
-          // (clics avant START ou pendant une pause).
           const t0Ms = CHRONOMETER_T0.getTime();
-          const dateTimeMs = options.currentDate
-            ? options.currentDate.getTime()
-            : t0Ms + (options.elapsedTime * 1000);
-          // Bug 2b.1 : Clamp to t0 minimum - évite les horodatages négatifs (-2ms)
-          newReading.dateTime = new Date(Math.max(dateTimeMs, t0Ms));
-        } else if (options.currentDate) {
-          newReading.dateTime = new Date(options.currentDate.getTime());
+          newReading.dateTime = new Date(Math.max(options.dateTime.getTime(), t0Ms));
         }
+      } else if (isChronometerMode) {
+        const elapsed = options.elapsedTime ?? observationSharedState.elapsedTime ?? 0;
+        newReading.dateTime = chronometerDateTimeFromElapsed(elapsed);
+      } else if (options.elapsedTime !== undefined && options.currentDate) {
+        newReading.dateTime = new Date(options.currentDate.getTime());
       }
 
       // add the reading to the current readings
@@ -723,21 +717,18 @@ export const useReadings = (options: {
     },
 
     addStartReading: async () => {
-      // En mode chronomètre, le reading de début doit être à t0 (durée = 0)
-      // On utilise directement t0 comme dateTime pour garantir que la durée affichée sera 0
       const isChronometerMode = observationSharedState.currentObservation?.mode === 'chronometer';
-      
+
       if (isChronometerMode) {
-        // En mode chronomètre, utiliser CHRONOMETER_T0 directement pour que la durée soit 0
-        // CHRONOMETER_T0 est la date de référence définie dans @utils/chronometer.constants.ts
-        // (9 février 1989 à 00:00:00.000 UTC)
         methods.addReading({
           name: t('readings.defaultChronicleStart'),
           type: ReadingTypeEnum.START,
-          dateTime: CHRONOMETER_T0, // Utiliser t0 directement pour garantir une durée de 0
+          dateTime: resolveChronometerStartDateTime(
+            sharedState.currentReadings,
+            observationSharedState.elapsedTime || 0,
+          ),
         });
       } else {
-        // En mode calendrier, utiliser currentDate et elapsedTime normalement
         methods.addReading({
           name: t('readings.defaultChronicleStart'),
           type: ReadingTypeEnum.START,
@@ -747,12 +738,21 @@ export const useReadings = (options: {
       }
     },
     addStopReading: async () => {
-      methods.addReading({
-        name: t('readings.defaultChronicleEnd'),
-        type: ReadingTypeEnum.STOP,
-        currentDate: observationSharedState.currentDate || new Date(),
-        elapsedTime: observationSharedState.elapsedTime || 0,
-      });
+      const isChronometerMode = observationSharedState.currentObservation?.mode === 'chronometer';
+      if (isChronometerMode) {
+        methods.addReading({
+          name: t('readings.defaultChronicleEnd'),
+          type: ReadingTypeEnum.STOP,
+          elapsedTime: observationSharedState.elapsedTime || 0,
+        });
+      } else {
+        methods.addReading({
+          name: t('readings.defaultChronicleEnd'),
+          type: ReadingTypeEnum.STOP,
+          currentDate: observationSharedState.currentDate || new Date(),
+          elapsedTime: observationSharedState.elapsedTime || 0,
+        });
+      }
     },
     // Bug 2b.2 : En mode vidéo, ne pas enregistrer les événements pause
     addPauseStartReading: async () => {

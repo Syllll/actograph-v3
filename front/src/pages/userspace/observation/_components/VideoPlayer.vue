@@ -146,6 +146,13 @@ export default defineComponent({
     const { sharedState: readingsState, methods: readingsMethods } = observation.readings;
     const videoRef = ref<HTMLVideoElement | null>(null);
 
+    // After Terminer, startTime is null and isPlaying is false. Video
+    // timeupdate/pause must not rewrite elapsedTime from currentTime, or the
+    // session chip stays on "paused" instead of "ended".
+    const shouldSyncObservationClockFromVideo = () =>
+      observation.sharedState.isPlaying
+      || observation.sharedState.startTime != null;
+
     /**
      * État réactif du lecteur vidéo
      * 
@@ -520,7 +527,10 @@ export default defineComponent({
         if (state.duration > 0) {
           state.progressPercent = (seekTo / state.duration) * 100;
         }
-        if (observation.isChronometerMode.value) {
+        if (
+          observation.isChronometerMode.value
+          && shouldSyncObservationClockFromVideo()
+        ) {
           observation.updateTimeFromSource(seekTo);
         }
       },
@@ -575,7 +585,10 @@ export default defineComponent({
           
           // Synchroniser avec elapsedTime de l'observation en mode chronomètre
           // Utiliser la méthode unifiée qui gère automatiquement la source du temps
-          if (observation.isChronometerMode.value) {
+          if (
+            observation.isChronometerMode.value
+            && shouldSyncObservationClockFromVideo()
+          ) {
             observation.updateTimeFromSource(state.currentTime);
             
             // Trouver le relevé à l'instant t et activer le bouton correspondant
@@ -684,6 +697,9 @@ export default defineComponent({
         )) {
           return;
         }
+        if (videoRef.value && shouldSyncObservationClockFromVideo()) {
+          observation.updateTimeFromSource(videoRef.value.currentTime);
+        }
         state.isPlaying = true;
         if (!observation.sharedState.isPlaying) {
           observation.timerMethods.startTimer();
@@ -734,7 +750,10 @@ export default defineComponent({
         
         // IMPORTANT: Synchroniser elapsedTime avec le nouveau temps vidéo en mode chronomètre
         // Utiliser la méthode unifiée qui gère automatiquement la source du temps
-        if (observation.isChronometerMode.value) {
+        if (
+          observation.isChronometerMode.value
+          && shouldSyncObservationClockFromVideo()
+        ) {
           observation.updateTimeFromSource(newTime);
         }
         
@@ -827,7 +846,9 @@ export default defineComponent({
               
               // IMPORTANT: Synchroniser elapsedTime avec le nouveau temps vidéo
               // Utiliser la méthode unifiée qui gère automatiquement la source du temps
-              observation.updateTimeFromSource(videoTime);
+              if (shouldSyncObservationClockFromVideo()) {
+                observation.updateTimeFromSource(videoTime);
+              }
               
               // Update buttons position based on new time
               methods.activateButtonForCurrentReading();
@@ -1030,6 +1051,9 @@ export default defineComponent({
           return;
         }
         if (playing && video.paused) {
+          if (shouldSyncObservationClockFromVideo()) {
+            observation.updateTimeFromSource(video.currentTime);
+          }
           void video.play().catch(() => {
             /* autoplay / decode errors */
           });
