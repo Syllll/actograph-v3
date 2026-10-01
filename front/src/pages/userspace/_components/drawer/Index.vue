@@ -2,22 +2,73 @@
   <q-drawer
     v-model="drawer.sharedState.showDrawer"
     show-if-above
+    :mini="computedState.isMiniRail.value"
     :width="250"
-    :breakpoint="500"
+    :mini-width="64"
+    :breakpoint="drawerBreakpointPx"
     elevated
     bordered
     behavior="desktop"
     class="bg-secondary"
+    :class="{ 'is-mini': computedState.isMiniRail.value }"
   >
     <div class="fit overflow-hidden">
       <div class="fit column">
-        <div class="column items-center q-px-md q-py-md">
-          <Logo />
+        <div
+          class="row no-wrap q-pt-sm"
+          :class="
+            computedState.isMiniRail.value
+              ? 'justify-center q-px-xs q-pb-xs'
+              : computedState.isDesktopDrawer.value
+                ? 'items-start q-px-sm q-pb-md'
+                : 'justify-center q-px-md q-pb-md'
+          "
+        >
           <div
-            class="q-mt-xs cursor-pointer full-width row justify-center"
-            @click="methods.goToLicense"
+            v-show="!computedState.isMiniRail.value"
+            class="column items-center"
+            :class="computedState.isDesktopDrawer.value ? 'col q-px-sm' : ''"
           >
-            <LicenseBadge />
+            <Logo />
+            <div
+              class="q-mt-xs cursor-pointer full-width row justify-center"
+              @click="methods.goToLicense"
+            >
+              <LicenseBadge />
+            </div>
+          </div>
+          <div v-if="computedState.isDesktopDrawer.value" class="col-auto">
+            <q-btn
+              flat
+              dense
+              round
+              size="sm"
+              color="grey-8"
+              :icon="
+                computedState.isMiniRail.value
+                  ? 'mdi-chevron-right'
+                  : 'mdi-chevron-left'
+              "
+              :aria-label="
+                computedState.isMiniRail.value
+                  ? $t('drawer.expandMenu')
+                  : $t('drawer.collapseMenu')
+              "
+              :aria-expanded="computedState.isMiniRail.value ? 'false' : 'true'"
+              @click="methods.toggleMini"
+            >
+              <q-tooltip
+                anchor="center right"
+                self="center left"
+                :offset="[8, 0]"
+              >
+                {{
+                  computedState.isMiniRail.value
+                    ? $t('drawer.expandMenu')
+                    : $t('drawer.collapseMenu')
+                }}
+              </q-tooltip>
+            </q-btn>
           </div>
         </div>
 
@@ -27,6 +78,9 @@
           <q-item
             clickable
             v-ripple
+            :aria-label="
+              computedState.isMiniRail.value ? $t('chronicle.newChronicle') : undefined
+            "
             @click="chronicleActions.createObservation"
           >
             <q-item-section avatar>
@@ -34,12 +88,27 @@
             </q-item-section>
             <q-item-section>
               {{ $t('chronicle.newChronicle') }}
-              <q-tooltip>{{ $t('chronicle.newChronicleTooltip') }}</q-tooltip>
+              <q-tooltip v-if="!computedState.isMiniRail.value">
+                {{ $t('chronicle.newChronicleTooltip') }}
+              </q-tooltip>
             </q-item-section>
+            <q-tooltip
+              v-if="computedState.isMiniRail.value"
+              anchor="center right"
+              self="center left"
+              :offset="[8, 0]"
+            >
+              {{ $t('chronicle.newChronicle') }}
+            </q-tooltip>
           </q-item>
           <q-item
             clickable
             v-ripple
+            :aria-label="
+              computedState.isMiniRail.value
+                ? $t('chronicle.importFromFile')
+                : undefined
+            "
             @click="chronicleActions.importObservation"
           >
             <q-item-section avatar>
@@ -47,17 +116,46 @@
             </q-item-section>
             <q-item-section>
               {{ $t('chronicle.importFromFile') }}
-              <q-tooltip>{{ $t('chronicle.importChronicleTooltip') }}</q-tooltip>
+              <q-tooltip v-if="!computedState.isMiniRail.value">
+                {{ $t('chronicle.importChronicleTooltip') }}
+              </q-tooltip>
             </q-item-section>
+            <q-tooltip
+              v-if="computedState.isMiniRail.value"
+              anchor="center right"
+              self="center left"
+              :offset="[8, 0]"
+            >
+              {{ $t('chronicle.importFromFile') }}
+            </q-tooltip>
           </q-item>
-          <q-item clickable v-ripple @click="chronicleActions.openCloud">
+          <q-item
+            clickable
+            v-ripple
+            :aria-label="
+              computedState.isMiniRail.value
+                ? $t('chronicle.importFromCloud')
+                : undefined
+            "
+            @click="chronicleActions.openCloud"
+          >
             <q-item-section avatar>
               <q-icon name="mdi-cloud-download-outline" size="sm" />
             </q-item-section>
             <q-item-section>
               {{ $t('chronicle.importFromCloud') }}
-              <q-tooltip>{{ $t('chronicle.importFromCloudTooltip') }}</q-tooltip>
+              <q-tooltip v-if="!computedState.isMiniRail.value">
+                {{ $t('chronicle.importFromCloudTooltip') }}
+              </q-tooltip>
             </q-item-section>
+            <q-tooltip
+              v-if="computedState.isMiniRail.value"
+              anchor="center right"
+              self="center left"
+              :offset="[8, 0]"
+            >
+              {{ $t('chronicle.importFromCloud') }}
+            </q-tooltip>
           </q-item>
         </q-list>
 
@@ -73,6 +171,9 @@
                 clickable
                 :active="menuItem.isActive()"
                 v-ripple
+                :aria-label="
+                  computedState.isMiniRail.value ? menuItem.label : undefined
+                "
                 @click="menuItem.action()"
                 active-class="active"
               >
@@ -82,6 +183,14 @@
                 <q-item-section>
                   {{ menuItem.label }}
                 </q-item-section>
+                <q-tooltip
+                  v-if="computedState.isMiniRail.value"
+                  anchor="center right"
+                  self="center left"
+                  :offset="[8, 0]"
+                >
+                  {{ menuItem.label }}
+                </q-tooltip>
               </q-item>
               <q-separator :key="'sep' + index" v-if="menuItem.separator" />
             </template>
@@ -102,7 +211,10 @@
                     {{ computedState.chronicleDisplayName.value ?? '' }}
                   </q-item-label>
                   <q-tooltip
-                    v-if="computedState.chronicleNameNeedsTooltip.value"
+                    v-if="
+                      !computedState.isMiniRail.value &&
+                      computedState.chronicleNameNeedsTooltip.value
+                    "
                     anchor="center right"
                     self="center left"
                   >
@@ -123,6 +235,14 @@
                     <q-tooltip>{{ $t('chronicle.closeActiveTooltip') }}</q-tooltip>
                   </q-btn>
                 </q-item-section>
+                <q-tooltip
+                  v-if="computedState.isMiniRail.value"
+                  anchor="center right"
+                  self="center left"
+                  :offset="[8, 0]"
+                >
+                  {{ computedState.chronicleDisplayName.value ?? '' }}
+                </q-tooltip>
               </q-item>
 
               <div class="chronicle-subitems">
@@ -135,6 +255,11 @@
                       clickable
                       :active="step.isActive()"
                       v-ripple
+                      :aria-label="
+                        computedState.isMiniRail.value
+                          ? step.tooltip || step.label
+                          : undefined
+                      "
                       @click="methods.handleNavStep(step)"
                       active-class="active"
                       :disable="step.disabled"
@@ -144,10 +269,18 @@
                       </q-item-section>
                       <q-item-section>
                         {{ step.label }}
-                        <q-tooltip v-if="step.tooltip">
+                        <q-tooltip v-if="!computedState.isMiniRail.value && step.tooltip">
                           {{ step.tooltip }}
                         </q-tooltip>
                       </q-item-section>
+                      <q-tooltip
+                        v-if="computedState.isMiniRail.value"
+                        anchor="center right"
+                        self="center left"
+                        :offset="[8, 0]"
+                      >
+                        {{ step.tooltip || step.label }}
+                      </q-tooltip>
                     </q-item>
                   </template>
 
@@ -156,28 +289,55 @@
                   <q-item
                     clickable
                     v-ripple
+                    :aria-label="
+                      computedState.isMiniRail.value ? $t('chronicle.export') : undefined
+                    "
                     @click="chronicleActions.exportObservation"
                   >
                     <q-item-section avatar>
                       <q-icon name="mdi-download" size="sm" />
                     </q-item-section>
                     <q-item-section>{{ $t('chronicle.export') }}</q-item-section>
+                    <q-tooltip
+                      v-if="computedState.isMiniRail.value"
+                      anchor="center right"
+                      self="center left"
+                      :offset="[8, 0]"
+                    >
+                      {{ $t('chronicle.export') }}
+                    </q-tooltip>
                   </q-item>
 
                   <q-item
                     clickable
                     v-ripple
+                    :aria-label="
+                      computedState.isMiniRail.value
+                        ? $t('cloud.uploadSection')
+                        : undefined
+                    "
                     @click="chronicleActions.uploadActiveChronicleToCloud"
                   >
                     <q-item-section avatar>
                       <q-icon name="mdi-cloud-upload-outline" size="sm" />
                     </q-item-section>
                     <q-item-section>{{ $t('cloud.uploadSection') }}</q-item-section>
+                    <q-tooltip
+                      v-if="computedState.isMiniRail.value"
+                      anchor="center right"
+                      self="center left"
+                      :offset="[8, 0]"
+                    >
+                      {{ $t('cloud.uploadSection') }}
+                    </q-tooltip>
                   </q-item>
 
                   <q-item
                     clickable
                     v-ripple
+                    :aria-label="
+                      computedState.isMiniRail.value ? $t('chronicle.saveAs') : undefined
+                    "
                     @click="chronicleActions.saveAsObservation"
                   >
                     <q-item-section avatar>
@@ -185,13 +345,26 @@
                     </q-item-section>
                     <q-item-section>
                       {{ $t('chronicle.saveAs') }}
-                      <q-tooltip>{{ $t('chronicle.saveAsTooltip') }}</q-tooltip>
+                      <q-tooltip v-if="!computedState.isMiniRail.value">
+                        {{ $t('chronicle.saveAsTooltip') }}
+                      </q-tooltip>
                     </q-item-section>
+                    <q-tooltip
+                      v-if="computedState.isMiniRail.value"
+                      anchor="center right"
+                      self="center left"
+                      :offset="[8, 0]"
+                    >
+                      {{ $t('chronicle.saveAs') }}
+                    </q-tooltip>
                   </q-item>
 
                   <q-item
                     clickable
                     v-ripple
+                    :aria-label="
+                      computedState.isMiniRail.value ? $t('chronicle.merge') : undefined
+                    "
                     @click="chronicleActions.mergeObservations"
                   >
                     <q-item-section avatar>
@@ -199,8 +372,18 @@
                     </q-item-section>
                     <q-item-section>
                       {{ $t('chronicle.merge') }}
-                      <q-tooltip>{{ $t('chronicle.mergeTooltip') }}</q-tooltip>
+                      <q-tooltip v-if="!computedState.isMiniRail.value">
+                        {{ $t('chronicle.mergeTooltip') }}
+                      </q-tooltip>
                     </q-item-section>
+                    <q-tooltip
+                      v-if="computedState.isMiniRail.value"
+                      anchor="center right"
+                      self="center left"
+                      :offset="[8, 0]"
+                    >
+                      {{ $t('chronicle.merge') }}
+                    </q-tooltip>
                   </q-item>
                 </q-list>
               </div>
@@ -215,25 +398,58 @@
             v-if="computedState.hasAutosaveRestore.value"
             clickable
             v-ripple
+            :aria-label="
+              computedState.isMiniRail.value ? $t('layout.menuAutosave') : undefined
+            "
             @click="methods.restoreAutosave"
           >
             <q-item-section avatar>
               <q-icon name="mdi-backup-restore" size="sm" />
             </q-item-section>
             <q-item-section>{{ $t('layout.menuAutosave') }}</q-item-section>
+            <q-tooltip
+              v-if="computedState.isMiniRail.value"
+              anchor="center right"
+              self="center left"
+              :offset="[8, 0]"
+            >
+              {{ $t('layout.menuAutosave') }}
+            </q-tooltip>
           </q-item>
-          <q-item clickable v-ripple @click="methods.openHelpDialog">
+          <q-item
+            clickable
+            v-ripple
+            :aria-label="computedState.isMiniRail.value ? $t('drawer.help') : undefined"
+            @click="methods.openHelpDialog"
+          >
             <q-item-section avatar>
               <q-icon name="help_outline" size="sm" />
             </q-item-section>
             <q-item-section>{{ $t('drawer.help') }}</q-item-section>
+            <q-tooltip
+              v-if="computedState.isMiniRail.value"
+              anchor="center right"
+              self="center left"
+              :offset="[8, 0]"
+            >
+              {{ $t('drawer.help') }}
+            </q-tooltip>
           </q-item>
         </q-list>
 
         <q-separator />
 
         <q-list dense class="col-auto user-bar-list q-py-md">
-          <q-item clickable v-ripple class="user-bar-item">
+          <q-item
+            clickable
+            v-ripple
+            class="user-bar-item"
+            :aria-label="
+              computedState.isMiniRail.value
+                ? computedState.accountLabel.value
+                : undefined
+            "
+          >
             <q-item-section avatar>
               <q-avatar
                 size="28px"
@@ -241,7 +457,11 @@
                 text-color="white"
                 icon="person"
               >
-                <q-tooltip anchor="top middle" self="bottom middle">
+                <q-tooltip
+                  v-if="!computedState.isMiniRail.value"
+                  anchor="top middle"
+                  self="bottom middle"
+                >
                   {{ $t('drawer.accountMenuTooltip') }}
                 </q-tooltip>
               </q-avatar>
@@ -277,8 +497,20 @@
                 <q-icon name="mdi-chevron-up" size="18px" />
               </div>
             </q-item-section>
+            <q-tooltip
+              v-if="computedState.isMiniRail.value"
+              anchor="center right"
+              self="center left"
+              :offset="[8, 0]"
+            >
+              {{ computedState.accountLabel.value }}
+            </q-tooltip>
 
-            <q-menu anchor="top left" self="bottom left" :offset="[0, 8]">
+            <q-menu
+              :anchor="computedState.isMiniRail.value ? 'center right' : 'top left'"
+              :self="computedState.isMiniRail.value ? 'center left' : 'bottom left'"
+              :offset="computedState.isMiniRail.value ? [8, 0] : [0, 8]"
+            >
               <q-list dense style="min-width: 200px">
                 <q-item
                   clickable
@@ -329,7 +561,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, inject, onMounted } from 'vue';
+import { defineComponent, computed, inject, onMounted, watch } from 'vue';
+import { useQuasar } from 'quasar';
 import { menu } from './menu';
 import { useDrawer } from 'src/composables/use-drawer';
 import { useRouter } from 'vue-router';
@@ -350,6 +583,9 @@ import ChangeLicenseDialog from '@pages/userspace/_components/ChangeLicenseDialo
 import CloudDisconnectDialog from '@pages/userspace/home/_components/cloud/CloudDisconnectDialog.vue';
 import CloseChronicleDialog from './CloseChronicleDialog.vue';
 
+/** Same value as q-drawer breakpoint: rail toggle is desktop-only below this. */
+const DRAWER_BREAKPOINT_PX = 500;
+
 export default defineComponent({
   components: {
     Logo,
@@ -357,6 +593,7 @@ export default defineComponent({
   },
   setup() {
     const drawer = useDrawer();
+    const quasar = useQuasar();
     const router = useRouter();
     const auth = useAuth(router);
     const license = useLicense();
@@ -425,13 +662,34 @@ export default defineComponent({
           ? t('drawer.cloudConnected')
           : t('drawer.cloudDisconnected');
       }),
+      isDesktopDrawer: computed(
+        () => quasar.screen.width >= DRAWER_BREAKPOINT_PX,
+      ),
+      isMiniRail: computed(
+        () => drawer.sharedState.mini && quasar.screen.width >= DRAWER_BREAKPOINT_PX,
+      ),
     };
+
+    watch(
+      () => computedState.isDesktopDrawer.value,
+      (isDesktop) => {
+        if (!isDesktop && drawer.sharedState.mini) {
+          drawer.sharedState.mini = false;
+        }
+      },
+    );
 
     onMounted(() => {
       void cloud.methods.init();
     });
 
     const methods = {
+      toggleMini() {
+        if (!computedState.isDesktopDrawer.value) {
+          return;
+        }
+        drawer.sharedState.mini = !drawer.sharedState.mini;
+      },
       handleCloudIndicatorClick(event: MouseEvent) {
         if (!cloud.sharedState.isAuthenticated) {
           event.stopPropagation();
@@ -527,6 +785,7 @@ export default defineComponent({
       observation,
       chronicleActions,
       chronicleNav,
+      drawerBreakpointPx: DRAWER_BREAKPOINT_PX,
     };
   },
 });
@@ -578,6 +837,40 @@ export default defineComponent({
 
 .user-bar-item {
   min-width: 0;
+}
+
+.is-mini {
+  .chronicle-nav-block {
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+  }
+
+  .chronicle-subitems {
+    box-shadow: none;
+  }
+
+  .chronicle-header-item {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  :deep(.q-item) {
+    min-width: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+    justify-content: center;
+  }
+
+  :deep(.q-item__section--avatar) {
+    min-width: 0;
+    padding-right: 0;
+    justify-content: center;
+  }
+
+  :deep(.q-item__section:not(.q-item__section--avatar)) {
+    display: none;
+  }
 }
 
 </style>

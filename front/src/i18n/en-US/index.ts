@@ -49,6 +49,8 @@ export default {
     accountMenuTooltip: 'Account, license and options',
     cloudConnected: 'Connected to the cloud',
     cloudDisconnected: 'Not connected to the cloud',
+    collapseMenu: 'Collapse menu',
+    expandMenu: 'Expand menu',
   },
   chronicle: {
     home: 'My chronicles',
