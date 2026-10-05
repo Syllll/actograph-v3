@@ -1,8 +1,8 @@
 /**
  * Detection of the wall clock going back (end of daylight saving time) in the
- * device timezone. Readings are floating local datetimes, so readings taken
- * during the repeated period get an approximate time. Forward changes skip
- * wall-clock times without losing information and are ignored here.
+ * device timezone. Readings and durations remain exact across the repeated
+ * period. Forward changes skip wall-clock times without losing information
+ * and are ignored here.
  */
 
 const MINUTE_MS = 60 * 1000;
@@ -81,7 +81,7 @@ export function getClockChangeNotice(nowMs: number): IClockChangeNotice | null {
         phase: 'repeated',
         key: `repeated-${recent.at}`,
         title: `Heure répétée jusqu’à ${end}`,
-        message: `L’horloge a reculé ${formatShift(shift)}. Les relevés faits avant ${end} auront une heure approximative. L’ordre des relevés et l’arrêt restent fiables.`,
+        message: `L’horloge a reculé ${formatShift(shift)}. Vos relevés et leurs durées restent exacts.`,
       };
     }
   }
@@ -96,6 +96,6 @@ export function getClockChangeNotice(nowMs: number): IClockChangeNotice | null {
     phase: 'upcoming',
     key: `upcoming-${upcoming.at}`,
     title: `Changement d’heure dans ${minutes} min`,
-    message: `À ${changeTime}, l’horloge reculera ${formatShift(shift)} (retour à ${backTo}). Les relevés faits entre ${backTo} et ${changeTime} (nouvelle heure) auront une heure approximative. Pour des données exactes, arrêtez l’observation avant ${changeTime} et relancez-la à partir de ${changeTime} (nouvelle heure).`,
+    message: `À ${changeTime}, l’horloge reculera ${formatShift(shift)} (retour à ${backTo}). Vos relevés et leurs durées resteront exacts.`,
   };
 }

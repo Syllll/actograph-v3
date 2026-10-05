@@ -1,6 +1,6 @@
 import { BaseRepository, IBaseEntity } from './base.repository';
 import { sqliteService } from '../sqlite.service';
-import { toAbsoluteDateTimeString } from '@utils/date-time';
+import { toReadingDateTimeString } from '@utils/date-time';
 
 export type ReadingType = 'START' | 'STOP' | 'PAUSE_START' | 'PAUSE_END' | 'DATA';
 
@@ -10,6 +10,10 @@ export interface IReadingEntity extends IBaseEntity {
   name?: string;
   description?: string;
   date: string;
+}
+
+function compareReadingsByInstant(a: IReadingEntity, b: IReadingEntity): number {
+  return new Date(a.date).getTime() - new Date(b.date).getTime() || a.id - b.id;
 }
 
 export class ReadingRepository extends BaseRepository<IReadingEntity> {
@@ -44,10 +48,10 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
   async findByObservationId(observationId: number): Promise<IReadingEntity[]> {
     const sql = `
       SELECT * FROM ${this.tableName} 
-      WHERE observation_id = ? 
-      ORDER BY date ASC, id ASC
+      WHERE observation_id = ?
     `;
-    return sqliteService.query<IReadingEntity>(sql, [observationId]);
+    const readings = await sqliteService.query<IReadingEntity>(sql, [observationId]);
+    return readings.sort(compareReadingsByInstant);
   }
 
   /**
@@ -56,11 +60,11 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
   async findRecentByObservationId(observationId: number, limit = 10): Promise<IReadingEntity[]> {
     const sql = `
       SELECT * FROM ${this.tableName} 
-      WHERE observation_id = ? 
-      ORDER BY date DESC, id DESC 
-      LIMIT ?
+      WHERE observation_id = ?
     `;
-    return sqliteService.query<IReadingEntity>(sql, [observationId, limit]);
+    const readings = await sqliteService.query<IReadingEntity>(sql, [observationId]);
+    // SQLite treats a negative LIMIT as unbounded.
+    return readings.sort((a, b) => compareReadingsByInstant(b, a)).slice(0, limit < 0 ? undefined : limit);
   }
 
   /**
@@ -89,7 +93,7 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
     const result = await sqliteService.run(sql, [
       observationId,
       type,
-      toAbsoluteDateTimeString(date),
+      toReadingDateTimeString(date),
       name,
       description,
     ]);
@@ -108,7 +112,7 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
     if (entries.length === 0) return;
     await sqliteService.executeTransaction(entries.map((entry) => ({
       statement: 'INSERT INTO readings (observation_id, type, date, name, description) VALUES (?, ?, ?, ?, ?)',
-      values: [observationId, entry.type, toAbsoluteDateTimeString(entry.date), entry.name ?? null, entry.description ?? null],
+      values: [observationId, entry.type, toReadingDateTimeString(entry.date), entry.name ?? null, entry.description ?? null],
     })));
   }
 
@@ -167,12 +171,10 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
   async getLastReading(observationId: number): Promise<IReadingEntity | null> {
     const sql = `
       SELECT * FROM ${this.tableName} 
-      WHERE observation_id = ? 
-      ORDER BY date DESC, id DESC 
-      LIMIT 1
+      WHERE observation_id = ?
     `;
     const results = await sqliteService.query<IReadingEntity>(sql, [observationId]);
-    return results[0] ?? null;
+    return results.sort((a, b) => compareReadingsByInstant(b, a))[0] ?? null;
   }
 
   /**
@@ -183,14 +185,11 @@ export class ReadingRepository extends BaseRepository<IReadingEntity> {
     const sql = `
       SELECT * FROM ${this.tableName}
       WHERE observation_id = ? AND type IN ('START', 'STOP')
-      ORDER BY date DESC, id DESC
-      LIMIT 1
     `;
     const results = await sqliteService.query<IReadingEntity>(sql, [observationId]);
-    return results[0] ?? null;
+    return results.sort((a, b) => compareReadingsByInstant(b, a))[0] ?? null;
   }
 }
 
 // Singleton instance
 export const readingRepository = new ReadingRepository();
-

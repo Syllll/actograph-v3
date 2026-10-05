@@ -436,4 +436,10 @@ yarn lint
 
 Les tests réutilisent Jest/ts-jest de `packages/core` et SQL.js fourni par la dépendance SQLite. Ils exécutent les migrations et repositories mobiles dans une base éphémère pour vérifier les sessions successives, l’arrêt en pause, les écritures atomiques, les renommages historiques, l’édition annulable, l’import et la disposition adaptative. Ils ne remplacent pas les essais Android/iOS sur appareil.
 
+`yarn test` lance ces régressions dans deux processus distincts, avec les fuseaux `Europe/Paris` et `America/Toronto`, pour vérifier les changements d’heure et le mélange de dates locales et UTC.
+
+Les relevés conservent normalement une date locale sans fuseau (`2026-10-25T02:10:00.000`). Lors du second passage d’une heure répétée, ils utilisent UTC (`2026-10-25T01:10:00.000Z` à Paris) afin de préserver l’instant et les durées. Le tri et la recherche du dernier relevé comparent les instants, puis les identifiants en cas d’égalité. Les corrections automatiques utilisent la même sérialisation. Le garde-fou contre une horloge réellement corrigée vers le passé compare lui aussi les instants ; il ne décale aucun relevé lors d’un changement d’heure normal.
+
+Une date saisie sans fuseau pendant l’heure répétée reste ambiguë et désigne le premier passage. Les anciennes données approximatives ne sont pas réécrites.
+
 Les noms d’observables sont uniques dans tout le protocole, car les fichiers et relevés les référencent par nom. Un renommage met à jour les relevés de la chronique dans la même transaction. La suppression d’un élément déjà utilisé est refusée : dupliquez la chronique sans relevés pour créer une variante du protocole.

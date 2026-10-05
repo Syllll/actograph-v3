@@ -13,7 +13,6 @@ import {
   type ReadingType,
 } from '@database/repositories/reading.repository';
 import { computeNextDuplicateName } from '@utils/chronicle-name';
-import { toAbsoluteDateTimeString } from '@utils/date-time';
 
 export interface IObservationFull {
   observation: IObservationEntity;
@@ -38,15 +37,14 @@ export interface ICreateObservationInput {
 }
 
 /**
- * Readings are floating local datetimes. When DST ends the wall clock goes back
- * one hour, and a new reading would sort before the ones already recorded
- * (a STOP before its START would leave the session open). Live writes are
- * therefore never dated before the latest reading of the chronicle.
+ * Compare actual instants, since readings can contain local or UTC dates.
+ * DST changes do not need any adjustment. Keep the ordering guard only for
+ * genuine clock corrections or a chronicle containing a future reading.
  */
 async function nextLiveDate(observationId: number): Promise<Date> {
   const now = new Date();
   const last = await readingRepository.getLastReading(observationId);
-  if (!last || toAbsoluteDateTimeString(now) >= last.date) return now;
+  if (!last || now.getTime() >= new Date(last.date).getTime()) return now;
   return new Date(new Date(last.date).getTime() + 1);
 }
 

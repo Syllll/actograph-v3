@@ -1,5 +1,6 @@
-// Readings are floating local datetimes: clock change tests need a fixed DST timezone.
-process.env.TZ = 'Europe/Paris';
+// Direct Jest invocations default to Paris; the test wrapper overrides this
+// with each target timezone in separate child processes.
+process.env.TZ ||= 'Europe/Paris';
 
 module.exports = {
   testEnvironment: 'node',

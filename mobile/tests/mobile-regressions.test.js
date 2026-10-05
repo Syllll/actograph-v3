@@ -273,6 +273,164 @@ test('import keeps reading comments and inserts readings atomically', async () =
   expect(db.exec('SELECT COUNT(*) FROM readings')[0].values[0][0]).toBe(6);
 });
 
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const isParis = timezone === 'Europe/Paris';
+const isToronto = timezone === 'America/Toronto';
+const parisTest = isParis ? test : test.skip;
+const torontoTest = isToronto ? test : test.skip;
+
+test('UTC storage covers exactly the second occurrence, including its boundaries', () => {
+  const { toReadingDateTimeString } = require('../src/utils/date-time');
+  const transition = Date.parse(isToronto ? '2026-11-01T06:00:00.000Z' : '2026-10-25T01:00:00.000Z');
+  for (const [offset, expectUtc] of [[-3600000, false], [-1, false], [0, true], [3599999, true], [3600000, false]]) {
+    const instant = new Date(transition + offset);
+    const stored = toReadingDateTimeString(instant);
+    expect(stored.endsWith('Z')).toBe(expectUtc);
+    expect(new Date(stored).getTime()).toBe(instant.getTime());
+  }
+});
+
+test('ordinary live readings keep the local wall-clock storage format', async () => {
+  const observation = await sample();
+  jest.useFakeTimers().setSystemTime(new Date('2026-02-01T09:15:30.123Z'));
+  await observationService.startRecording(observation.id, ['Assis']);
+  const readings = await observationService.getReadings(observation.id);
+  const expectedLocalDate = isToronto
+    ? '2026-02-01T04:15:30.123'
+    : '2026-02-01T10:15:30.123';
+  expect(readings.map((reading) => reading.date)).toEqual([expectedLocalDate, expectedLocalDate]);
+});
+
+parisTest('Paris fall-back session preserves instants and elapsed time across the repeated hour', async () => {
+  const observation = await sample();
+  jest.useFakeTimers().setSystemTime(new Date('2026-10-25T00:50:00.000Z'));
+  await observationService.startRecording(observation.id, ['Assis']);
+  jest.setSystemTime(new Date('2026-10-25T01:05:00.000Z'));
+  await observationService.pauseRecording(observation.id);
+  jest.setSystemTime(new Date('2026-10-25T01:20:00.000Z'));
+  await observationService.resumeRecording(observation.id);
+  jest.setSystemTime(new Date('2026-10-25T01:30:00.000Z'));
+  await observationService.addComment(observation.id, 'Passage répété');
+  jest.setSystemTime(new Date('2026-10-25T01:45:00.000Z'));
+  await observationService.stopRecording(observation.id);
+
+  const readings = await observationService.getReadings(observation.id);
+  expect(readings.map(({ type }) => type)).toEqual([
+    'START', 'DATA', 'PAUSE_START', 'PAUSE_END', 'DATA', 'STOP',
+  ]);
+  expect(readings.slice(2).every(({ date }) => date.endsWith('Z'))).toBe(true);
+  expect(readings.slice(0, 2).every(({ date }) => !date.endsWith('Z'))).toBe(true);
+  const instants = readings.map(({ date }) => new Date(date).getTime());
+  expect(instants).toEqual([
+    Date.parse('2026-10-25T00:50:00.000Z'),
+    Date.parse('2026-10-25T00:50:00.000Z'),
+    Date.parse('2026-10-25T01:05:00.000Z'),
+    Date.parse('2026-10-25T01:20:00.000Z'),
+    Date.parse('2026-10-25T01:30:00.000Z'),
+    Date.parse('2026-10-25T01:45:00.000Z'),
+  ]);
+
+  const activeDuration = (instants[2] - instants[0]) + (instants[5] - instants[3]);
+  const pausedDuration = instants[3] - instants[2];
+  expect(activeDuration).toBe(40 * 60 * 1000);
+  expect(pausedDuration).toBe(15 * 60 * 1000);
+
+  const { calculateGeneralStatistics } = require('../../packages/core/src/statistics/general-statistics');
+  const stats = calculateGeneralStatistics(readings.map((reading) => ({
+    id: reading.id,
+    name: reading.name ?? null,
+    description: reading.description ?? null,
+    type: reading.type.toLowerCase(),
+    dateTime: new Date(reading.date),
+  })), []);
+  expect(stats).toMatchObject({
+    totalDuration: 55 * 60 * 1000,
+    pauseDuration: 15 * 60 * 1000,
+    observationDuration: 40 * 60 * 1000,
+    pauseCount: 1,
+  });
+});
+
+parisTest('spring-forward session duration remains elapsed-time accurate', async () => {
+  const observation = await sample();
+  jest.useFakeTimers().setSystemTime(new Date('2026-03-29T00:50:00.000Z'));
+  await observationService.startRecording(observation.id, ['Assis']);
+  jest.setSystemTime(new Date('2026-03-29T01:10:00.000Z'));
+  await observationService.stopRecording(observation.id);
+  const readings = await observationService.getReadings(observation.id);
+  expect(readings.map(({ date }) => date)).toEqual([
+    '2026-03-29T01:50:00.000',
+    '2026-03-29T01:50:00.000',
+    '2026-03-29T03:10:00.000',
+  ]);
+  expect(new Date(readings[2].date).getTime() - new Date(readings[0].date).getTime())
+    .toBe(20 * 60 * 1000);
+});
+
+parisTest('Jchronic import keeps UTC instants during Paris repeated hour', async () => {
+  const observation = await sample();
+  const exported = JSON.parse((await exportService.exportToJchronic(observation.id)).content);
+  exported.readings = [
+    { type: 'start', dateTime: '2026-10-25T01:05:00.000Z' },
+    { type: 'data', name: 'Assis', dateTime: '2026-10-25T01:06:00.000Z' },
+    { type: 'stop', dateTime: '2026-10-25T01:10:00.000Z' },
+  ];
+  const imported = await importService.importJchronic(JSON.stringify(exported), 'second-passage.jchronic');
+  expect(imported.success).toBe(true);
+  expect((await observationService.getReadings(imported.observationId)).map(({ date }) => date)).toEqual([
+    '2026-10-25T01:05:00.000Z',
+    '2026-10-25T01:06:00.000Z',
+    '2026-10-25T01:10:00.000Z',
+  ]);
+});
+
+parisTest('automatic correction serializes a repositioned reading in the repeated passage', async () => {
+  const observation = await sample();
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'START', ?)", [observation.id, '2026-10-25T01:10:00.000Z']);
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'STOP', ?)", [observation.id, '2026-10-25T01:15:00.000Z']);
+  db.run("INSERT INTO readings (observation_id, type, date, name) VALUES (?, 'DATA', ?, 'Assis')", [observation.id, '2026-10-25T01:20:00.000Z']);
+  const { autoCorrectReadings } = require('../src/composables/use-readings-auto-correct');
+  await autoCorrectReadings(observation.id);
+  const readings = await observationService.getReadings(observation.id);
+  expect(readings.map(({ type }) => type)).toEqual(['START', 'DATA', 'STOP']);
+  expect(readings.map(({ date }) => date)).toEqual([
+    '2026-10-25T01:10:00.000Z',
+    '2026-10-25T01:20:00.000Z',
+    '2026-10-25T01:20:00.001Z',
+  ]);
+});
+
+test('mixed wall-clock and imported UTC readings are ordered by instant, then ID', async () => {
+  const observation = await sample();
+  // In Toronto, the wall-clock value resolves to 15:00Z and the imported UTC
+  // value to 14:00Z, while lexical ordering puts the wall-clock text first.
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'START', ?)", [observation.id, '2026-01-01T10:00:00.000']);
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'STOP', ?)", [observation.id, '2026-01-01T14:00:00.000Z']);
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'DATA', ?)", [observation.id, '2026-01-01T15:00:00.000Z']);
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'PAUSE_START', ?)", [observation.id, '2026-01-01T10:00:00.000']);
+
+  const byInstant = await readingRepository.findByObservationId(observation.id);
+  const expectedAscendingIds = isToronto ? [2, 1, 3, 4] : [1, 4, 2, 3];
+  const expectedRecentIds = [...expectedAscendingIds].reverse();
+  expect(byInstant.map(({ id }) => id)).toEqual(expectedAscendingIds);
+  expect((await readingRepository.findRecentByObservationId(observation.id, 2)).map(({ id }) => id))
+    .toEqual(expectedRecentIds.slice(0, 2));
+  expect((await readingRepository.findRecentByObservationId(observation.id, -1)).map(({ id }) => id))
+    .toEqual(expectedRecentIds);
+  expect((await readingRepository.getLastReading(observation.id)).id).toBe(expectedAscendingIds.at(-1));
+  expect((await readingRepository.getLastStartOrStop(observation.id)).id)
+    .toBe(isToronto ? 1 : 2);
+});
+
+torontoTest('continuing an imported UTC chronicle in Toronto uses the real current instant', async () => {
+  const observation = await sample();
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'START', ?)", [observation.id, '2026-10-25T12:00:00.000Z']);
+  jest.useFakeTimers().setSystemTime(new Date('2026-10-25T13:00:00.000Z'));
+  await observationService.toggleObservable(observation.id, 'Assis');
+  const readings = await observationService.getReadings(observation.id);
+  expect(new Date(readings[1].date).getTime()).toBe(Date.parse('2026-10-25T13:00:00.000Z'));
+});
+
 test('file names keep readable ASCII and a chronicle extension', () => {
   expect(toSafeFileStem('Séance été')).toBe('Seance_ete');
   expect(toSafeFileStem('???')).toBe('chronique');
@@ -280,16 +438,18 @@ test('file names keep readable ASCII and a chronicle extension', () => {
   expect(toChronicleFileName('dossier/ancien.CHRONIC', false)).toBe('dossier_ancien.chronic');
 });
 
-test('a wall clock going back (end of DST) cannot reorder a live session', async () => {
+test('a genuine backwards system-clock adjustment cannot reorder a live session', async () => {
   const observation = await sample();
   const { toAbsoluteDateTimeString } = require('../src/utils/date-time');
+  jest.useFakeTimers().setSystemTime(new Date('2026-01-01T10:00:00.000Z'));
   const later = toAbsoluteDateTimeString(new Date(Date.now() + 3600 * 1000));
   db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'START', ?)", [observation.id, later]);
   await observationService.toggleObservable(observation.id, 'Assis');
   await observationService.stopRecording(observation.id);
   const readings = await observationService.getReadings(observation.id);
   expect(readings.map((r) => r.type)).toEqual(['START', 'DATA', 'STOP']);
-  expect(readings[1].date > later && readings[2].date > readings[1].date).toBe(true);
+  expect(new Date(readings[1].date).getTime()).toBe(new Date(later).getTime() + 1);
+  expect(new Date(readings[2].date).getTime()).toBe(new Date(later).getTime() + 2);
   expect(await observationService.isRecording(observation.id)).toBe(false);
 });
 
@@ -329,7 +489,7 @@ test('deleting a chronicle removes its protocol and readings only', async () => 
   expect(db.exec('SELECT COUNT(*) FROM protocol_items')[0].values[0][0]).toBe(5);
 });
 
-test('clock change notice: an hour before the clock goes back, then during the repeated hour', () => {
+parisTest('clock change notice: an hour before the clock goes back, then during the repeated hour', () => {
   const { getClockChangeNotice } = require('../src/utils/clock-change');
   const at = (iso) => getClockChangeNotice(new Date(iso).getTime());
   expect(at('2026-10-24T23:59:00Z')).toBeNull();
