@@ -6,6 +6,7 @@ import {
   getActiveRecordingElapsedMs,
   isRecordingActiveFromReadings,
   isRecordingPausedFromReadings,
+  getObservationTimeZone,
 } from '@actograph/core';
 import { observationService } from '@services/observation.service';
 import type { IProtocolItemWithChildren } from '@database/repositories/protocol.repository';
@@ -76,7 +77,7 @@ export const useChronicle = () => {
     }
     if (isCalendarMode.value) {
       const now = sharedState.currentDate || new Date();
-      return toAbsoluteTimeString(now, false);
+      return toAbsoluteTimeString(now, false, getObservationTimeZone(sharedState.currentChronicle?.meta));
     }
 
     const seconds = sharedState.elapsedTime;

@@ -127,7 +127,9 @@ class ExportService {
           name: r.name,
           description: r.description,
           type: this.mapReadingType(r.type),
-          dateTime: r.date,
+          // Normalize legacy local dates too, so a transfer to another device
+          // preserves the instants currently interpreted by this phone.
+          dateTime: new Date(r.date).toISOString(),
         })),
       };
 

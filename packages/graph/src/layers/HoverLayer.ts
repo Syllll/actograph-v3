@@ -27,6 +27,7 @@ import {
   formatFromDate,
   formatCalendarFixed,
   formatChronometerFixed,
+  formatCalendarAutoHover,
 } from '../utils/duration.utils';
 import { CHRONOMETER_T0 } from '../utils/chronometer.constants';
 import { safeMoveTo, safeRect } from '../utils/safe-graphics.utils';
@@ -299,22 +300,12 @@ export class HoverLayer extends BaseLayer {
     if (timeDisplayFormat !== TimeDisplayFormatEnum.Auto) {
       return isChronometer
         ? formatChronometerFixed(dateTime, CHRONOMETER_T0, timeDisplayFormat)
-        : formatCalendarFixed(dateTime, timeDisplayFormat);
+        : formatCalendarFixed(dateTime, timeDisplayFormat, this.graphRenderOptions.timeZone);
     }
     if (isChronometer) {
       return formatFromDate(dateTime, CHRONOMETER_T0);
     }
-    return dateTime
-      .toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        fractionalSecondDigits: 3,
-      })
-      .replace(/\//g, '-');
+    return formatCalendarAutoHover(dateTime, this.graphRenderOptions.timeZone);
   }
 
   private isClientPointInsidePlot(clientX: number, clientY: number): boolean {

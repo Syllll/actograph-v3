@@ -30,6 +30,17 @@ describe('hasGraphRenderOptionsChanged', () => {
       ),
     ).toBe(true);
   });
+
+  it('treats a calendar timezone change as a label-only change', () => {
+    expect(hasGraphRenderOptionsChanged(
+      { timeZone: 'Europe/Paris' },
+      { timeZone: 'America/Toronto' },
+    )).toBe(true);
+    expect(isTimeFormatOnlyChange(
+      { timeZone: 'Europe/Paris' },
+      { timeZone: 'America/Toronto' },
+    )).toBe(true);
+  });
 });
 
 describe('isTimeFormatOnlyChange', () => {

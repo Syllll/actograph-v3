@@ -218,6 +218,7 @@ export interface IMobileObservation {
   description?: string | null;
   type?: string;
   mode?: string; // 'Calendar' | 'Chronometer'
+  meta?: Record<string, unknown> | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -314,6 +315,7 @@ export function convertMobileObservation(
     description: observation.description || undefined,
     type: ObservationType.Normal,
     mode: inferObservationModeFromMobileReadings(observation.mode, readings),
+    meta: observation.meta ?? undefined,
     protocol,
     readings: convertMobileReadings(readings),
   };

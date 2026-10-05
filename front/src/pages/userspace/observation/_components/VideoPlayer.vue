@@ -134,6 +134,7 @@ import { IReading, ObservationModeEnum, ReadingTypeEnum } from '@services/observ
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { pauseObservationWithFeedback } from './observation-session-actions';
+import { getObservationTimeZone } from '@actograph/core';
 
 export default defineComponent({
   name: 'VideoPlayer',
@@ -818,7 +819,12 @@ export default defineComponent({
         if (observation.isChronometerMode.value) {
           return observation.chronometerMethods.formatDateAsDuration(readingDate);
         }
-        return readingDate.toLocaleString();
+        const timeZone = getObservationTimeZone(
+          observation.sharedState.currentObservation?.meta,
+        );
+        return timeZone
+          ? readingDate.toLocaleString(undefined, { timeZone })
+          : readingDate.toLocaleString();
       },
 
       handleNotchClick: (reading: IReading) => {

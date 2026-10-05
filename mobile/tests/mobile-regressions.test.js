@@ -42,7 +42,7 @@ beforeEach(async () => {
   await sqliteService.runMigrations();
   db.run('PRAGMA foreign_keys = ON');
 });
-afterEach(() => { useChronicle().methods.unloadChronicle(); delete global.window; delete global.requestAnimationFrame; db.close(); jest.useRealTimers(); });
+afterEach(() => { jest.restoreAllMocks(); useChronicle().methods.unloadChronicle(); delete global.window; delete global.requestAnimationFrame; db.close(); jest.useRealTimers(); });
 
 async function sample() {
   return observationService.create({ name: 'Terrain', protocol: { categories: [
@@ -279,55 +279,165 @@ const isToronto = timezone === 'America/Toronto';
 const parisTest = isParis ? test : test.skip;
 const torontoTest = isToronto ? test : test.skip;
 
-test('UTC storage covers exactly the second occurrence, including its boundaries', () => {
+test('UTC storage preserves exact instants across both occurrences and their boundaries', () => {
   const { toReadingDateTimeString } = require('../src/utils/date-time');
   const transition = Date.parse(isToronto ? '2026-11-01T06:00:00.000Z' : '2026-10-25T01:00:00.000Z');
-  for (const [offset, expectUtc] of [[-3600000, false], [-1, false], [0, true], [3599999, true], [3600000, false]]) {
+  for (const offset of [-3600000, -1, 0, 3599999, 3600000]) {
     const instant = new Date(transition + offset);
     const stored = toReadingDateTimeString(instant);
-    expect(stored.endsWith('Z')).toBe(expectUtc);
+    expect(stored).toBe(instant.toISOString());
     expect(new Date(stored).getTime()).toBe(instant.getTime());
   }
 });
 
-test('ordinary live readings keep the local wall-clock storage format', async () => {
+test('ordinary live readings store UTC while showing the phone local time', async () => {
   const observation = await sample();
   jest.useFakeTimers().setSystemTime(new Date('2026-02-01T09:15:30.123Z'));
   await observationService.startRecording(observation.id, ['Assis']);
   const readings = await observationService.getReadings(observation.id);
-  const expectedLocalDate = isToronto
-    ? '2026-02-01T04:15:30.123'
-    : '2026-02-01T10:15:30.123';
-  expect(readings.map((reading) => reading.date)).toEqual([expectedLocalDate, expectedLocalDate]);
+  expect(readings.map((reading) => reading.date)).toEqual([
+    '2026-02-01T09:15:30.123Z',
+    '2026-02-01T09:15:30.123Z',
+  ]);
+  const { toAbsoluteTimeString } = require('../src/utils/date-time');
+  expect(toAbsoluteTimeString(readings[0].date, true)).toBe(isToronto ? '04:15:30.123' : '10:15:30.123');
 });
 
-parisTest('Paris fall-back session preserves instants and elapsed time across the repeated hour', async () => {
+test('new chronicles record the device timezone and retain caller metadata', async () => {
+  const localZone = require('../../packages/core/src/utils/observation-time-zone').getLocalTimeZone();
+  const observation = await observationService.create({
+    name: 'Zone origine',
+    meta: { timeZone: 'America/Los_Angeles', importedMarker: { source: 'test' } },
+  });
+  expect(observation.meta).toEqual({
+    timeZone: localZone,
+    importedMarker: { source: 'test' },
+  });
+});
+
+test('Jchronic and cloud round-trips preserve origin timezone, unknown metadata, and UTC readings', async () => {
   const observation = await sample();
-  jest.useFakeTimers().setSystemTime(new Date('2026-10-25T00:50:00.000Z'));
+  const originZone = isToronto ? 'Europe/Paris' : 'America/Los_Angeles';
+  await observationService.updateMeta(observation.id, {
+    timeZone: originZone,
+    vendorMetadata: { retained: true, revision: 7 },
+  });
+  jest.useFakeTimers().setSystemTime(new Date('2026-02-01T09:15:30.123Z'));
   await observationService.startRecording(observation.id, ['Assis']);
-  jest.setSystemTime(new Date('2026-10-25T01:05:00.000Z'));
+  jest.setSystemTime(new Date('2026-02-01T09:16:30.123Z'));
+  await observationService.stopRecording(observation.id);
+
+  const exported = await exportService.exportToJchronic(observation.id);
+  const payload = JSON.parse(exported.content);
+  expect(payload.observation.meta).toMatchObject({
+    timeZone: originZone,
+    vendorMetadata: { retained: true, revision: 7 },
+  });
+  expect(payload.readings.map(({ dateTime }) => dateTime)).toEqual([
+    '2026-02-01T09:15:30.123Z',
+    '2026-02-01T09:15:30.123Z',
+    '2026-02-01T09:16:30.123Z',
+  ]);
+
+  const { actographCloudService } = require('../src/services/actograph-cloud.service');
+  const upload = jest.spyOn(actographCloudService, 'uploadChronicle').mockResolvedValue({ success: true });
+  const download = jest.spyOn(actographCloudService, 'downloadChronicle').mockResolvedValue({ success: true, content: exported.content });
+  const cloud = require('../src/composables/use-cloud').useCloud();
+  cloud.sharedState.isAuthenticated = false;
+  expect(await cloud.methods.uploadChronicle(observation.id)).toMatchObject({ success: true });
+  expect(upload).toHaveBeenCalledTimes(1);
+  const uploadedPayload = JSON.parse(upload.mock.calls[0][2]);
+  expect(uploadedPayload.observation.meta).toMatchObject({ timeZone: originZone, vendorMetadata: { retained: true, revision: 7 } });
+  expect(uploadedPayload.readings.map(({ dateTime }) => dateTime)).toEqual(payload.readings.map(({ dateTime }) => dateTime));
+
+  const downloaded = await cloud.methods.downloadChronicle({
+    id: 42,
+    name: 'origine.jchronic',
+    createdAt: '',
+    updatedAt: '',
+    isJchronic: true,
+  });
+  expect(download).toHaveBeenCalledWith(42, { binary: false });
+  expect(downloaded.success).toBe(true);
+  const imported = await observationService.getById(downloaded.observationId);
+  expect(imported.observation.meta).toMatchObject({
+    timeZone: originZone,
+    vendorMetadata: { retained: true, revision: 7 },
+  });
+  expect(imported.readings.map(({ date }) => date)).toEqual(payload.readings.map(({ dateTime }) => dateTime));
+});
+
+test('legacy Jchronic chronicle without origin keeps its missing timezone when continued', async () => {
+  const observation = await sample();
+  const payload = JSON.parse((await exportService.exportToJchronic(observation.id)).content);
+  delete payload.observation.meta;
+  payload.readings = [{ type: 'start', dateTime: '2026-02-01T09:15:30.123Z' }];
+  const imported = await importService.importJchronic(JSON.stringify(payload), 'legacy.jchronic');
+  expect(imported.success).toBe(true);
+  jest.useFakeTimers().setSystemTime(new Date('2026-02-01T09:16:30.123Z'));
+  await observationService.toggleObservable(imported.observationId, 'Assis');
+  expect((await observationService.getById(imported.observationId)).observation.meta).toBeNull();
+  expect((await observationService.getReadings(imported.observationId)).map(({ date }) => date)).toEqual([
+    '2026-02-01T09:15:30.123Z',
+    '2026-02-01T09:16:30.123Z',
+  ]);
+});
+
+test('duplicating for a new session resets origin timezone to the current device zone', async () => {
+  const observation = await sample();
+  await observationService.updateMeta(observation.id, {
+    timeZone: isToronto ? 'Europe/Paris' : 'America/Los_Angeles',
+    vendorMetadata: { retained: true },
+  });
+  const duplicate = await observationService.duplicateWithoutReadings(observation.id);
+  expect(duplicate.meta).toMatchObject({
+    timeZone: require('../../packages/core/src/utils/observation-time-zone').getLocalTimeZone(),
+    vendorMetadata: { retained: true },
+  });
+  expect(await observationService.getReadings(duplicate.id)).toEqual([]);
+});
+
+test('chronicle clock and date formatter use the chronicle origin timezone', async () => {
+  const observation = await sample();
+  await observationService.updateMeta(observation.id, { timeZone: 'Asia/Tokyo' });
+  jest.useFakeTimers().setSystemTime(new Date('2026-02-01T09:15:30.123Z'));
+  global.window = { setInterval, clearInterval };
+  const chronicle = useChronicle();
+  await chronicle.methods.loadChronicle(observation.id);
+  await chronicle.methods.startRecording(['Assis']);
+  expect(chronicle.sharedState.currentChronicle.meta.timeZone).toBe('Asia/Tokyo');
+  expect(chronicle.formattedTime.value).toBe('18:15:30');
+  const { toAbsoluteTimeString } = require('../src/utils/date-time');
+  expect(toAbsoluteTimeString('2026-02-01T09:15:30.123Z', true, 'Asia/Tokyo')).toBe('18:15:30.123');
+});
+
+test('fall-back session preserves instants and exact durations in UTC', async () => {
+  const observation = await sample();
+  const transition = Date.parse(isToronto ? '2026-11-01T06:00:00.000Z' : '2026-10-25T01:00:00.000Z');
+  jest.useFakeTimers().setSystemTime(new Date(transition - 10 * 60 * 1000));
+  await observationService.startRecording(observation.id, ['Assis']);
+  jest.setSystemTime(new Date(transition + 5 * 60 * 1000));
   await observationService.pauseRecording(observation.id);
-  jest.setSystemTime(new Date('2026-10-25T01:20:00.000Z'));
+  jest.setSystemTime(new Date(transition + 20 * 60 * 1000));
   await observationService.resumeRecording(observation.id);
-  jest.setSystemTime(new Date('2026-10-25T01:30:00.000Z'));
+  jest.setSystemTime(new Date(transition + 30 * 60 * 1000));
   await observationService.addComment(observation.id, 'Passage répété');
-  jest.setSystemTime(new Date('2026-10-25T01:45:00.000Z'));
+  jest.setSystemTime(new Date(transition + 45 * 60 * 1000));
   await observationService.stopRecording(observation.id);
 
   const readings = await observationService.getReadings(observation.id);
   expect(readings.map(({ type }) => type)).toEqual([
     'START', 'DATA', 'PAUSE_START', 'PAUSE_END', 'DATA', 'STOP',
   ]);
-  expect(readings.slice(2).every(({ date }) => date.endsWith('Z'))).toBe(true);
-  expect(readings.slice(0, 2).every(({ date }) => !date.endsWith('Z'))).toBe(true);
+  expect(readings.every(({ date }) => date.endsWith('Z'))).toBe(true);
   const instants = readings.map(({ date }) => new Date(date).getTime());
   expect(instants).toEqual([
-    Date.parse('2026-10-25T00:50:00.000Z'),
-    Date.parse('2026-10-25T00:50:00.000Z'),
-    Date.parse('2026-10-25T01:05:00.000Z'),
-    Date.parse('2026-10-25T01:20:00.000Z'),
-    Date.parse('2026-10-25T01:30:00.000Z'),
-    Date.parse('2026-10-25T01:45:00.000Z'),
+    transition - 10 * 60 * 1000,
+    transition - 10 * 60 * 1000,
+    transition + 5 * 60 * 1000,
+    transition + 20 * 60 * 1000,
+    transition + 30 * 60 * 1000,
+    transition + 45 * 60 * 1000,
   ]);
 
   const activeDuration = (instants[2] - instants[0]) + (instants[5] - instants[3]);
@@ -351,23 +461,24 @@ parisTest('Paris fall-back session preserves instants and elapsed time across th
   });
 });
 
-parisTest('spring-forward session duration remains elapsed-time accurate', async () => {
+test('spring-forward session duration remains elapsed-time accurate in UTC', async () => {
   const observation = await sample();
-  jest.useFakeTimers().setSystemTime(new Date('2026-03-29T00:50:00.000Z'));
+  const transition = Date.parse(isToronto ? '2026-03-08T07:00:00.000Z' : '2026-03-29T01:00:00.000Z');
+  jest.useFakeTimers().setSystemTime(new Date(transition - 10 * 60 * 1000));
   await observationService.startRecording(observation.id, ['Assis']);
-  jest.setSystemTime(new Date('2026-03-29T01:10:00.000Z'));
+  jest.setSystemTime(new Date(transition + 10 * 60 * 1000));
   await observationService.stopRecording(observation.id);
   const readings = await observationService.getReadings(observation.id);
   expect(readings.map(({ date }) => date)).toEqual([
-    '2026-03-29T01:50:00.000',
-    '2026-03-29T01:50:00.000',
-    '2026-03-29T03:10:00.000',
+    new Date(transition - 10 * 60 * 1000).toISOString(),
+    new Date(transition - 10 * 60 * 1000).toISOString(),
+    new Date(transition + 10 * 60 * 1000).toISOString(),
   ]);
   expect(new Date(readings[2].date).getTime() - new Date(readings[0].date).getTime())
     .toBe(20 * 60 * 1000);
 });
 
-parisTest('Jchronic import keeps UTC instants during Paris repeated hour', async () => {
+test('Jchronic import keeps UTC instants during a repeated hour from another zone', async () => {
   const observation = await sample();
   const exported = JSON.parse((await exportService.exportToJchronic(observation.id)).content);
   exported.readings = [
@@ -384,7 +495,7 @@ parisTest('Jchronic import keeps UTC instants during Paris repeated hour', async
   ]);
 });
 
-parisTest('automatic correction serializes a repositioned reading in the repeated passage', async () => {
+test('automatic correction serializes a repositioned reading in UTC', async () => {
   const observation = await sample();
   db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'START', ?)", [observation.id, '2026-10-25T01:10:00.000Z']);
   db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'STOP', ?)", [observation.id, '2026-10-25T01:15:00.000Z']);
@@ -420,6 +531,94 @@ test('mixed wall-clock and imported UTC readings are ordered by instant, then ID
   expect((await readingRepository.getLastReading(observation.id)).id).toBe(expectedAscendingIds.at(-1));
   expect((await readingRepository.getLastStartOrStop(observation.id)).id)
     .toBe(isToronto ? 1 : 2);
+});
+
+test('legacy wall-clock and new UTC readings retain exact mixed-format durations', async () => {
+  const observation = await sample();
+  const wallDate = '2026-01-01T10:00:00.000';
+  const startInstant = new Date(wallDate).getTime();
+  const stopInstant = startInstant + 2 * 60 * 60 * 1000;
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'START', ?)", [observation.id, wallDate]);
+  db.run("INSERT INTO readings (observation_id, type, date, name) VALUES (?, 'DATA', ?, 'Assis')", [observation.id, wallDate]);
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'STOP', ?)", [observation.id, new Date(stopInstant).toISOString()]);
+
+  const readings = await observationService.getReadings(observation.id);
+  expect(readings.map(({ type }) => type)).toEqual(['START', 'DATA', 'STOP']);
+  expect(new Date(readings[0].date).getTime()).toBe(startInstant);
+  expect(new Date(readings[2].date).getTime()).toBe(stopInstant);
+  const { calculateGeneralStatistics } = require('../../packages/core/src/statistics/general-statistics');
+  const stats = calculateGeneralStatistics(readings.map((reading) => ({
+    id: reading.id,
+    name: reading.name ?? null,
+    description: reading.description ?? null,
+    type: reading.type.toLowerCase(),
+    dateTime: new Date(reading.date),
+  })), []);
+  expect(stats.totalDuration).toBe(2 * 60 * 60 * 1000);
+});
+
+test('Jchronic export normalizes mixed legacy dates to UTC without mutating storage or inventing origin metadata', async () => {
+  const observation = await sample();
+  const importedPayload = JSON.parse((await exportService.exportToJchronic(observation.id)).content);
+  delete importedPayload.observation.meta;
+  importedPayload.readings = [];
+  const imported = await importService.importJchronic(JSON.stringify(importedPayload), 'old-no-origin.jchronic');
+  expect(imported.success).toBe(true);
+  const legacyObservationId = imported.observationId;
+  const wallDate = '2026-01-01T10:00:00.000';
+  const startInstant = new Date(wallDate).getTime();
+  const stopInstant = startInstant + 2 * 60 * 60 * 1000;
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'START', ?)", [legacyObservationId, wallDate]);
+  db.run("INSERT INTO readings (observation_id, type, date, name) VALUES (?, 'DATA', ?, 'Assis')", [legacyObservationId, wallDate]);
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'STOP', ?)", [legacyObservationId, new Date(stopInstant).toISOString()]);
+
+  const beforeExport = await observationService.getById(legacyObservationId);
+  expect(beforeExport.observation.meta).toBeNull();
+  const exported = JSON.parse((await exportService.exportToJchronic(legacyObservationId)).content);
+  expect(Object.hasOwn(exported.observation, 'meta')).toBe(false);
+  expect(exported.readings.map(({ dateTime }) => dateTime)).toEqual([
+    new Date(startInstant).toISOString(),
+    new Date(startInstant).toISOString(),
+    new Date(stopInstant).toISOString(),
+  ]);
+  expect((await observationService.getReadings(legacyObservationId)).map(({ date }) => date)).toEqual([
+    wallDate,
+    wallDate,
+    new Date(stopInstant).toISOString(),
+  ]);
+
+  const roundTrip = await importService.importJchronic(JSON.stringify(exported), 'portable-utc.jchronic');
+  expect(roundTrip.success).toBe(true);
+  const roundTripData = await observationService.getById(roundTrip.observationId);
+  expect(roundTripData.observation.meta).toBeNull();
+  expect(roundTripData.readings.map(({ date }) => date)).toEqual(exported.readings.map(({ dateTime }) => dateTime));
+  const { calculateGeneralStatistics } = require('../../packages/core/src/statistics/general-statistics');
+  const stats = calculateGeneralStatistics(roundTripData.readings.map((reading) => ({
+    id: reading.id,
+    name: reading.name ?? null,
+    description: reading.description ?? null,
+    type: reading.type.toLowerCase(),
+    dateTime: new Date(reading.date),
+  })), []);
+  expect(stats.totalDuration).toBe(2 * 60 * 60 * 1000);
+});
+
+test('invalid origin timezone remains metadata but falls back to device-local display', async () => {
+  const observation = await sample();
+  await observationService.updateMeta(observation.id, {
+    timeZone: 'Mars/Olympus',
+    vendorMetadata: { retained: true },
+  });
+  const { getObservationTimeZone } = require('../../packages/core/src/utils/observation-time-zone');
+  const { toAbsoluteTimeString } = require('../src/utils/date-time');
+  expect(getObservationTimeZone((await observationService.getById(observation.id)).observation.meta)).toBeUndefined();
+  expect(toAbsoluteTimeString('2026-02-01T09:15:30.123Z', true, 'Mars/Olympus'))
+    .toBe(isToronto ? '04:15:30.123' : '10:15:30.123');
+  const exported = JSON.parse((await exportService.exportToJchronic(observation.id)).content);
+  expect(exported.observation.meta).toMatchObject({
+    timeZone: 'Mars/Olympus',
+    vendorMetadata: { retained: true },
+  });
 });
 
 torontoTest('continuing an imported UTC chronicle in Toronto uses the real current instant', async () => {

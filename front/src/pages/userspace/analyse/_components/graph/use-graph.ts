@@ -5,6 +5,7 @@ import { DEFAULT_GRAPH_RENDER_OPTIONS, TimeDisplayFormatEnum } from '@actograph/
 import { useObservation } from 'src/composables/use-observation';
 import { useAppResume } from 'src/composables/use-app-resume';
 import { isElementVisible } from 'src/utils/dom.utils';
+import { getObservationTimeZone } from '@actograph/core';
 import { shouldCommitGraphInit } from 'src/utils/graph-init-ownership';
 import { IObservation, IReading } from '@services/observations/interface';
 import type { IObservation as ICoreObservation, IReading as ICoreReading } from '@actograph/core';
@@ -114,7 +115,10 @@ export const useGraph = (options?: {
       if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
 
       const normalizedReadings = normalizeReadingsForGraph(readings as IReading[]);
-      pixiApp.setGraphRenderOptions(sharedState.graphRenderOptions, { redraw: false });
+      pixiApp.setGraphRenderOptions({
+        ...sharedState.graphRenderOptions,
+        timeZone: getObservationTimeZone(obs.meta),
+      }, { redraw: false });
       if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
 
       pixiApp.setData({

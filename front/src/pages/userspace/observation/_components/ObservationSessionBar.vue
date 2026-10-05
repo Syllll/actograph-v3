@@ -83,7 +83,11 @@ import { date as qDate } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { useObservation } from 'src/composables/use-observation';
 import { ReadingTypeEnum } from '@services/observations/interface';
-import { isRecordingActiveFromReadings } from '@actograph/core';
+import {
+  formatCalendarDateTime,
+  getObservationTimeZone,
+  isRecordingActiveFromReadings,
+} from '@actograph/core';
 import ModeToggle from './ModeToggle.vue';
 import {
   confirmAndCompleteObservationStop,
@@ -164,7 +168,13 @@ export default defineComponent({
       const displayDate = isStoppedState.value && stopReadingDate.value
         ? stopReadingDate.value
         : now.value;
-      return qDate.formatDate(displayDate, 'HH:mm:ss');
+      if (currentMode.value === 'chronometer') {
+        return qDate.formatDate(displayDate, 'HH:mm:ss');
+      }
+      const timeZone = getObservationTimeZone(
+        observation.sharedState.currentObservation?.meta,
+      );
+      return formatCalendarDateTime(displayDate, timeZone, 'HH:mm:ss');
     });
 
     const timerChipIcon = computed(() => {

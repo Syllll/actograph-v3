@@ -6,7 +6,7 @@ import {
   ReadingTypeEnum,
 } from '@services/observations/interface';
 import { observationService } from '@services/observations/index.service';
-import { isRecordingActiveFromReadings } from '@actograph/core';
+import { getLocalTimeZone, isRecordingActiveFromReadings } from '@actograph/core';
 import { useProtocol } from './use-protocol';
 import { useReadings } from './use-readings';
 import { useDuration } from '../use-duration';
@@ -257,11 +257,23 @@ export const useObservation = (options?: { init?: boolean }) => {
 
   const methods = {
     cloneExampleObservation: async () => {
-      return await observationService.cloneExampleObservation();
+      const cloned = await observationService.cloneExampleObservation();
+      if (cloned.id) {
+        return await observationService.update(cloned.id, {
+          meta: { ...(cloned.meta ?? {}), timeZone: getLocalTimeZone() },
+        });
+      }
+      return cloned;
     },
 
     cloneExampleObservationByKey: async (exampleKey: string) => {
-      return await observationService.cloneExampleObservationByKey(exampleKey);
+      const cloned = await observationService.cloneExampleObservationByKey(exampleKey);
+      if (cloned.id) {
+        return await observationService.update(cloned.id, {
+          meta: { ...(cloned.meta ?? {}), timeZone: getLocalTimeZone() },
+        });
+      }
+      return cloned;
     },
 
     loadObservation: async (id: number) => {
@@ -280,8 +292,15 @@ export const useObservation = (options?: { init?: boolean }) => {
       description?: string;
       videoPath?: string;
       mode?: ObservationModeEnum;
+      meta?: Record<string, unknown>;
     }) => {
-      const response = await observationService.create(options);
+      const response = await observationService.create({
+        ...options,
+        meta: {
+          ...(options.meta ?? {}),
+          timeZone: getLocalTimeZone(),
+        },
+      });
       await methods.loadObservation(response.id);
     },
 

@@ -248,6 +248,11 @@ import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 import { useDuration } from 'src/composables/use-duration';
+import {
+  formatCalendarDateTime,
+  getObservationTimeZone,
+} from '@actograph/core';
+import { parseCalendarDateTimeEditInTimeZone } from 'src/utils/calendar-date-time';
 
 type ProtocolObservableOption = {
   label: string;
@@ -287,6 +292,9 @@ export default defineComponent({
       props.reading.dateTime instanceof Date
         ? props.reading.dateTime
         : new Date(props.reading.dateTime);
+    const timeZone = getObservationTimeZone(
+      observation.sharedState.currentObservation?.meta,
+    );
 
     const isComment =
       typeof props.reading.name === 'string' &&
@@ -306,8 +314,12 @@ export default defineComponent({
       type: props.reading.type,
       name: isComment ? commentBody : (props.reading.name || ''),
       description: props.reading.description || '',
-      datePart: qDate.formatDate(sourceDate, 'DD/MM/YYYY'),
-      timePart: qDate.formatDate(sourceDate, 'HH:mm:ss.SSS'),
+      datePart: isChronometerMode.value
+        ? qDate.formatDate(sourceDate, 'DD/MM/YYYY')
+        : formatCalendarDateTime(sourceDate, timeZone, 'DD/MM/YYYY'),
+      timePart: isChronometerMode.value
+        ? qDate.formatDate(sourceDate, 'HH:mm:ss.SSS')
+        : formatCalendarDateTime(sourceDate, timeZone, 'HH:mm:ss.SSS'),
       days: initialDurationParts.days,
       hours: initialDurationParts.hours,
       minutes: initialDurationParts.minutes,
@@ -385,8 +397,8 @@ export default defineComponent({
       return time.split('.')[0] || '';
     });
 
-    const onDatePartChange = (val: string | null) => {
-      state.datePart = val || '';
+    const onDatePartChange = (val: string | number | null) => {
+      state.datePart = val == null ? '' : String(val);
     };
 
     const onTimePartChange = (val: string | number | null) => {
@@ -421,6 +433,9 @@ export default defineComponent({
       }
       const combined = `${state.datePart} ${state.timePart}`;
       if (!state.datePart || !state.timePart || combined.includes('_')) return null;
+      const originalText = `${formatCalendarDateTime(sourceDate, timeZone, 'DD/MM/YYYY')} ${formatCalendarDateTime(sourceDate, timeZone, 'HH:mm:ss.SSS')}`;
+      if (combined === originalText) return sourceDate;
+      if (timeZone) return parseCalendarDateTimeEditInTimeZone(combined, sourceDate, timeZone);
       const parsed = qDate.extractDate(combined, 'DD/MM/YYYY HH:mm:ss.SSS');
       if (!parsed || isNaN(parsed.getTime()) || parsed.getFullYear() < 1970) {
         return null;

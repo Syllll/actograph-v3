@@ -12,6 +12,7 @@ export interface IObservation {
   type: ObservationType;
   videoPath?: string | null;
   mode?: ObservationModeEnum | null;
+  meta?: Record<string, unknown> | null;
   readings?: IReading[];
   protocol?: IProtocol;
   createdAt?: Date;

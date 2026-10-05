@@ -2,7 +2,7 @@
  * Duration management utilities
  */
 
-import { TimeDisplayFormatEnum } from '@actograph/core';
+import { getCalendarDateParts, isValidTimeZone, TimeDisplayFormatEnum } from '@actograph/core';
 
 export interface DurationParts {
   days: number;
@@ -79,14 +79,15 @@ export function formatFromDate(date: Date, t0: Date): string {
  * @param totalDurationMs - Durée totale de l'observation en millisecondes
  * @returns Le label formaté
  */
-export function formatAxisLabel(date: Date, totalDurationMs: number): string {
-  const dd = pad2(date.getDate());
-  const MM = pad2(date.getMonth() + 1);
-  const yyyy = String(date.getFullYear());
-  const HH = pad2(date.getHours());
-  const mm = pad2(date.getMinutes());
-  const ss = pad2(date.getSeconds());
-  const SSS = String(date.getMilliseconds()).padStart(3, '0');
+export function formatAxisLabel(date: Date, totalDurationMs: number, timeZone?: string): string {
+  const parts = getCalendarDateParts(date, timeZone);
+  const dd = pad2(parts.day);
+  const MM = pad2(parts.month);
+  const yyyy = String(parts.year);
+  const HH = pad2(parts.hour);
+  const mm = pad2(parts.minute);
+  const ss = pad2(parts.second);
+  const SSS = String(parts.millisecond).padStart(3, '0');
 
   if (totalDurationMs >= 7 * 24 * 60 * 60 * 1000) {
     // >= 7 jours : date+heure complète (lisible grâce aux labels diagonaux).
@@ -104,6 +105,23 @@ export function formatAxisLabel(date: Date, totalDurationMs: number): string {
     // < 1min : HH:mm:ss.SSS
     return `${HH}:${mm}:${ss}.${SSS}`;
   }
+}
+
+/** Keep the historical locale-based hover label, with an optional origin zone. */
+export function formatCalendarAutoHover(date: Date, timeZone?: string): string {
+  const validTimeZone = timeZone && isValidTimeZone(timeZone) ? timeZone : undefined;
+  return date
+    .toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      fractionalSecondDigits: 3,
+      ...(validTimeZone ? { timeZone: validTimeZone } : {}),
+    })
+    .replace(/\//g, '-');
 }
 
 /**
@@ -146,14 +164,15 @@ export type FixedTimeDisplayFormat = Exclude<TimeDisplayFormatEnum, TimeDisplayF
  * graphe). N'est appelée que lorsque le format n'est pas `Auto` : le
  * comportement adaptatif historique (formatAxisLabel) reste inchangé.
  */
-export function formatCalendarFixed(date: Date, format: FixedTimeDisplayFormat): string {
-  const dd = pad2(date.getDate());
-  const MM = pad2(date.getMonth() + 1);
-  const yyyy = String(date.getFullYear());
-  const HH = pad2(date.getHours());
-  const mm = pad2(date.getMinutes());
-  const ss = pad2(date.getSeconds());
-  const SSS = String(date.getMilliseconds()).padStart(3, '0');
+export function formatCalendarFixed(date: Date, format: FixedTimeDisplayFormat, timeZone?: string): string {
+  const parts = getCalendarDateParts(date, timeZone);
+  const dd = pad2(parts.day);
+  const MM = pad2(parts.month);
+  const yyyy = String(parts.year);
+  const HH = pad2(parts.hour);
+  const mm = pad2(parts.minute);
+  const ss = pad2(parts.second);
+  const SSS = String(parts.millisecond).padStart(3, '0');
 
   switch (format) {
     case TimeDisplayFormatEnum.Full:

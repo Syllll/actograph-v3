@@ -202,6 +202,11 @@ import { QTableColumn, Dialog } from 'quasar';
 import { date as qDate } from 'quasar';
 import { useObservation } from 'src/composables/use-observation';
 import { useDuration } from 'src/composables/use-duration';
+import {
+  formatCalendarDateTime,
+  getObservationTimeZone,
+} from '@actograph/core';
+import { parseCalendarDateTimeEditInTimeZone } from 'src/utils/calendar-date-time';
 import EditReadingDialog from './EditReadingDialog.vue';
 
 export default defineComponent({
@@ -347,8 +352,16 @@ export default defineComponent({
     const toDate = (dateTime: Date | string): Date =>
       dateTime instanceof Date ? dateTime : new Date(dateTime);
 
-    const formatDateTime = (dateTime: Date | string) =>
-      qDate.formatDate(toDate(dateTime), 'DD/MM/YYYY HH:mm:ss.SSS');
+    const formatDateTime = (dateTime: Date | string) => {
+      const date = toDate(dateTime);
+      if (observation.isChronometerMode.value) {
+        return qDate.formatDate(date, 'DD/MM/YYYY HH:mm:ss.SSS');
+      }
+      const timeZone = getObservationTimeZone(
+        observation.sharedState.currentObservation?.meta,
+      );
+      return formatCalendarDateTime(date, timeZone, 'DD/MM/YYYY HH:mm:ss.SSS');
+    };
 
     const formatDurationCompactFromRow = (row: IReading) => {
       if (!row.dateTime) return '';
@@ -495,9 +508,23 @@ export default defineComponent({
       observation.readings.methods.sortReadingsChronologically();
     };
 
-    const parseCalendarDateTime = (value: string): Date | null => {
+    const parseCalendarDateTime = (value: string, row: IReading): Date | null => {
       if (!value || value.includes('_')) {
         return null;
+      }
+      const sourceDate = toDate(row.dateTime);
+      if (formatDateTime(sourceDate) === value) return sourceDate;
+      if (observation.isChronometerMode.value) {
+        const parsed = qDate.extractDate(value, 'DD/MM/YYYY HH:mm:ss.SSS');
+        return parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() >= 1970
+          ? parsed
+          : null;
+      }
+      const timeZone = getObservationTimeZone(
+        observation.sharedState.currentObservation?.meta,
+      );
+      if (timeZone) {
+        return parseCalendarDateTimeEditInTimeZone(value, sourceDate, timeZone);
       }
       const parsed = qDate.extractDate(value, 'DD/MM/YYYY HH:mm:ss.SSS');
       if (!parsed || isNaN(parsed.getTime()) || parsed.getFullYear() < 1970) {
@@ -507,7 +534,7 @@ export default defineComponent({
     };
 
     const commitCalendarDateTime = (row: IReading) => {
-      const parsed = parseCalendarDateTime(getCalendarDateTimeValue(row));
+      const parsed = parseCalendarDateTime(getCalendarDateTimeValue(row), row);
       clearCalendarDraft(row);
       if (!parsed) return;
       applyDateTime(row, parsed);

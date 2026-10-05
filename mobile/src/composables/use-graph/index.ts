@@ -34,6 +34,7 @@ import {
   type IMobileObservation,
   type IMobileProtocolItem,
   type IMobileReading,
+  getObservationTimeZone,
 } from '@actograph/core';
 import { convertMobileObservation } from '@actograph/core/utils/mobile-compat';
 import { useChronicle } from '../use-chronicle';
@@ -123,6 +124,9 @@ export function useGraph(options: UseGraphOptions) {
 
       console.log('[useGraph] Drawing', observation.readings?.length, 'readings');
 
+      pixiAppInstance.setGraphRenderOptions({
+        timeZone: getObservationTimeZone(chronicle.sharedState.currentChronicle.meta),
+      }, { redraw: false });
       pixiAppInstance.setData(observation);
       await pixiAppInstance.draw();
       sharedState.error = null;
@@ -365,6 +369,16 @@ export function useGraph(options: UseGraphOptions) {
       }
     },
     { deep: true }
+  );
+
+  // Refresh calendar labels when the observation timezone changes.
+  watch(
+    () => chronicle.sharedState.currentChronicle?.meta?.timeZone,
+    () => {
+      if (sharedState.ready && pixiAppInstance) {
+        void drawGraph();
+      }
+    }
   );
 
   // Watch for protocol changes to redraw

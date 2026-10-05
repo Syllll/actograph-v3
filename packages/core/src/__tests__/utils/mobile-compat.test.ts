@@ -71,6 +71,20 @@ describe('mobile-compat', () => {
     expect(observation.readings?.[0]?.type).toBe(ReadingTypeEnum.START);
   });
 
+  it('preserves optional observation metadata through mobile conversion', () => {
+    const meta = { timeZone: 'Europe/Paris', custom: { retained: true } };
+    const converted = convertMobileObservation(
+      { id: 1, name: 'Origin', mode: 'Calendar', meta },
+      protocolItems,
+      [{ id: 1, type: 'START', date: '2026-10-25T01:10:00.000Z' }],
+    );
+    expect(converted.meta).toEqual(meta);
+    expect(convertMobileObservation(
+      { id: 2, name: 'Legacy', mode: 'Calendar' }, protocolItems,
+      [{ id: 1, type: 'START', date: '2026-10-25T01:10:00.000Z' }],
+    ).meta).toBeUndefined();
+  });
+
   it('mappe strokeWidth depuis meta SQLite mobile', () => {
     const converted = convertMobileProtocolItems([
       {

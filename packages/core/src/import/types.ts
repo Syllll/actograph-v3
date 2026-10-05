@@ -22,10 +22,14 @@ import type { IGraphPreferences } from '../types/protocol.types';
  * `timeDisplayFormat` : format d'affichage du temps sur le graphe (axe X +
  * survol), par chronique. Permet de retrouver le même format après
  * export/import ou réouverture (voir TimeDisplayFormatEnum).
+ *
+ * `timeZone` : fuseau IANA d'origine de la chronique pour afficher ses dates
+ * calendrier de façon cohérente sur tous les appareils. N'affecte pas les instants.
  */
 export interface IObservationMeta {
   uiScale?: number;
   timeDisplayFormat?: TimeDisplayFormatEnum;
+  timeZone?: string;
   [key: string]: unknown;
 }
 

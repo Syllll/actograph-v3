@@ -19,6 +19,7 @@ import {
 import { useWindowSync } from '../use-window-sync';
 import {
   autoCorrectReadings as coreAutoCorrectReadings,
+  getObservationTimeZone,
   type IAutoCorrectAction,
 } from '@actograph/core';
 import {
@@ -789,9 +790,13 @@ export const useReadings = (options: {
       // Use shared auto-correction function
       const result = coreAutoCorrectReadings(readings, applyCorrections);
 
+      const currentObservation = observationSharedState.currentObservation;
+      const timeZone = currentObservation?.mode === 'calendar'
+        ? getObservationTimeZone(currentObservation.meta)
+        : undefined;
       const actions = (result.actions as IAutoCorrectAction[]).map((action) => ({
         ...action,
-        description: localizeAutoCorrectAction(action, t, d),
+        description: localizeAutoCorrectAction(action, t, d, timeZone),
       }));
 
       // If applyCorrections is true, apply the corrections using the corrected readings from core

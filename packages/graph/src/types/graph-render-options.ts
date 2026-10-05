@@ -8,9 +8,12 @@ export interface IGraphRenderOptions {
   maskPauses?: boolean;
   /** Format d'affichage du temps sur l'axe X et le label de survol. 'auto' (défaut) reproduit le comportement historique adaptatif. */
   timeDisplayFormat?: TimeDisplayFormatEnum;
+  /** Calendar label timezone; omitted or invalid keeps legacy device-local formatting. */
+  timeZone?: string;
 }
 
-export const DEFAULT_GRAPH_RENDER_OPTIONS: Required<IGraphRenderOptions> = {
+export const DEFAULT_GRAPH_RENDER_OPTIONS: Required<Pick<IGraphRenderOptions, 'maskPauses' | 'timeDisplayFormat'>> &
+  Pick<IGraphRenderOptions, 'timeZone'> = {
   maskPauses: false,
   timeDisplayFormat: TimeDisplayFormatEnum.Auto,
 };
@@ -30,7 +33,8 @@ export function hasGraphRenderOptionsChanged(
 ): boolean {
   return (
     resolvedTimeDisplayFormat(previous) !== resolvedTimeDisplayFormat(next) ||
-    resolvedMaskPauses(previous) !== resolvedMaskPauses(next)
+    resolvedMaskPauses(previous) !== resolvedMaskPauses(next) ||
+    previous.timeZone !== next.timeZone
   );
 }
 
@@ -43,7 +47,8 @@ export function isTimeFormatOnlyChange(
   next: IGraphRenderOptions,
 ): boolean {
   const formatChanged =
-    resolvedTimeDisplayFormat(previous) !== resolvedTimeDisplayFormat(next);
+    resolvedTimeDisplayFormat(previous) !== resolvedTimeDisplayFormat(next) ||
+    previous.timeZone !== next.timeZone;
   const maskPausesChanged = resolvedMaskPauses(previous) !== resolvedMaskPauses(next);
   return formatChanged && !maskPausesChanged;
 }

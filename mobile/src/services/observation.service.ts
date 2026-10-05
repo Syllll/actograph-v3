@@ -13,6 +13,7 @@ import {
   type ReadingType,
 } from '@database/repositories/reading.repository';
 import { computeNextDuplicateName } from '@utils/chronicle-name';
+import { getLocalTimeZone } from '@actograph/core';
 
 export interface IObservationFull {
   observation: IObservationEntity;
@@ -151,7 +152,7 @@ class ObservationService {
       description: input.description,
       type: 'Normal',
       mode: 'Calendar',
-      meta: input.meta ?? null,
+      meta: { ...input.meta, timeZone: getLocalTimeZone() },
     });
 
     try {
@@ -241,7 +242,7 @@ class ObservationService {
       description: source.observation.description,
       type: source.observation.type,
       mode: source.observation.mode,
-      meta: source.observation.meta ?? null,
+      meta: { ...source.observation.meta, timeZone: getLocalTimeZone() },
     });
 
     try {

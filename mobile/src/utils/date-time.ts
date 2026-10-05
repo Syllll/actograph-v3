@@ -1,10 +1,11 @@
 /**
  * Date-time helpers for mobile readings.
  *
- * Readings normally use "floating" local datetimes (no timezone suffix)
- * to preserve the wall-clock time seen by the user (e.g. 10:00 stays 10:00).
- * The second occurrence of a repeated time uses UTC to preserve its instant.
+ * New readings use UTC. Calendar display uses the observation's origin
+ * timezone when available, or the device timezone for legacy chronicles.
  */
+
+import { getCalendarDateParts } from '@actograph/core';
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -18,17 +19,15 @@ export function toAbsoluteDateTimeString(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}.${pad3(date.getMilliseconds())}`;
 }
 
-/** Keep the local format unless reading it back would lose the real instant. */
+/** Store the actual instant, independently of the device timezone. */
 export function toReadingDateTimeString(date: Date): string {
-  const local = toAbsoluteDateTimeString(date);
-  // During a backward clock change, parsing a local time selects its first
-  // occurrence. Only the second occurrence needs an explicit UTC timestamp.
-  return new Date(local).getTime() === date.getTime() ? local : date.toISOString();
+  return date.toISOString();
 }
 
 export function toAbsoluteTimeString(
   dateLike: Date | string,
-  withMilliseconds = true
+  withMilliseconds = true,
+  timeZone?: string
 ): string {
   const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
 
@@ -36,13 +35,14 @@ export function toAbsoluteTimeString(
     return '';
   }
 
-  const hh = pad2(date.getHours());
-  const mm = pad2(date.getMinutes());
-  const ss = pad2(date.getSeconds());
+  const parts = getCalendarDateParts(date, timeZone);
+  const hh = pad2(parts.hour);
+  const mm = pad2(parts.minute);
+  const ss = pad2(parts.second);
 
   if (!withMilliseconds) {
     return `${hh}:${mm}:${ss}`;
   }
 
-  return `${hh}:${mm}:${ss}.${pad3(date.getMilliseconds())}`;
+  return `${hh}:${mm}:${ss}.${pad3(parts.millisecond)}`;
 }

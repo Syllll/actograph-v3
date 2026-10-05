@@ -149,6 +149,7 @@ import { DPage } from '@components';
 import type { IReadingEntity, ReadingType } from '@database/repositories/reading.repository';
 import { QTableColumn } from 'quasar';
 import { toAbsoluteTimeString } from '@utils/date-time';
+import { getObservationTimeZone } from '@actograph/core';
 
 const TYPE_LABELS: Record<ReadingType, string> = {
   START: 'Début',
@@ -249,7 +250,7 @@ export default defineComponent({
 
       formatDate: (dateStr: string): string => {
         if (!dateStr) return '-';
-        return toAbsoluteTimeString(dateStr, true);
+        return toAbsoluteTimeString(dateStr, true, getObservationTimeZone(chronicle.sharedState.currentChronicle?.meta));
       },
 
       openCommentDialog: (reading: IReadingEntity) => {

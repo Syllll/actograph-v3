@@ -10,12 +10,15 @@ import type { Composer } from 'vue-i18n';
 export function localizeAutoCorrectAction(
   action: IAutoCorrectAction,
   t: Composer['t'],
-  d: Composer['d']
+  d: Composer['d'],
+  timeZone?: string,
 ): string {
   const raw = action.relatedDate;
   const dateTime =
     raw != null
-      ? d(raw instanceof Date ? raw : new Date(raw as unknown as string))
+      ? timeZone
+        ? d(raw instanceof Date ? raw : new Date(raw as unknown as string), { timeZone })
+        : d(raw instanceof Date ? raw : new Date(raw as unknown as string))
       : '';
   const count = action.count ?? 0;
 

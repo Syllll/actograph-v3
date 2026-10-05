@@ -310,12 +310,12 @@ export class xAxis extends BaseGroup {
     if (format !== TimeDisplayFormatEnum.Auto) {
       return isChronometer
         ? formatChronometerFixed(dateTime, CHRONOMETER_T0, format)
-        : formatCalendarFixed(dateTime, format);
+        : formatCalendarFixed(dateTime, format, this.graphRenderOptions.timeZone);
     }
 
     return isChronometer
       ? formatChronoAxisLabel(dateTime, CHRONOMETER_T0, this.totalDurationMs)
-      : formatAxisLabel(dateTime, this.totalDurationMs);
+      : formatAxisLabel(dateTime, this.totalDurationMs, this.graphRenderOptions.timeZone);
   }
 
   /**

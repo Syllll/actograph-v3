@@ -1,5 +1,7 @@
 import { TimeDisplayFormatEnum } from '@actograph/core';
 import {
+  formatAxisLabel,
+  formatCalendarAutoHover,
   formatCalendarFixed,
   formatChronometerFixed,
   getCalendarFixedFormatNotation,
@@ -37,6 +39,29 @@ describe('formatCalendarFixed', () => {
 
   it('MinuteSecondMs: mn:sec:ms', () => {
     expect(formatCalendarFixed(date, TimeDisplayFormatEnum.MinuteSecondMs)).toBe('05:03:007');
+  });
+
+  it('formats calendar labels in an explicitly configured origin zone', () => {
+    const instant = new Date('2026-10-25T01:10:00.123Z');
+    expect(formatCalendarFixed(instant, TimeDisplayFormatEnum.Full, 'Europe/Paris'))
+      .toBe('25.10.2026 02:10:00:123');
+    expect(formatAxisLabel(instant, 60 * 60 * 1000, 'Europe/Paris'))
+      .toBe('25/10 02:10:00');
+  });
+
+  it('preserves the historical auto hover label, with optional origin-zone formatting', () => {
+    const instant = new Date('2026-10-25T01:10:00.123Z');
+    const oldLocalLabel = instant.toLocaleDateString('fr-FR', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      second: '2-digit', fractionalSecondDigits: 3,
+    }).replace(/\//g, '-');
+    const oldParisLabel = instant.toLocaleDateString('fr-FR', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      second: '2-digit', fractionalSecondDigits: 3, timeZone: 'Europe/Paris',
+    }).replace(/\//g, '-');
+    expect(formatCalendarAutoHover(instant)).toBe(oldLocalLabel);
+    expect(formatCalendarAutoHover(instant, 'Europe/Paris')).toBe(oldParisLabel);
+    expect(formatCalendarAutoHover(instant, 'Invalid/Timezone')).toBe(oldLocalLabel);
   });
 });
 
