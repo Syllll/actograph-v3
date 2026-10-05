@@ -1,5 +1,7 @@
 # État actuel des issues GitHub
 
+> **Obsolète comme source de vérité.** Dernière synchro GitHub : [recap-issues-2026-09.md](./recap-issues-2026-09.md) (15 sept. 2026) et [recap-issues-2026-05.md](./recap-issues-2026-05.md). Le détail ci-dessous date de janvier 2025 et ne doit plus servir à piloter le board.
+
 **Date de mise à jour** : 2025-01-XX  
 **Source** : Board GitHub - https://github.com/users/Syllll/projects/2/views/2
 
