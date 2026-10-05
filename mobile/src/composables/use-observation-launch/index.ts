@@ -19,7 +19,9 @@ export function useObservationLaunch() {
       return;
     }
 
-    if (!chronicle.hasReadings.value) {
+    // Duplicating during an active session would leave the source session open.
+    const isSessionActive = chronicle.sharedState.isPlaying || chronicle.sharedState.isPaused;
+    if (!chronicle.hasReadings.value || isSessionActive) {
       router.push({ name: 'observation' });
       return;
     }

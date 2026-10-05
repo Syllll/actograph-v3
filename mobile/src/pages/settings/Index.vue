@@ -159,14 +159,30 @@ export default defineComponent({
         }
       },
 
+      applyScale: async (value: number) => {
+        await uiScale.setScale(value);
+        // The observation page restores meta.uiScale of the loaded chronicle:
+        // keep it in sync so this setting is not reverted there.
+        const current = chronicle.sharedState.currentChronicle;
+        if (!current) return;
+        try {
+          const updated = await observationService.updateMeta(current.id, { uiScale: uiScale.state.scale });
+          if (updated && chronicle.sharedState.currentChronicle?.id === current.id) {
+            chronicle.sharedState.currentChronicle.meta = updated.meta;
+          }
+        } catch (error) {
+          console.error('Failed to save uiScale on chronicle:', error);
+        }
+      },
+
       onScaleChange: async (value: number | null) => {
         if (value == null || isNaN(value)) return;
-        await uiScale.setScale(value);
+        await methods.applyScale(value);
       },
 
       setScale: async (value: number) => {
         state.scaleModel = value;
-        await uiScale.setScale(value);
+        await methods.applyScale(value);
       },
 
       confirmClearData: () => {

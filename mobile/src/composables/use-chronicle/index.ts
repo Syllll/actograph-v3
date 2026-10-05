@@ -91,6 +91,7 @@ export const useChronicle = () => {
     loadChronicle: async (id: number) => {
       const isChronicleSwitch = sharedState.currentChronicle?.id !== id;
       if (isChronicleSwitch) {
+        await methods.closeActiveSession();
         methods.stopTimer();
       }
 
@@ -123,6 +124,15 @@ export const useChronicle = () => {
       const created = await observationService.duplicateWithoutReadings(sourceId);
       await methods.loadChronicle(created.id);
       return created;
+    },
+
+    /** Stops the session of the loaded chronicle so it does not stay open after leaving it. */
+    closeActiveSession: async () => {
+      const current = sharedState.currentChronicle;
+      if (!current || !(await observationService.isRecording(current.id))) return;
+      await observationService.stopRecording(current.id);
+      methods.stopTimer();
+      await methods.refreshReadings();
     },
 
     unloadChronicle: () => {

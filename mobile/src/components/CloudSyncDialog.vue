@@ -161,6 +161,7 @@ import { useDialogPluginComponent, useQuasar } from 'quasar';
 import { useCloud } from '@composables/use-cloud';
 import { shareService } from '@services/share.service';
 import { actographCloudService, type ICloudChronicle } from '@services/actograph-cloud.service';
+import { toChronicleFileName } from '@utils/chronicle-name';
 
 export default defineComponent({
   name: 'CloudSyncDialog',
@@ -260,11 +261,12 @@ export default defineComponent({
             return;
           }
 
+          const fileName = toChronicleFileName(chronicle.name, chronicle.isJchronic);
           const result = chronicle.isJchronic
-            ? await shareService.shareContent(downloadResult.content as string, chronicle.name)
+            ? await shareService.shareContent(downloadResult.content as string, fileName)
             : await shareService.shareBinaryContent(
                 downloadResult.content as string,
-                chronicle.name
+                fileName
               );
           if (!result.success) {
             $q.notify({

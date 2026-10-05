@@ -21,7 +21,7 @@ export default boot(async () => {
   // Configure status bar with ActoGraph colors
   try {
     await StatusBar.setOverlaysWebView({ overlay: true });
-    await StatusBar.setStyle({ style: Style.Light });
+    await StatusBar.setStyle({ style: Style.Dark });
     await StatusBar.setBackgroundColor({ color: '#1f2937' }); // primary color
   } catch (error) {
     // Status bar not available (web)

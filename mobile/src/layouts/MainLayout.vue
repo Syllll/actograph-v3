@@ -33,6 +33,30 @@
           {{ chronicle.sharedState.isPaused ? 'En pause' : '● Enregistrement' }}
         </span>
       </div>
+      <div
+        v-if="showClockChangeNotice && clockChange.notice.value"
+        class="clock-change-notice row no-wrap items-start q-px-md q-py-sm"
+        role="alert"
+      >
+        <q-icon
+          :name="clockChange.notice.value.phase === 'upcoming' ? 'mdi-clock-alert-outline' : 'mdi-history'"
+          size="22px"
+          class="q-mr-sm q-mt-xs"
+        />
+        <div class="col">
+          <div class="text-weight-bold">{{ clockChange.notice.value.title }}</div>
+          <div class="clock-change-message">{{ clockChange.notice.value.message }}</div>
+        </div>
+        <q-btn
+          flat
+          dense
+          no-caps
+          label="Compris"
+          class="q-ml-sm"
+          aria-label="Masquer l’avertissement de changement d’heure"
+          @click="clockChange.dismiss"
+        />
+      </div>
     </q-header>
 
     <!-- Page content -->
@@ -97,6 +121,7 @@ import { defineComponent, ref, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useQuasar } from 'quasar';
 import { useChronicle } from '@composables/use-chronicle';
+import { useClockChangeNotice } from '@composables/use-clock-change-notice';
 
 const TAB_ROUTE_NAMES = new Set(['home', 'observation', 'readings', 'graph']);
 
@@ -138,6 +163,10 @@ export default defineComponent({
 
     const hasChronicle = computed(() => !!chronicle.sharedState.currentChronicle);
     const hasReadings = computed(() => chronicle.sharedState.currentReadings.length > 0);
+    const clockChange = useClockChangeNotice();
+    const showClockChangeNotice = computed(() => hasChronicle.value && (
+      chronicle.sharedState.isPlaying || chronicle.sharedState.isPaused || route.name === 'observation'
+    ));
 
     const methods = {
       isTabLocked: (tab: 'observation' | 'readings' | 'graph') => {
@@ -182,6 +211,8 @@ export default defineComponent({
       showBackButton,
       hasChronicle,
       hasReadings,
+      clockChange,
+      showClockChangeNotice,
       methods,
     };
   },
@@ -190,6 +221,23 @@ export default defineComponent({
 
 <style scoped lang="scss">
 .chronicle-context { font-size: 12px; }
+
+// Same pairing as the pause button (warning background, primary text): readable in both themes.
+.clock-change-notice {
+  background: var(--q-warning);
+  color: var(--q-primary);
+  font-size: 13px;
+  line-height: 1.35;
+
+  .q-btn {
+    color: var(--q-primary);
+    font-weight: 600;
+  }
+}
+
+.clock-change-message {
+  font-size: 12px;
+}
 
 // Reduce horizontal padding so 4 labels fit comfortably on ~360dp screens.
 .main-tabs {

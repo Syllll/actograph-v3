@@ -11,6 +11,7 @@ const { useChronicle } = require('../src/composables/use-chronicle');
 const { useProtocolDraft } = require('../src/composables/use-protocol-draft');
 const { useEditMode } = require('../src/composables/use-edit-mode');
 const { arrangeCategoryCards } = require('../src/utils/category-layout');
+const { toSafeFileStem, toChronicleFileName } = require('../src/utils/chronicle-name');
 let db;
 
 beforeEach(async () => {
@@ -250,4 +251,94 @@ test('saving both position and size preserves both metadata fields', async () =>
   edit.methods.updateCategorySize(categories[0].id, { width: 250 });
   await edit.methods.saveAllPositions();
   expect((await protocolService.getByObservationId(observation.id))[0].meta).toMatchObject({ position: { x: 16, y: 70 }, size: { width: 250 } });
+});
+
+test('import keeps reading comments and inserts readings atomically', async () => {
+  const observation = await sample();
+  await observationService.startRecording(observation.id, ['Assis']);
+  const [start] = await observationService.getReadings(observation.id);
+  await observationService.appendReadingComment(start.id, 'Début terrain', observation.id);
+  await observationService.stopRecording(observation.id);
+  const exported = (await exportService.exportToJchronic(observation.id)).content;
+
+  const imported = await importService.importJchronic(exported, 'terrain.jchronic');
+  expect(imported.success).toBe(true);
+  expect(imported.readingsCount).toBe(3);
+  expect((await observationService.getReadings(imported.observationId))[0].description).toBe('Début terrain');
+
+  db.run("CREATE TRIGGER fail_stop BEFORE INSERT ON readings WHEN NEW.type = 'STOP' BEGIN SELECT RAISE(ABORT, 'disk failure'); END");
+  const failed = await importService.importJchronic(exported, 'terrain.jchronic');
+  expect(failed.success).toBe(false);
+  expect(await observationService.getAll()).toHaveLength(2);
+  expect(db.exec('SELECT COUNT(*) FROM readings')[0].values[0][0]).toBe(6);
+});
+
+test('file names keep readable ASCII and a chronicle extension', () => {
+  expect(toSafeFileStem('Séance été')).toBe('Seance_ete');
+  expect(toSafeFileStem('???')).toBe('chronique');
+  expect(toChronicleFileName('Mon essai', true)).toBe('Mon_essai.jchronic');
+  expect(toChronicleFileName('dossier/ancien.CHRONIC', false)).toBe('dossier_ancien.chronic');
+});
+
+test('a wall clock going back (end of DST) cannot reorder a live session', async () => {
+  const observation = await sample();
+  const { toAbsoluteDateTimeString } = require('../src/utils/date-time');
+  const later = toAbsoluteDateTimeString(new Date(Date.now() + 3600 * 1000));
+  db.run("INSERT INTO readings (observation_id, type, date) VALUES (?, 'START', ?)", [observation.id, later]);
+  await observationService.toggleObservable(observation.id, 'Assis');
+  await observationService.stopRecording(observation.id);
+  const readings = await observationService.getReadings(observation.id);
+  expect(readings.map((r) => r.type)).toEqual(['START', 'DATA', 'STOP']);
+  expect(readings[1].date > later && readings[2].date > readings[1].date).toBe(true);
+  expect(await observationService.isRecording(observation.id)).toBe(false);
+});
+
+test('switching chronicle stops the session of the one being left', async () => {
+  const first = await sample();
+  const second = await sample();
+  global.window = { setInterval, clearInterval };
+  const chronicle = useChronicle();
+  await chronicle.methods.loadChronicle(first.id);
+  await chronicle.methods.startRecording(['Assis']);
+  await chronicle.methods.loadChronicle(second.id);
+  expect(await observationService.isRecording(first.id)).toBe(false);
+  expect((await observationService.getReadings(first.id)).pop().type).toBe('STOP');
+  expect(chronicle.sharedState.isPlaying).toBe(false);
+});
+
+test('duplicate category names are renamed on import so the protocol stays editable', async () => {
+  const observation = await sample();
+  const exported = JSON.parse((await exportService.exportToJchronic(observation.id)).content);
+  exported.protocol.items[1].name = ' posture ';
+  const result = await importService.importJchronic(JSON.stringify(exported), 'test.jchronic');
+  expect(result.success).toBe(true);
+  expect(result.renamedCategoriesCount).toBe(1);
+  const categories = await protocolService.getByObservationId(result.observationId);
+  expect(categories.map((category) => category.name)).toEqual(['Posture', 'posture (2)']);
+  await expect(protocolRepository.saveDraft(result.observationId, categories, 1)).resolves.toBeUndefined();
+});
+
+test('deleting a chronicle removes its protocol and readings only', async () => {
+  const kept = await sample();
+  const removed = await sample();
+  await observationService.startRecording(removed.id, ['Assis']);
+  await observationService.delete(removed.id);
+  expect((await observationService.getAll()).map((o) => o.id)).toEqual([kept.id]);
+  expect(db.exec('SELECT COUNT(*) FROM readings')[0].values[0][0]).toBe(0);
+  expect(db.exec('SELECT COUNT(*) FROM protocols')[0].values[0][0]).toBe(1);
+  expect(db.exec('SELECT COUNT(*) FROM protocol_items')[0].values[0][0]).toBe(5);
+});
+
+test('clock change notice: an hour before the clock goes back, then during the repeated hour', () => {
+  const { getClockChangeNotice } = require('../src/utils/clock-change');
+  const at = (iso) => getClockChangeNotice(new Date(iso).getTime());
+  expect(at('2026-10-24T23:59:00Z')).toBeNull();
+  expect(at('2026-10-25T00:20:00Z')).toMatchObject({
+    phase: 'upcoming',
+    title: 'Changement d’heure dans 40 min',
+    message: expect.stringContaining('À 03:00, l’horloge reculera d’une heure (retour à 02:00)'),
+  });
+  expect(at('2026-10-25T01:10:00Z')).toMatchObject({ phase: 'repeated', title: 'Heure répétée jusqu’à 03:00' });
+  expect(at('2026-10-25T02:00:00Z')).toBeNull();
+  expect(at('2026-03-29T00:30:00Z')).toBeNull();
 });

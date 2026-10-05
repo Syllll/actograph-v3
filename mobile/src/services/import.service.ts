@@ -22,6 +22,7 @@ import {
   normalizeImportedCategoryAction,
   resolveImportedSupportCategoryForMobile,
 } from '@utils/protocol-graph-preferences-mobile';
+import { toUniqueCategoryNames } from '@utils/chronicle-name';
 
 function mapReadingType(type: ReadingTypeEnum | string): ReadingType {
   const normalizedType = type.toLowerCase();
@@ -148,6 +149,8 @@ export interface IImportResult {
   categoriesCount?: number;
   observablesCount?: number;
   readingsCount?: number;
+  /** Categories renamed because their name was already used in the file. */
+  renamedCategoriesCount?: number;
   error?: string;
 }
 
@@ -191,7 +194,7 @@ class ImportService {
     fileName: string
   ): Promise<IImportResult> {
     try {
-      const observationName = data.observation?.name || fileName.replace(/\.(j)?chronic$/, '');
+      const observationName = data.observation?.name || fileName.replace(/\.(j)?chronic$/i, '');
       const observation = await observationRepository.createWithProtocol({
         name: observationName,
         description: data.observation?.description,
@@ -214,12 +217,15 @@ class ImportService {
           persistedMeta?: Record<string, unknown> | null;
         }> = [];
 
+        let renamedCategoriesCount = 0;
         if (data.protocol?.categories) {
+          const uniqueNames = toUniqueCategoryNames(data.protocol.categories.map((category) => category.name));
           for (let i = 0; i < data.protocol.categories.length; i++) {
             const category = data.protocol.categories[i];
+            if (uniqueNames[i] !== category.name) renamedCategoriesCount++;
             const categoryItem = await persistCategoryFromImport(
               protocol.id,
-              category,
+              { ...category, name: uniqueNames[i] },
               category.order ?? i,
             );
             createdCategories.push(categoryItem);
@@ -239,12 +245,14 @@ class ImportService {
             }
           }
 
-          const categoryNameToId = new Map(
-            data.protocol.categories.flatMap((category, index) => {
-              const id = createdCategories[index]?.id;
-              return id !== undefined ? [[category.name, id] as const] : [];
-            }),
-          );
+          // Support references use source names: an ambiguous name targets its first category.
+          const categoryNameToId = new Map<string, number>();
+          data.protocol.categories.forEach((category, index) => {
+            const id = createdCategories[index]?.id;
+            if (id !== undefined && !categoryNameToId.has(category.name)) {
+              categoryNameToId.set(category.name, id);
+            }
+          });
 
           for (const created of createdCategories) {
             const resolved = resolveImportedSupportCategoryForMobile(
@@ -264,19 +272,14 @@ class ImportService {
           }
         }
 
-        let readingsCount = 0;
-        if (data.readings) {
-          for (const reading of data.readings) {
-            await readingRepository.addReading(
-              observation.id,
-              mapReadingType(reading.type),
-              reading.dateTime,
-              reading.name,
-              reading.description
-            );
-            readingsCount++;
-          }
-        }
+        const readings = (data.readings ?? []).map((reading) => ({
+          type: mapReadingType(reading.type),
+          date: reading.dateTime,
+          name: reading.name,
+          description: reading.description,
+        }));
+        await readingRepository.addBatch(observation.id, readings);
+        const readingsCount = readings.length;
 
         return {
           success: true,
@@ -285,6 +288,7 @@ class ImportService {
           categoriesCount,
           observablesCount,
           readingsCount,
+          renamedCategoriesCount,
         };
       } catch (error) {
         try {

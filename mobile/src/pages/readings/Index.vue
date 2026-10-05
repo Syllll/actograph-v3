@@ -216,6 +216,7 @@ export default defineComponent({
         (r) =>
           r.name?.toLowerCase().includes(searchLower) ||
           r.type.toLowerCase().includes(searchLower) ||
+          methods.getTypeLabel(r.type, r.name).toLowerCase().includes(searchLower) ||
           r.description?.toLowerCase().includes(searchLower)
       );
     });

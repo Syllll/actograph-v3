@@ -552,6 +552,7 @@ export default defineComponent({
         description: '',
       },
       savingComment: false,
+      savingProtocolItem: false,
       renameCategory: {
         name: '',
       },
@@ -861,6 +862,8 @@ export default defineComponent({
 
       // Protocol management
       addCategory: async () => {
+        // A double tap must not insert the same category twice: duplicate names block saveDraft.
+        if (state.savingProtocolItem) return;
         if (!state.newCategory.name.trim()) {
           $q.notify({
             type: 'warning',
@@ -894,6 +897,7 @@ export default defineComponent({
           return;
         }
 
+        state.savingProtocolItem = true;
         try {
           const newCategory = editMode.sharedState.isEditing
             ? protocolDraft.addCategory(trimmedName, state.newCategory.action)
@@ -937,10 +941,13 @@ export default defineComponent({
             message: `Erreur lors de l'ajout de la catégorie: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
             position: 'top',
           });
+        } finally {
+          state.savingProtocolItem = false;
         }
       },
 
       addObservable: async () => {
+        if (state.savingProtocolItem) return;
         if (!chronicle.sharedState.currentChronicle || !state.selectedCategory || !state.newObservable.name.trim()) return;
 
         const trimmedName = state.newObservable.name.trim();
@@ -958,6 +965,7 @@ export default defineComponent({
           return;
         }
 
+        state.savingProtocolItem = true;
         try {
           const categoryName = state.selectedCategory.name;
           if (editMode.sharedState.isEditing) {
@@ -983,6 +991,8 @@ export default defineComponent({
             message: error instanceof Error ? error.message : 'Erreur lors de l\'ajout de l\'observable',
             position: 'top',
           });
+        } finally {
+          state.savingProtocolItem = false;
         }
       },
 

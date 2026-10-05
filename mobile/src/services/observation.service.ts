@@ -13,6 +13,7 @@ import {
   type ReadingType,
 } from '@database/repositories/reading.repository';
 import { computeNextDuplicateName } from '@utils/chronicle-name';
+import { toAbsoluteDateTimeString } from '@utils/date-time';
 
 export interface IObservationFull {
   observation: IObservationEntity;
@@ -34,6 +35,19 @@ export interface ICreateObservationInput {
       }[];
     }[];
   };
+}
+
+/**
+ * Readings are floating local datetimes. When DST ends the wall clock goes back
+ * one hour, and a new reading would sort before the ones already recorded
+ * (a STOP before its START would leave the session open). Live writes are
+ * therefore never dated before the latest reading of the chronicle.
+ */
+async function nextLiveDate(observationId: number): Promise<Date> {
+  const now = new Date();
+  const last = await readingRepository.getLastReading(observationId);
+  if (!last || toAbsoluteDateTimeString(now) >= last.date) return now;
+  return new Date(new Date(last.date).getTime() + 1);
 }
 
 async function copyProtocolTree(
@@ -202,10 +216,10 @@ class ObservationService {
   }
 
   /**
-   * Delete an observation
+   * Permanently delete an observation with its protocol and readings
    */
   async delete(id: number): Promise<boolean> {
-    return observationRepository.delete(id);
+    return observationRepository.hardDelete(id);
   }
 
   /**
@@ -257,7 +271,7 @@ class ObservationService {
     return readingRepository.addReading(
       observationId,
       type,
-      new Date(),
+      await nextLiveDate(observationId),
       name,
       description
     );
@@ -278,7 +292,7 @@ class ObservationService {
     const names = items.flatMap((category) => category.children ?? []).map((item) => item.name.trim().toLowerCase());
     if (new Set(names).size !== names.length) throw new Error('Des observables ont le même nom. Renommez-les avant de démarrer.');
     if (names.length === 0) throw new Error('Ajoutez au moins un observable avant de démarrer.');
-    const startDate = new Date();
+    const startDate = await nextLiveDate(observationId);
     await readingRepository.addBatch(observationId, [
       { type: 'START', date: startDate },
       ...initialContinuousObservableNames.filter((name) => name.trim()).map((name) => ({
@@ -294,7 +308,7 @@ class ObservationService {
     if (!(await this.isRecording(observationId))) throw new Error('Aucune session en cours');
     const readings = await readingRepository.findByObservationId(observationId);
     const lastBoundary = readings.filter((r) => r.type !== 'DATA').pop();
-    const date = new Date();
+    const date = await nextLiveDate(observationId);
     await readingRepository.addBatch(observationId, [
       ...(lastBoundary?.type === 'PAUSE_START' ? [{ type: 'PAUSE_END' as const, date }] : []),
       { type: 'STOP', date },
@@ -303,11 +317,11 @@ class ObservationService {
   }
 
   async pauseRecording(observationId: number): Promise<IReadingEntity> {
-    return readingRepository.addPauseStart(observationId);
+    return readingRepository.addPauseStart(observationId, await nextLiveDate(observationId));
   }
 
   async resumeRecording(observationId: number): Promise<IReadingEntity> {
-    return readingRepository.addPauseEnd(observationId);
+    return readingRepository.addPauseEnd(observationId, await nextLiveDate(observationId));
   }
 
   /**
@@ -317,7 +331,7 @@ class ObservationService {
     observationId: number,
     observableName: string
   ): Promise<IReadingEntity> {
-    return readingRepository.addData(observationId, observableName);
+    return readingRepository.addData(observationId, observableName, await nextLiveDate(observationId));
   }
 
   /**
@@ -328,7 +342,7 @@ class ObservationService {
     observationId: number,
     comment: string,
     description?: string,
-    date: Date = new Date()
+    date?: Date
   ): Promise<IReadingEntity> {
     // Trim whitespace and ensure comment starts with "#"
     const trimmedComment = comment.trim();
@@ -336,7 +350,7 @@ class ObservationService {
       throw new Error('Comment cannot be empty');
     }
     const commentName = trimmedComment.startsWith('#') ? trimmedComment : `#${trimmedComment}`;
-    return readingRepository.addData(observationId, commentName, date, description);
+    return readingRepository.addData(observationId, commentName, date ?? await nextLiveDate(observationId), description);
   }
 
   /**

@@ -6,6 +6,7 @@ import {
   buildGraphPreferencesForMobileExport,
   sanitizeMetaForExport,
 } from '@utils/protocol-graph-preferences-mobile';
+import { toSafeFileStem } from '@utils/chronicle-name';
 
 /**
  * Format d'export .jchronic
@@ -134,8 +135,7 @@ class ExportService {
       const content = JSON.stringify(exportData, null, 2);
       
       // Générer le nom de fichier
-      const safeName = observation.name.replace(/[^a-zA-Z0-9-_]/g, '_');
-      const fileName = `${safeName}.jchronic`;
+      const fileName = `${toSafeFileStem(observation.name)}.jchronic`;
 
       return {
         success: true,

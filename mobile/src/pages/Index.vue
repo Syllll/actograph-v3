@@ -60,7 +60,7 @@
             flat
             label="Charger une autre chronique"
             icon="mdi-swap-horizontal"
-            @click="chronicle.methods.unloadChronicle()"
+            @click="methods.unloadCurrentChronicle"
             class="full-width home-action-btn"
             size="sm"
           />
@@ -117,7 +117,19 @@
               </q-item-label>
             </q-item-section>
             <q-item-section side>
-              <q-icon name="mdi-chevron-right" color="grey-5" />
+              <div class="row items-center no-wrap">
+                <q-btn
+                  flat
+                  round
+                  dense
+                  icon="mdi-delete-outline"
+                  color="negative"
+                  :aria-label="`Supprimer ${chr.name}`"
+                  :loading="state.deletingId === chr.id"
+                  @click.stop="methods.confirmDeleteChronicle(chr)"
+                />
+                <q-icon name="mdi-chevron-right" color="grey-5" class="cursor-pointer" @click="methods.loadChronicle(chr.id)" />
+              </div>
             </q-item-section>
           </q-item>
         </q-list>
@@ -293,6 +305,7 @@ export default defineComponent({
       },
       uploadingId: null as number | null,
       sharingId: null as number | null,
+      deletingId: null as number | null,
     });
 
     const methods = {
@@ -304,7 +317,13 @@ export default defineComponent({
           if (!result.success || !result.observationId) throw new Error(result.error || 'Import impossible');
           await chronicle.methods.loadChronicle(result.observationId);
           await methods.loadChronicles();
-          $q.notify({ type: 'positive', message: `Chronique « ${result.observationName} » importée` });
+          $q.notify({
+            type: 'positive',
+            message: `Chronique « ${result.observationName} » importée`,
+            caption: result.renamedCategoriesCount
+              ? `${result.renamedCategoriesCount} catégorie(s) renommée(s) car leur nom existait déjà`
+              : undefined,
+          });
         } catch (error) {
           $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Import impossible' });
         } finally {
@@ -322,7 +341,54 @@ export default defineComponent({
       },
 
       loadChronicle: async (id: number) => {
-        await chronicle.methods.loadChronicle(id);
+        try {
+          await chronicle.methods.loadChronicle(id);
+        } catch (error) {
+          $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Chargement impossible' });
+        }
+      },
+
+      unloadCurrentChronicle: () => {
+        if (!chronicle.sharedState.isPlaying && !chronicle.sharedState.isPaused) {
+          chronicle.methods.unloadChronicle();
+          return;
+        }
+        $q.dialog({
+          title: 'Enregistrement en cours',
+          message: 'L’enregistrement sera arrêté avant de changer de chronique.',
+          cancel: true,
+          persistent: true,
+          ok: { label: 'Arrêter et changer', color: 'negative' },
+        }).onOk(async () => {
+          try {
+            await chronicle.methods.closeActiveSession();
+            chronicle.methods.unloadChronicle();
+            await methods.loadChronicles();
+          } catch (error) {
+            $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Arrêt impossible' });
+          }
+        });
+      },
+
+      confirmDeleteChronicle: (chr: IObservationWithCounts) => {
+        $q.dialog({
+          title: 'Supprimer la chronique',
+          message: `« ${chr.name} » et ses ${chr.readings_count} relevé(s) seront supprimés de l’appareil. Cette action est irréversible.`,
+          cancel: true,
+          persistent: true,
+          ok: { label: 'Supprimer', color: 'negative' },
+        }).onOk(async () => {
+          state.deletingId = chr.id;
+          try {
+            await observationService.delete(chr.id);
+            await methods.loadChronicles();
+            $q.notify({ type: 'positive', message: `Chronique « ${chr.name} » supprimée` });
+          } catch (error) {
+            $q.notify({ type: 'negative', message: error instanceof Error ? error.message : 'Suppression impossible' });
+          } finally {
+            state.deletingId = null;
+          }
+        });
       },
 
       createChronicle: async () => {

@@ -45,6 +45,10 @@ export function useCloud() {
         sharedState.isAuthenticated = actographAuthService.isAuthenticated();
         sharedState.currentEmail = actographAuthService.getEmail();
         sharedState.isInitialized = true;
+        // Without this, the counter and the "cloud full" guard stay at 0 until the sync dialog opens.
+        if (sharedState.isAuthenticated) {
+          void methods.refreshList();
+        }
       } catch (error) {
         console.error('Error initializing cloud:', error);
       }

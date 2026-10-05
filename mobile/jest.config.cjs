@@ -1,3 +1,6 @@
+// Readings are floating local datetimes: clock change tests need a fixed DST timezone.
+process.env.TZ = 'Europe/Paris';
+
 module.exports = {
   testEnvironment: 'node',
   testMatch: ['<rootDir>/tests/**/*.test.js'],
