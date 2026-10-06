@@ -168,7 +168,8 @@ export const useProtocol = (options: { sharedStateFromObservation: any }) => {
      * @param category - Category data to add
      */
     addCategory: async (category: AddCategoryDto) => {
-      await protocolService.addCategory(category);
+      const { type: _categoryType, ...payload } = category;
+      await protocolService.addCategory(payload);
       // Reload the protocol to reflect changes
       await methods.loadProtocol(
         options.sharedStateFromObservation.currentObservation
