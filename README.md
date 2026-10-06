@@ -16,7 +16,7 @@ ActoGraph v3 est une application web et desktop conçue pour l'analyse et la vis
 
 La page de téléchargement officielle détecte votre système (Windows, macOS Apple Silicon/Intel, Linux) et propose le bon installeur directement :
 
-**👉 https://syllll.github.io/actograph-v3/**
+**👉 https://actograph.io/fr/download**
 
 - **Étudiants** : utilisation gratuite, sans licence (contrairement à la V1).
 - **Professionnels / non-étudiants** : une licence est requise, à acheter sur [actograph.io](https://www.actograph.io/fr/).
@@ -188,7 +188,7 @@ yarn build:graph
 
 Une **observation** est l'entité centrale de l'application. Elle représente une session d'observation comportementale et contient :
 - Un protocole d'observation structuré
-- Des readings (données collectées)
+- Des relevés (données collectées)
 - Un graphique d'activité (optionnel)
 
 ### Protocoles
@@ -197,9 +197,9 @@ Un **protocole** définit la structure hiérarchique d'une observation. Il est c
 - **Catégories** : Groupes d'observables
 - **Observables** : Éléments individuels à observer (feuilles de l'arbre)
 
-### Readings
+### Relevés
 
-Les **readings** sont les données collectées lors d'une observation. Chaque reading contient :
+Les **relevés** sont les données collectées lors d'une observation. Chaque relevé contient :
 - Un type (START, STOP, PAUSE_START, PAUSE_END, DATA)
 - Une date et heure précise
 - Un nom et une description optionnels

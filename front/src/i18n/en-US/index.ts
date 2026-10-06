@@ -340,6 +340,8 @@ export default {
     emptyState: 'Add at least one category, then one or more observables.',
     dragToReorder: 'Drag to reorder',
     inlineAddValidate: 'Confirm row',
+    inlineAddClose: 'Close input',
+    tooltipAddObservable: 'Add an observable',
     tooltipMoveUp: 'Move up',
     tooltipMoveDown: 'Move down',
     tooltipDuplicateCategory: 'Duplicate category',

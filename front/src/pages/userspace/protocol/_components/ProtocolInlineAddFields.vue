@@ -62,6 +62,20 @@
         <q-tooltip>{{ t('protocolUi.inlineAddValidate') }}</q-tooltip>
       </q-btn>
     </div>
+    <!-- Mouse equivalent of Escape: same reset + cancel path. -->
+    <div class="col-auto protocol-inline-add__close">
+      <q-btn
+        round
+        flat
+        dense
+        icon="mdi-close"
+        :disable="state.submitting"
+        :aria-label="t('protocolUi.inlineAddClose')"
+        @click="onEscape"
+      >
+        <q-tooltip>{{ t('protocolUi.inlineAddClose') }}</q-tooltip>
+      </q-btn>
+    </div>
     <div v-if="state.error" class="col-12 text-negative text-caption">
       {{ state.error }}
     </div>
