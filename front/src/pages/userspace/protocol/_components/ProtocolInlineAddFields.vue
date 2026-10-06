@@ -1,7 +1,9 @@
 <template>
+  <!-- q-tree node headers treat Space as expand (keypress + preventDefault). Stop here so the input still receives spaces. -->
   <div
     class="protocol-inline-add row q-col-gutter-sm items-center"
     @keydown.esc.stop="onEscape"
+    @keypress.stop
   >
     <div :class="mode === 'category' ? 'col-12 col-md-4' : 'col-12 col-md-4'">
       <q-input
