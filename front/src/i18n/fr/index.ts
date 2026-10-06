@@ -347,6 +347,8 @@ export default {
       'Ajoutez au moins une catégorie, puis un ou plusieurs observables.',
     dragToReorder: 'Glisser pour réordonner',
     inlineAddValidate: 'Valider la ligne',
+    inlineAddClose: 'Fermer la saisie',
+    tooltipAddObservable: 'Ajouter un observable',
     tooltipMoveUp: 'Monter',
     tooltipMoveDown: 'Descendre',
     tooltipDuplicateCategory: 'Dupliquer la catégorie',

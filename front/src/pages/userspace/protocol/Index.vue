@@ -61,7 +61,7 @@
                       <ProtocolInlineAddFields
                         :ref="(el) => methods.setObservableInlineRef(prop.node.categoryId, el)"
                         mode="observable"
-                        :autofocus="state.focusObservableDraftCategoryId === prop.node.categoryId"
+                        :autofocus="state.openObservableDraftCategoryId === prop.node.categoryId"
                         @commit="(payload) => methods.commitInlineObservable(prop.node.categoryId, payload)"
                         @cancel="methods.cancelInlineObservable(prop.node.categoryId)"
                       />
@@ -125,6 +125,21 @@
                       v-if="prop.node.type === 'category'"
                       class="protocol-tree-header__actions col-auto"
                     >
+                      <div class="protocol-tree-header__action-cell">
+                        <q-btn
+                          flat
+                          round
+                          dense
+                          size="xs"
+                          color="accent"
+                          icon="mdi-plus"
+                          :aria-label="$t('protocolUi.tooltipAddObservable')"
+                          :aria-expanded="state.openObservableDraftCategoryId === prop.node.id ? 'true' : 'false'"
+                          @click.stop="methods.toggleInlineObservable(prop.node.id)"
+                        >
+                          <q-tooltip>{{ $t('protocolUi.tooltipAddObservable') }}</q-tooltip>
+                        </q-btn>
+                      </div>
                       <div class="protocol-tree-header__action-cell">
                         <q-btn
                           flat
@@ -209,6 +224,8 @@
                       v-if="prop.node.type === 'observable'"
                       class="protocol-tree-header__actions col-auto"
                     >
+                      <!-- Empty slot mirroring the category "+" so action columns stay aligned. -->
+                      <div class="protocol-tree-header__action-cell" aria-hidden="true" />
                       <div class="protocol-tree-header__action-cell">
                         <q-btn
                           flat
@@ -438,6 +455,11 @@ export default defineComponent({
         const realChildren = (category.children || []).filter(
           (child: { type?: string }) => child.type !== INLINE_OBSERVABLE_DRAFT_TYPE
         );
+        // Draft row only on demand: an always-open input per category hides the tree
+        // users need to scan and pollutes screenshots used in reports.
+        if (category.id !== state.openObservableDraftCategoryId) {
+          return { ...category, children: realChildren };
+        }
         return {
           ...category,
           children: [
@@ -474,7 +496,8 @@ export default defineComponent({
       expandedNodes: [] as string[],
 
       addingCategoryInline: false,
-      focusObservableDraftCategoryId: '' as string,
+      // Single open draft at a time; '' = none.
+      openObservableDraftCategoryId: '' as string,
       dropTargetKey: '' as string,
       dragPayload: null as {
         kind: 'category' | 'observable';
@@ -771,9 +794,22 @@ export default defineComponent({
         }
       },
 
+      toggleInlineObservable: (categoryId: string) => {
+        if (state.openObservableDraftCategoryId === categoryId) {
+          methods.cancelInlineObservable(categoryId);
+          return;
+        }
+        state.openObservableDraftCategoryId = categoryId;
+        // Draft is a tree child: a collapsed category would keep it hidden.
+        ensureCategoryExpanded(categoryId);
+      },
+
       cancelInlineObservable: (_categoryId: string) => {
         const inlineRef = observableInlineRefs.get(_categoryId);
         inlineRef?.reset();
+        if (state.openObservableDraftCategoryId === _categoryId) {
+          state.openObservableDraftCategoryId = '';
+        }
       },
 
       commitInlineObservable: async (
@@ -820,7 +856,6 @@ export default defineComponent({
           });
 
           inlineRef?.finishCommit(true);
-          state.focusObservableDraftCategoryId = categoryId;
           await methods.loadProtocol();
           ensureCategoryExpanded(categoryId);
         } catch (error) {
@@ -1366,7 +1401,7 @@ export default defineComponent({
 .protocol-tree-header__actions {
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: repeat(5, 1.75rem);
+  grid-template-columns: repeat(6, 1.75rem);
   column-gap: 0.25rem;
   align-items: center;
   justify-items: center;
