@@ -30,7 +30,7 @@ En cas de conflit entre une recette IKB et ce fichier, les spécificités du pro
 
 - `.knowledge-base/recipes/glutamat/creer-module-nestjs.md` - Structure backend (⚠️ adapter pour TypeORM)
 - `.knowledge-base/recipes/glutamat/creer-module-quasar.md` - Structure frontend (⚠️ adapter pour `defineComponent`)
-- `.knowledge-base/recipes/glutamat/auto-implement.md` - Processus d'implémentation de features (OBLIGATOIRE)
+- `.knowledge-base/recipes/glutamat/auto-implement/index.md` - Processus d'implémentation de features (OBLIGATOIRE)
 - `.knowledge-base/best-practices/code-quality/conventions-nestjs.md` - Conventions NestJS (ORM-agnostique)
 - `.knowledge-base/best-practices/code-quality/conventions-vue-quasar.md` - Conventions Vue/Quasar (⚠️ adapter)
 - `.knowledge-base/best-practices/code-quality/conventions-code.md` - Conventions générales
@@ -40,6 +40,10 @@ En cas de conflit entre une recette IKB et ce fichier, les spécificités du pro
 ## Project overview
 
 ActoGraph v3 is a behavioral observation analysis app (Quasar/Vue.js frontend + NestJS API). The primary development mode is **Electron** (desktop), which bundles the API with SQLite (`better-sqlite3`) for offline use. See `README.md` for full architecture details.
+
+## Documentation entry points
+
+Use `README.md` for setup, `docs/README.md` for navigation and `docs/desktop.md` for the current desktop workflow. Dated plans and reviews preserve historical context, not current UI contracts. The shared IKB workflow now lives in `auto-implement/index.md`; this project keeps its existing documentation organization and technical specifics.
 
 ## Running the Electron dev mode
 
@@ -63,15 +67,15 @@ Must be created from `.env.example` before first run. For local SQLite dev:
 
 ## Building shared packages
 
-- **In dev mode**: NOT required. Vite aliases in `front/quasar.config.js` point directly to `packages/*/src/`.
+- **For frontend/mobile development**: NOT required. Vite aliases in `front/quasar.config.js` point directly to `packages/*/src/`.
 - **For the API**: `@actograph/core` must be built (`cd packages/core && yarn build`) because the API's `tsconfig.json` path mapping references `../packages/core/dist`.
-- Production builds require `yarn build:packages` from root.
+- Vite aliases remain active during builds. The desktop build script builds core then graph before the API/Electron build; run `yarn build:packages` from root for manual builds.
 
 ## Lint and tests
 
-- `cd front && yarn lint` — ESLint for frontend (passes clean)
+- `cd front && yarn lint` : ESLint for frontend; also `yarn typecheck` and `yarn test --runInBand`
 - `cd packages/core && yarn test` — Jest unit tests (`@actograph/core` ; `moduleFileExtensions` met `.ts` avant `.js` pour éviter de résoudre d’anciens `.js` voisins dans `src/`)
-- `cd api && yarn test` — Jest unit tests (has a pre-existing failing stub test in `app.controller.spec.ts`)
+- `cd api && yarn test --runInBand` : Jest unit tests, including the app HTML status page, desktop HTTP guard and license activation
 - API lint (`yarn lint:fix`) requires `eslint-plugin-prettier` which is missing from `package.json`. The API also has many pre-existing formatting issues.
 - `packages/core` lint has pre-existing errors in the vendored `qtdatastream` library.
 

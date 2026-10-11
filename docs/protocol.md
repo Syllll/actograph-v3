@@ -1,535 +1,119 @@
 # Protocoles
 
-Ce document décrit la gestion des protocoles d'observation dans ActoGraph v3.
+Référence de l'application bureau, revue le 11 octobre 2026. Un protocole est associé à une observation et organise des catégories contenant des observables. Il guide les boutons de collecte et le graphe.
 
-## Vue d'ensemble
+## Contrat de données
 
-Un **protocole** définit la structure hiérarchique d'une observation. Il organise les éléments observables en catégories et observables, créant une arborescence qui guide la collecte de données.
-
-## Structure d'un Protocole
-
-### Entité Protocol
-
-```typescript
-interface Protocol {
-  id?: number;                    // ID unique
-  name?: string;                  // Nom du protocole
-  description?: string;           // Description
-  observationId: number;          // ID de l'observation associée
-  items: ProtocolItem[];          // Structure hiérarchique (stockée en JSON)
-  user?: User;                    // Utilisateur propriétaire
-}
-```
-
-### Structure hiérarchique (ProtocolItem)
-
-Un protocole est composé d'items qui peuvent être soit des **catégories**, soit des **observables** :
+Les types frontend vivent dans `front/src/services/observations/interface.ts` ; les types partagés dans `packages/core/src/`. Le backend persiste `Protocol.items` comme une **chaîne JSON**. Le frontend l'hydrate en `_items` pour l'édition et la réactivité.
 
 ```typescript
 interface ProtocolItem {
-  id: string;                     // ID unique de l'item (UUID)
-  name: string;                   // Nom de l'item
-  description?: string;            // Description optionnelle
-  type: ProtocolItemTypeEnum;     // 'category' ou 'observable'
-  action?: ProtocolItemActionEnum; // Action associée (optionnel)
-  meta?: Record<string, any>;     // Métadonnées (optionnel)
-  children?: ProtocolItem[];      // Enfants (pour les catégories)
-  order?: number;                 // Ordre d'affichage
+  id: string;                      // UUID local au protocole
+  name: string;
+  description?: string;
+  type: 'category' | 'observable';
+  action?: 'continuous' | 'discrete';
+  order?: number;
+  children?: ProtocolItem[];        // Observables d'une catégorie
+  graphPreferences?: IGraphPreferences;
 }
 ```
 
-### Types d'items
+`Continuous` désigne un observable continu ; `Discrete` un événement ponctuel. Les préférences graphiques comprennent couleur, épaisseur, motif, visibilité et modes `normal`, `background` ou `frieze`, avec héritage depuis la catégorie. Elles font partie du protocole et sont transportées lors des copies et exports.
+
+## Création et copie
+
+La création de l'observation initialise son protocole côté backend. Le service frontend `protocolService` n'expose pas de méthode `create()` autonome. Pour copier un protocole existant, il expose :
 
 ```typescript
-enum ProtocolItemTypeEnum {
-  Category = 'category',      // Catégorie (peut contenir des observables)
-  Observable = 'observable',  // Observable (feuille de l'arbre)
-}
+await protocolService.cloneProtocol(sourceObservationId, targetObservationId);
 ```
 
-### Actions
+La source et la cible doivent être différentes et accessibles à l'utilisateur. Les sélecteurs de création/import ne proposent que des sources contenant au moins une catégorie. Le clonage et l'import réattribuent les IDs et préservent les préférences graphiques, y compris les références portables aux catégories de support.
 
-Les items peuvent avoir une action associée :
+## Ajouter et éditer
 
-```typescript
-enum ProtocolItemActionEnum {
-  // Actions possibles pour les observables
-  // (défini selon les besoins métier)
-}
-```
+Dans l'UI, les catégories peuvent être ajoutées sur place. Le bouton d'une catégorie ouvre à la demande le champ d'ajout d'observable. Les événements clavier de ces champs sont isolés des raccourcis de collecte. Les modales permettent l'édition détaillée.
 
-## Création d'un Protocole
-
-### Création basique
-
-**Backend :**
-```typescript
-const protocol = await protocolService.create({
-  name: 'Protocole d\'observation',
-  description: 'Description du protocole',
-  observationId: 1,
-});
-```
-
-**Frontend :**
-```typescript
-import { protocolService } from '@services/observations/protocol.service';
-
-const protocol = await protocolService.create({
-  observationId: 1,
-  name: 'Protocole d\'observation',
-  description: 'Description',
-});
-```
-
-### Création avec structure complète
-
-Lors de la création d'une observation, un protocole peut être créé avec sa structure complète :
+Exemples du service frontend actuel :
 
 ```typescript
-const observation = await observationService.create({
-  userId: 1,
-  name: 'Nouvelle observation',
-  protocol: {
-    name: 'Protocole complet',
-    categories: [
-      {
-        name: 'Catégorie 1',
-        description: 'Description catégorie 1',
-        observables: [
-          { name: 'Observable 1.1' },
-          { name: 'Observable 1.2' },
-        ],
-      },
-      {
-        name: 'Catégorie 2',
-        observables: [
-          { name: 'Observable 2.1' },
-        ],
-      },
-    ],
-  },
-});
-```
+import {
+  protocolService,
+  ProtocolItemActionEnum,
+  ProtocolItemTypeEnum,
+} from '@services/observations/protocol.service';
 
-## Gestion des Items
-
-### Ajouter une catégorie
-
-**Backend :**
-```typescript
-const category = await protocolService.items.addCategory({
-  protocolId: 1,
-  name: 'Nouvelle catégorie',
-  description: 'Description',
-  order: 0,
-  action: ProtocolItemActionEnum.SOME_ACTION, // Optionnel
-});
-```
-
-**Frontend :**
-```typescript
 const category = await protocolService.addCategory({
   protocolId: 1,
-  name: 'Nouvelle catégorie',
-  description: 'Description',
+  name: 'Activité',
   order: 0,
 });
-```
 
-### Ajouter un observable
-
-Un observable doit toujours être associé à une catégorie parente :
-
-**Backend :**
-```typescript
-const observable = await protocolService.items.addObservable({
-  protocolId: 1,
-  categoryId: 'uuid-de-la-categorie',
-  name: 'Nouvel observable',
-  description: 'Description',
-  order: 0,
-});
-```
-
-**Frontend :**
-```typescript
 const observable = await protocolService.addObservable({
   protocolId: 1,
-  categoryId: 'uuid-de-la-categorie',
-  name: 'Nouvel observable',
-  description: 'Description',
+  parentId: category.id,
+  name: 'Lecture',
+  action: ProtocolItemActionEnum.Continuous,
   order: 0,
 });
-```
 
-### Modifier un item
-
-**Mise à jour partielle (recommandée)**
-
-Les mises à jour sont **partielles** par défaut : seuls les champs fournis sont modifiés, les autres sont préservés.
-
-**Backend :**
-```typescript
-// Mise à jour complète
-await protocolService.items.editCategory({
+await protocolService.editItem({
+  id: observable.id,
   protocolId: 1,
-  categoryId: 'uuid-de-la-categorie',
-  name: 'Nom modifié',
-  description: 'Description modifiée',
-  action: ProtocolItemActionEnum.Continuous,
-});
-
-// Mise à jour partielle : seulement la position dans meta
-await protocolService.items.editCategory({
-  protocolId: 1,
-  categoryId: 'uuid-de-la-categorie',
-  meta: {
-    position: { x: 100, y: 200 }
-  }
-});
-// Le nom, la description et les autres champs restent inchangés
-```
-
-**Frontend :**
-```typescript
-// Mise à jour complète
-await protocolService.editProtocolItem({
-  id: 'uuid-de-l-item',
-  protocolId: 1,
-  type: ProtocolItemTypeEnum.Category,
-  name: 'Nom modifié',
-  description: 'Description modifiée',
-});
-
-// Mise à jour partielle : seulement meta
-await protocolService.editProtocolItem({
-  id: 'uuid-de-l-item',
-  protocolId: 1,
-  type: ProtocolItemTypeEnum.Category,
-  meta: {
-    ...existingMeta,
-    position: { x: 100, y: 200 }
-  }
+  type: ProtocolItemTypeEnum.Observable,
+  description: 'Lecture individuelle',
 });
 ```
 
-**Important :**
-- Les champs non fournis (`undefined`) ne sont **pas** envoyés au backend
-- Les valeurs existantes sont **automatiquement préservées**
-- Seuls les champs explicitement fournis sont mis à jour
-- Cela permet des mises à jour ciblées (ex: position, métadonnées) sans risquer d'écraser d'autres données
+Dans une page frontend, importer ce service via `@services/observations/protocol.service`. `addCategory` et `addObservable` prennent des DTO **sans `type`** ; le service ajoute ce champ au payload HTTP. Chaque observable appartient à une catégorie (`parentId`).
 
-### Supprimer un item
+Les relevés DATA identifient l'observable par **son nom**, pas par son UUID. `isObservableNameInUse` empêche les doublons de nom dans l'éditeur. Lors d'un renommage ou d'une modification de description, `EditObservableModal` met aussi à jour les relevés correspondants si le nom précédent permet une correspondance non ambiguë. Les fichiers anciens contenant des homonymes ne permettent pas cette cascade fiable.
 
-**Backend :**
-```typescript
-await protocolService.items.removeItem({
-  protocolId: 1,
-  itemId: 'uuid-de-l-item',
-});
-```
+## Réordonner, déplacer et supprimer
 
-**Frontend :**
-```typescript
-await protocolService.removeItem({
-  protocolId: 1,
-  itemId: 'uuid-de-l-item',
-});
-```
-
-## Stockage des Items
-
-Les items sont stockés dans la colonne `items` du protocole sous forme de JSON :
-
-```json
-[
-  {
-    "id": "uuid-1",
-    "name": "Catégorie 1",
-    "type": "category",
-    "order": 0,
-    "children": [
-      {
-        "id": "uuid-2",
-        "name": "Observable 1.1",
-        "type": "observable",
-        "order": 0
-      }
-    ]
-  }
-]
-```
-
-### Structure JSON
-
-Le format JSON respecte la structure hiérarchique :
-- Les catégories contiennent un tableau `children`
-- Les observables sont des feuilles (pas de `children`)
-- L'ordre est préservé via le champ `order`
-
-## Récupération d'un Protocole
-
-### Récupération simple
+Le glisser-déposer réordonne catégories et observables via les valeurs `order`. `moveObservableToCategory` supprime l'item source puis le recrée dans la catégorie cible, en préservant son nom, sa description, son action et ses préférences graphiques. Son UUID change ; ne pas supposer une identité stable après ce déplacement.
 
 ```typescript
-const protocol = await protocolService.findOne(protocolId);
+await protocolService.deleteItem(observable.id, 1);
 ```
 
-### Récupération avec relations
+La suppression d'un item du protocole ne doit pas être confondue avec la suppression des relevés : ceux-ci portent des noms et peuvent rester présents après une modification du protocole. Vérifier les relevés et les avertissements avant l'analyse.
+
+## Récupération et préférences
 
 ```typescript
-const protocol = await protocolService.findOne(protocolId, {
-  relations: ['observation', 'user'],
+const protocol = await protocolService.findOneFromObservationId(1);
+const categories = protocol._items ?? [];
+
+await protocolService.updateItemGraphPreferences(1, category.id, {
+  color: '#336699',
+  strokeWidth: 2,
 });
 ```
 
-### Récupération avec items parsés
+`findOneFromObservationId` hydrate `_items` et revient à un tableau vide si le JSON n'est pas lisible. `getItemGraphPreferences` lit les valeurs propres d'un item ; `getObservableGraphPreferencesWithInheritance` calcule les valeurs héritées. Voir [graphiques](graph.md) et [moteur v2](graph-engine-v2.md).
 
-Le service parse automatiquement le JSON des items :
+## Routes API
 
-```typescript
-const protocol = await protocolService.findOne(protocolId);
-// protocol.items est un tableau de ProtocolItem[]
-```
+Les routes sont sous `/observations/protocols`, protégées par JWT et les contrôles d'accès au propriétaire de l'observation.
 
-## Clonage de Protocole
+| Méthode | Route relative | Usage |
+|---|---|---|
+| GET | `/paginate` | Liste paginée |
+| GET | `/from-observation/:observationId` | Protocole d'une observation |
+| POST | `/clone` | `{ sourceObservationId, targetObservationId }` |
+| POST | `/item` | Ajout avec `protocolId`, `type`, nom et parent si observable |
+| PATCH | `/item/:id` | Modification d'un item |
+| DELETE | `/item/:protocolId/:itemId` | Suppression d'un item |
+| GET / PATCH | `/item/:protocolId/:itemId/graph-preferences` | Lecture / mise à jour des préférences |
+| GET | `/observable/:protocolId/:observableId/graph-preferences-with-inheritance` | Préférences héritées |
 
-Un protocole peut être cloné vers une autre observation :
-
-**Backend :**
-```typescript
-const clonedProtocol = await protocolService.clone({
-  protocolId: 1,
-  observationIdToCopyTo: 2,
-  newUserId: 1,
-});
-```
-
-Cela crée une copie complète du protocole avec tous ses items, associée à la nouvelle observation.
-
-## Utilisation dans l'interface
-
-### Éditeur de protocole
-
-L'interface permet de :
-- Visualiser la structure hiérarchique
-- Ajouter/modifier/supprimer des catégories et observables
-- Réorganiser les items par glisser-déposer
-- Éditer les propriétés (nom, description, action)
-
-### Arborescence
-
-La structure est affichée sous forme d'arbre :
-```
-📁 Catégorie 1
-  ├─ 📄 Observable 1.1
-  └─ 📄 Observable 1.2
-📁 Catégorie 2
-  └─ 📄 Observable 2.1
-```
-
-## API Backend
-
-### Endpoints
-
-**Créer un protocole :**
-```
-POST /observations/protocols
-Body: {
-  observationId: number,
-  name: string,
-  description?: string
-}
-```
-
-**Ajouter un item :**
-```
-POST /observations/protocols/item
-Body: {
-  protocolId: number,
-  name: string,
-  type: 'category' | 'observable',
-  parentId?: string,  // Requis pour les observables
-  description?: string,
-  order?: number
-}
-```
-
-**Modifier un item :**
-```
-PATCH /observations/protocols/item/:id
-Body: {
-  protocolId: number,      // Requis
-  type: 'category' | 'observable',  // Requis
-  name?: string,           // Optionnel - seulement si on veut modifier le nom
-  description?: string,     // Optionnel - seulement si on veut modifier la description
-  action?: string,          // Optionnel - seulement si on veut modifier l'action
-  order?: number,           // Optionnel - seulement si on veut modifier l'ordre
-  meta?: object             // Optionnel - seulement si on veut modifier les métadonnées
-}
-```
-
-**Note importante :** Les champs non fournis (`undefined`) ne sont pas envoyés au backend. Les valeurs existantes sont automatiquement préservées. Cela permet des mises à jour partielles sécurisées.
-
-**Exemple : Mise à jour uniquement de la position**
-```json
-PATCH /observations/protocols/item/ea5919a4-dc92-4646-9183-c511b8bfda5a
-{
-  "protocolId": 1,
-  "type": "category",
-  "meta": {
-    "position": { "x": 100, "y": 200 }
-  }
-}
-```
-Le nom, la description et les autres champs de la catégorie restent inchangés.
-
-**Supprimer un item :**
-```
-DELETE /observations/protocols/item/:id?protocolId=1
-```
-
-**Récupérer un protocole :**
-```
-GET /observations/protocols/:id
-```
-
-**Récupérer les protocoles (paginé) :**
-```
-GET /observations/protocols/paginate?offset=0&limit=100
-```
-
-## Validation et Contrôles
-
-### Vérifications
-
-Avant d'ajouter un observable :
-- La catégorie parente doit exister
-- La catégorie parente doit être du type `category`
-- L'ID de la catégorie parente doit être valide
-
-Avant de modifier/supprimer un item :
-- L'item doit exister dans le protocole
-- L'utilisateur doit avoir accès à l'observation associée
-
-### Permissions
-
-- Seul le propriétaire de l'observation peut modifier le protocole
-- Les protocoles sont privés à chaque utilisateur
-
-## Métadonnées (meta)
-
-Le champ `meta` permet de stocker des données additionnelles pour chaque item. Il est couramment utilisé pour :
-
-- **Position dans l'interface** : `{ position: { x: 100, y: 200 } }`
-- **Préférences d'affichage** : `{ collapsed: true, color: '#ff0000' }`
-- **Données personnalisées** : toute structure JSON valide
-
-### Mise à jour des métadonnées
-
-Lors de la mise à jour de `meta`, il est important de préserver les métadonnées existantes :
-
-```typescript
-// ❌ Mauvaise pratique : écrase toutes les métadonnées existantes
-await protocolService.editProtocolItem({
-  id: categoryId,
-  protocolId: 1,
-  type: ProtocolItemTypeEnum.Category,
-  meta: {
-    position: { x: 100, y: 200 }
-  }
-});
-
-// ✅ Bonne pratique : préserve les métadonnées existantes
-const category = await getCategory(categoryId);
-await protocolService.editProtocolItem({
-  id: categoryId,
-  protocolId: 1,
-  type: ProtocolItemTypeEnum.Category,
-  meta: {
-    ...(category.meta || {}),
-    position: { x: 100, y: 200 }
-  }
-});
-```
-
-## Bonnes pratiques
-
-### Structure hiérarchique
-
-- Limitez la profondeur de l'arborescence (2-3 niveaux recommandés)
-- Utilisez des noms clairs et descriptifs
-- Organisez logiquement les observables en catégories
-
-### Performance
-
-- Évitez les protocoles avec un très grand nombre d'items
-- Utilisez l'ordre (`order`) pour contrôler l'affichage
-- Limitez la taille des métadonnées (`meta`)
-
-### Nommage
-
-- Utilisez des noms courts mais descriptifs
-- Respectez une convention de nommage cohérente
-- Utilisez les descriptions pour plus de détails
-
-### Mises à jour partielles
-
-- **Toujours utiliser des mises à jour partielles** : ne fournissez que les champs à modifier
-- **Préserver les métadonnées existantes** : utilisez le spread operator pour `meta`
-- **Ne pas envoyer de valeurs `undefined`** : le backend les ignore automatiquement, mais c'est une bonne pratique
+Le contrat exact des DTO et des validations est dans `api/src/core/observations/controllers/protocol.controller.ts`, les traitements dans `services/protocol/` et le client dans `front/src/services/observations/protocol.service.ts`.
 
 ## Dépannage
 
-### Items non sauvegardés
-
-Si les modifications ne sont pas sauvegardées :
-
-1. Vérifiez que le protocole existe
-2. Vérifiez les permissions d'accès
-3. Vérifiez le format JSON des items
-4. Consultez les logs du backend
-
-### Erreurs de structure
-
-Si vous recevez des erreurs de structure :
-
-1. Vérifiez que les observables ont un parent valide
-2. Vérifiez que les IDs sont des UUID valides
-3. Vérifiez que le JSON est valide
-
-### Problèmes d'affichage
-
-Si l'arborescence ne s'affiche pas correctement :
-
-1. Vérifiez que les items sont bien parsés
-2. Vérifiez que la structure hiérarchique est correcte
-3. Vérifiez que l'ordre (`order`) est défini
-
-### Perte de données lors de la mise à jour
-
-Si des champs disparaissent après une mise à jour :
-
-1. **Vérifiez que vous utilisez une mise à jour partielle** : ne fournissez que les champs à modifier
-2. **Vérifiez que vous préservez les métadonnées** : utilisez `...(existingMeta || {})` lors de la mise à jour de `meta`
-3. **Vérifiez les logs du backend** : les valeurs `undefined` ne devraient pas être envoyées
-4. **Vérifiez que le backend a bien reçu les données** : le backend préserve automatiquement les champs non fournis
-
-**Exemple de problème et solution :**
-
-```typescript
-// ❌ Problème : envoie seulement meta, mais le nom disparaît
-await protocolService.editProtocolItem({
-  id: categoryId,
-  protocolId: 1,
-  type: ProtocolItemTypeEnum.Category,
-  meta: { position: { x: 100, y: 200 } }
-});
-
-// ✅ Solution : le backend préserve automatiquement le nom
-// (correction appliquée dans le code)
-// Le problème venait du fait que le controller envoyait tous les champs,
-// y compris undefined, ce qui écrasait les valeurs existantes.
-```
-
+- Si l'arbre est vide, vérifier `items`, son parsing vers `_items` et l'observation active.
+- Si un ajout est refusé, vérifier le nom, la catégorie parente et le `protocolId`, puis la réponse HTTP.
+- Si des relevés semblent associés à plusieurs observables, rechercher des homonymes hérités d'un ancien fichier.
+- Après modification des types partagés, reconstruire core pour l'API ; voir [monorepo](monorepo-build.md).

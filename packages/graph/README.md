@@ -1,6 +1,6 @@
 # @actograph/graph
 
-Activity graph component using PixiJS, shared between the web frontend and mobile app.
+Activity graph component using PixiJS, shared between the desktop/web frontend and mobile app.
 
 ## Overview
 
@@ -12,6 +12,8 @@ This package provides the **PixiJS-based graph visualization** for ActoGraph obs
 - **Interactive features** like zoom and pan
 
 ## Architecture
+
+`PixiApp` is the public facade. The v2 engine in `src/engine/` prepares world layers; axis labels and hover use screen-space overlays in `src/layers/`. See the [graph guide](../../docs/graph.md) and [engine v2 reference](../../docs/graph-engine-v2.md) for rendering, resize, export and scheduling contracts.
 
 ```
 src/
@@ -55,16 +57,17 @@ This package is included in the monorepo. It's automatically linked via `file:` 
 ```typescript
 import { PixiApp } from '@actograph/graph';
 
-// Create the graph instance
-const graph = new PixiApp({
-  container: document.getElementById('graph-container'),
-  observation: myObservation,
-  protocolItems: myProtocolItems,
-  readings: myReadings,
-});
+// Provide an HTML canvas mounted in a container with explicit dimensions.
+const graph = new PixiApp();
+await graph.init({ view: canvasElement });
 
-// Update data
-graph.setReadings(newReadings);
+// The observation includes its protocol and readings.
+graph.setData(myObservation);
+await graph.draw();
+
+// Update the observation snapshot, then redraw.
+graph.setData(updatedObservation);
+await graph.draw();
 
 // Cleanup
 graph.destroy();
@@ -153,10 +156,7 @@ This allows hot-reload during development while producing clean builds.
 
 ### With Vite (front/mobile)
 
-The consuming apps resolve this package differently in dev vs prod:
-
-**Development**: Via `tsconfig.json` paths and `quasar.config.js` aliases → `src/`
-**Production**: Via `package.json` main/types fields → `dist/`
+The consuming Vite apps resolve this package to `src/` through their aliases in both development and production builds. A consumer without these aliases uses the package `main`/`types` fields pointing to `dist/`. The desktop build pipeline still compiles core then graph before packaging.
 
 This is configured in:
 - `front/tsconfig.json` and `front/quasar.config.js`

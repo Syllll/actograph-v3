@@ -9,9 +9,11 @@ injection dans les builds CI, est décrite dans [Validation des licences](./lice
 
 L'application desktop embarque une API NestJS bundlée qui s'exécute en arrière-plan. Cette architecture permet :
 
-- **Installation rapide** : ~150 fichiers au lieu de ~50 000
-- **Démarrage instantané** : Pas d'extraction de fichiers au premier lancement
-- **Taille réduite** : ~20-30 MB au lieu de ~150-200 MB
+- **Moins de fichiers API** : bundle JavaScript unique et dépendances natives, plutôt que tout le `node_modules` backend.
+- **Pas d'extraction ZIP de l'API au premier lancement** : l'API est prête dans les ressources installées.
+- **Démarrage supervisé** : la fenêtre attend la disponibilité réelle de NestJS et SQLite.
+
+Ces propriétés concernent l'API embarquée. La taille totale de l'installeur inclut Electron et varie selon la plateforme ; les anciennes estimations de taille ou de temps ne sont pas des mesures des releases actuelles.
 
 ## Architecture du bundling
 
@@ -64,7 +66,7 @@ L'application desktop embarque une API NestJS bundlée qui s'exécute en arrièr
 | Driver SQLite natif | Remplacé `sqlite3` par `better-sqlite3` (prebuilds inclus) |
 | 50 000+ fichiers à installer | Bundle esbuild → 1 fichier + modules natifs |
 | Glob patterns cassés après bundling | Index explicites (all-entities.ts, all-migrations.ts) |
-| Extraction ZIP lente au premier lancement | Plus de ZIP, démarrage instantané |
+| Extraction ZIP de l’API au premier lancement | Bundle présent dans les ressources installées |
 
 ## Flux de build
 
@@ -86,8 +88,8 @@ L'application desktop embarque une API NestJS bundlée qui s'exécute en arrièr
 5. Copie du bundle
    └─▶ front/src-electron/extra-resources/api/api.bundle.js
 
-6. Installation production des modules natifs
-   └─▶ yarn install --production (better-sqlite3 uniquement)
+6. Installation production et rebuild des modules natifs
+   └─▶ better-sqlite3 et dépendances, puis electron-rebuild pour Electron
 
 7. Copie des node_modules natifs
    └─▶ front/src-electron/extra-resources/api/node_modules/
@@ -96,14 +98,18 @@ L'application desktop embarque une API NestJS bundlée qui s'exécute en arrièr
 ### Commandes de build
 
 ```bash
-# Build complet Electron (déclenche tout le processus)
-cd front && quasar build -m electron
+# Build complet depuis la racine, avec Node 20 et les .env préparés
+bash scripts/build-electron.sh
+
+# Variante manuelle après installation et build des packages
+# yarn build:packages, puis depuis front/ :
+# yarn quasar build -m electron --publish never
 
 # Build manuel de l'API bundlée
 cd api
 yarn generate:indexes    # Génère les index d'entités/migrations
 yarn build              # Compile TypeScript
-yarn build:bundle       # Génère le bundle esbuild
+yarn build:bundle       # esbuild depuis dist, ne compile pas TypeScript
 ```
 
 ## Flux d'exécution en production
@@ -294,7 +300,7 @@ DB_NAME=actograph.sqlite
 
 ### Workflow : `.github/workflows/publish.yml`
 
-Le workflow part sur les tags `prod-v*` et `preprod-v*`. Un job `parse` lit le tag. Un tag sans suffixe, ou suffixé `-desktop`, ne lance que le bureau. `-mobile` lance l'AAB Android et l'envoi Play. `-desktop-mobile` lance les deux. `preprod` publie la release GitHub en prerelease. Le détail Android est dans [deployment.md](deployment.md).
+Le workflow part sur les tags `prod-v*` et `preprod-v*`. Un job `parse` lit le tag. Un tag sans suffixe, ou suffixé `-desktop`, ne lance que le bureau. `-mobile` lance Android et iOS ; `-android` et `-ios` sélectionnent une seule plateforme mobile. `-desktop-mobile` lance le bureau et les deux plateformes mobiles. `preprod` publie la release GitHub en prerelease. Le détail Android est dans [deployment.md](deployment.md).
 
 Le job bureau, lancé seulement si le tag contient le bureau, build pour 3 plateformes en parallèle (4 runners) :
 
@@ -383,15 +389,9 @@ Le chemin `dbPath` n'est pas correct. Vérifier :
 - `process.argv[5]` contient le bon chemin
 - Le dossier `userData` existe et est accessible
 
-## Comparaison avant/après
+## Différence avec l’ancien empaquetage
 
-| Métrique | Avant (ZIP) | Après (Bundle) |
-|----------|-------------|----------------|
-| Fichiers installés | ~50 000 | ~150 |
-| Taille installation | ~150-200 MB | ~20-30 MB |
-| Premier lancement | 30s - 2min (extraction) | Instantané |
-| Build time | ~5 min | ~3 min |
-| Complexité | ZIP + extraction runtime | Bundle direct |
+L’ancien format extrayait un ZIP de l’API au lancement. Le format courant copie directement `api.bundle.js`, la configuration et les dépendances natives dans les ressources Electron. Les migrations et le handshake de santé restent nécessaires au démarrage ; aucun délai fixe n’est garanti.
 
 ## Fichiers clés
 
@@ -404,3 +404,6 @@ Le chemin `dbPath` n'est pas correct. Vérifier :
 | `api/config/typeorm.config.ts` | Configuration TypeORM avec imports explicites |
 | `front/quasar.config.js` | Orchestration du build (beforeBuild) |
 | `front/src-electron/electron-main.ts` | Lancement du serveur en production |
+| `front/src-electron/backend-supervisor.ts` | Disponibilité, reprise et arrêt sérialisés |
+| `front/src-electron/electron-preload.ts` | Bridge renderer et connexion au backend |
+| `api/src/desktop-http.ts` | Contrôle du secret de session et CORS de développement |

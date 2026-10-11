@@ -1,12 +1,10 @@
 # Déploiement
 
-Ce document décrit les procédures de déploiement de l'application ActoGraph v3 en environnement de production.
+Ce document décrit la publication de l'application bureau Electron, des applications mobiles et le déploiement alternatif du mode web. Pour préparer un build bureau local, consulter le [README](../README.md) et le [guide Electron](electron-desktop-build.md).
 
 ## Vue d'ensemble
 
-L'application peut être déployée de deux manières :
-1. **Déploiement automatique** : Via CI/CD avec des tags Git
-2. **Déploiement manuel** : Via Docker Compose en mode production
+Le bureau est distribué par la CI GitHub Actions, déclenchée par les tags `prod-v*` ou `preprod-v*`. Un simple commit/push sur `main` ne publie pas d'installeur. Docker Compose concerne le mode web, pas l'installation bureau. Les versions de `api/package.json` et `front/package.json` sont les versions bureau ; le manifeste racine et les packages partagés gardent leur version indépendante.
 
 ## Déploiement automatique
 

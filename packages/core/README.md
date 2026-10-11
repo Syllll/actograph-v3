@@ -1,6 +1,6 @@
 # @actograph/core
 
-Core business logic for ActoGraph, shared between backend (NestJS) and mobile (Capacitor).
+Core business logic for ActoGraph, shared between backend (NestJS), desktop/web frontend and mobile (Capacitor).
 
 ## Overview
 
@@ -15,11 +15,13 @@ This package contains **pure TypeScript logic** without any framework dependenci
 ## Installation
 
 ```bash
-# In the monorepo
-yarn workspace @actograph/core build
+# Install from the package directory
+cd packages/core
+yarn install
+yarn build
 
-# Or from the root
-yarn build:core
+# Alternatively, build from the monorepo root
+# yarn build:core
 ```
 
 ## Usage
@@ -89,8 +91,6 @@ console.log(categoryStats.observables);
 import {
   parseJchronicFile,
   normalizeJchronicData,
-  ChronicV1Parser,
-  normalizeChronicV1Data,
   ImportError,
 } from '@actograph/core';
 
@@ -104,6 +104,9 @@ try {
     console.error('Import failed:', error.message);
   }
 }
+
+// Node.js-only entry point; not exported by the browser-safe root.
+import { ChronicV1Parser, normalizeChronicV1Data } from '@actograph/core/import/chronic-v1';
 
 // Parse .chronic (binary Qt DataStream format)
 const parser = new ChronicV1Parser();
@@ -164,6 +167,8 @@ const protocolResult = validateProtocolStructure(protocolItems);
 | `unionPeriods` | OR operation on period arrays |
 
 ### Import Functions
+
+The V1 binary parser and normalizer must be imported from `@actograph/core/import/chronic-v1` in Node.js. The root entry point exports the browser-safe JSON parser and shared types.
 
 | Function/Class | Description |
 |----------------|-------------|
@@ -236,12 +241,13 @@ src/
 
 ## Development
 
+See the [monorepo build guide](../../docs/monorepo-build.md) for installation and consumer resolution.
+
 ### Do I need to build?
 
-**For development: NO** ✅
+**For frontend/mobile development:** their Vite aliases point to `src/`, so source changes are picked up directly. These aliases also remain active during builds.
 
-The consuming apps (api/, front/, mobile/) use path aliases that point to `src/`.
-This means hot-reload works automatically - no need to rebuild after changes.
+**For the API: YES.** `api/tsconfig.json` resolves `@actograph/core` from `../packages/core/dist`. Build core before starting the API and after changing core sources, or run `yarn dev` in this package to watch/rebuild it.
 
 **For production builds: YES** 🔨
 

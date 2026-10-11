@@ -1,5 +1,7 @@
 # Feature #4 - Page d'accueil avec tableau de bord
 
+> Contexte historique d’implémentation. Pour le comportement actuel du bureau, consulter le [guide à jour](../desktop.md). Les tâches et scénarios ci-dessous conservent leur contexte d’origine.
+
 **Issue GitHub** : [#4](https://github.com/Syllll/actograph-v3/issues/4)  
 **Statut** : ✅ **Implémenté**
 

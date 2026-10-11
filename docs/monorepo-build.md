@@ -1,190 +1,72 @@
-# Configuration Build Monorepo (sans Workspaces)
+# Monorepo et builds
 
-Ce projet est un monorepo **sans** yarn workspaces. Chaque sous-projet (`api/`, `front/`, `mobile/`, `packages/core/`) a son propre `package.json`, `node_modules/` et `yarn.lock`.
+ActoGraph est un monorepo **sans Yarn workspaces**. `api/`, `front/`, `mobile/`, `packages/core/` et `packages/graph/` ont leurs propres manifestes, dépendances et lockfiles. Il existe aussi un manifeste et un lockfile racine pour les scripts de commodité ; leur présence ne transforme pas le dépôt en workspace.
 
-## Principe : Chaque projet gère son propre build/watch
+## Installer
 
-- **API (NestJS)** : Gère son build avec `nest build` et watch avec `nest start --watch`
-- **Frontend (Quasar)** : Gère son build avec `quasar build` et watch avec `quasar dev`
-- **Mobile (Quasar + Capacitor)** : Gère son build avec `quasar build -m capacitor`
-- **Core Package** : Gère son build avec `tsc` et watch avec `tsc --watch`
-
-## Partage du package @actograph/core
-
-Le package `@actograph/core` est partagé entre l'API et le mobile via des références `file:` :
-
-```json
-// Dans api/package.json et mobile/package.json
-"dependencies": {
-  "@actograph/core": "file:../packages/core"
-}
-```
-
-**Important** : Après modification du code dans `packages/core/`, il faut :
-1. Rebuild le package core : `cd packages/core && yarn build`
-2. Ré-installer les dépendances dans les projets qui l'utilisent : `cd ../api && yarn install`
-
-## Installation des dépendances
-
-### Installation complète (depuis la racine)
+Avec Node 20 et Yarn Classic 1.22, depuis la racine :
 
 ```bash
-# Script qui installe toutes les dépendances
 yarn install:all
-
-# Ou manuellement
-cd packages/core && yarn install && yarn build
-cd ../api && yarn install
-cd ../front && yarn install
-cd ../mobile && yarn install
 ```
 
-### Installation individuelle
+Ce script installe core, graph, API, frontend et mobile. Pour travailler uniquement sur le bureau :
 
 ```bash
-# API
-cd api && yarn install
-
-# Frontend
-cd front && yarn install
-
-# Mobile
-cd mobile && yarn install
-
-# Core package
-cd packages/core && yarn install
+(cd packages/core && yarn install)
+(cd packages/graph && yarn install)
+(cd api && yarn install)
+(cd front && yarn install)
+yarn build:packages
 ```
 
-## Configuration pour éviter les conflits
+Les références locales sont `file:../packages/core` depuis l'API/frontend/mobile, `file:../packages/graph` depuis le frontend/mobile et `file:../core` depuis graph. Éviter les exemples avec `cd ../api` exécuté depuis `packages/core` : ce chemin ne mène pas à l'API racine.
 
-### 1. TypeScript à la racine (`tsconfig.json`)
+## Sources ou build compilé ?
 
-Exclut tous les projets pour éviter que l'IDE ne compile automatiquement :
+| Consommateur | Résolution actuelle | Après modification des sources partagées |
+|---|---|---|
+| API | `api/tsconfig.json` pointe vers `../packages/core/dist` ; le runtime utilise le package compilé | Reconstruire core avant de relancer/recompiler l'API |
+| Frontend web/Electron | Alias Vite `@actograph/core` et `@actograph/graph` vers `packages/*/src` | Rechargement des sources par Vite |
+| Mobile | Alias Vite vers les sources des packages | Rechargement des sources par Vite |
+| Build TypeScript de graph | Types de core compilés | Construire core avant graph |
+| Consommateur externe sans alias | Champs `main`/`types` vers `dist` | Construire les packages et actualiser l'installation locale si nécessaire |
 
-```json
-{
-  "exclude": [
-    "api/**/*",
-    "packages/core/**/*",
-    "front/**/*",
-    "mobile/**/*",
-    "node_modules/**/*"
-  ]
-}
-```
-
-### 2. VSCode/Cursor Settings (`.vscode/settings.json`)
-
-Désactive le watch TypeScript pour l'API et le core :
-
-```json
-{
-  "typescript.tsserver.watchOptions": {
-    "excludeDirectories": [
-      "**/api/**",
-      "**/packages/core/**",
-      "**/node_modules/**"
-    ]
-  },
-  "files.watcherExclude": {
-    "**/api/dist/**": true,
-    "**/packages/core/dist/**": true,
-    "**/node_modules/**": true
-  }
-}
-```
-
-### 3. NestJS Configuration (`api/nest-cli.json`)
-
-```json
-{
-  "sourceRoot": "src",
-  "entryFile": "src/main",
-  "compilerOptions": {
-    "webpack": false,
-    "tsConfigPath": "tsconfig.build.json"
-  }
-}
-```
-
-## Commandes de développement
-
-### Développement complet (Web)
+Les alias Vite sont déclarés dans `front/quasar.config.js` et `mobile/quasar.config.js` et restent actifs lors des builds. Ils ne basculent pas automatiquement vers `dist` en production. Le pipeline bureau construit néanmoins les deux packages avant l'API et Electron.
 
 ```bash
-# Depuis la racine - démarre API + Frontend en Docker
-bash scripts/dev-web.sh
+# Depuis la racine, dans cet ordre
+yarn build:core
+yarn build:graph
+
+# Équivalent
+yarn build:packages
 ```
 
-### Développement individuel
+Pour l'API, `yarn dev:core` dans un terminal permet de reconstruire core en watch. Si une installation `file:` locale garde une ancienne copie du package, actualiser aussi ses dépendances dans le consommateur ; vérifier la résolution locale avant de supprimer des caches.
 
-#### API
+## Commandes par sous-projet
+
+| Dossier | Développement | Build | Tests |
+|---|---|---|---|
+| `api/` | `yarn start:dev-electron` pour SQLite bureau ; `yarn start:dev` pour web | `yarn build`, puis `yarn build:bundle` pour esbuild | `yarn test --runInBand` |
+| `front/` | `yarn quasar dev -m electron` pour bureau ; `yarn dev` pour web | `yarn quasar build -m electron --publish never` pour bureau ; `yarn build` pour web | `yarn test --runInBand` |
+| `mobile/` | `yarn dev`, `yarn dev:ios` | `yarn build`, `yarn build:ios` | Voir [README mobile](../mobile/README.md) |
+| `packages/core/` | `yarn dev` | `yarn build` | `yarn test --runInBand` |
+| `packages/graph/` | `yarn dev` | `yarn build` | `yarn test --runInBand` |
+
+À la racine, `dev:api` et `dev:front` lancent le **mode web** des sous-projets. `build:front` lance également un build Quasar web, pas un installeur Electron. Pour le bureau, utiliser [le démarrage du README](../README.md#développer-lapplication-bureau) et :
+
 ```bash
-cd api
-yarn start:dev    # Build + watch automatique avec NestJS
-yarn build        # Build manuel
+bash scripts/build-electron.sh
 ```
 
-#### Frontend
-```bash
-cd front
-yarn dev          # Build + watch automatique avec Quasar
-yarn build        # Build manuel
-```
+Ce script prépare les dépendances, construit core puis graph et lance le build Electron. La compilation NestJS et le bundling de l'API sont orchestrés par le hook `beforeBuild` du frontend. Les modules natifs sont reconstruits pour la version Electron cible.
 
-#### Mobile
-```bash
-cd mobile
-yarn dev          # Quasar dev avec Capacitor (Android)
-yarn dev:ios      # Quasar dev avec Capacitor (iOS)
-yarn build        # Build production Android
-```
+## Versions et configuration
 
-#### Core Package
-```bash
-cd packages/core
-yarn dev          # Watch TypeScript
-yarn build        # Build manuel
-```
+La version bureau vient de `front/package.json` et `api/package.json`, synchronisés par `scripts/publish.sh`. Les deux manifestes mobiles avancent séparément. Le manifeste racine et les packages partagés conservent leur propre version ; ne pas les utiliser comme numéro de release bureau.
 
-## Structure des fichiers de configuration
+Le `tsconfig.json` racine exclut les sous-projets ; chaque application possède sa configuration TypeScript et son propre outillage. Les spécificités de ce clone priment sur celles du template IKB actuel (workspaces et autre ORM).
 
-```
-actograph-v3/
-├── package.json          # Scripts de commodité pour le monorepo
-├── tsconfig.json         # Exclut les sous-projets
-├── .vscode/settings.json # Configuration IDE
-├── api/
-│   ├── package.json      # Dépendances API (inclut @actograph/core)
-│   ├── yarn.lock
-│   └── node_modules/
-├── front/
-│   ├── package.json      # Dépendances Frontend
-│   ├── yarn.lock
-│   └── node_modules/
-├── mobile/
-│   ├── package.json      # Dépendances Mobile (inclut @actograph/core)
-│   ├── yarn.lock
-│   └── node_modules/
-└── packages/
-    └── core/
-        ├── package.json  # Package partagé
-        ├── yarn.lock
-        └── node_modules/
-```
-
-## Notes importantes
-
-### Pas de node_modules à la racine
-
-Ce projet n'utilise **pas** de yarn workspaces. Il n'y a donc pas de `node_modules/` ni de `yarn.lock` à la racine du projet. Chaque sous-projet gère ses propres dépendances de manière indépendante.
-
-### Synchronisation des versions
-
-Les versions bureau (`front`, `api`) et mobile (`mobile`) avancent séparément. `scripts/publish.sh prod` n'incrémente que le bureau. `publish.sh prod mobile` n'incrémente que le mobile. `desktop-mobile` exige que ces versions soient déjà identiques, puis les incrémente ensemble.
-
-### Ordre de build pour @actograph/core
-
-Si vous modifiez `packages/core/`, l'ordre de build doit être :
-1. `packages/core` (yarn build)
-2. Puis `api` et/ou `mobile` (yarn install pour mettre à jour le lien, puis yarn build si nécessaire)
+Voir [architecture](architecture.md), [build Electron](electron-desktop-build.md) et [publication](deployment.md).

@@ -1,104 +1,67 @@
-# ActoGraph API
+# API ActoGraph v3
 
-API NestJS pour ActoGraph v3.
+Backend NestJS + TypeORM. Le mode principal est l'API SQLite locale de l'application Electron ; le mode web peut utiliser PostgreSQL. Le [README principal](../README.md) décrit Node 20, les `.env` et la préparation du clone.
 
-## Configuration de l'environnement
+## Développement bureau
 
-### Base de données SQLite (mode Electron)
-
-L'API utilise **better-sqlite3** comme driver SQLite pour de meilleures performances et une installation plus rapide.
-
-Dans votre fichier `.env`, configurez :
-
-```env
-DB_TYPE=better-sqlite3
-DB_NAME=actograph.db
-```
-
-> **Note importante** : Si vous migrez depuis une version antérieure qui utilisait `sqlite3`, vous devez changer `DB_TYPE=sqlite` en `DB_TYPE=better-sqlite3`.
-
-### Build pour Electron
-
-L'API est bundlée en un seul fichier JavaScript avec esbuild pour :
-- Réduire drastiquement le nombre de fichiers (~50 000 → ~100)
-- Accélérer l'installation sur Windows
-- Démarrage plus rapide
-
-Pour builder manuellement :
+Depuis `api/`, après installation des dépendances et build de `packages/core` :
 
 ```bash
-# Build NestJS (TypeScript → JavaScript)
-yarn build
-
-# Bundle avec esbuild (JavaScript → single bundle)
-yarn build:bundle
+yarn start:dev-electron
 ```
 
-Le fichier résultant `dist/api.bundle.js` contient tout le code de l'API bundlé.
+Ce script définit `DEV_ELECTRON=true`. Configurer `DB_TYPE=better-sqlite3` et `DB_NAME=data_dev/actograph.db` dans `api/.env` ; créer `api/data_dev/` avant le premier lancement. Le port vient de `BACKEND_DOCKER_APP_PORT_EXPOSED` (3236 dans l'exemple). TypeORM applique les migrations au démarrage (`migrationsRun: true`, `synchronize: false`).
 
-## Ajouter une nouvelle entité ou migration
+L'API résout `@actograph/core` depuis `../packages/core/dist`. Après modification du core, le reconstruire avant de relancer l'API. Les commandes locales sont adaptées au bureau ; les conteneurs Docker sont utilisés pour le workflow web.
 
-Les fichiers d'index TypeORM sont **générés automatiquement** lors du build.
+## Compiler et bundler
 
-### Nouvelle entité
-
-1. Créez votre entité dans `src/**/entities/*.entity.ts`
-2. C'est tout ! Le script `generate-indexes.js` découvrira automatiquement votre entité
-
-### Nouvelle migration
-
-1. Générez la migration avec `yarn migration:generate api/migrations/NomDeLaMigration`
-2. C'est tout ! Le script `generate-indexes.js` découvrira automatiquement votre migration
-
-### Régénération manuelle
-
-Si vous avez besoin de régénérer les fichiers d'index manuellement :
+Pour préparer un bundle manuellement, depuis `api/` :
 
 ```bash
 yarn generate:indexes
+yarn build
+yarn build:bundle
 ```
 
-Les fichiers générés sont :
-- `src/database/all-entities.ts` - Toutes les entités `*.entity.ts`
-- `src/database/all-migrations.ts` - Toutes les migrations de `migrations/`
+`build` compile NestJS puis réécrit les alias TypeScript. **`build:bundle` génère les index et lance esbuild sur `dist/src/main.js` ; il ne compile pas TypeScript.** Générer les index avant `build` garantit que les nouvelles entités et migrations sont présentes dans le code compilé.
 
-## Scripts disponibles
+Le résultat est `dist/api.bundle.js`. Le build Electron orchestre ces étapes via `front/quasar.config.js`, copie le bundle et reconstruit le driver natif `better-sqlite3` pour Electron. Le script racine `scripts/build-electron.sh` construit d'abord core puis graph. Voir [build Electron](../docs/electron-desktop-build.md).
+
+## Entités et migrations
+
+Créer les entités dans `src/**/entities/*.entity.ts` et les migrations dans `migrations/`. `scripts/generate-indexes.js` découvre ces fichiers et génère :
+
+- `src/database/all-entities.ts`
+- `src/database/all-migrations.ts`
+
+Ne pas modifier ces index à la main. La découverte est exécutée explicitement par `generate:indexes`, `build:bundle` et le hook Electron ; un simple `yarn build` ne relance pas le générateur.
+
+Depuis `api/`, pour générer une migration sur la base configurée :
+
+```bash
+yarn generate:indexes
+yarn migration:generate migrations/NomDeLaMigration
+yarn generate:indexes
+```
+
+La génération compare les entités au schéma de la base courante ; préparer la connexion et vérifier le contenu de la migration. Reconstruire ensuite l'API si elle doit être bundlée.
+
+## Commandes
 
 | Commande | Description |
-|----------|-------------|
-| `yarn start:dev` | Démarrer en mode développement |
-| `yarn start:dev-electron` | Démarrer en mode développement pour Electron |
-| `yarn build` | Build NestJS standard (TypeScript → JavaScript) |
-| `yarn build:bundle` | Build complet (génère indexes + compile + bundle) |
-| `yarn generate:indexes` | Régénérer les index d'entités/migrations |
-| `yarn migration:run` | Exécuter les migrations |
-| `yarn migration:generate <path>` | Générer une migration |
+|---|---|
+| `yarn start:dev` | Développement web NestJS |
+| `yarn start:dev-electron` | Développement API bureau séparée |
+| `yarn generate:indexes` | Régénération des index TypeORM |
+| `yarn build` | Compilation NestJS et réécriture des alias |
+| `yarn build:bundle` | Index et esbuild, à partir du `dist` déjà compilé |
+| `yarn migration:run` | Exécution des migrations sur la base configurée |
+| `yarn migration:revert` | Retour de la dernière migration, à utiliser avec précaution |
+| `yarn test --runInBand` | Tests Jest |
 
-## Architecture du bundle
+## Exécution dans l'installeur
 
-```
-api/
-├── src/                          # Code source TypeScript
-│   └── database/
-│       ├── all-entities.ts       # Index généré automatiquement
-│       └── all-migrations.ts     # Index généré automatiquement
-├── dist/
-│   ├── src/                      # Code compilé JavaScript
-│   └── api.bundle.js             # Bundle final (~5-10 MB)
-├── esbuild.config.js             # Configuration esbuild
-└── scripts/
-    └── generate-indexes.js       # Script de génération des index
-```
+Electron lance le bundle avec `--subprocess`, le port, le chemin `.env` et le dossier `userData`. L'API utilise alors `userData/actograph.sqlite`, écoute sur la boucle locale et exige le secret de session fourni par Electron. Elle signale sa disponibilité par IPC et accepte un arrêt coordonné pour fermer Nest/SQLite.
 
-## Dépendances natives
-
-Le bundle externalise `better-sqlite3` car c'est un module natif. Ce module utilise des **prebuilds** (binaires précompilés) qui sont téléchargés automatiquement lors du `yarn install`.
-
-Plateformes supportées par better-sqlite3 :
-- Windows x64
-- macOS x64 et arm64 (Apple Silicon)
-- Linux x64
-
-## Documentation détaillée
-
-Pour plus de détails sur le processus de build Electron, voir : [docs/electron-desktop-build.md](../docs/electron-desktop-build.md)
+Les modules natifs sont externalisés du bundle. Un binaire installé pour Node sur l'hôte ne suffit pas : le build doit reconstruire `better-sqlite3` pour l'ABI Electron et l'architecture cible. Les builds officiels injectent le validateur PKV privé avant compilation ; un build public local utilise les bouchons. Voir [architecture](../docs/architecture.md) et [validation des licences](../docs/license-validation.md).

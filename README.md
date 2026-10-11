@@ -1,296 +1,159 @@
 # ActoGraph v3
 
-ActoGraph v3 est une application web et desktop conçue pour l'analyse et la visualisation de données d'observation comportementale. L'application permet de créer des observations, de collecter des données (readings), de définir des protocoles d'observation structurés et de visualiser les données sous forme de graphiques interactifs.
+ActoGraph v3 est une application d'observation comportementale : création de chroniques, protocoles, collecte de relevés, graphe d'activité et statistiques. **L'application bureau Electron est le mode principal** sur Windows, macOS et Linux. Elle embarque une API NestJS et une base SQLite, et permet de travailler hors ligne après activation. Le cloud actograph.io sert à la connexion et aux échanges de chroniques ; il reste facultatif pour le travail local.
 
-## Aperçu (desktop)
-
-| Accueil | Protocole |
-|---|---|
-| ![Accueil](docs/images/home.jpg) | ![Protocole](docs/images/protocol.jpg) |
-
-| Observation | Graphique d'activité |
-|---|---|
-| ![Observation](docs/images/observation.jpg) | ![Graphique](docs/images/graph.jpg) |
+Ce dépôt contient aussi le frontend web et l'application mobile Capacitor. Le site vitrine, l'espace client et le serveur cloud sont dans un dépôt distinct.
 
 ## Téléchargement
 
-La page de téléchargement officielle détecte votre système (Windows, macOS Apple Silicon/Intel, Linux) et propose le bon installeur directement :
+La [page officielle de téléchargement](https://actograph.io/fr/download) propose l'installeur adapté au système, y compris macOS Intel ou Apple Silicon. Les binaires officiels sont distribués par les [GitHub Releases](https://github.com/Syllll/actograph-v3/releases).
 
-**👉 https://actograph.io/fr/download**
+- **Étudiants** : accès gratuit, sans clé de licence.
+- **Professionnels** : activation avec une licence achetée sur [actograph.io](https://actograph.io/fr/).
 
-- **Étudiants** : utilisation gratuite, sans licence (contrairement à la V1).
-- **Professionnels / non-étudiants** : une licence est requise, à acheter sur [actograph.io](https://www.actograph.io/fr/).
+Voir [comptes et licences](docs/comptes-et-licences.md) pour distinguer accès local, activation et compte cloud.
 
-Les binaires sont publiés via les [GitHub Releases](https://github.com/Syllll/actograph-v3/releases) et signés par SymAlgo Technologies.
+## Commencer par la documentation
 
-## Architecture
+- **[Index de la documentation](docs/README.md)** : tous les guides et les archives.
+- **[Parcours dans l'application bureau](docs/desktop.md)** : créer, observer, analyser, enregistrer et retrouver ses chroniques.
+- **[Architecture](docs/architecture.md)** : Electron, API locale, SQLite, packages partagés et cloud.
+- **[Build Electron](docs/electron-desktop-build.md)** et **[publication](docs/deployment.md)** : compilation, modules natifs, signature et releases.
 
-L'application est composée de deux parties principales :
+## Développer l'application bureau
 
-- **Frontend** : Application Quasar/Vue.js 3 permettant une interface utilisateur moderne et réactive
-- **Backend** : API NestJS avec TypeORM pour la gestion des données et la logique métier
+### Prérequis
 
-L'application peut être déployée en mode :
-- **Web** : Accessible via un navigateur web moderne
-- **Desktop** : Application Electron pour Linux, macOS et Windows
+- **Node.js 20**, comme le script de développement et la CI bureau.
+- **Yarn Classic 1.22**, avec des installations indépendantes par sous-projet, sans workspaces.
+- Une session graphique pour Electron. Sur Linux, le script assisté utilise `gnome-terminal` ; sur macOS, Terminal via `osascript`. Le lancement manuel ci-dessous permet de garder deux terminaux séparés.
+- Pour construire les modules natifs, la chaîne de compilation requise par `better-sqlite3` et `electron-rebuild` sur le système cible.
 
-## Prérequis
+### Préparer le clone
 
-- Node.js (version 18 ou 20)
-- Yarn (version 1.22+)
-- Docker et Docker Compose (pour le développement web)
-- PostgreSQL (pour la production) ou SQLite (pour le développement)
-
-## Installation et démarrage
-
-### Mode développement Web
-
-Pour démarrer l'application en mode web avec Docker :
+Depuis la racine du dépôt, copier les exemples si les fichiers `.env` n'existent pas encore :
 
 ```bash
-bash scripts/dev-web.sh
+cp api/.env.example api/.env
+cp front/.env.example front/.env
 ```
 
-Cette commande démarre automatiquement :
-- Le conteneur Docker de la base de données PostgreSQL
-- Le conteneur Docker de l'API NestJS
-- Le conteneur Docker du frontend Quasar
+Dans `api/.env`, remplacer la configuration PostgreSQL de l'exemple par :
 
-L'application sera accessible à l'adresse configurée dans les variables d'environnement (par défaut `http://localhost:9000`).
+```dotenv
+DB_TYPE=better-sqlite3
+DB_NAME=data_dev/actograph.db
+DB_HOST=
+DB_PORT=
+DB_USERNAME=
+DB_PASSWORD=
+```
 
-### Mode développement Electron
+Configurer également `JWT_SECRET`, `ADMINUSER_LOGIN` et `ADMINUSER_PASSWORD` pour ce clone. Dans `front/.env`, garder `API_URL=http://localhost:3236` si le port API est celui de l'exemple (`BACKEND_DOCKER_APP_PORT_EXPOSED=3236`). Le serveur Quasar utilise `FRONT_DOCKER_PORT_EXPOSED=8481` dans l'exemple frontend.
 
-Pour démarrer l'application en mode desktop (Electron) :
+Installer les dépendances bureau et construire les packages :
+
+```bash
+(cd packages/core && yarn install)
+(cd packages/graph && yarn install)
+(cd api && yarn install)
+(cd front && yarn install)
+mkdir -p api/data_dev
+yarn build:packages
+```
+
+`yarn install:all` installe aussi les dépendances mobiles. Voir [le guide monorepo](docs/monorepo-build.md) pour les alias et l'ordre de compilation.
+
+### Lancer Electron
+
+Le script assisté sélectionne Node 20, installe les dépendances API/frontend, exécute les migrations, ouvre un terminal API et lance Electron :
 
 ```bash
 bash scripts/dev-electron.sh
 ```
 
-Cette commande démarre l'API en arrière-plan et lance l'application Electron.
+Il suppose que les fichiers `.env` et le build `packages/core/dist` ont été préparés. Pour un lancement manuel, avec Node 20 actif dans chaque terminal :
 
-### Configuration
-
-Les fichiers de configuration se trouvent dans :
-- `api/.env` : Configuration de l'API (base de données, JWT, etc.)
-- `front/.env` : Configuration du frontend (URL de l'API, etc.)
-
-Consultez les fichiers `.env.example` pour voir les variables nécessaires.
-
-## Structure du projet
-
+```bash
+# Terminal 1, depuis la racine
+cd api
+yarn start:dev-electron
 ```
+
+```bash
+# Terminal 2, depuis la racine
+cd front
+yarn quasar dev -m electron
+```
+
+L'API utilise SQLite et applique les migrations au démarrage (`migrationsRun: true`). En développement, Electron utilise cette API séparée ; dans l'installeur, il démarre et supervise l'API embarquée automatiquement. Une VM sans affichage nécessite un serveur graphique, puis un `DISPLAY` adapté.
+
+**Après une modification de `packages/core/src`, reconstruire `core` pour l'API.** Les alias Vite frontend et mobile pointent vers les sources, y compris lors de leurs builds ; le mapping TypeScript de l'API pointe vers `packages/core/dist`.
+
+### Mode web alternatif
+
+Le mode web utilise les configurations Docker et PostgreSQL :
+
+```bash
+bash scripts/dev-web.sh
+```
+
+Préparer les `.env` pour ce mode, notamment les paramètres PostgreSQL de `api/.env`. Les ports viennent des `.env`, pas d'un port fixe `9000`. Les commandes Docker concernent ce workflow web ; le développement bureau exécute les commandes localement.
+
+## Structure du dépôt
+
+```text
 actograph-v3/
-├── api/                    # Backend NestJS
-│   ├── src/
-│   │   ├── core/          # Modules métier principaux
-│   │   │   ├── observations/  # Gestion des observations
-│   │   │   ├── users/         # Gestion des utilisateurs
-│   │   │   └── security/      # Sécurité et licences
-│   │   ├── general/       # Modules généraux (auth, etc.)
-│   │   └── utils/         # Utilitaires partagés
-│   ├── migrations/        # Migrations TypeORM
-│   └── docker/            # Configuration Docker
-├── front/                 # Frontend Quasar/Vue.js (Web + Electron)
-│   ├── src/
-│   │   ├── pages/        # Pages de l'application
-│   │   ├── components/   # Composants Vue
-│   │   ├── services/     # Services API
-│   │   └── composables/  # Composables Vue (ex. relevés, navigation / actions chronique, drawer)
-│   └── lib-improba/      # Bibliothèque partagée
-├── mobile/                # Application mobile Capacitor
-│   ├── src/              # Code source mobile
-│   └── src-capacitor/    # Configuration Capacitor (Android/iOS)
-├── packages/              # Packages partagés (monorepo)
-│   ├── core/             # @actograph/core - Logique métier pure
-│   └── graph/            # @actograph/graph - Composant graphique PixiJS
-└── docs/                  # Documentation détaillée
+├── api/                 # NestJS, TypeORM, migrations, bundle esbuild
+├── front/               # Quasar/Vue 3, frontend web et Electron
+│   ├── src/             # Pages, services, composables et i18n
+│   ├── src-electron/     # Main, preload et superviseur de l'API
+│   └── lib-improba/      # Composants et utilitaires UI
+├── mobile/              # Quasar + Capacitor Android/iOS
+├── packages/
+│   ├── core/            # Types, statistiques, validation et import v1
+│   └── graph/           # Moteur PixiJS partagé bureau/mobile
+├── scripts/             # Développement, build et publication
+└── docs/                # Guides actuels et documents historiques
 ```
 
-## Packages partagés
+## Vérifications de développement
 
-Le projet utilise des packages internes partagés entre les différentes applications :
+Exécuter les commandes depuis le sous-projet indiqué :
 
-### @actograph/core
+| Sous-projet | Commandes |
+|---|---|
+| `front/` | `yarn lint`, `yarn typecheck`, `yarn test --runInBand` |
+| `api/` | `yarn test --runInBand`, `yarn build` |
+| `packages/core/` | `yarn test --runInBand`, `yarn build` |
+| `packages/graph/` | `yarn test --runInBand`, `yarn build` |
+| Racine | `node --test scripts/inject-key-validator.test.cjs` |
 
-Logique métier pure TypeScript, sans dépendance framework. Utilisé par :
-- `api/` - Backend NestJS
-- `front/` - Frontend web
-- `mobile/` - Application mobile
+Le succès d'une ancienne revue ne valide pas les changements du clone courant. Les tests Electron de `front/` couvrent notamment le superviseur et les URLs autorisées ; les guides métier renvoient aux tests de leurs modules.
 
-Contient notamment : enums, types, statistiques, parsers de fichiers (ex. chronic v1), validation, utilitaires (`reading-auto-correct` : correction automatique des relevés avec codes `reason` stables et `AUTO_CORRECT_SYNTH_NAMES` pour les libellés synthétiques — à traduire côté appli via i18n).
+## Construire et publier le bureau
+
+Pour construire localement, avec Node 20 et les `.env` bureau préparés :
 
 ```bash
-# Build
-cd packages/core && yarn build
+bash scripts/build-electron.sh
 ```
+
+Le résultat se trouve dans `front/dist/electron/Packaged/`. Le script construit `core`, puis `graph`, puis Electron avec son API bundlée et son driver SQLite reconstruit pour Electron. Un build local utilise les bouchons publics du validateur PKV ; les builds officiels injectent le validateur privé en CI. Voir [validation des licences](docs/license-validation.md).
+
+Pour publier une nouvelle version officielle :
 
 ```bash
-# Tests unitaires (Jest)
-cd packages/core && yarn test
+bash scripts/publish.sh prod desktop patch
 ```
 
-### @actograph/graph
+`prod` seul équivaut à `prod desktop`. Le script incrémente les versions bureau (`api` et `front`), committe, pousse et crée le tag `prod-vX.Y.Z`. Le workflow de publication produit les installeurs, les signatures et les fichiers de mise à jour. Un simple push de documentation sur `main` ne déclenche pas de nouvelle release bureau.
 
-Composant de visualisation de graphiques utilisant PixiJS. Utilisé par :
-- `front/` - Frontend web
-- `mobile/` - Application mobile
-
-Contient : rendu PixiJS, axes, affichage des readings.
-
-```bash
-# Build (nécessite @actograph/core buildé)
-cd packages/graph && yarn build
-```
-
-### Configuration des packages
-
-Les packages sont liés via `file:` dans les `package.json` :
-
-```json
-{
-  "dependencies": {
-    "@actograph/core": "file:../packages/core",
-    "@actograph/graph": "file:../packages/graph"
-  }
-}
-```
-
-#### Faut-il builder les packages ?
-
-**En développement : NON** ✅
-
-Les alias TypeScript et Vite pointent directement vers `src/`, donc :
-- Hot-reload automatique quand vous modifiez le code des packages
-- Pas besoin de rebuilder après chaque modification
-- Erreurs TypeScript visibles immédiatement
-
-**En production : OUI** 🔨
-
-Les builds utilisent `dist/` via les champs `main`/`types` des package.json.
-
-```bash
-# Builder tous les packages (nécessaire avant un build prod)
-yarn build:packages
-
-# Ou individuellement
-yarn build:core
-yarn build:graph
-```
-
-**Cas où il faut builder les packages :**
-1. Avant un build de production (`yarn build:front`, `yarn build:mobile`)
-2. Si vous utilisez les packages depuis un autre projet externe
-3. Si les types ne se résolvent pas correctement dans l'IDE (rare)
-
-## Concepts principaux
-
-### Observations
-
-Une **observation** est l'entité centrale de l'application. Elle représente une session d'observation comportementale et contient :
-- Un protocole d'observation structuré
-- Des relevés (données collectées)
-- Un graphique d'activité (optionnel)
-
-### Protocoles
-
-Un **protocole** définit la structure hiérarchique d'une observation. Il est composé de :
-- **Catégories** : Groupes d'observables
-- **Observables** : Éléments individuels à observer (feuilles de l'arbre)
-
-### Relevés
-
-Les **relevés** sont les données collectées lors d'une observation. Chaque relevé contient :
-- Un type (START, STOP, PAUSE_START, PAUSE_END, DATA)
-- Une date et heure précise
-- Un nom et une description optionnels
-
-### Graphiques d'activité
-
-Les **graphiques d'activité** visualisent les données d'observation sur un axe temporel, avec les observables du protocole sur l'axe vertical et le temps sur l'axe horizontal.
-
-## Documentation détaillée
-
-Pour plus d'informations sur des aspects spécifiques de l'application, consultez la documentation détaillée :
-
-- **[Déploiement](docs/deployment.md)** : Instructions complètes pour déployer l'application en production
-- **[Authentification](docs/authentification.md)** : Système d'authentification JWT et gestion des utilisateurs
-- **[Chronic](docs/chronic.md)** : Import, export et création de données chroniques (readings)
-- **[Protocoles](docs/protocol.md)** : Création et gestion des protocoles d'observation
-- **[Readings](docs/reading.md)** : Gestion des readings et synchronisation
-- **[Graphiques](docs/graph.md)** : Visualisation des données avec PixiJS
-
-## Commandes utiles
-
-### Backend (API)
-
-Toutes les commandes backend doivent être exécutées dans le conteneur Docker `actograph-v3-api-dev` :
-
-```bash
-# Accéder à la console du conteneur API
-sh api/docker/compose.sh console
-
-# Exécuter les migrations
-docker compose --env-file ./api/docker/../.env -f ./api/docker/docker-compose.dev.yml exec actograph-v3-api-dev yarn migration:run
-
-# Installer les dépendances
-docker compose --env-file ./api/docker/../.env -f ./api/docker/docker-compose.dev.yml exec actograph-v3-api-dev yarn install
-```
-
-### Frontend
-
-Toutes les commandes frontend doivent être exécutées dans le conteneur Docker `actograph-v3-front-dev` :
-
-```bash
-# Accéder à la console du conteneur Frontend
-sh front/docker/compose.sh console
-
-# Installer les dépendances
-docker compose --env-file ./front/docker/../.env -f ./front/docker/docker-compose.dev.yml exec actograph-v3-front-dev yarn install
-```
-
-## Déploiement
-
-Pour déployer l'application en production :
-
-```bash
-bash scripts/publish.sh prod [major|minor|patch]
-bash scripts/publish.sh prod desktop
-bash scripts/publish.sh preprod mobile
-bash scripts/publish.sh prod desktop-mobile patch
-```
-
-`prod` seul équivaut à `prod desktop`. Le tag est `prod-vX.Y.Z` et la CI ne construit que le bureau. Un tag qui contient `mobile` construit l'AAB et l'envoie sur le Play Store : piste production pour `prod`, test ouvert pour `preprod`.
-
-Cette commande :
-1. Incrémente la version des `package.json` de la cible
-2. Crée un commit avec la nouvelle version
-3. Crée un tag Git `prod-vX.Y.Z`, `preprod-vX.Y.Z`, ou le même tag avec `-mobile` ou `-desktop-mobile`
-4. Déclenche le pipeline CI/CD pour les cibles du tag
-
-Consultez [deployment.md](docs/deployment.md) pour plus de détails.
-
-## Technologies utilisées
-
-### Backend
-- **NestJS** : Framework Node.js pour l'API
-- **TypeORM** : ORM pour la gestion de la base de données
-- **PostgreSQL/SQLite** : Bases de données
-- **JWT** : Authentification par tokens
-- **Passport** : Middleware d'authentification
-
-### Frontend
-- **Quasar Framework** : Framework Vue.js pour applications web et desktop
-- **Vue.js 3** : Framework JavaScript réactif
-- **TypeScript** : Typage statique
-- **PixiJS** : Bibliothèque de rendu graphique 2D pour les graphiques
-- **Axios** : Client HTTP
+Les cibles `mobile`, `android`, `ios` et `desktop-mobile`, ainsi que le canal `preprod`, sont décrits dans [deployment.md](docs/deployment.md). Les versions bureau et mobile évoluent séparément ; la version du `package.json` racine et des packages partagés n'est pas la version distribuée de l'application.
 
 ## Contribution
 
-Pour contribuer au projet, veuillez :
-1. Créer une branche depuis `main`
-2. Effectuer vos modifications
-3. Créer une pull request avec une description détaillée
+Créer normalement une branche depuis `main`, vérifier les changements, puis ouvrir une pull request. Une intervention directement sur `main` peut être autorisée explicitement par le mainteneur.
 
 ## Licence
 

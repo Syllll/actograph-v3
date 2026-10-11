@@ -14,6 +14,10 @@ Une pause est une **métadonnée temporelle** : elle marque un intervalle « hor
 - En mode **chronomètre**, la pause fige le temps écoulé ; les boutons restent utilisables (relevés au temps figé).
 - En mode **chronomètre + vidéo** (`videoPath`), aucun relevé `PAUSE_*` n’est créé automatiquement.
 
+## Commandes de session bureau
+
+La barre actuelle utilise **Rec / Pause** pour démarrer, reprendre ou suspendre, et **Terminer** pour confirmer la fin, créer STOP et lancer la correction automatique. La fin de vidéo met en pause ; elle ne suit pas le parcours Terminer. Voir [le parcours bureau](desktop.md#enregistrer-une-observation).
+
 ## Modes : calendrier vs chronomètre
 
 | | Calendrier | Chronomètre |

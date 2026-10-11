@@ -1,5 +1,7 @@
 # Feature #27 - Autosave
 
+> Contexte historique d’implémentation. Pour le comportement actuel du bureau, consulter le [guide à jour](../chronic.md#autosave-et-récupération). Les tâches et scénarios ci-dessous conservent leur contexte d’origine.
+
 **Issue GitHub** : [#27](https://github.com/Syllll/actograph-v3/issues/27)  
 **Priorité** : P2-Should Have  
 **Statut** : ✅ **Implémenté**

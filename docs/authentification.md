@@ -1,346 +1,83 @@
 # Authentification
 
-Ce document décrit l'**authentification JWT locale** de l'API embarquée ActoGraph v3 (SQLite, module `auth-jwt`). Ce n'est **pas** la doc des comptes hébergés sur actograph.io : voir la section [Cloud actograph.io](#cloud-actographio) (modale « Se connecter au cloud », sync des chroniques).
+Référence revue le 11 octobre 2026. Le bureau utilise deux sessions indépendantes : le **JWT de l'API locale** pour les données SQLite, et le **token cloud actograph.io** pour les transferts de chroniques. L'activation étudiant/pro est encore un autre mécanisme, décrit dans [comptes et licences](comptes-et-licences.md).
 
-## Vue d'ensemble
+## Session locale de l'application
 
-L'API locale utilise des JWT pour sécuriser l'accès aux routes protégées. Les tokens sont émis à la connexion via `/auth-jwt/login` et doivent être inclus dans les requêtes authentifiées vers cette API.
+En Electron, l'API crée/sélectionne le compte local `_pc-{osUser}` et le frontend le connecte automatiquement avec le mot de passe dérivé par `deriveElectronLocalPassword`. L'utilisateur n'a pas de formulaire de connexion locale à remplir. `front/src/pages/gateway/Loading.vue` attend le backend, appelle le login puis détermine l'accès étudiant/pro.
 
-La connexion **cloud** (comptes importés ou créés sur le site, mot de passe partagé avec l'espace client web) est un flux séparé : elle ne passe pas par `use-auth` ni par `/auth-jwt/*`.
+En production, Electron démarre le sous-processus, attend son IPC `backend-ready` et vérifie sa santé HTTP. L'API écoute sur la boucle locale et vérifie aussi le secret `ACTOGRAPH_DESKTOP_TOKEN` fourni par Electron. Ce secret protège la session du processus et ne remplace pas les contrôles JWT des routes métier. Voir [architecture](architecture.md).
 
-## Architecture
+### Contrat JWT
 
-### Backend
-
-L'authentification est gérée par le module `auth-jwt` dans `api/src/general/auth-jwt/` :
-
-- **Strategy** : `JwtStrategy` utilise Passport pour valider les tokens JWT
-- **Service** : `UserJwtService` gère la création et la validation des tokens
-- **Controller** : `AuthJwtController` expose les endpoints d'authentification
-- **Guard** : `JwtAuthGuard` protège les routes nécessitant une authentification
-
-### Frontend
-
-L'authentification côté frontend est gérée par le composable `use-auth` dans `front/lib-improba/composables/use-auth/` :
-
-- Gestion de l'état de connexion
-- Stockage du token dans les cookies
-- Configuration d'Axios pour inclure le token dans les requêtes
-- Protection des routes via le router
-
-## Flux d'authentification
-
-### 1. Connexion (Login)
-
-```typescript
-// Frontend
-const { methods } = useAuth(router);
-await methods.login(username, password);
-```
-
-**Processus :**
-1. L'utilisateur saisit son nom d'utilisateur et son mot de passe
-2. Le frontend envoie une requête POST à `/auth-jwt/login`
-3. Le backend vérifie les identifiants avec `bcrypt`
-4. Si valides, un token JWT est généré et retourné
-5. Le token est stocké dans un cookie sécurisé
-6. Le token est ajouté aux en-têtes HTTP d'Axios
-
-**Endpoint backend :**
-```
+```text
 POST /auth-jwt/login
-Body: { username: string, password: string }
-Response: { token: string }
-```
+Corps : { username, password }
+Réponse : { token, ... }
 
-### 2. Validation du token
-
-À chaque requête authentifiée :
-
-1. Le token est extrait de l'en-tête `Authorization: Bearer <token>`
-2. `JwtStrategy` valide le token avec le secret JWT
-3. Le payload du token contient l'ID de l'utilisateur
-4. L'utilisateur est chargé depuis la base de données
-5. L'utilisateur est attaché à la requête (`req.user`)
-
-### 3. Rafraîchissement du token
-
-Le token peut être rafraîchi sans reconnecter l'utilisateur :
-
-```typescript
-// Frontend
-await methods.attemptLogin();
-```
-
-**Endpoint backend :**
-```
 POST /auth-jwt/refreshToken
-Body: { token: string }
-Response: { token: string }
+Corps : { token }
+Réponse : { token, ... }
 ```
 
-### 4. Déconnexion (Logout)
+Les appels métier portent `Authorization: Bearer <token>`. L'API signe les JWT avec `JWT_SECRET` et une durée d'une heure (`3600s`). Le module `auth-jwt` est dans `api/src/general/auth-jwt/` ; les contrôleurs métier vérifient les rôles et l'accès aux données de l'utilisateur.
 
-```typescript
-// Frontend
-methods.logout();
-```
+### Stockage et renouvellement
 
-Le token est supprimé des cookies et l'utilisateur est redirigé vers la page d'accueil.
+`front/lib-improba/composables/use-auth/index.ts` stocke le JWT dans **`localStorage`, clé `token`**, puis configure Axios. Malgré les noms historiques `setCookiesWithToken` et `getTokenFromCookiesAndSaveIntoAxios`, le stockage principal n'est plus un cookie.
 
-## Configuration
+`attemptLogin` conserve un repli de compatibilité vers l'ancien cookie nommé `APP_NAME`, puis écrit le token renouvelé dans localStorage. La déconnexion retire la clé `token`, supprime l'ancien cookie et arrête le timer de refresh.
 
-### Variables d'environnement
+Le refresh intervient au rétablissement de la session, dans le parcours des intercepteurs et via un timer proactif de **25 minutes**. Un échec de refresh silencieux ne déconnecte pas immédiatement sur une erreur transitoire ; l'intercepteur traite les erreurs d'authentification des requêtes. Les mots de passe locaux sont hashés avec `bcryptjs`, 10 rounds.
 
-**Backend (`api/.env`) :**
-```env
-JWT_SECRET=votre_secret_jwt_tres_securise
-```
+### Comptes web de l'API application
 
-⚠️ **Important** : Utilisez un secret JWT fort et unique en production. Ne commitez jamais le secret dans le dépôt Git.
+Le mode web de cette API expose également inscription et récupération de mot de passe pour **sa propre base de comptes** :
 
-### Configuration JWT Strategy
+| Action | Route | Corps du client frontend |
+|---|---|---|
+| Inscription | `POST /auth-jwt/register` | `{ username, password }` |
+| Mot de passe oublié | `POST /auth-jwt/password-forgot` | `{ username, resetPasswordUrl }` |
+| Nouveau mot de passe | `POST /auth-jwt/recuperation` | `{ token, password }` |
 
-```typescript:api/src/core/users/jwt.strategy.ts
-@Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt-user') {
-  constructor(private readonly userService: UserService) {
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET,
-    });
-  }
-
-  async validate(payload: any): Promise<User> {
-    const authId = payload.id;
-    const user = await this.userService.findFromUserJwtId(authId);
-    if (!user) throw new NotFoundException('User not found');
-    return user;
-  }
-}
-```
-
-## Protection des routes
-
-### Backend
-
-Utilisez le guard `JwtAuthGuard` pour protéger les routes :
-
-```typescript
-@Controller('observations')
-export class ObservationController extends BaseController {
-  @Get()
-  @UseGuards(JwtAuthGuard)
-  async findAll(@Req() req: any) {
-    // req.user contient l'utilisateur authentifié
-    const userId = req.user.id;
-    // ...
-  }
-}
-```
-
-### Frontend
-
-Le router Vue est configuré pour vérifier l'authentification :
-
-```typescript
-// Les routes protégées nécessitent une authentification
-// Le composable use-auth gère la redirection si non authentifié
-```
-
-## Gestion des utilisateurs
-
-### Création d'un utilisateur (base locale uniquement)
-
-**Endpoint :**
-```
-POST /auth-jwt/register
-Body: { username: string, password: string }
-```
-
-Le mot de passe est automatiquement hashé avec `bcrypt` avant stockage.
-
-Cet endpoint crée un utilisateur dans la **base SQLite de l'app**, pas un compte actograph.io. Ne pas le confondre avec la création de compte sur le site (achat, admin, formulaire étudiant `/get`).
-
-### Rôles et permissions
-
-L'application utilise un système de rôles (`UserRoleEnum`) :
-
-- **User** : Utilisateur standard
-- **Admin** : Administrateur avec droits étendus
-
-Les permissions sont vérifiées avec `UserRolesGuard` :
-
-```typescript
-@Get()
-@UseGuards(JwtAuthGuard, UserRolesGuard)
-@Roles(UserRoleEnum.Admin)
-async adminOnly() {
-  // ...
-}
-```
-
-## Sécurité
-
-### Bonnes pratiques
-
-1. **Secrets JWT** : Utilisez des secrets forts et uniques par environnement
-2. **HTTPS** : Toujours utiliser HTTPS en production pour protéger les tokens
-3. **Expiration** : Les tokens JWT ont une expiration (configurée dans la stratégie)
-4. **Cookies** : Les cookies sont configurés avec les options de sécurité appropriées
-5. **Validation** : Toujours valider les entrées utilisateur côté serveur
-
-### Stockage du token
-
-Le token est stocké dans un cookie avec les options suivantes :
-
-```typescript
-const cookieOptions = {
-  expires: 7, // 7 jours
-  httpOnly: false, // Accessible depuis JavaScript (nécessaire pour Axios)
-  secure: process.env.NODE_ENV === 'production', // HTTPS uniquement en production
-  sameSite: 'strict',
-};
-```
-
-### Hashage des mots de passe
-
-Les mots de passe sont hashés avec `bcrypt` (10 rounds) :
-
-```typescript
-const hashedPassword = await bcrypt.hash(password, 10);
-const isValid = await bcrypt.compare(password, hashedPassword);
-```
-
-## Réinitialisation de mot de passe (JWT local)
-
-Ces endpoints concernent uniquement les comptes **locaux** (`auth-jwt`). Pour un compte cloud, utiliser le flux de la modale décrit dans [Cloud actograph.io](#cloud-actographio).
-
-### Demande de réinitialisation
-
-**Endpoint :**
-```
-POST /auth-jwt/password-forgot
-Body: { username: string, resetPasswordUrl: string }
-```
-
-Un token de réinitialisation est généré et envoyé par email.
-
-### Réinitialisation
-
-**Endpoint :**
-```
-POST /auth-jwt/reset-password
-Body: { token: string, newPassword: string }
-```
+Ces routes ne réinitialisent pas un compte actograph.io. Les contrats du client sont dans `front/src/services/users/auth.service.ts` ; ne pas inventer une route locale `/auth-jwt/reset-password`.
 
 ## Cloud actograph.io
 
-Comptes gérés par l'**API site** (`actograph.io`), partagés avec l'espace client web. Dans l'app desktop, l'entrée utilisateur est la modale `CloudLoginDialog` (`front/src/pages/userspace/home/_components/cloud/CloudLoginDialog.vue`), branchée sur `actographAuthService` (`front/src/services/cloud/actograph-auth.service.ts`).
-
-Ne **pas** utiliser `front/lib-improba/components/auth/Login.vue` ni `use-auth` pour ce flux : c'est le login JWT **local** de l'API app, autre base de données.
+Le compte cloud est hébergé sur l'API du site et partagé avec les usages cloud. La modale bureau `CloudLoginDialog` appelle `actographAuthService`, indépendamment du composable `use-auth` local.
 
 ### Connexion cloud
 
-```
+```text
 POST https://actograph.io/api/auth-tokens
-Body: { login: string, password: string }
-Response: { value: string, ... }   // token cloud (JWT site)
+Corps : { login, password }
+Réponse : { value, createdAt, id }
 ```
 
-- `login` : adresse e-mail **ou** nom d'utilisateur (comptes des versions antérieures d'ActoGraph, alias après migration côté site).
-- En cas d'échec, l'API renvoie un message du type `Invalid credentials` ; la modale affiche les erreurs i18n `cloud.*`.
+`login` accepte l'email ou l'identifiant historique. `value` est un **token opaque du contrat cloud**, utilisé via `X-Auth-Token`, pas le JWT local ni le JWT de l'espace client web.
 
-Le service stocke le token et les identifiants dans `localStorage` (desktop) pour la reconnexion automatique et les appels sync (`use-cloud`).
+Le service conserve token, identifiant et mot de passe dans les clés `actograph_cloud_*` de localStorage pour renouveler la session. La déconnexion efface ces valeurs. En Electron de production, `desktopFetch` fait passer les requêtes cloud via le bridge du processus principal ; en web/dev, il utilise `fetch`.
 
-Le nuage **connecté** du tiroir ouvre `CloudDisconnectDialog` : confirmation, puis `logout()` efface cette session. Le login cloud ne se rouvre pas. « Changer de compte », dans `CloudSyncDialog`, reste un autre geste (déconnexion puis nouvelle connexion).
+Le nuage connecté du tiroir ouvre `CloudDisconnectDialog` avec confirmation. « Changer de compte » dans `CloudSyncDialog` déconnecte puis propose une nouvelle connexion. Les transferts de chroniques passent par `use-cloud` et `actographCloudService` ; la synchronisation des relevés vers SQLite ne fait pas de transfert cloud.
 
-### Mot de passe oublié (modale cloud)
-
-L'utilisateur desktop ne repasse pas par la vitrine : tout se fait dans `CloudLoginDialog`.
+### Mot de passe oublié dans la modale cloud
 
 | Étape | Endpoint site | Corps |
-|-------|---------------|--------|
-| Demande d'e-mail | `POST https://actograph.io/api/auth/forgot-password` | `{ username }` (identifiant saisi : email ou nom d'utilisateur) |
+|---|---|---|
+| Demande d'email | `POST https://actograph.io/api/auth/forgot-password` | `{ username }` |
 | Nouveau mot de passe | `POST https://actograph.io/api/auth/reset-password` | `{ token, password }` |
 
-- **Ne pas** appeler `/auth-jwt/password-forgot` ni `/auth-jwt/reset-password` : autre base, comptes locaux uniquement.
-- L'e-mail part vers l'adresse du compte, pas vers l'identifiant saisi si c'est un username.
-- Après réception du mail, l'utilisateur **colle le lien** (ou le jeton) dans la modale, choisit un nouveau mot de passe, puis revient à l'écran de connexion cloud (pas de connexion automatique ; le JWT web éventuellement renvoyé par l'API n'est pas persisté comme session cloud).
+L'email est envoyé à l'adresse du compte. L'utilisateur colle le lien ou le token dans la modale, définit son mot de passe puis revient à la connexion cloud. Le JWT web éventuellement renvoyé par la réinitialisation n'est pas enregistré comme session cloud. Utiliser ces endpoints, plutôt que les routes `auth-jwt` de l'API locale.
 
-### Licences et comptes cloud
+### Accès pro et compte cloud
 
-- **Licence** (clé reçue à l'achat ou à l'étudiant) et **compte cloud** restent deux objets distincts.
-- Les licences des **versions antérieures** restent actives : au gateway d'activation (`ChooseVersion` → `ActivatePro`), saisir la clé existante (28 caractères, masque `xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx`). Pas besoin d'en racheter une pour utiliser ActoGraph v3.
-- Une fois l'app activée, la connexion cloud permet la sync des chroniques ; les comptes des versions antérieures restent utilisables avec l'identifiant d'origine (email ou nom d'utilisateur).
+La clé pro et le compte cloud sont deux objets distincts. Les clés de versions antérieures peuvent être saisies dans la page d'activation ; les comptes anciens restent accessibles par email ou identifiant historique. L'accès étudiant ne demande pas de clé. Voir [validation des licences](license-validation.md) pour les contrôles et les conditions du repli hors ligne.
 
-Documentation produit / comptes site (connexion web, étudiant `/get`, alias) : dépôt `actograph-site`, fichier `docs/auth-comptes.md`.
+## Dépannage et sources
 
-## Dépannage
+- Backend indisponible : vérifier le superviseur, les logs et la connexion locale avant les identifiants.
+- JWT local expiré : contrôler `JWT_SECRET`, le refresh, la clé localStorage `token` et la réponse de l'API application.
+- Cloud refusé : contrôler l'identifiant et les réponses des endpoints actograph.io ; la connexion locale ne prouve pas la connexion cloud.
+- Un mot de passe cloud oublié se traite dans `CloudLoginDialog`, pas dans les pages de récupération de l'API locale.
 
-### Token invalide ou expiré
-
-Si vous recevez une erreur 401 (Unauthorized) :
-
-1. Vérifiez que le token est bien inclus dans les en-têtes
-2. Vérifiez que le token n'est pas expiré
-3. Vérifiez que `JWT_SECRET` est correctement configuré
-4. Tentez de rafraîchir le token avec `attemptLogin()`
-
-### Problèmes de cookies
-
-Si les cookies ne sont pas stockés :
-
-1. Vérifiez les paramètres du navigateur (cookies bloqués)
-2. Vérifiez que le domaine et le chemin sont corrects
-3. En développement, vérifiez que `secure: false` si vous utilisez HTTP
-
-### Utilisateur non trouvé
-
-Si l'authentification échoue avec "User not found" :
-
-1. Vérifiez que l'utilisateur existe dans la base de données
-2. Vérifiez que l'utilisateur est activé (`activated = true`)
-3. Vérifiez que le payload JWT contient le bon ID utilisateur
-
-## Exemples
-
-### Connexion complète
-
-```typescript
-// Frontend
-import { useAuth } from '@lib-improba/composables/use-auth';
-import { useRouter } from 'vue-router';
-
-const router = useRouter();
-const { methods } = useAuth(router);
-
-try {
-  await methods.login('username', 'password');
-  // Redirection automatique vers la page d'accueil
-} catch (error) {
-  console.error('Erreur de connexion:', error);
-}
-```
-
-### Requête authentifiée
-
-```typescript
-// Le token est automatiquement inclus par Axios
-const response = await api().get('/observations');
-// Les en-têtes incluent : Authorization: Bearer <token>
-```
-
-### Vérification de l'état de connexion
-
-```typescript
-const { sharedState } = useAuth(router);
-
-if (sharedState.user) {
-  console.log('Utilisateur connecté:', sharedState.user);
-} else {
-  console.log('Non connecté');
-}
-```
-
+Sources principales : `front/src/pages/gateway/Loading.vue`, `front/lib-improba/composables/use-auth/`, `front/src/services/users/auth.service.ts`, `front/src/services/cloud/actograph-auth.service.ts`, `front/src/services/cloud/actograph-cloud.service.ts`, `front/src/utils/desktop-fetch.ts` et `api/src/general/auth-jwt/`.

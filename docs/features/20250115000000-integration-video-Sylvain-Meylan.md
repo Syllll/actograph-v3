@@ -1,5 +1,7 @@
 # Feature - Intégration vidéo
 
+> Contexte historique d’implémentation. Pour le comportement actuel du bureau, consulter le [guide à jour](../desktop.md). Les tâches et scénarios ci-dessous conservent leur contexte d’origine.
+
 **Statut** : ✅ **Implémenté**
 
 ## Description
