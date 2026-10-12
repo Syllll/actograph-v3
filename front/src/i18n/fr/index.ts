@@ -602,12 +602,16 @@ export default {
     openLogs: 'Afficher les journaux',
     retry: 'Réessayer',
     restartInstall: 'Redémarrer et installer',
+    preparing: 'Téléchargement terminé. Vérification et préparation de la mise à jour…',
+    installing: 'Installation de la mise à jour et redémarrage en cours…',
+    preparationTimeout: 'La préparation de la mise à jour prend trop de temps. Vous pouvez continuer à utiliser ActoGraph, puis le fermer complètement et le relancer pour réessayer.',
+    installationTimeout: 'Le redémarrage n’a pas abouti. Fermez complètement ActoGraph, puis relancez-le.',
     downloading: 'Une mise à jour est disponible. Téléchargement en cours…',
     readyToDownload: 'Une mise à jour est prête à être téléchargée.',
     downloadedBody:
       'Mise à jour téléchargée. Veuillez redémarrer l\'application pour l\'installer.',
     errorIntro:
-      'Une erreur est survenue lors du téléchargement de la mise à jour. Vous pouvez réessayer ou fermer cette fenêtre et continuer.',
+      'La mise à jour n’a pas abouti. Consultez le message ci-dessous ou les journaux pour plus de détails.',
     later: 'Plus tard',
     download: 'Télécharger la mise à jour',
   },

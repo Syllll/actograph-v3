@@ -594,12 +594,16 @@ export default {
     openLogs: 'Show logs',
     retry: 'Retry',
     restartInstall: 'Restart and install',
+    preparing: 'Download complete. Verifying and preparing the update…',
+    installing: 'Installing the update and restarting…',
+    preparationTimeout: 'Update preparation is taking too long. You can keep using ActoGraph, then quit it completely and reopen it to retry.',
+    installationTimeout: 'The application did not restart. Quit ActoGraph completely, then open it again.',
     downloading: 'An update is available. Downloading…',
     readyToDownload: 'An update is ready to download.',
     downloadedBody:
       'Update downloaded. Please restart the application to install it.',
     errorIntro:
-      'Something went wrong while downloading the update. You can retry or close this window and continue.',
+      'The update did not complete. See the message below or the logs for more details.',
     later: 'Later',
     download: 'Download update',
   },

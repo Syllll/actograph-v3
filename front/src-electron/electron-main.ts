@@ -7,6 +7,7 @@ import {
   dialog,
   shell,
   powerMonitor,
+  autoUpdater as nativeAutoUpdater,
 } from 'electron';
 import path from 'path';
 import os from 'os';
@@ -15,6 +16,7 @@ import http from 'http';
 import { fork } from 'child_process';
 import { randomBytes } from 'crypto';
 import { BackendSupervisor } from './backend-supervisor';
+import { UpdateController } from './update-controller';
 import {
   isTrustedAppUrl,
   isSafeExternalUrl,
@@ -43,7 +45,6 @@ let backend: BackendSupervisor | undefined;
 const backendToken = randomBytes(32).toString('hex');
 let serverPort: number | undefined;
 let isAutoUpdaterConfigured = false;
-let updateReadyToInstall = false;
 let isAppQuitting = false;
 let quitAllowed = false;
 let quitInProgress = false;
@@ -60,6 +61,21 @@ const publicFolder = path.resolve(
   <string>process.env.QUASAR_PUBLIC_FOLDER
 );
 
+const updateController = new UpdateController({
+  needsNativePreparation: platform === 'darwin',
+  notify: (state) => {
+    log.info('Update state:', state);
+    if (mainWindow && !mainWindow.isDestroyed())
+      mainWindow.webContents.send('update-state', state);
+  },
+  shutdown: stopBackend,
+  install: () => {
+    quitAllowed = true;
+    autoUpdater.quitAndInstall(true, true);
+  },
+  quitAfterFailure: () => app.quit(),
+});
+
 function setupAutoUpdaterEventListeners() {
   if (isAutoUpdaterConfigured) {
     return;
@@ -69,6 +85,13 @@ function setupAutoUpdaterEventListeners() {
   // Disable auto-download - user must approve first
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
+
+  if (platform === 'darwin') {
+    nativeAutoUpdater.on('update-downloaded', () => {
+      log.info('Native update preparation complete');
+      updateController.nativeDownloaded();
+    });
+  }
 
   // Auto-Update Event Listeners
   autoUpdater.on('update-available', (info) => {
@@ -100,12 +123,8 @@ function setupAutoUpdaterEventListeners() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    updateReadyToInstall = true;
     log.info('Update downloaded');
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-downloaded');
-    }
+    updateController.downloaded();
   });
 
   autoUpdater.on('error', (err) => {
@@ -116,13 +135,7 @@ function setupAutoUpdaterEventListeners() {
       name: err.name,
     });
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-error', {
-        message: err.message,
-        name: err.name,
-        stack: err.stack,
-      });
-    }
+    updateController.fail(err);
   });
 
   // Add check-for-updates event listener
@@ -138,6 +151,8 @@ function setupAutoUpdaterEventListeners() {
 }
 
 async function createWindow() {
+  // Register before loading Vue, which requests the first update check on mount.
+  setupAutoUpdaterEventListeners();
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   mainWindow = new BrowserWindow({
@@ -236,8 +251,6 @@ async function createWindow() {
 
   // Wait for the window to be loaded before checking for updates
   await loadPromise;
-
-  setupAutoUpdaterEventListeners();
 }
 
 function createBackend(port: number): BackendSupervisor {
@@ -480,6 +493,7 @@ app.on('before-quit', (event) => {
       app.quit();
     });
 });
+app.on('will-quit', () => updateController.dispose());
 process.on('exit', () => backend?.killImmediately());
 process.on('uncaughtException', (error) => {
   log.error('Uncaught Exception:', error);
@@ -612,6 +626,7 @@ handleIpc('ready-to-check-updates', async (event, arg) => {
 // Add these new IPC handlers
 handleIpc('download-update', async (event, arg) => {
   // Manually trigger the download when user approves
+  updateController.startDownload();
   try {
     log.info('Starting update download...');
     const result = await autoUpdater.downloadUpdate();
@@ -619,25 +634,23 @@ handleIpc('download-update', async (event, arg) => {
     return result;
   } catch (error) {
     log.error('Error downloading update:', error);
+    updateController.fail(error);
     throw error;
   }
 });
 
+handleIpc('get-update-state', () => updateController.getState());
+
 handleIpc('install-update', async (event, arg) => {
   // Manually trigger the installation
   try {
-    if (!updateReadyToInstall)
-      throw new Error('No downloaded update available');
     log.info('Installing update and quitting...');
     // quitAndInstall(isSilent, isForceRunAfter)
     // isSilent: if true, run installer in silent mode (Windows/NSIS only; ignored on macOS/Linux)
     // isForceRunAfter: if true, relaunch the app once the (silent) install is done
-    await stopBackend();
-    quitAllowed = true;
-    autoUpdater.quitAndInstall(true, true);
+    await updateController.install();
   } catch (error) {
     log.error('Error installing update:', error);
-    if (isAppQuitting) app.quit();
     throw error;
   }
 });
