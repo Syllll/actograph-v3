@@ -71,4 +71,24 @@ describe('desktop license activation', () => {
       JSON.parse(await fs.readFile(path.join(folder, 'access.json'), 'utf8')),
     ).toEqual({ type: 'license', key: 'KEY' });
   });
+
+  test('activates the permanent Ultimate Education response used by historical purchases', async () => {
+    remote.mockResolvedValue({
+      data: {
+        id: 4695,
+        type: 'Ultimate Education',
+        dateMode: 'Duration',
+        startDate: '2024-01-21T00:00:00.000Z',
+        endDate: '2024-01-21T00:00:00.000Z',
+        duration: 0,
+        hasTimeLimit: false,
+        renewable: false,
+        owner: null,
+      },
+    });
+    await expect(security.electron.activateLicense('KEY')).resolves.toBe(true);
+    expect(
+      JSON.parse(await fs.readFile(path.join(folder, 'access.json'), 'utf8')),
+    ).toEqual({ type: 'license', key: 'KEY' });
+  });
 });

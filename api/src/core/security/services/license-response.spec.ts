@@ -22,6 +22,25 @@ test('normalizes valid legacy license types and preserves nullable data', () => 
     endDate: null,
   });
 });
+test.each(['Ultimate Education', 'ultimate education', 'Ultimate Éducation'])(
+  'accepts historical permanent education licenses: %s',
+  (type) => {
+    const historical = {
+      ...valid,
+      id: 4695,
+      type,
+      startDate: '2024-01-21T00:00:00.000Z',
+      endDate: '2024-01-21T00:00:00.000Z',
+      duration: 0,
+      hasTimeLimit: false,
+    };
+    expect(parseLicenseResponse(historical)).toEqual({
+      ...historical,
+      type: 'Ultimate',
+      dateMode: 'Duration',
+    });
+  },
+);
 test.each([
   null,
   '',

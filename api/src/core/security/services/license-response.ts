@@ -7,6 +7,21 @@ import type { LicenseResponse } from './security/index.service';
 
 export const LICENSE_RESPONSE_INVALID = 'Invalid license server response';
 
+function parseLicenseType(value: unknown): LicenseTypeEnum | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  // Historical education purchases use this name but grant Ultimate access.
+  if (
+    normalized === 'ultimate education' ||
+    normalized === 'ultimate éducation'
+  ) {
+    return LicenseTypeEnum.Ultimate;
+  }
+  return Object.values(LicenseTypeEnum).find(
+    (item) => item.toLowerCase() === normalized,
+  );
+}
+
 /** Validate remote data before writing access files or replacing a stored license. */
 export function parseLicenseResponse(data: unknown): LicenseResponse {
   const invalid = () => {
@@ -17,12 +32,7 @@ export function parseLicenseResponse(data: unknown): LicenseResponse {
   const value = data as Record<string, unknown>;
   if (typeof value.message === 'string' && value.message)
     throw new BadRequestException(value.message);
-  const type =
-    typeof value.type === 'string'
-      ? Object.values(LicenseTypeEnum).find(
-          (item) => item.toLowerCase() === (value.type as string).toLowerCase(),
-        )
-      : undefined;
+  const type = parseLicenseType(value.type);
   const dateMode =
     typeof value.dateMode === 'string'
       ? Object.values(DateModeEnum).find(
