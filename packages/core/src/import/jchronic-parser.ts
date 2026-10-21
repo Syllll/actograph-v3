@@ -247,7 +247,9 @@ export function normalizeJchronicData(data: IJchronicImport): INormalizedImport 
       description: reading.description,
       type: normalizeReadingType(reading.type),
       dateTime: new Date(reading.dateTime),
+      ...(Number.isSafeInteger(reading.sortOrder) && reading.sortOrder! >= 0
+        ? { sortOrder: reading.sortOrder }
+        : {}),
     })),
   };
 }
-

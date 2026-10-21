@@ -91,6 +91,8 @@ export interface IReading extends Partial<IEntity> {
   type: ReadingTypeEnum;
   dateTime: Date;
   tempId?: string | null;
+  /** Stable position for readings sharing the same timestamp. */
+  sortOrder?: number | null;
 }
 
 export enum ObservationModeEnum {

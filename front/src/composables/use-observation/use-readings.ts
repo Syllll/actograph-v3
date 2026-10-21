@@ -11,6 +11,7 @@ import { reactive, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { readingService } from '@services/observations/reading.service';
 import { v4 as uuidv4 } from 'uuid';
+import { sameReading } from '@utils/reading-identity';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
 import {
   chronometerDateTimeFromElapsed,
@@ -133,8 +134,18 @@ export const useReadings = (options: {
   const { t, d } = useI18n();
   const observationSharedState = options.sharedStateFromObservation;
 
-  const applyChronologicalOrder = () => {
+  const applyChronologicalOrder = (normalizeOrder = true) => {
     sharedState.currentReadings = sortReadingsByDateTime(sharedState.currentReadings);
+    if (normalizeOrder) {
+      sharedState.currentReadings.forEach((reading, index) => {
+        reading.sortOrder = index;
+      });
+    }
+    if (sharedState.selectedReading) {
+      sharedState.selectedReading = sharedState.currentReadings.find(
+        (reading) => sameReading(reading, sharedState.selectedReading),
+      ) ?? null;
+    }
   };
 
   const methods = {
@@ -145,6 +156,7 @@ export const useReadings = (options: {
      * @returns Promise that resolves when readings are loaded
      */
     loadReadings: async (observation: IObservation) => {
+      sharedState.selectedReading = null;
       const readings: IReading[] = [];
       let offset = 0;
       let totalCount = Number.POSITIVE_INFINITY;
@@ -185,9 +197,10 @@ export const useReadings = (options: {
             : undefined,
       }));
       
+      // Opening a legacy chronicle must not trigger a write for every row.
       stateless.initialReadings = readingsWithDates.map(cloneReadingSnapshot);
       sharedState.currentReadings = readingsWithDates;
-      applyChronologicalOrder();
+      applyChronologicalOrder(false);
     },
     
     /**
@@ -214,7 +227,7 @@ export const useReadings = (options: {
       isSyncInFlight = true;
       try {
       // Make a local copy of the current readings
-      const currentReadings = [...sharedState.currentReadings];
+      const currentReadings = sharedState.currentReadings.map(cloneReadingSnapshot);
 
       const isStaleSync = () =>
         syncObservationId !== (options.sharedStateFromObservation.currentObservation?.id ?? null);
@@ -279,7 +292,8 @@ export const useReadings = (options: {
           current.name !== initialReading.name ||
           current.description !== initialReading.description ||
           current.type !== initialReading.type ||
-          currentDateTime !== initialDateTime
+          currentDateTime !== initialDateTime ||
+          current.sortOrder !== initialReading.sortOrder
         );
         if (hasChanged) {
           return current;
@@ -323,6 +337,36 @@ export const useReadings = (options: {
         throw new Error(`Unreachable: executeWithRetry exited loop without returning for ${operationName}`);
       };
 
+      // Update existing readings with retry logic
+      // Only update readings that have an id (persisted readings)
+      const readingsToUpdate = updatedReadings.filter((reading): reading is IReading & { id: number } => !!reading.id);
+      if (readingsToUpdate.length > 0) {
+        const obsId = syncObservationId;
+        await executeWithRetry(
+          () => readingService.updateMany({
+            observationId: obsId,
+            readings: readingsToUpdate.map((reading) => ({
+              id: reading.id,
+              name: reading.name,
+              description: reading.description,
+              type: reading.type,
+              dateTime: reading.dateTime,
+              tempId: reading.tempId,
+              sortOrder: reading.sortOrder,
+            })),
+          }),
+          'updating readings'
+        );
+        if (isStaleSync()) {
+          return;
+        }
+        for (const reading of readingsToUpdate) {
+          upsertInitialReading(reading);
+        }
+      }
+
+      // Persist shifted positions before inserting a copy. If insertion fails,
+      // the surviving rows keep their relative order without colliding with it.
       // Create new readings with retry logic
       if (newReadings.length > 0) {
         const obsId = syncObservationId;
@@ -340,6 +384,10 @@ export const useReadings = (options: {
         if (Array.isArray(created)) {
           for (const createdReading of created) {
             if (!createdReading?.tempId) continue;
+            const sentReading = newReadings.find((reading) => reading.tempId === createdReading.tempId);
+            // Track even a row deleted locally during POST, so the next sync
+            // removes its server copy instead of resurrecting it on reopening.
+            if (sentReading) upsertInitialReading({ ...sentReading, id: createdReading.id });
             const idx = sharedState.currentReadings.findIndex(r => r.tempId && r.tempId === createdReading.tempId);
             if (idx !== -1) {
               sharedState.currentReadings[idx] = {
@@ -349,38 +397,10 @@ export const useReadings = (options: {
                 createdAt: createdReading.createdAt ?? sharedState.currentReadings[idx].createdAt,
                 updatedAt: createdReading.updatedAt ?? sharedState.currentReadings[idx].updatedAt,
               } as IReading;
-              upsertInitialReading(sharedState.currentReadings[idx]);
+              if (sameReading(sharedState.selectedReading, sharedState.currentReadings[idx])) {
+                sharedState.selectedReading = sharedState.currentReadings[idx];
+              }
             }
-          }
-        }
-      }
-
-      // Update existing readings with retry logic
-      // Only update readings that have an id (persisted readings)
-      const readingsToUpdate = updatedReadings.filter((reading): reading is IReading & { id: number } => !!reading.id);
-      if (readingsToUpdate.length > 0) {
-        const obsId = syncObservationId;
-        await executeWithRetry(
-          () => readingService.updateMany({
-            observationId: obsId,
-            readings: readingsToUpdate.map((reading) => ({
-              id: reading.id,
-              name: reading.name,
-              description: reading.description,
-              type: reading.type,
-              dateTime: reading.dateTime,
-              tempId: reading.tempId,
-            })),
-          }),
-          'updating readings'
-        );
-        if (isStaleSync()) {
-          return;
-        }
-        for (const reading of readingsToUpdate) {
-          const current = sharedState.currentReadings.find((r) => r.id === reading.id);
-          if (current) {
-            upsertInitialReading(current);
           }
         }
       }
@@ -404,10 +424,8 @@ export const useReadings = (options: {
         );
       }
 
-      // Alignement final avec l'état courant après synchronisation complète
-      if (!isStaleSync()) {
-        stateless.initialReadings = sharedState.currentReadings.map(cloneReadingSnapshot);
-      }
+      // Only acknowledge the snapshots actually sent. Edits/additions performed
+      // while a request is in flight must still be sent by the next sync.
       } finally {
         isSyncInFlight = false;
         if (syncPending) {
@@ -440,7 +458,7 @@ export const useReadings = (options: {
       // Create base reading with default values
       const newReading: Partial<IReading> = {
         tempId: uuidv4(),
-        name: options.name || t('readings.defaultNewReading'),
+        name: options.name ?? t('readings.defaultNewReading'),
         description: options.description || '',
         type: options.type || ReadingTypeEnum.DATA,
         dateTime: options.dateTime || new Date(),
@@ -480,8 +498,8 @@ export const useReadings = (options: {
     
     /**
      * Adds a reading to the current readings list.
-     * Inserts after `insertAfter` when provided; otherwise after the leftover
-     * selectedReading; otherwise appends at the end.
+     * Inserts after an explicit `insertAfter` for manual copies. Live captures
+     * append in arrival order, independently of the table selection.
      */
     addReading: (
       options: IReading | {
@@ -502,7 +520,7 @@ export const useReadings = (options: {
         ? options as IReading 
         : methods.createReading(options);
       
-      const after = insertAfter ?? sharedState.selectedReading;
+      const after = insertAfter;
       if (after) {
         const selectedIndex = sharedState.currentReadings.findIndex(
           (r: IReading) =>
@@ -525,6 +543,26 @@ export const useReadings = (options: {
 
     sortReadingsChronologically: () => {
       applyChronologicalOrder();
+    },
+
+    /** The table's single add action: copy the selection, otherwise the last row. */
+    addManualReading: () => {
+      const source = sharedState.currentReadings.find(
+        (reading) => sameReading(reading, sharedState.selectedReading),
+      ) ?? sharedState.currentReadings[sharedState.currentReadings.length - 1];
+      const reading = source
+        ? methods.addReading({
+          name: source.name,
+          description: source.description,
+          type: source.type,
+          dateTime: new Date(source.dateTime),
+        }, source)
+        : methods.addReading({
+          currentDate: observationSharedState.currentDate || undefined,
+          elapsedTime: observationSharedState.elapsedTime ?? 0,
+        });
+      sharedState.selectedReading = reading;
+      return reading;
     },
 
     /**
@@ -550,6 +588,7 @@ export const useReadings = (options: {
 
     removeAllReadings: () => {
       sharedState.currentReadings = [];
+      sharedState.selectedReading = null;
     },
     
     /**
@@ -619,6 +658,7 @@ export const useReadings = (options: {
           }
         }
         
+        applyChronologicalOrder();
         return true;
       }
       
@@ -631,7 +671,9 @@ export const useReadings = (options: {
      * @param reading - The reading to select, or null to clear selection
      */
     selectReading: (reading: IReading | null) => {
-      sharedState.selectedReading = reading;
+      sharedState.selectedReading = reading
+        ? sharedState.currentReadings.find((candidate) => sameReading(candidate, reading)) ?? null
+        : null;
     },
 
     /**
@@ -941,7 +983,7 @@ export const useReadings = (options: {
           }
           return reading;
         });
-        applyChronologicalOrder();
+        applyChronologicalOrder(false);
       });
     });
 

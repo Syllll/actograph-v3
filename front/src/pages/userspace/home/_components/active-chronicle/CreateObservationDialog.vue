@@ -15,11 +15,12 @@
           <div class="text-body2">
             {{ $t('dialogs.createObservation.observationTypeLabel') }}
           </div>
-          <div class="text-caption text-neutral-high">
+          <div v-if="state.creationEntry !== 'manual'" class="text-caption text-neutral-high">
             {{ $t('dialogs.createObservation.modeHint') }}
           </div>
           <q-select
             v-model="state.creationEntry"
+            data-testid="creation-entry"
             :options="creationEntryOptions"
             option-label="label"
             option-value="value"
@@ -38,6 +39,22 @@
               </q-item>
             </template>
           </q-select>
+        </div>
+
+        <div v-if="state.creationEntry === 'manual'" class="column q-gutter-xs">
+          <div class="text-body2">{{ $t('dialogs.createObservation.manualTimeBasisLabel') }}</div>
+          <q-select
+            v-model="state.manualMode"
+            data-testid="manual-time-basis"
+            :aria-label="$t('dialogs.createObservation.manualTimeBasisLabel')"
+            :options="manualTimeBasisOptions"
+            emit-value
+            map-options
+            outlined
+            dense
+            hide-bottom-space
+          />
+          <div class="text-caption text-neutral-high">{{ $t('dialogs.createObservation.manualTimeBasisHint') }}</div>
         </div>
 
         <div v-if="state.creationEntry === 'video'" class="column q-gutter-sm">
@@ -91,13 +108,25 @@
 
         <div class="column q-gutter-xs">
           <div class="text-body2">
-            {{ $t('dialogs.createObservation.protocolLabel') }}
+            {{ $t(state.creationEntry === 'manual' ? 'dialogs.createObservation.protocolChoiceLabel' : 'dialogs.createObservation.protocolLabel') }}
           </div>
-          <div class="text-caption text-neutral-high">
+          <div v-if="state.creationEntry !== 'manual' || state.protocolChoice === 'copy'" class="text-caption text-neutral-high">
             {{ $t('dialogs.createObservation.sourceHint') }}
           </div>
+          <q-option-group
+            v-if="state.creationEntry === 'manual'"
+            v-model="state.protocolChoice"
+            data-testid="manual-protocol-choice"
+            :options="protocolChoiceOptions"
+            :aria-label="$t('dialogs.createObservation.protocolChoiceLabel')"
+            color="primary"
+          />
           <q-select
+            v-if="state.creationEntry !== 'manual' || state.protocolChoice === 'copy'"
             v-model="state.sourceObservationId"
+            data-testid="protocol-source"
+            :aria-label="$t('dialogs.createObservation.protocolSourceLabel')"
+            :placeholder="state.creationEntry === 'manual' ? $t('dialogs.createObservation.protocolCopyRequired') : undefined"
             :options="protocolOptions"
             option-label="label"
             option-value="value"
@@ -139,7 +168,7 @@ import { ObservationModeEnum } from '@services/observations/interface';
 import { observationService } from '@services/observations/index.service';
 import { protocolHasAtLeastOneCategory } from '@services/observations/protocol.service';
 
-type CreationEntry = 'direct' | 'chronometer' | 'video';
+type CreationEntry = 'direct' | 'chronometer' | 'video' | 'manual';
 
 export default defineComponent({
   name: 'CreateObservationDialog',
@@ -157,6 +186,8 @@ export default defineComponent({
       name: '',
       description: '',
       creationEntry: 'direct' as CreationEntry,
+      manualMode: ObservationModeEnum.Calendar,
+      protocolChoice: 'new' as 'new' | 'copy',
       videoPath: null as string | null,
       sourceObservationId: null as number | null,
       observations: [] as { id: number; name: string }[],
@@ -198,7 +229,9 @@ export default defineComponent({
     const protocolOptions = computed(() => {
       void locale.value;
       return [
-        { label: t('dialogs.createObservation.protocolNone'), value: null as number | null },
+        ...(state.creationEntry === 'manual' ? [] : [
+          { label: t('dialogs.createObservation.protocolNone'), value: null as number | null },
+        ]),
         ...state.observations.map((obs) => ({
           label: obs.name,
           value: obs.id,
@@ -206,9 +239,24 @@ export default defineComponent({
       ];
     });
 
+    const manualTimeBasisOptions = computed(() => [
+      { label: t('dialogs.createObservation.manualCalendar'), value: ObservationModeEnum.Calendar },
+      { label: t('dialogs.createObservation.manualChronometer'), value: ObservationModeEnum.Chronometer },
+    ]);
+
+    const protocolChoiceOptions = computed(() => [
+      { label: t('dialogs.createObservation.protocolNew'), value: 'new' },
+      { label: t('dialogs.createObservation.protocolCopy'), value: 'copy', disable: state.observationsLoading || state.observations.length === 0 },
+    ]);
+
     const creationEntryOptions = computed(() => {
       void locale.value;
       return [
+        {
+          label: t('dialogs.createObservation.typeManual'),
+          value: 'manual' as CreationEntry,
+          description: t('dialogs.createObservation.typeManualDesc'),
+        },
         {
           label: t('dialogs.createObservation.typeDirect'),
           value: 'direct' as CreationEntry,
@@ -245,6 +293,8 @@ export default defineComponent({
       get isValid(): boolean {
         if (!state.name || state.name.trim().length === 0) return false;
         if (state.creationEntry === 'video' && !state.videoPath) return false;
+        if (state.creationEntry === 'manual' && state.protocolChoice === 'copy'
+          && (state.observationsLoading || !state.observations.some((obs) => obs.id === state.sourceObservationId))) return false;
         return true;
       },
 
@@ -277,7 +327,9 @@ export default defineComponent({
         if (!methods.isValid || state.creating) return;
 
         const finalMode =
-          state.creationEntry === 'direct'
+          state.creationEntry === 'manual'
+            ? state.manualMode
+            : state.creationEntry === 'direct'
             ? ObservationModeEnum.Calendar
             : ObservationModeEnum.Chronometer;
 
@@ -287,13 +339,19 @@ export default defineComponent({
           mode: ObservationModeEnum;
           videoPath?: string;
           sourceObservationId?: number;
+          meta?: { entryMode: 'manual' };
         } = {
           name: state.name.trim(),
           description: state.description.trim() || undefined,
           mode: finalMode,
         };
 
-        if (state.sourceObservationId !== null) {
+        if (state.creationEntry === 'manual') {
+          dialogResult.meta = { entryMode: 'manual' };
+        }
+
+        if (state.sourceObservationId !== null
+          && (state.creationEntry !== 'manual' || state.protocolChoice === 'copy')) {
           dialogResult.sourceObservationId = state.sourceObservationId;
         }
 
@@ -312,6 +370,8 @@ export default defineComponent({
       dialogRef,
       state,
       creationEntryOptions,
+      manualTimeBasisOptions,
+      protocolChoiceOptions,
       protocolOptions,
       methods,
       handleDialogHide,

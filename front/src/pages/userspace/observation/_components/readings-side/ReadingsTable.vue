@@ -1,6 +1,7 @@
 <template>
   <div class="readings-table">
     <q-table
+      ref="tableRef"
       class="readings-q-table"
       dense
     :rows="readings"
@@ -48,8 +49,15 @@
       <q-tr
         :props="props"
         :class="{
-          'unrecognized-observable-row': isUnrecognizedObservable(props.row)
+          'unrecognized-observable-row': isUnrecognizedObservable(props.row),
+          'reading-row--selected': isSelectedReading(props.row),
         }"
+        :aria-selected="isSelectedReading(props.row)"
+        :data-reading-key="getRowKey(props.row)"
+        tabindex="0"
+        @click="selectReading(props.row)"
+        @focusin="selectReading(props.row)"
+        @keydown="onRowKeydown(props.row, $event)"
       >
         <q-td key="order" :props="props">
           {{ props.rowIndex + 1 }}
@@ -61,7 +69,7 @@
             tabindex="0"
             role="button"
             :aria-label="t('readingsUi.colType')"
-            @click.stop
+            @click.stop="selectReading(props.row)"
           >
             {{ getReadingTypeLabel(props.row.type) }}
             <q-menu>
@@ -91,32 +99,34 @@
         </q-td>
 
         <q-td key="dateTime" :props="props">
-          <input
+          <ReadingTimeInput
             v-if="isChronometerMode"
             class="readings-inline-control"
-            type="text"
-            :value="getDurationInputValue(props.row)"
-            :aria-label="t('readingsUi.editDurationTitle')"
-            :placeholder="t('readingsUi.durationPlaceholder')"
-            :title="t('readingsUi.durationFormatsHint')"
-            @input="onDurationInput(props.row, $event)"
-            @blur="commitDuration(props.row)"
-            @keydown.enter.prevent="commitDuration(props.row)"
-            @keydown.esc.stop="clearDurationDraft(props.row)"
-            @click.stop
-          >
-          <input
+            kind="duration"
+            :model-value="getDurationInputValue(props.row)"
+            :saved-value="formatDurationCompactFromRow(props.row)"
+            :ariaLabel="t('readingsUi.editDurationTitle')"
+            :invalid="!!durationErrors[getRowKey(props.row)]"
+            :title="durationErrors[getRowKey(props.row)] ? t('readingsUi.invalidTimestamp') : undefined"
+            @update:model-value="setDurationDraft(props.row, $event)"
+            @commit="commitDuration(props.row, $event)"
+            @cancel="clearDurationDraft(props.row)"
+            @click.stop="selectReading(props.row)"
+          />
+          <ReadingTimeInput
             v-else
             class="readings-inline-control"
-            type="text"
-            :value="getCalendarDateTimeValue(props.row)"
-            :aria-label="t('readingsUi.colDateTime')"
-            @input="onCalendarInput(props.row, $event)"
-            @blur="commitCalendarDateTime(props.row)"
-            @keydown.enter.prevent="commitCalendarDateTime(props.row)"
-            @keydown.esc.stop="clearCalendarDraft(props.row)"
-            @click.stop
-          >
+            kind="calendar"
+            :model-value="getCalendarDateTimeValue(props.row)"
+            :saved-value="formatDateTime(props.row.dateTime)"
+            :ariaLabel="t('readingsUi.colDateTime')"
+            :invalid="!!calendarErrors[getRowKey(props.row)]"
+            :title="calendarErrors[getRowKey(props.row)] ? t('readingsUi.invalidTimestamp') : undefined"
+            @update:model-value="setCalendarDraft(props.row, $event)"
+            @commit="commitCalendarDateTime(props.row, $event)"
+            @cancel="clearCalendarDraft(props.row)"
+            @click.stop="selectReading(props.row)"
+          />
         </q-td>
 
         <q-td key="name" :props="props">
@@ -131,14 +141,52 @@
               @input="onCommentNativeInput(props.row, $event)"
               @blur="commitComment(props.row)"
               @keydown.enter.prevent="commitComment(props.row)"
-              @click.stop
+              @click.stop="selectReading(props.row)"
             >
             <span
               v-else
-              class="readings-label-text"
-              :class="{ 'unrecognized-observable': isUnrecognizedObservable(props.row) }"
+              class="readings-observable-editor"
             >
-              {{ props.row.name }}
+              <input
+                class="readings-inline-control readings-observable-input"
+                :class="{ 'unrecognized-observable': isUnrecognizedObservable(props.row) }"
+                type="text"
+                :value="getObservableValue(props.row)"
+                :aria-label="t('readingsUi.colLabel')"
+                @input="setObservableDraft(props.row, $event)"
+                @blur="commitObservable(props.row)"
+                @keydown.enter.stop.prevent="commitObservable(props.row)"
+                @keydown.esc.stop="clearObservableDraft(props.row)"
+                @click.stop="selectReading(props.row)"
+              >
+              <q-btn
+                icon="arrow_drop_down"
+                flat round dense size="xs"
+                :disable="observableOptions.length === 0"
+                :aria-label="t('readingsUi.chooseObservable')"
+                @click.stop="selectReading(props.row)"
+              >
+                <q-tooltip>{{ t('readingsUi.chooseObservable') }}</q-tooltip>
+                <q-menu>
+                  <q-list dense class="readings-observable-options">
+                    <template v-for="group in observableOptions" :key="group.name">
+                      <q-item dense class="text-weight-bold" aria-disabled="true">
+                        <q-item-section>{{ group.name }}</q-item-section>
+                      </q-item>
+                      <q-item
+                        v-for="name in group.names"
+                        :key="name"
+                        clickable dense v-close-popup
+                        :active="props.row.name === name"
+                        :data-observable-option="name"
+                        @click="chooseObservable(props.row, name)"
+                      >
+                        <q-item-section>{{ name }}</q-item-section>
+                      </q-item>
+                    </template>
+                  </q-list>
+                </q-menu>
+              </q-btn>
             </span>
             <q-tooltip
               v-if="getLabelTooltip(props.row)"
@@ -168,17 +216,6 @@
             round
             dense
             size="xs"
-            icon="content_copy"
-            :aria-label="t('readingsUi.duplicateReadingTooltip')"
-            @click.stop="emitDuplicateReading(props.row)"
-          >
-            <q-tooltip>{{ t('readingsUi.duplicateReadingTooltip') }}</q-tooltip>
-          </q-btn>
-          <q-btn
-            flat
-            round
-            dense
-            size="xs"
             color="dark"
             icon="delete"
             :aria-label="t('readingsUi.deleteReadingOk')"
@@ -194,23 +231,27 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref, reactive } from 'vue';
+import { defineComponent, computed, ref, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
 import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
-import { QTableColumn, Dialog } from 'quasar';
+import { QTableColumn, QTable, Dialog } from 'quasar';
+import { readingKey, sameReading } from 'src/utils/reading-identity';
 import { date as qDate } from 'quasar';
 import { useObservation } from 'src/composables/use-observation';
-import { useDuration } from 'src/composables/use-duration';
+import { formatSegmentedDuration, parseSegmentedDuration, isValidSegmentedTime } from 'src/utils/segmented-time';
 import {
   formatCalendarDateTime,
   getObservationTimeZone,
+  getLocalTimeZone,
 } from '@actograph/core';
 import { parseCalendarDateTimeEditInTimeZone } from 'src/utils/calendar-date-time';
 import EditReadingDialog from './EditReadingDialog.vue';
+import ReadingTimeInput from './ReadingTimeInput.vue';
 
 export default defineComponent({
   name: 'ReadingsTable',
+  components: { ReadingTimeInput },
 
   props: {
     readings: {
@@ -223,7 +264,7 @@ export default defineComponent({
     },
   },
 
-  emits: ['remove-reading', 'duplicate-reading', 'clear-all'],
+  emits: ['remove-reading', 'clear-all'],
 
   setup(props, { emit }) {
     const { t } = useI18n();
@@ -290,15 +331,73 @@ export default defineComponent({
     ]);
 
     const observation = useObservation();
-    const duration = useDuration();
+    const tableRef = ref<QTable | null>(null);
+    const selectedReading = computed(() => observation.readings.sharedState.selectedReading);
+    const isSelectedReading = (row: IReading) => sameReading(row, selectedReading.value);
+    const selectReading = (row: IReading) => observation.readings.methods.selectReading(row);
+    const onRowKeydown = (row: IReading, event: KeyboardEvent) => {
+      // Let inputs, buttons and menu controls handle their own keystrokes.
+      if (event.target !== event.currentTarget) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectReading(row);
+      }
+    };
+    const selectedDisplayIndex = computed(() => {
+      const rows = tableRef.value?.filteredSortedRows ?? props.readings;
+      return rows.findIndex((row: IReading) => sameReading(row, selectedReading.value));
+    });
+    watch(
+      [() => selectedReading.value ? readingKey(selectedReading.value) : null, selectedDisplayIndex],
+      async () => {
+        await nextTick();
+        const index = selectedDisplayIndex.value;
+        if (index >= 0) tableRef.value?.scrollTo(index, 'center');
+      },
+      { flush: 'post', immediate: true },
+    );
     const isChronometerMode = computed(() => observation.isChronometerMode.value);
 
-    const getRowKey = (row: IReading) => {
-      return row.id ? `id-${row.id}` : `tempId-${row.tempId || 'unknown'}`;
-    };
+    const getRowKey = readingKey;
 
     const calendarDrafts = ref<Record<string, string>>({});
+    const calendarErrors = ref<Record<string, boolean>>({});
     const durationDrafts = ref<Record<string, string>>({});
+    const durationErrors = ref<Record<string, boolean>>({});
+    const observableDrafts = ref<Record<string, string>>({});
+
+    const observableOptions = computed(() => {
+      const items = observation.protocol.sharedState.currentProtocol?._items ?? [];
+      return items
+        .filter((item) => item.type === ProtocolItemTypeEnum.Category)
+        .map((item) => ({
+          name: item.name,
+          names: (item.children ?? []).map((child) => child.name).filter((name): name is string => Boolean(name)),
+        }))
+        .filter((group) => group.names.length > 0);
+    });
+
+    const getObservableValue = (row: IReading) => observableDrafts.value[getRowKey(row)] ?? row.name;
+    const setObservableDraft = (row: IReading, event: Event) => {
+      observableDrafts.value[getRowKey(row)] = (event.target as HTMLInputElement).value;
+    };
+    const clearObservableDraft = (row: IReading) => {
+      delete observableDrafts.value[getRowKey(row)];
+    };
+    const commitObservable = (row: IReading) => {
+      const value = getObservableValue(row).trim();
+      clearObservableDraft(row);
+      if (!value || value === row.name) return;
+      observation.readings.methods.updateReading(
+        { id: row.id, tempId: row.tempId },
+        { name: value },
+      );
+    };
+    const chooseObservable = (row: IReading, name: string) => {
+      observableDrafts.value[getRowKey(row)] = name;
+      commitObservable(row);
+      selectReading(row);
+    };
 
     const protocolObservableNames = computed(() => {
       const protocol = observation.protocol.sharedState.currentProtocol;
@@ -341,14 +440,6 @@ export default defineComponent({
       return parts.length > 0 ? parts.join('\n') : undefined;
     };
 
-    const durationEditState = reactive({
-      days: 0,
-      hours: 0,
-      minutes: 0,
-      seconds: 0,
-      milliseconds: 0,
-    });
-
     const toDate = (dateTime: Date | string): Date =>
       dateTime instanceof Date ? dateTime : new Date(dateTime);
 
@@ -366,13 +457,14 @@ export default defineComponent({
     const formatDurationCompactFromRow = (row: IReading) => {
       if (!row.dateTime) return '';
       const durationMs = observation.chronometerMethods.dateToDuration(toDate(row.dateTime));
-      return duration.formatCompact(durationMs);
+      return formatSegmentedDuration(durationMs);
     };
 
     const getCalendarDateTimeValue = (row: IReading) =>
       calendarDrafts.value[getRowKey(row)] ?? formatDateTime(row.dateTime);
 
     const setCalendarDraft = (row: IReading, val: string | number | null) => {
+      delete calendarErrors.value[getRowKey(row)];
       calendarDrafts.value = {
         ...calendarDrafts.value,
         [getRowKey(row)]: val == null ? '' : String(val),
@@ -381,6 +473,7 @@ export default defineComponent({
 
     const clearCalendarDraft = (row: IReading) => {
       const key = getRowKey(row);
+      delete calendarErrors.value[key];
       if (!(key in calendarDrafts.value)) return;
       const next = { ...calendarDrafts.value };
       delete next[key];
@@ -391,6 +484,7 @@ export default defineComponent({
       durationDrafts.value[getRowKey(row)] ?? formatDurationCompactFromRow(row);
 
     const setDurationDraft = (row: IReading, val: string | number | null) => {
+      delete durationErrors.value[getRowKey(row)];
       durationDrafts.value = {
         ...durationDrafts.value,
         [getRowKey(row)]: val == null ? '' : String(val),
@@ -399,99 +493,11 @@ export default defineComponent({
 
     const clearDurationDraft = (row: IReading) => {
       const key = getRowKey(row);
+      delete durationErrors.value[key];
       if (!(key in durationDrafts.value)) return;
       const next = { ...durationDrafts.value };
       delete next[key];
       durationDrafts.value = next;
-    };
-
-    const parseDurationFromText = (text: string) => {
-      if (!text || typeof text !== 'string') return;
-      const normalized = text.trim().toLowerCase();
-      if (!normalized) return;
-
-      if (normalized.includes(':')) {
-        const parts = normalized.split(':');
-        const parseSecMs = (secPart: string): { sec: number; ms: number } => {
-          const [secRaw, msRaw] = secPart.replace(',', '.').split('.');
-          const sec = Number.parseInt(secRaw || '0', 10) || 0;
-          const ms = Number.parseInt((msRaw || '0').padEnd(3, '0').slice(0, 3), 10) || 0;
-          return { sec, ms };
-        };
-
-        let days = 0;
-        let hours = 0;
-        let minutes = 0;
-        let seconds = 0;
-        let milliseconds = 0;
-
-        if (parts.length === 3) {
-          hours = Number.parseInt(parts[0] || '0', 10) || 0;
-          minutes = Number.parseInt(parts[1] || '0', 10) || 0;
-          const secMs = parseSecMs(parts[2] || '0');
-          seconds = secMs.sec;
-          milliseconds = secMs.ms;
-        } else if (parts.length === 2) {
-          minutes = Number.parseInt(parts[0] || '0', 10) || 0;
-          const secMs = parseSecMs(parts[1] || '0');
-          seconds = secMs.sec;
-          milliseconds = secMs.ms;
-        } else {
-          return;
-        }
-
-        durationEditState.days = days;
-        durationEditState.hours = hours;
-        durationEditState.minutes = minutes;
-        durationEditState.seconds = seconds;
-        durationEditState.milliseconds = milliseconds;
-        return;
-      }
-
-      if (/^\d+$/.test(normalized)) {
-        const durationMs = Number.parseInt(normalized, 10);
-        const parsedParts = duration.millisecondsToParts(durationMs);
-        durationEditState.days = parsedParts.days;
-        durationEditState.hours = parsedParts.hours;
-        durationEditState.minutes = parsedParts.minutes;
-        durationEditState.seconds = parsedParts.seconds;
-        durationEditState.milliseconds = parsedParts.milliseconds;
-        return;
-      }
-
-      const regex = /(\d+)\s*(j|h|ms|m|s)/gi;
-      let match;
-      let days = 0;
-      let hours = 0;
-      let minutes = 0;
-      let seconds = 0;
-      let milliseconds = 0;
-      while ((match = regex.exec(text)) !== null) {
-        const value = parseInt(match[1], 10);
-        const unit = match[2].toLowerCase();
-        switch (unit) {
-          case 'j':
-            days = value;
-            break;
-          case 'h':
-            hours = value;
-            break;
-          case 'm':
-            minutes = value;
-            break;
-          case 's':
-            seconds = value;
-            break;
-          case 'ms':
-            milliseconds = value;
-            break;
-        }
-      }
-      durationEditState.days = days;
-      durationEditState.hours = hours;
-      durationEditState.minutes = minutes;
-      durationEditState.seconds = seconds;
-      durationEditState.milliseconds = milliseconds;
     };
 
     const findRowSafe = (row: IReading): IReading | undefined => {
@@ -509,7 +515,7 @@ export default defineComponent({
     };
 
     const parseCalendarDateTime = (value: string, row: IReading): Date | null => {
-      if (!value || value.includes('_')) {
+      if (!isValidSegmentedTime(value, 'calendar')) {
         return null;
       }
       const sourceDate = toDate(row.dateTime);
@@ -522,39 +528,33 @@ export default defineComponent({
       }
       const timeZone = getObservationTimeZone(
         observation.sharedState.currentObservation?.meta,
-      );
-      if (timeZone) {
-        return parseCalendarDateTimeEditInTimeZone(value, sourceDate, timeZone);
-      }
-      const parsed = qDate.extractDate(value, 'DD/MM/YYYY HH:mm:ss.SSS');
-      if (!parsed || isNaN(parsed.getTime()) || parsed.getFullYear() < 1970) {
-        return null;
-      }
-      return parsed;
+      ) ?? getLocalTimeZone();
+      return parseCalendarDateTimeEditInTimeZone(value, sourceDate, timeZone);
     };
 
-    const commitCalendarDateTime = (row: IReading) => {
-      const parsed = parseCalendarDateTime(getCalendarDateTimeValue(row), row);
+    const commitCalendarDateTime = (row: IReading, value = getCalendarDateTimeValue(row)) => {
+      const parsed = parseCalendarDateTime(value, row);
+      if (!parsed) {
+        calendarErrors.value[getRowKey(row)] = true;
+        return;
+      }
       clearCalendarDraft(row);
-      if (!parsed) return;
       applyDateTime(row, parsed);
     };
 
-    const commitDuration = (row: IReading) => {
-      const text = getDurationInputValue(row);
-      parseDurationFromText(text);
+    const commitDuration = (row: IReading, value = getDurationInputValue(row)) => {
+      const durationMs = parseSegmentedDuration(value);
+      const dateValue = durationMs === null ? null : observation.chronometerMethods.durationToDate(durationMs);
+      if (!dateValue || !Number.isFinite(dateValue.getTime())) {
+        durationErrors.value[getRowKey(row)] = true;
+        return;
+      }
       clearDurationDraft(row);
-      if (!duration.validateParts(durationEditState)) return;
-      const durationMs = duration.partsToMilliseconds(durationEditState);
-      applyDateTime(row, observation.chronometerMethods.durationToDate(durationMs));
+      applyDateTime(row, dateValue);
     };
 
     const emitRemoveReading = (row: IReading) => {
       emit('remove-reading', row);
-    };
-
-    const emitDuplicateReading = (row: IReading) => {
-      emit('duplicate-reading', row);
     };
 
     const emitClearAll = () => {
@@ -647,6 +647,7 @@ export default defineComponent({
     };
 
     const openEditReading = (row: IReading) => {
+      selectReading(row);
       Dialog.create({
         component: EditReadingDialog,
         componentProps: {
@@ -674,10 +675,24 @@ export default defineComponent({
 
     return {
       t,
+      tableRef,
+      isSelectedReading,
+      selectReading,
+      onRowKeydown,
       pagination,
       isChronometerMode,
       columns,
       getRowKey,
+      observableOptions,
+      getObservableValue,
+      setObservableDraft,
+      commitObservable,
+      chooseObservable,
+      clearObservableDraft,
+      calendarErrors,
+      durationErrors,
+      formatDateTime,
+      formatDurationCompactFromRow,
       getDurationInputValue,
       setDurationDraft,
       clearDurationDraft,
@@ -687,7 +702,6 @@ export default defineComponent({
       clearCalendarDraft,
       commitCalendarDateTime,
       emitRemoveReading,
-      emitDuplicateReading,
       emitClearAll,
       readingTypeOptions,
       getReadingTypeLabel,
@@ -709,6 +723,12 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.reading-row--selected {
+  background-color: var(--button-rest-bg, #e8f0fe);
+  outline: 2px solid var(--accent, #2563eb);
+  outline-offset: -2px;
+}
+
 .readings-inline-control {
   display: inline-block;
   box-sizing: content-box;
@@ -734,6 +754,17 @@ export default defineComponent({
 
 .readings-type-trigger {
   cursor: pointer;
+}
+
+.readings-observable-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.readings-observable-options {
+  max-height: 20rem;
+  min-width: 12rem;
 }
 
 .readings-type-option {
@@ -771,36 +802,30 @@ export default defineComponent({
 .readings-q-table {
   position: absolute;
   inset: 0;
+  height: 100%;
+}
 
-  &:deep() {
-    .q-table__container {
-      height: 100%;
-      width: max-content;
-    }
+.readings-q-table :deep(thead tr th) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: white;
+}
 
-    thead tr th {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      background-color: white;
-    }
+.readings-q-table :deep(.q-table) {
+  table-layout: auto;
+  width: max-content;
+}
 
-    .q-table {
-      table-layout: auto;
-      width: max-content;
-    }
+.readings-q-table :deep(th),
+.readings-q-table :deep(td) {
+  padding-left: 4px;
+  padding-right: 8px;
+  vertical-align: middle;
+}
 
-    th,
-    td {
-      padding-left: 4px;
-      padding-right: 8px;
-      vertical-align: middle;
-    }
-
-    th:last-child,
-    td:last-child {
-      padding-right: 4px;
-    }
-  }
+.readings-q-table :deep(th:last-child),
+.readings-q-table :deep(td:last-child) {
+  padding-right: 4px;
 }
 </style>

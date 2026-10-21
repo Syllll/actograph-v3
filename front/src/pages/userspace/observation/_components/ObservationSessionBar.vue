@@ -1,6 +1,13 @@
 <template>
   <div class="observation-session-bar">
-    <div class="observation-toolbar-row">
+    <div v-if="isManualEntry" class="manual-entry-notice" role="status">
+      <div class="row items-center q-gutter-xs">
+        <q-icon name="edit_note" size="18px" />
+        <strong>{{ $t('observation.manualEntryLabel') }}</strong>
+      </div>
+      <div class="text-caption">{{ $t('observation.manualEntryHint') }}</div>
+    </div>
+    <div v-else class="observation-toolbar-row">
       <span class="observation-toolbar-host">
         <q-btn
           unelevated
@@ -19,7 +26,7 @@
         </q-tooltip>
       </span>
 
-      <span class="observation-toolbar-host">
+      <span v-if="isObservationActive" class="observation-toolbar-host">
         <q-btn
           unelevated
           no-caps
@@ -46,6 +53,8 @@
       <div
         v-if="sessionStatusChip"
         class="observation-toolbar-control observation-toolbar-chip"
+        role="status"
+        aria-live="polite"
       >
         <q-icon :name="sessionStatusChip.icon" size="18px" />
         <span>{{ sessionStatusChip.label }}</span>
@@ -55,7 +64,8 @@
 
       <div class="timer-chip-wrapper">
         <div
-          class="observation-toolbar-control observation-toolbar-chip observation-toolbar-chip--timer"
+          class="observation-toolbar-control observation-toolbar-chip"
+          :class="{ 'observation-toolbar-chip--timer': isObservationActive }"
           :aria-label="timerChipAriaLabel"
         >
           <q-icon :name="timerChipIcon" size="18px" />
@@ -78,7 +88,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref, onMounted, onUnmounted } from 'vue';
+import { defineComponent, computed, ref, watch, onUnmounted } from 'vue';
 import { date as qDate } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { useObservation } from 'src/composables/use-observation';
@@ -86,15 +96,12 @@ import { ReadingTypeEnum } from '@services/observations/interface';
 import {
   formatCalendarDateTime,
   getObservationTimeZone,
-  isRecordingActiveFromReadings,
 } from '@actograph/core';
 import ModeToggle from './ModeToggle.vue';
 import {
   confirmAndCompleteObservationStop,
   handleRecPauseClick,
-  hasAnyStopReading,
   isProtocolMissing,
-  isSessionStarted,
 } from './observation-session-actions';
 
 export default defineComponent({
@@ -118,11 +125,21 @@ export default defineComponent({
     const now = ref(new Date());
     let clockIntervalId: number | null = null;
 
-    onMounted(() => {
-      clockIntervalId = window.setInterval(() => {
-        now.value = new Date();
-      }, 1000);
-    });
+    const isManualEntry = computed(() =>
+      observation.sharedState.currentObservation?.meta?.entryMode === 'manual',
+    );
+
+    watch(isManualEntry, (manual) => {
+      if (clockIntervalId !== null) {
+        clearInterval(clockIntervalId);
+        clockIntervalId = null;
+      }
+      if (!manual) {
+        clockIntervalId = window.setInterval(() => {
+          now.value = new Date();
+        }, 1000);
+      }
+    }, { immediate: true });
 
     onUnmounted(() => {
       if (clockIntervalId !== null) {
@@ -142,44 +159,29 @@ export default defineComponent({
       return !hasStartReading;
     });
 
-    const isObservationActive = computed(() => {
-      return observation.sharedState.isPlaying
-        || observation.sharedState.elapsedTime > 0;
-    });
+    // Saved START/STOP rows and video seeks are historical data. A runtime
+    // session exists only after this window has started or resumed recording.
+    const isObservationActive = computed(() =>
+      observation.sharedState.isPlaying || observation.sharedState.startTime != null,
+    );
 
-    const isPausedState = computed(() => {
-      return !observation.sharedState.isPlaying && isObservationActive.value;
-    });
-
-    const isStoppedState = computed(() => !canChangeMode.value && !isObservationActive.value);
-
-    const stopReadingDate = computed(() => {
-      const stopReadings = observation.readings.sharedState.currentReadings.filter(
-        (reading) => reading.type === ReadingTypeEnum.STOP,
-      );
-      if (stopReadings.length === 0) return null;
-      const lastStop = stopReadings[stopReadings.length - 1];
-      return lastStop.dateTime instanceof Date
-        ? lastStop.dateTime
-        : new Date(lastStop.dateTime);
-    });
+    const isPausedState = computed(() =>
+      isObservationActive.value && !observation.sharedState.isPlaying,
+    );
 
     const liveClockLabel = computed(() => {
-      const displayDate = isStoppedState.value && stopReadingDate.value
-        ? stopReadingDate.value
-        : now.value;
       if (currentMode.value === 'chronometer') {
-        return qDate.formatDate(displayDate, 'HH:mm:ss');
+        return qDate.formatDate(now.value, 'HH:mm:ss');
       }
       const timeZone = getObservationTimeZone(
         observation.sharedState.currentObservation?.meta,
       );
-      return formatCalendarDateTime(displayDate, timeZone, 'HH:mm:ss');
+      return formatCalendarDateTime(now.value, timeZone, 'HH:mm:ss');
     });
 
     const timerChipIcon = computed(() => {
       if (currentMode.value === 'calendar') {
-        return isStoppedState.value ? 'outlined_flag' : 'access_time';
+        return 'access_time';
       }
       if (isPausedState.value) {
         return 'pause';
@@ -189,9 +191,7 @@ export default defineComponent({
 
     const timerChipAriaLabel = computed(() => {
       if (currentMode.value === 'calendar') {
-        return isStoppedState.value
-          ? t('observation.timerChipEnded')
-          : t('observation.timerChipClock');
+        return t('observation.timerChipClock');
       }
       if (isPausedState.value) {
         return t('observation.timerChipPaused');
@@ -202,7 +202,9 @@ export default defineComponent({
     const recPauseLabel = computed(() => {
       return observation.sharedState.isPlaying
         ? t('observation.sessionPause')
-        : t('observation.sessionRec');
+        : isPausedState.value
+          ? t('observation.sessionResume')
+          : t('observation.sessionStart');
     });
 
     /** Record dot when idle; Material pause (two bars) when recording. */
@@ -222,48 +224,35 @@ export default defineComponent({
       () => props.attachInProgress || protocolMissing.value,
     );
 
-    // Same gate as the old CalendarToolbar stop: no STOP without a session.
-    const terminerDisabled = computed(
-      () => !isSessionStarted(observation),
-    );
+    const terminerDisabled = computed(() => props.attachInProgress || !isObservationActive.value);
 
-    // Exclusive: new segment while recording after a STOP, else ended if the
-    // last START/STOP is STOP (Terminer), else pause. Ended must beat pause:
-    // video timeupdate used to restore elapsedTime after stopTimer, which
-    // made the chip stay on "paused".
     const sessionStatusChip = computed(() => {
-      const hasStop = hasAnyStopReading(observation);
-      const recordingActive = isRecordingActiveFromReadings(
-        observation.readings.sharedState.currentReadings,
-      );
-      if (observation.sharedState.isPlaying && hasStop) {
-        return { icon: 'info', label: t('observation.newSegmentStarted') };
-      }
-      if (hasStop && !recordingActive && !observation.sharedState.isPlaying) {
-        return { icon: 'outlined_flag', label: t('observation.observationEndedToast') };
+      if (observation.sharedState.isPlaying) {
+        return { icon: 'fiber_manual_record', label: t('observation.sessionActive') };
       }
       if (isPausedState.value) {
-        return { icon: 'pause', label: t('observation.observationPausedToast') };
+        return { icon: 'pause', label: t('observation.sessionPaused') };
       }
-      if (hasStop) {
-        return { icon: 'outlined_flag', label: t('observation.observationEndedToast') };
-      }
-      return null;
+      return { icon: 'info_outline', label: t('observation.sessionInactive') };
     });
 
     const methods = {
       onRecPauseClick: () => {
+        if (isManualEntry.value || recDisabled.value) return;
         handleRecPauseClick(observation);
       },
       onTerminerClick: async () => {
+        if (isManualEntry.value || terminerDisabled.value) return;
         await confirmAndCompleteObservationStop(observation);
       },
     };
 
     return {
       observation,
+      isManualEntry,
       currentMode,
       canChangeMode,
+      isObservationActive,
       isPausedState,
       sessionStatusChip,
       liveClockLabel,
@@ -285,6 +274,12 @@ export default defineComponent({
 .observation-session-bar {
   width: 100%;
   min-width: 0;
+}
+
+.manual-entry-notice {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--neutral-low, rgba(0, 0, 0, 0.04));
 }
 
 .timer-chip-wrapper {

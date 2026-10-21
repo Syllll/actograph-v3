@@ -135,6 +135,7 @@ export const useObservation = (options?: { init?: boolean }) => {
 
   const timerMethods = {
     startTimer: () => {
+      if (sharedState.currentObservation?.meta?.entryMode === 'manual') return;
       if (sharedState.isPlaying) return;
 
       const now = Date.now();
@@ -157,9 +158,10 @@ export const useObservation = (options?: { init?: boolean }) => {
         sharedState.currentDate = new Date(now);
       }
 
-      const shouldCreateStartReading = !isRecordingActiveFromReadings(
-        readings.sharedState.currentReadings,
-      );
+      // A loaded historical START does not mean this runtime is paused.
+      // Only a session started in memory can resume with PAUSE_END.
+      const shouldCreateStartReading = sharedState.startTime == null
+        || !isRecordingActiveFromReadings(readings.sharedState.currentReadings);
 
       if (shouldCreateStartReading) {
         readings.methods.addStartReading();
@@ -172,6 +174,7 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
 
     pauseTimer: () => {
+      if (sharedState.currentObservation?.meta?.entryMode === 'manual') return;
       // Dernier refresh avant de figer : le relevé "début de pause" doit
       // porter l'horodatage absolu de l'instant de pause (currentDate), pas
       // celui du tick précédent (~10 ms plus tôt).
@@ -188,6 +191,7 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
 
     stopTimer: () => {
+      if (sharedState.currentObservation?.meta?.entryMode === 'manual') return;
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
@@ -345,6 +349,7 @@ export const useObservation = (options?: { init?: boolean }) => {
       sharedState.startTime = null;
       sharedState.currentDate = null;
       readings.sharedState.currentReadings = [];
+      readings.sharedState.selectedReading = null;
       protocol.sharedState.currentProtocol = null;
     },
 
@@ -353,6 +358,7 @@ export const useObservation = (options?: { init?: boolean }) => {
       sharedState.loading = true;
       sharedState.currentObservation = null;
       readings.sharedState.currentReadings = [];
+      readings.sharedState.selectedReading = null;
       protocol.sharedState.currentProtocol = null;
 
       // sharedState est un singleton partagé par toute l'appli : sans ce reset,

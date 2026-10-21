@@ -38,6 +38,7 @@ export const readingService = {
         type: ReadingTypeEnum;
         dateTime: Date | string;
         tempId?: string | null;
+        sortOrder?: number | null;
       }[],
     }
   ) {
@@ -68,6 +69,7 @@ export const readingService = {
         type: ReadingTypeEnum;
         dateTime: Date | string;
         tempId?: string | null;
+        sortOrder?: number | null;
       }[],
     }
   ) {
@@ -81,6 +83,7 @@ export const readingService = {
         ? reading.dateTime.toISOString() 
         : reading.dateTime,
       ...(reading.tempId !== undefined && reading.tempId !== null ? { tempId: reading.tempId } : {}),
+      sortOrder: reading.sortOrder,
     }));
 
     const payload = {

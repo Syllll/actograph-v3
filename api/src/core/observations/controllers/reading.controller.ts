@@ -38,10 +38,10 @@ import { ParseEnumArrayPipe, ParseFilterPipe } from '@utils/pipes';
 import { Observation } from '../entities/observation.entity';
 import { Reading } from '../entities/reading.entity';
 import { ReadingTypeEnum } from '@actograph/core';
-import { IsArray, IsNotEmpty, IsNumber, ValidateNested, IsDate, IsEnum, IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsNumber, IsInt, Min, Max, ValidateNested, IsDate, IsEnum, IsString, IsOptional, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 
-class CreateReadingDto {
+export class CreateReadingDto {
   @IsString()
   @IsOptional()
   tempId?: string | null;
@@ -62,6 +62,12 @@ class CreateReadingDto {
   @IsNotEmpty()
   dateTime!: Date;
 
+  @IsInt()
+  @Min(0)
+  @Max(Number.MAX_SAFE_INTEGER)
+  @IsOptional()
+  sortOrder?: number | null;
+
   @IsDateString()
   @IsOptional()
   createdAt?: Date;
@@ -71,7 +77,7 @@ class CreateReadingDto {
   updatedAt?: Date;
 }
 
-class UpdateReadingDto {
+export class UpdateReadingDto {
   @IsNumber()
   @IsOptional()
   id?: number;
@@ -95,10 +101,16 @@ class UpdateReadingDto {
   @IsDateString()
   @IsNotEmpty()
   dateTime!: string; // Changed from Date to string since @IsDateString() expects a string
+
+  @IsInt()
+  @Min(0)
+  @Max(Number.MAX_SAFE_INTEGER)
+  @IsOptional()
+  sortOrder?: number | null;
 }
 
 
-class CreateReadingsDto {
+export class CreateReadingsDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateReadingDto)
@@ -109,7 +121,7 @@ class CreateReadingsDto {
   observationId!: number;
 }
 
-class UpdateReadingsDto {
+export class UpdateReadingsDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => UpdateReadingDto)
@@ -294,4 +306,3 @@ export class ReadingController extends BaseController {
     }));
   }
 }
-

@@ -1,6 +1,6 @@
 # Parcours dans l'application bureau
 
-Guide de l'interface présente sur `main`, revu le 11 octobre 2026. Pour installer l'application, utiliser la [page de téléchargement](https://actograph.io/fr/download). Pour développer, consulter le [README](../README.md).
+Guide du parcours bureau, revu le 21 octobre 2026. Pour installer l'application, utiliser la [page de téléchargement](https://actograph.io/fr/download). Pour développer, consulter le [README](../README.md).
 
 ## Accès et accueil
 
@@ -10,13 +10,17 @@ Au lancement, Electron attend l'API locale et connecte automatiquement le compte
 
 ## Créer ou ouvrir une chronique
 
-La création propose trois entrées :
+La création propose quatre entrées :
 
 - **Calendrier** : événements horodatés en date et heure réelles.
 - **Chronomètre** : événements exprimés en durées relatives.
 - **Vidéo** : chronomètre lié au temps d'une vidéo locale sélectionnée.
+- **Saisie manuelle** : saisie depuis des notes d'observation, avec dates/heures
+  réelles ou durées relatives. Choisir un protocole nouveau ou à copier. Un
+  protocole nouveau mène à son éditeur ; après copie, la page Observation
+  s'ouvre directement. Aucun enregistrement ne démarre.
 
-Saisir le nom et, si utile, une description. Le protocole peut être vide ou copié depuis une chronique existante ; les sélecteurs de copie affichent les sources contenant au moins une catégorie. Une chronique créée ou ouverte mène à la page Observation. Sans protocole utilisable, cette page propose de créer ou importer un protocole avant d'enregistrer.
+Saisir le nom et, si utile, une description. Le protocole peut être vide ou copié depuis une chronique existante ; les sélecteurs de copie affichent les sources contenant au moins une catégorie. Une chronique ouverte mène à la page Observation. Sans protocole utilisable, cette page propose de créer ou importer un protocole avant d'enregistrer.
 
 Le changement Calendrier/Chronomètre demande confirmation. Il est disponible avant le démarrage, sans relevés et sans vidéo attachée. Dès qu'il existe des relevés ou une vidéo, le changement est refusé. La vidéo reste un mode chronomètre avec `videoPath`, pas une troisième valeur d'`ObservationModeEnum`.
 
@@ -28,15 +32,30 @@ Les noms d'observables doivent être uniques dans le protocole : les relevés le
 
 ## Enregistrer une observation
 
-La barre de session regroupe **Rec / Pause**, **Terminer**, le mode et l'horloge :
+En dehors du mode manuel, la barre de session regroupe **Démarrer / Pause /
+Reprendre**, le mode et l'horloge. **Terminer** apparaît seulement pendant une
+session réellement démarrée, y compris pendant sa pause :
 
-1. **Rec** démarre ou reprend l'enregistrement.
+1. **Démarrer** commence une nouvelle session ; **Reprendre** reprend une pause de la session courante.
 2. **Pause** suspend l'enregistrement sans clôturer la session.
 3. **Terminer** demande confirmation, crée le relevé STOP, remet le timer à l'arrêt et lance la correction automatique des relevés.
 
-L'état de session indique l'enregistrement, la pause ou la fin. Sans protocole utilisable, Rec est désactivé. En calendrier, les boutons d'observables sont verrouillés pendant la pause ; en chronomètre, ils restent utilisables au temps figé. Avec une vidéo, les horodatages suivent `t0 + video.currentTime` et aucun relevé de pause n'est créé automatiquement. La fin de la vidéo met en pause ; elle n'applique pas le parcours Terminer. Voir [pauses](pauses.md).
+À l'ouverture, le statut est **Aucune observation en cours**, même si la chronique
+contient d'anciens START, STOP ou PAUSE. L'horloge est neutre et Terminer est
+absent. Après démarrage, le statut devient **Observation en cours**, puis
+**Observation en pause** après Pause. Sans protocole utilisable, Démarrer est
+désactivé. En calendrier, les boutons d'observables sont verrouillés pendant
+une pause réelle ; en chronomètre, ils restent utilisables au temps figé après
+démarrage. Avec une vidéo, les horodatages suivent `t0 + video.currentTime` et
+aucun relevé de pause n'est créé automatiquement. La fin de la vidéo met en
+pause ; elle n'applique pas le parcours Terminer. Voir [pauses](pauses.md).
 
-La table permet de chercher par nom, description ou ID, d'éditer sur place, de dupliquer, de supprimer et de remplacer les occurrences d'une recherche. L'effacement complet demande confirmation. Elle trie les relevés par temps ; le panneau ajuste sa largeur au contenu et peut être redimensionné. Un bandeau signale les relevés postérieurs au dernier STOP. Voir [relevés](reading.md).
+En saisie manuelle, la barre affiche une notice dédiée. Les boutons de protocole
+créent des relevés au temps de la sélection ou du dernier relevé. Il n'y a ni
+REC, ni Pause, ni Terminer, ni création automatique de START/STOP. Ces marqueurs
+peuvent être saisis via le type des lignes pour borner une journée observée.
+
+La table permet de chercher par nom, description ou ID, d'éditer sur place, de supprimer et de remplacer les occurrences d'une recherche. Le bouton **+** copie la sélection, ou le dernier relevé si rien n'est sélectionné ; dans une table vide, il crée le premier relevé. La nouvelle ligne est sélectionnée et rendue visible automatiquement, sans formulaire d'ajout. L'effacement complet demande confirmation. Elle trie les relevés par temps ; le panneau ajuste sa largeur au contenu et peut être redimensionné. Un bandeau signale les relevés postérieurs au dernier STOP. Voir [relevés](reading.md).
 
 ## Analyser
 

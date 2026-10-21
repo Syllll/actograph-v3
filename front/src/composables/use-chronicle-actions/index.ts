@@ -44,10 +44,12 @@ export const useChronicleActions = () => {
       description?: string;
       mode: any;
       videoPath?: string;
+      meta?: Record<string, unknown>;
     } = {
       name: diagRes.name,
       description: diagRes.description,
       mode: diagRes.mode,
+      ...(diagRes.meta ? { meta: diagRes.meta } : {}),
     };
 
     if (diagRes.videoPath) {
@@ -69,7 +71,11 @@ export const useChronicleActions = () => {
 
       await nextTick();
       await new Promise(resolve => setTimeout(resolve, 100));
-      await router.push({ name: 'user_observation' });
+      await router.push({
+        name: diagRes.meta?.entryMode === 'manual' && !diagRes.sourceObservationId
+          ? 'user_protocol'
+          : 'user_observation',
+      });
     } catch (error) {
       console.error('createObservation failed:', error);
       $q.notify({

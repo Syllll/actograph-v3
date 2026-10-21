@@ -46,6 +46,8 @@
     "@types/node": "^12.20.21",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
+    "@vue/test-utils": "^2.4.6",
+    "@vue/vue3-jest": "^29.2.6",
     "archiver": "^7.0.0",
     "autoprefixer": "^10.4.2",
     "electron": "^35.0.0",
@@ -54,6 +56,7 @@
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-vue": "^9.0.0",
     "jest": "^29.0.1",
+    "jest-environment-jsdom": "^29.7.0",
     "prettier": "^2.5.1",
     "sass": "^1.77.0",
     "ts-jest": "^29.0.1",
@@ -76,7 +79,13 @@
     "moduleNameMapper": {
       "^@services/(.*)$": "<rootDir>/src/services/$1",
       "^@actograph/core$": "<rootDir>/../packages/core/src/index.ts",
-      "^@actograph/graph$": "<rootDir>/../packages/graph/src/index.ts"
+      "^@actograph/graph$": "<rootDir>/../packages/graph/src/index.ts",
+      "^src/(.*)$": "<rootDir>/src/$1",
+      "^@utils/(.*)$": "<rootDir>/src/utils/$1",
+      "^@lib-improba/(.*)$": "<rootDir>/lib-improba/$1",
+      "^@components/(.*)$": "<rootDir>/src/components/$1",
+      "^boot/(.*)$": "<rootDir>/src/boot/$1",
+      "^@pages/(.*)$": "<rootDir>/src/pages/$1"
     },
     "moduleFileExtensions": [
       "ts",
@@ -84,15 +93,24 @@
       "js",
       "jsx",
       "json",
-      "node"
+      "node",
+      "vue"
     ],
     "testMatch": [
       "**/lib-improba/**/__tests__/**/*.test.ts",
       "**/src/composables/use-statistics/__tests__/**/*.test.ts",
       "**/src/pages/userspace/analyse/_components/graph-customization-drawer/**/*.test.ts",
       "**/src/utils/**/*.test.ts",
-      "**/src-electron/**/*.test.ts"
-    ]
+      "**/src-electron/**/*.test.ts",
+      "**/src/pages/userspace/observation/_components/readings-side/**/*.test.ts",
+      "**/src/pages/userspace/home/_components/active-chronicle/**/*.test.ts",
+      "**/src/pages/userspace/observation/_components/*.test.ts",
+      "**/src/composables/use-chronicle-actions/**/*.test.ts"
+    ],
+    "transform": {
+      "^.+\\.vue$": "@vue/vue3-jest",
+      "^.+\\.tsx?$": "ts-jest"
+    }
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

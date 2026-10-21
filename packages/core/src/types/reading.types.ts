@@ -10,5 +10,5 @@ export interface IReading {
   type: ReadingTypeEnum;
   dateTime: Date;
   tempId?: string | null;
+  sortOrder?: number | null;
 }
-

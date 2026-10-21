@@ -27,6 +27,8 @@ import type { IGraphPreferences } from '../types/protocol.types';
  * calendrier de façon cohérente sur tous les appareils. N'affecte pas les instants.
  */
 export interface IObservationMeta {
+  /** Manual entry is a workflow; timestamps still use calendar or chronometer mode. */
+  entryMode?: 'manual';
   uiScale?: number;
   timeDisplayFormat?: TimeDisplayFormatEnum;
   timeZone?: string;
@@ -79,6 +81,7 @@ export interface IJchronicReading {
   description?: string;
   type: string;
   dateTime: string;
+  sortOrder?: number | null;
 }
 
 /**
@@ -133,5 +136,5 @@ export interface INormalizedReading {
   description?: string;
   type: ReadingTypeEnum;
   dateTime: Date;
+  sortOrder?: number | null;
 }
-
