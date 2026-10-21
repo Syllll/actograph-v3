@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-21T20:09:52.031304+00:00",
+  "branch": "feat/live-mini-graph",
+  "base": "34a93c1",
+  "tests": {
+    "front": {
+      "success": true,
+      "numTotalTestSuites": 46,
+      "numPassedTestSuites": 46,
+      "numFailedTestSuites": 0,
+      "numTotalTests": 408,
+      "numPassedTests": 408,
+      "numFailedTests": 0
+    },
+    "graph": {
+      "success": true,
+      "numTotalTestSuites": 42,
+      "numPassedTestSuites": 42,
+      "numFailedTestSuites": 0,
+      "numTotalTests": 347,
+      "numPassedTests": 347,
+      "numFailedTests": 0
+    },
+    "core": {
+      "success": true,
+      "numTotalTestSuites": 21,
+      "numPassedTestSuites": 21,
+      "numFailedTestSuites": 0,
+      "numTotalTests": 174,
+      "numPassedTests": 174,
+      "numFailedTests": 0
+    }
+  },
+  "checks": {
+    "frontendTypecheck": "passed",
+    "frontendFullLint": "passed",
+    "coreTypeScriptBuild": "passed",
+    "graphTypeScriptBuild": "passed",
+    "gitDiffCheck": "passed"
+  },
+  "ui": "Connected normal test-account login, dedicated temporary SQLite database, browser UI interactions via cua_repl",
+  "nativeWindowVisualInspection": "Not available from the connected capture tool; readiness/snapshot handoff exercised through parent UI and covered by transport/component tests."
+}

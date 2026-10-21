@@ -4,6 +4,8 @@
       <div class="row items-center q-gutter-xs">
         <q-icon name="edit_note" size="18px" />
         <strong>{{ $t('observation.manualEntryLabel') }}</strong>
+        <q-space />
+        <MiniGraphToggle />
       </div>
       <div class="text-caption">{{ $t('observation.manualEntryHint') }}</div>
     </div>
@@ -60,6 +62,7 @@
         <span>{{ sessionStatusChip.label }}</span>
       </div>
 
+      <MiniGraphToggle />
       <q-space />
 
       <div class="timer-chip-wrapper">
@@ -98,6 +101,7 @@ import {
   getObservationTimeZone,
 } from '@actograph/core';
 import ModeToggle from './ModeToggle.vue';
+import MiniGraphToggle from 'src/components/mini-graph/MiniGraphToggle.vue';
 import {
   confirmAndCompleteObservationStop,
   handleRecPauseClick,
@@ -109,6 +113,7 @@ export default defineComponent({
 
   components: {
     ModeToggle,
+    MiniGraphToggle,
   },
 
   props: {

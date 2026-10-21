@@ -5,6 +5,11 @@ import { authRoutes } from '@router/auth';
 
 const routes: RouteRecordRaw[] = [
   {
+    path: '/popup/mini-graph',
+    name: 'mini_graph_popup',
+    component: () => import('src/components/mini-graph/MiniGraphPopup.vue'),
+  },
+  {
     path: '/',
     name: 'root',
     component: () => import('pages/Index.vue'),

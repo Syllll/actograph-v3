@@ -2,6 +2,26 @@
 // so you can safely delete all default props below
 
 export default {
+  miniGraph: {
+    title: 'Mini-graphe',
+    canvasLabel: 'Graphe complet de la chronique',
+    move: 'Déplacer le mini-graphe',
+    resize: 'Redimensionner le mini-graphe',
+    fit: 'Ajuster le graphe',
+    detach: 'Ouvrir dans une fenêtre séparée',
+    attach: 'Réintégrer dans l’observation',
+    close: 'Fermer le mini-graphe',
+    completeChronicle: 'Chronique complète',
+    selectedReading: 'Relevé sélectionné',
+    loading: 'Chargement du graphe…',
+    renderError: 'Le graphe n’a pas pu être affiché.',
+    retry: 'Réessayer',
+    empty: 'Les relevés apparaîtront ici pendant votre observation.',
+    ownerGone: 'La fenêtre d’observation n’est plus disponible.',
+    popupFailed: 'La fenêtre séparée n’a pas pu être ouverte. Le mini-graphe reste dans la page.',
+    toggleHint: 'Afficher ou masquer le graphe flottant de la chronique',
+  },
+
   components: {
     DModal: {
       cancel: 'Annuler',

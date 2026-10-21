@@ -2,6 +2,26 @@
 // so you can safely delete all default props below
 
 export default {
+  miniGraph: {
+    title: 'Mini graph',
+    canvasLabel: 'Complete chronicle graph',
+    move: 'Move the mini graph',
+    resize: 'Resize the mini graph',
+    fit: 'Fit graph',
+    detach: 'Open in a separate window',
+    attach: 'Return to observation',
+    close: 'Close mini graph',
+    completeChronicle: 'Complete chronicle',
+    selectedReading: 'Selected reading',
+    loading: 'Loading graph…',
+    renderError: 'The graph could not be displayed.',
+    retry: 'Retry',
+    empty: 'Readings will appear here during your observation.',
+    ownerGone: 'The observation window is no longer available.',
+    popupFailed: 'The separate window could not be opened. The mini graph remains on the page.',
+    toggleHint: 'Show or hide the floating chronicle graph',
+  },
+
   components: {
     DModal: {
       cancel: 'Cancel',
