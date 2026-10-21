@@ -38,6 +38,22 @@ front/src/pages/userspace/analyse/_components/graph/
 └── use-graph.ts                 # Cycle de vie, coalescing des redraws
 ```
 
+## Export PNG, JPEG et SVG
+
+Dans le menu **Exporter** du graphe d'analyse, le format SVG est disponible pour le graphe, la légende et leur combinaison. PNG et JPEG restent disponibles. Les catégories masquées et les éléments de survol ne sont pas exportés.
+
+Le SVG contient des tracés, des textes éditables et des motifs vectoriels (hachures horizontales, verticales, diagonales, grille et points). Il ne contient pas de capture bitmap. Les polices restent des polices système : un autre ordinateur peut substituer une police absente.
+
+PixiJS est fixé à **8.18.1** dans `front`, `mobile` et `packages/graph`. `graphicsContextToSvg()` convertit les objets `Graphics` ; `engine/svg-scene-exporter.ts` assemble les couches visibles avec leurs transformations et opacités, convertit les `Text` et remplace les textures répétées par des `<pattern>`. Les motifs sont décrits dans un registre à clés faibles, qui suit la durée de vie des sprites. Les identifiants des définitions sont préfixés pour éviter les collisions.
+
+`PixiApp.exportAsSvg()` retourne `Promise<SvgDocument | null>`, avec `markup`, `width` et `height`. L'export partage la file d'attente et la transaction `ExportPipeline.capturePreparedScene()` des images : adaptation au graphe complet, suppression du survol, capture puis restauration du zoom et de la taille, même en cas d'erreur. Le cadrage utilise les limites locales de la scène, comme l'extraction PNG, pour conserver les libellés longs et les graduations tournées. Les tailles SVG sont exprimées en unités CSS, indépendamment du facteur HiDPI.
+
+Les lignes de légende sont communes aux trois formats. `graph-legend-export.ts` produit la légende vectorielle, `combineSvgDocuments()` assemble graphe et légende. Electron enregistre le SVG en UTF-8 avec son dialogue existant ; le navigateur télécharge un `Blob` `image/svg+xml`. Aucun changement du pont IPC n'est nécessaire.
+
+L'exporteur refuse explicitement les objets ou effets non pris en charge, plutôt que de produire un dessin incomplet. Les filtres GPU, sprites arbitraires et textures intégrées aux instructions `Graphics` ne font pas partie du rendu actuel du graphe et ne sont pas convertis.
+
+Les tests couvrent l'assemblage, les caractères XML/Unicode, les motifs, les buffers masqués, les transformations, les textes et la restauration après erreur. Les vérifications visuelles ont été réalisées dans Chrome et avec un rendu Inkscape du SVG combiné, sur des séries continues/discrètes, frises, arrière-plans, pauses, catégories masquées et étirements des axes.
+
 ## Classe PixiApp
 
 ### Initialisation
@@ -925,4 +941,3 @@ watch(() => observation.readings.sharedState.currentReadings, async () => {
   }
 });
 ```
-
