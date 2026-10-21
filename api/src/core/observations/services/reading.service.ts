@@ -12,6 +12,7 @@ import { ObservationRepository } from '../repositories/obsavation.repository';
 import { ReadingRepository } from '../repositories/reading.repository';
 import { Reading } from '../entities/reading.entity';
 import { ReadingTypeEnum } from '@actograph/core';
+import { In } from 'typeorm';
 import {
   IPaginationOptions,
   IConditions,
@@ -87,6 +88,7 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
     observationId: number;
     type: ReadingTypeEnum;
     dateTime: Date;
+    sortOrder?: number | null;
   }) {
     const reading = this.readingRepository.create({
       name: options.name,
@@ -96,6 +98,7 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
       },
       type: options.type,
       dateTime: options.dateTime,
+      sortOrder: options.sortOrder,
     });
     return this.readingRepository.save(reading);
   }
@@ -109,23 +112,77 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
       observationId: number;
       type: ReadingTypeEnum;
       dateTime: Date;
+      sortOrder?: number | null;
     }[]
   ) {
-    const _readings = this.readingRepository.create(
-      readings.map((r) => {
-        return {
-          name: r.name,
-          description: r.description,
-          observation: {
-            id: r.observationId,
+    const idsByObservation = new Map<number, Set<string>>();
+    for (const reading of readings) {
+      if (!reading.tempId) continue;
+      const tempIds = idsByObservation.get(reading.observationId) ?? new Set<string>();
+      tempIds.add(reading.tempId);
+      idsByObservation.set(reading.observationId, tempIds);
+    }
+
+    const key = (observationId: number, tempId: string) => `${observationId}\0${tempId}`;
+    const existingByKey = new Map<string, Reading>();
+    for (const [observationId, tempIds] of idsByObservation) {
+      const allTempIds = [...tempIds];
+      // Bound SQLite's parameter count for large imports and offline batches.
+      for (let offset = 0; offset < allTempIds.length; offset += 500) {
+        const existing = await this.readingRepository.find({
+          where: {
+            observation: { id: observationId },
+            tempId: In(allTempIds.slice(offset, offset + 500)),
           },
-          type: r.type,
-          dateTime: r.dateTime,
-          tempId: r.tempId,
-        };
-      }),
+          order: { id: 'ASC' },
+        });
+        for (const row of existing) {
+          if (row.tempId) {
+            // A legacy database can already contain duplicated tempIds. Keep
+            // returning its first row without modifying or deleting user data.
+            const rowKey = key(observationId, row.tempId);
+            if (!existingByKey.has(rowKey)) existingByKey.set(rowKey, row);
+          }
+        }
+      }
+    }
+
+    const toCreate: Reading[] = [];
+    const pendingByKey = new Map<string, number>();
+    const positions: Array<Reading | number> = [];
+    for (const reading of readings) {
+      const readingKey = reading.tempId
+        ? key(reading.observationId, reading.tempId)
+        : null;
+      if (readingKey && existingByKey.has(readingKey)) {
+        positions.push(existingByKey.get(readingKey)!);
+        continue;
+      }
+      if (readingKey && pendingByKey.has(readingKey)) {
+        positions.push(pendingByKey.get(readingKey)!);
+        continue;
+      }
+      const entity = this.readingRepository.create({
+        name: reading.name,
+        description: reading.description,
+        observation: { id: reading.observationId },
+        type: reading.type,
+        dateTime: reading.dateTime,
+        sortOrder: reading.sortOrder,
+        tempId: reading.tempId,
+      });
+      const index = toCreate.push(entity) - 1;
+      positions.push(index);
+      if (readingKey) pendingByKey.set(readingKey, index);
+    }
+    // TypeORM save(array) uses one transaction. A later invalid row cannot
+    // leave earlier readings committed while the client retries the batch.
+    const created = toCreate.length > 0
+      ? await this.readingRepository.save(toCreate)
+      : [];
+    return positions.map((position) =>
+      typeof position === 'number' ? created[position] : position,
     );
-    return this.readingRepository.save(_readings);
   }
 
   public async removeAllForObservation(observationId: number) {
@@ -176,6 +233,7 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
           dateTime: options.rebaseLastReadingToNow
             ? new Date(new Date(r.dateTime).getTime() + offsetMs)
             : r.dateTime,
+          sortOrder: r.sortOrder,
         };
       }),
     );
@@ -194,6 +252,7 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
     description?: string | null;
     type?: ReadingTypeEnum;
     dateTime?: Date;
+    sortOrder?: number | null;
   }[], observationId: number) {
     const readingsToSave = [];
     for (const reading of readings) {
@@ -224,6 +283,9 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
         if (reading.tempId !== undefined) {
           existingReading.tempId = reading.tempId;
         }
+        if (reading.sortOrder !== undefined) {
+          existingReading.sortOrder = reading.sortOrder;
+        }
         
         readingsToSave.push(existingReading);
       } else {
@@ -251,6 +313,9 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
           existingReading.dateTime = reading.dateTime instanceof Date 
             ? reading.dateTime 
             : new Date(reading.dateTime);
+        }
+        if (reading.sortOrder !== undefined) {
+          existingReading.sortOrder = reading.sortOrder;
         }
 
         readingsToSave.push(existingReading);

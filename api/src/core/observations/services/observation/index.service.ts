@@ -229,6 +229,7 @@ export class ObservationService extends BaseService<
       name: string;
       type: ReadingTypeEnum;
       dateTime: Date;
+      sortOrder?: number | null;
     }[];
     activityGraph?: {};
   }) {
@@ -416,36 +417,45 @@ export class ObservationService extends BaseService<
 
     // Copy readings from both observations
     const allReadings: {
+      id: number;
       name: string;
       description?: string;
       type: ReadingTypeEnum;
       dateTime: Date;
+      sortOrder?: number | null;
     }[] = [];
 
     if (obs1.readings) {
       for (const r of obs1.readings) {
         allReadings.push({
+          id: r.id,
           name: r.name ?? '',
           description: r.description ?? '',
           type: r.type,
           dateTime: r.dateTime,
+          sortOrder: r.sortOrder,
         });
       }
     }
     if (obs2.readings) {
       for (const r of obs2.readings) {
         allReadings.push({
+          id: r.id,
           name: r.name ?? '',
           description: r.description ?? '',
           type: r.type,
           dateTime: r.dateTime,
+          sortOrder: r.sortOrder,
         });
       }
     }
 
     if (allReadings.length > 0) {
       const sortedReadings = allReadings.sort(
-        (a, b) => a.dateTime.getTime() - b.dateTime.getTime(),
+        (a, b) =>
+          a.dateTime.getTime() - b.dateTime.getTime() ||
+          (a.sortOrder ?? a.id) - (b.sortOrder ?? b.id) ||
+          a.id - b.id,
       );
       const { correctedReadings } = autoCorrectReadings(
         sortedReadings.map((reading) => ({
@@ -458,11 +468,12 @@ export class ObservationService extends BaseService<
       );
 
       await this.readingService.createMany(
-        correctedReadings.map((reading) => ({
+        correctedReadings.map((reading, index) => ({
           name: reading.name ?? '',
           description: reading.description ?? '',
           observationId: mergedObservation.id,
           type: reading.type,
+          sortOrder: index,
           dateTime:
             reading.dateTime instanceof Date
               ? reading.dateTime

@@ -195,11 +195,13 @@ export default defineComponent({
     // videoPath orphelin (import / bascule de mode) ne doit pas ouvrir une zone vide.
     const hasVideo = computed(() => {
       return observation.isChronometerMode.value
+        && observation.sharedState.currentObservation?.meta?.entryMode !== 'manual'
         && !!observation.sharedState.currentObservation?.videoPath;
     });
 
     const showAttachVideoToolbar = computed(() => {
       return observation.isChronometerMode.value
+        && observation.sharedState.currentObservation?.meta?.entryMode !== 'manual'
         && !observation.sharedState.currentObservation?.videoPath;
     });
 

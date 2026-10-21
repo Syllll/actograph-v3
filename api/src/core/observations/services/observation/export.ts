@@ -46,6 +46,7 @@ export interface IChronicExport {
     description?: string;
     type: string;
     dateTime: string;
+    sortOrder?: number;
   }>;
 }
 
@@ -162,6 +163,7 @@ export class Export {
           description: reading.description || undefined,
           type: reading.type, // Type du reading (start, stop, pause_start, pause_end, data)
           dateTime: reading.dateTime.toISOString(), // Format ISO 8601 pour portabilité
+          ...(reading.sortOrder != null ? { sortOrder: reading.sortOrder } : {}),
         }));
     }
 
@@ -243,4 +245,3 @@ export class Export {
     });
   }
 }
-

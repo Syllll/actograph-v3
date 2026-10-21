@@ -20,7 +20,6 @@
           :readings="filteredReadings"
           :can-clear-all="hasReadings"
           @remove-reading="handleRemoveReading"
-          @duplicate-reading="handleDuplicateReading"
           @clear-all="handleClearAllWithConfirm"
         />
       </div>
@@ -109,23 +108,9 @@ export default defineComponent({
     });
 
     const handleAddReading = () => {
-      methods.addReading({
-        currentDate: observation.sharedState.currentDate || undefined,
-        elapsedTime: observation.sharedState.elapsedTime ?? 0,
-      });
-    };
-
-    const handleDuplicateReading = (source: IReading) => {
-      if (!source) return;
-      methods.addReading(
-        {
-          name: source.name,
-          description: source.description,
-          type: source.type,
-          dateTime: source.dateTime ? new Date(source.dateTime) : new Date(),
-        },
-        source,
-      );
+      // A filter may hide the new default row or a copy of a hidden selection.
+      search.value = '';
+      methods.addManualReading();
     };
 
     // Handler for adding a comment (Bug 2.7 - Bouton Commentaire BULLE)
@@ -402,7 +387,6 @@ export default defineComponent({
       hasReadingsAfterLastStop,
       hasReadings,
       handleAddReading,
-      handleDuplicateReading,
       handleAddComment,
       handleRemoveReading,
       handleClearAllWithConfirm,

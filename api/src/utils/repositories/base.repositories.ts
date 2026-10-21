@@ -61,6 +61,7 @@ export interface IPaginationOptions {
   order?: 'ASC' | 'DESC';
   conditions?: IConditions[];
   useAliases?: boolean;
+  additionalOrderBy?: string[];
 }
 
 export class BaseRepository<
@@ -122,6 +123,7 @@ export class BaseRepository<
       options.order,
       options.useAliases === undefined ? false : options.useAliases,
       options.select,
+      options.additionalOrderBy,
     );
 
     return results;
@@ -136,6 +138,7 @@ export class BaseRepository<
     order: 'ASC' | 'DESC' | undefined = 'ASC',
     useAliases = false,
     select: undefined | string[] = undefined,
+    additionalOrderBy: string[] = [],
   ): Promise<IPaginationOutput<Entity>> {
     const tableName = this.metadata.tableName;
 
@@ -155,6 +158,9 @@ export class BaseRepository<
       '_',
     );
     qb.orderBy(orderTargetField, order);
+    for (const field of additionalOrderBy) {
+      qb.addOrderBy(`${tableName}.${field}`, order);
+    }
 
     // If a relation is too long, we may use an alias to avoid any conflict/bug.
     let aliasCount = 0;

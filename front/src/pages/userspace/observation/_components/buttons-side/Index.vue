@@ -154,7 +154,6 @@ import { useObservation } from 'src/composables/use-observation';
 import { observationService } from '@services/observations/index.service';
 import { ProtocolItem, ProtocolItemActionEnum, ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
-import { isRecordingActiveFromReadings } from '@actograph/core';
 import Category from './Category.vue';
 import ObservationSessionBar from '../ObservationSessionBar.vue';
 import ImportProtocolDialog from '../ImportProtocolDialog.vue';
@@ -268,9 +267,14 @@ export default defineComponent({
       }
     };
 
+    // Manual entry never depends on a live session or its START/STOP state.
+    const isManualEntry = computed(() =>
+      observation.sharedState.currentObservation?.meta?.entryMode === 'manual',
+    );
+
     // Computed
     const isRecordingStarted = computed(() =>
-      isRecordingActiveFromReadings(readings.sharedState.currentReadings)
+      observation.sharedState.isPlaying || observation.sharedState.startTime != null,
     );
 
     const isPaused = computed(() => isRecordingStarted.value && !observation.sharedState.isPlaying);
@@ -281,6 +285,7 @@ export default defineComponent({
     // En mode calendrier (observation in situ), la pause verrouille les relevés :
     // impossible d'enregistrer tant que l'observation n'a pas repris.
     const canRecordReading = computed(() => {
+      if (isManualEntry.value) return true;
       if (!isRecordingStarted.value) return false;
       if (observation.isChronometerMode.value) return true;
       return observation.sharedState.isPlaying;
@@ -290,7 +295,7 @@ export default defineComponent({
     // pause. Dans tous les autres cas (mode chronomètre, avant le START, en
     // lecture) ils restent utilisables (Bug 2.3 / 2.4).
     const isLockedByCalendarPause = computed(
-      () => isPaused.value && !observation.isChronometerMode.value
+      () => !isManualEntry.value && isPaused.value && !observation.isChronometerMode.value
     );
 
     const computedState = {
@@ -545,7 +550,7 @@ export default defineComponent({
         }
 
         const currentActiveObservableId = state.activeObservableIdByCategoryId[categoryId];
-        if (currentActiveObservableId === observableId) {
+        if (!isManualEntry.value && currentActiveObservableId === observableId) {
           return;
         }
 
@@ -592,6 +597,15 @@ export default defineComponent({
           (obs: any) => obs.id === observableId
         ) as ProtocolItem | undefined;
         if (!observable) return;
+        if (isManualEntry.value) {
+          const reading = readings.methods.addManualReading();
+          readings.methods.updateReading(reading, {
+            name: observable.name,
+            description: observable.description || '',
+            type: ReadingTypeEnum.DATA,
+          });
+          return;
+        }
         readings.methods.addReading({
           categoryName: category.name,
           observableName: observable.name,
@@ -952,6 +966,7 @@ export default defineComponent({
       },
 
       createInitialContinuousReadingsForCurrentStart: () => {
+        if (isManualEntry.value || !isRecordingStarted.value) return;
         const allReadings = readings.sharedState.currentReadings;
         const lastStartReading = [...allReadings]
           .reverse()

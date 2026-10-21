@@ -44,6 +44,11 @@ export class Reading extends BaseEntity {
   @Index()
   dateTime!: Date;
 
+  // Position explicite pour les relevés qui partagent le même horodatage.
+  // Null conserve la compatibilité avec les chroniques antérieures.
+  @Column({ type: 'integer', nullable: true })
+  sortOrder?: number | null;
+
   // The temporary id of the reading
   @Column({ type: 'text', nullable: true })
   @Index()

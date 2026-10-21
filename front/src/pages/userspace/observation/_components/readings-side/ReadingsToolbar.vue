@@ -85,6 +85,7 @@
         <q-btn
           color="primary"
           icon="add"
+          :aria-label="$t('readingsUi.addReadingTooltip')"
           :disable="isAddDisabled"
           @click="$emit('add-reading')"
           flat
