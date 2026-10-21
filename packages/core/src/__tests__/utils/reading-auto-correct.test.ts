@@ -118,3 +118,47 @@ describe('reading-auto-correct', () => {
     expect(stopReading?.name).toBe(AUTO_CORRECT_SYNTH_NAMES.chronicleEnd);
   });
 });
+
+
+describe('safe chronological correction', () => {
+  const t0 = new Date('2026-10-21T08:00:00.000Z');
+  it('keeps equal-time readings in input order, including rows without IDs', () => {
+    const start = mk({ type: ReadingTypeEnum.START, dateTime: t0, id: 1 });
+    const a = mk({ type: ReadingTypeEnum.DATA, dateTime: t0, name: 'A' });
+    const b = mk({ type: ReadingTypeEnum.DATA, dateTime: t0, name: 'B' });
+    const stop = mk({ type: ReadingTypeEnum.STOP, dateTime: new Date(+t0 + 1000), id: 2 });
+    const input = [start, a, b, stop];
+    expect(autoCorrectReadings(input).actions).toEqual([]);
+    const result = autoCorrectReadings(input, true);
+    expect(result.correctedReadings.map((r) => r.name)).toEqual(input.map((r) => r.name));
+    expect(result.correctedReadings[0].dateTime).toEqual(t0);
+  });
+
+  it('sorts unsaved readings without changing their timestamps', () => {
+    const earlier = mk({ type: ReadingTypeEnum.DATA, dateTime: t0 });
+    const later = mk({ type: ReadingTypeEnum.DATA, dateTime: new Date(+t0 + 1000) });
+    const result = autoCorrectReadings([later, earlier], true);
+    expect(result.actions.some((a) => a.reason === 'sort_chronological')).toBe(true);
+    expect(result.correctedReadings.slice(0, 2).map((r) => r.dateTime)).toEqual([earlier.dateTime, later.dateTime]);
+  });
+
+  it.each([false, true])('reports invalid dates and applies no changes with apply=%p', (apply) => {
+    const invalid = mk({ type: ReadingTypeEnum.DATA, dateTime: new Date(NaN), id: 2 });
+    const start = mk({ type: ReadingTypeEnum.START, dateTime: t0, id: 1 });
+    const input = [start, invalid];
+    const result = autoCorrectReadings(input, apply);
+    expect(result.invalidReadings).toEqual([invalid]);
+    expect(result.actions).toEqual([]);
+    expect(result.correctedReadings).toEqual([]);
+    expect(input).toEqual([start, invalid]);
+  });
+
+  it('does not mutate the input when repositioning session markers', () => {
+    const start = mk({ type: ReadingTypeEnum.START, dateTime: new Date(+t0 + 1000), id: 1 });
+    const data = mk({ type: ReadingTypeEnum.DATA, dateTime: t0, id: 2 });
+    const stop = mk({ type: ReadingTypeEnum.STOP, dateTime: new Date(+t0 - 1000), id: 3 });
+    const originalTimes = [start, data, stop].map((r) => +r.dateTime);
+    autoCorrectReadings([start, data, stop], true);
+    expect([start, data, stop].map((r) => +r.dateTime)).toEqual(originalTimes);
+  });
+});

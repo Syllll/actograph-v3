@@ -215,20 +215,14 @@ export default defineComponent({
     const READINGS_PANEL_MIN_PX = 240;
     const BUTTONS_PANEL_MIN_PX = 200;
     const readingsContentWidth = ref(0);
+    const containerWidth = ref(0);
     let hasAppliedDefaultReadingsWidth = false;
 
     const readingsSplitterLimits = computed((): [number, number] => {
-      const containerWidth = containerRef.value?.clientWidth ?? 0;
-      const containerCap = containerWidth > 0
-        ? Math.max(READINGS_PANEL_MIN_PX, containerWidth - BUTTONS_PANEL_MIN_PX)
+      const containerCap = containerWidth.value > 0
+        ? Math.max(READINGS_PANEL_MIN_PX, containerWidth.value - BUTTONS_PANEL_MIN_PX)
         : Infinity;
-      if (readingsContentWidth.value <= 0) {
-        return [READINGS_PANEL_MIN_PX, containerCap];
-      }
-      return [
-        READINGS_PANEL_MIN_PX,
-        Math.min(readingsContentWidth.value, containerCap),
-      ];
+      return [READINGS_PANEL_MIN_PX, containerCap];
     });
 
     const clampReadingsSplitter = () => {
@@ -320,6 +314,7 @@ export default defineComponent({
 
     const updateContainerHeight = () => {
       if (containerRef.value) {
+        containerWidth.value = containerRef.value.clientWidth;
         const height = containerRef.value.clientHeight;
         if (height > 0) {
           state.containerHeight = height;

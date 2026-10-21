@@ -405,6 +405,12 @@ export class ObservationService extends BaseService<
       );
     }
 
+    if ([...(obs1.readings ?? []), ...(obs2.readings ?? [])].some(
+      (reading) => !Number.isFinite(new Date(reading.dateTime).getTime()),
+    )) {
+      throw new BadRequestException('Correct invalid reading timestamps before merging observations');
+    }
+
     // Create the new observation
     const mergedObservation = await this.create({
       userId: user,

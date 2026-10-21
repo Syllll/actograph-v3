@@ -8,13 +8,15 @@ jest.mock('../composables/use-observation/use-readings', () => ({ useReadings: (
 jest.mock('../composables/use-observation/use-protocol', () => ({ useProtocol: () => mockProtocol }));
 jest.mock('../services/observations/index.service', () => ({ observationService: { findOne: jest.fn(), create: jest.fn() } }));
 jest.mock('../composables/use-window-sync', () => ({
-  useWindowSync: () => ({ isOwner: false, isApplyingRemote: () => true, broadcast: jest.fn(), on: jest.fn(), setObservationId: jest.fn() }),
+  useWindowSync: () => ({ get isOwner() { return mockOwner; }, isApplyingRemote: () => true, broadcast: jest.fn(), on: jest.fn(), setObservationId: jest.fn() }),
 }));
 
+let mockOwner = false;
 const mockReadings = {
   sharedState: reactive({ currentReadings: [] as IReading[], selectedReading: null as IReading | null }),
   methods: {
     loadReadings: jest.fn().mockResolvedValue(undefined),
+    selectReading: jest.fn(),
     addStartReading: jest.fn(), addPauseStartReading: jest.fn(), addPauseEndReading: jest.fn(), addStopReading: jest.fn(),
   },
 };
@@ -28,6 +30,7 @@ const base = (manual = false, mode = ObservationModeEnum.Calendar) => ({
 } as IObservation);
 
 beforeEach(() => {
+  mockOwner = false;
   jest.useFakeTimers();
   observation.methods.closeObservation();
   jest.clearAllMocks();
@@ -102,4 +105,34 @@ it('starts a new runtime after an unmatched historical START and only resumes af
   observation.timerMethods.startTimer();
   expect(mockReadings.methods.addStartReading).toHaveBeenCalledTimes(1);
   expect(mockReadings.methods.addPauseEndReading).toHaveBeenCalledTimes(1);
+});
+
+
+it.each([ObservationModeEnum.Calendar, ObservationModeEnum.Chronometer])('initializes an empty manual %s chronicle once without starting a timer', async (mode) => {
+  mockOwner = true;
+  mockReadings.methods.addStartReading.mockImplementationOnce(() => {
+    mockReadings.sharedState.currentReadings.push({ type: ReadingTypeEnum.START, name: 'Start', dateTime: new Date() });
+  });
+  const manual = base(true, mode);
+  await observation.methods._loadObservation(manual);
+  expect(mockReadings.methods.addStartReading).toHaveBeenCalledTimes(1);
+  expect(mockReadings.methods.selectReading).toHaveBeenCalledWith(mockReadings.sharedState.currentReadings[0]);
+  expect(observation.sharedState.isPlaying).toBe(false);
+  expect(observation.sharedState.startTime).toBeNull();
+  mockReadings.methods.loadReadings.mockImplementationOnce(async () => {
+    mockReadings.sharedState.currentReadings = [{ type: ReadingTypeEnum.START, name: 'Existing', dateTime: new Date() }];
+  });
+  await observation.methods._loadObservation(manual);
+  expect(mockReadings.methods.addStartReading).toHaveBeenCalledTimes(1);
+});
+
+it('does not initialize manual readings in a follower window', async () => {
+  await observation.methods._loadObservation(base(true));
+  expect(mockReadings.methods.addStartReading).not.toHaveBeenCalled();
+});
+
+it('leaves empty live chronicles unchanged', async () => {
+  mockOwner = true;
+  await observation.methods._loadObservation(base());
+  expect(mockReadings.methods.addStartReading).not.toHaveBeenCalled();
 });

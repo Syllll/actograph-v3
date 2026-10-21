@@ -3,12 +3,13 @@
     <q-card class="edit-reading-dialog">
       <q-card-section class="q-pb-none">
         <h5 class="edit-reading-dialog__title q-ma-none">
-          {{ t('readingsUi.editReadingTitle') }}
+          {{ t(minDateTime ? 'readingsUi.confirmEndTimeTitle' : 'readingsUi.editReadingTitle') }}
         </h5>
       </q-card-section>
 
       <q-card-section class="edit-reading-dialog__grid">
         <q-select
+          v-if="!minDateTime"
           v-model="state.type"
           :options="readingTypeOptions"
           option-label="label"
@@ -23,7 +24,7 @@
         />
 
         <q-input
-          v-if="isComment"
+          v-if="isComment && !minDateTime"
           v-model="state.name"
           outlined
           dense
@@ -33,7 +34,7 @@
           :rules="[labelRequiredRule]"
         />
         <q-select
-          v-else-if="protocolObservableOptions.length > 0"
+          v-else-if="!minDateTime && protocolObservableOptions.length > 0"
           v-model="state.name"
           :options="filteredObservableOptions"
           option-label="label"
@@ -77,6 +78,7 @@
         </q-select>
         <q-input
           v-else
+          v-show="!minDateTime"
           v-model="state.name"
           outlined
           dense
@@ -205,6 +207,7 @@
         </template>
 
         <q-input
+          v-if="!minDateTime"
           class="edit-reading-dialog__span-2"
           v-model="state.description"
           type="textarea"
@@ -214,6 +217,10 @@
           color="accent"
           :label="t('readingsUi.colDescription')"
         />
+      </q-card-section>
+
+      <q-card-section v-if="!parsedDateTime || endTimeTooEarly" class="text-negative" role="alert">
+        {{ t(endTimeTooEarly ? 'readingsUi.endMustFollowReadings' : 'readingsUi.invalidTimestamp') }}
       </q-card-section>
 
       <q-card-actions align="right" class="q-gutter-md q-px-md q-pb-md">
@@ -250,9 +257,11 @@ import { useObservation } from 'src/composables/use-observation';
 import { useDuration } from 'src/composables/use-duration';
 import {
   formatCalendarDateTime,
+  getLocalTimeZone,
   getObservationTimeZone,
 } from '@actograph/core';
 import { parseCalendarDateTimeEditInTimeZone } from 'src/utils/calendar-date-time';
+import { isValidSegmentedTime } from 'src/utils/segmented-time';
 
 type ProtocolObservableOption = {
   label: string;
@@ -274,6 +283,7 @@ export type EditReadingPayload = {
 export default defineComponent({
   name: 'EditReadingDialog',
   props: {
+    minDateTime: { type: Date, default: undefined },
     reading: {
       type: Object as PropType<IReading>,
       required: true,
@@ -294,7 +304,7 @@ export default defineComponent({
         : new Date(props.reading.dateTime);
     const timeZone = getObservationTimeZone(
       observation.sharedState.currentObservation?.meta,
-    );
+    ) ?? getLocalTimeZone();
 
     const isComment =
       typeof props.reading.name === 'string' &&
@@ -419,33 +429,32 @@ export default defineComponent({
 
     const parsedDateTime = computed((): Date | null => {
       if (isChronometerMode.value) {
+        if ([state.days, state.hours, state.minutes, state.seconds, state.milliseconds]
+          .some((value) => value == null || String(value).trim() === '')) return null;
         const parts = {
-          days: Number(state.days) || 0,
-          hours: Number(state.hours) || 0,
-          minutes: Number(state.minutes) || 0,
-          seconds: Number(state.seconds) || 0,
-          milliseconds: Number(state.milliseconds) || 0,
+          days: Number(state.days),
+          hours: Number(state.hours),
+          minutes: Number(state.minutes),
+          seconds: Number(state.seconds),
+          milliseconds: Number(state.milliseconds),
         };
         if (!duration.validateParts(parts)) return null;
-        return observation.chronometerMethods.durationToDate(
+        const parsed = observation.chronometerMethods.durationToDate(
           duration.partsToMilliseconds(parts)
         );
+        return Number.isFinite(parsed.getTime()) ? parsed : null;
       }
       const combined = `${state.datePart} ${state.timePart}`;
-      if (!state.datePart || !state.timePart || combined.includes('_')) return null;
+      if (!isValidSegmentedTime(combined, 'calendar')) return null;
       const originalText = `${formatCalendarDateTime(sourceDate, timeZone, 'DD/MM/YYYY')} ${formatCalendarDateTime(sourceDate, timeZone, 'HH:mm:ss.SSS')}`;
       if (combined === originalText) return sourceDate;
-      if (timeZone) return parseCalendarDateTimeEditInTimeZone(combined, sourceDate, timeZone);
-      const parsed = qDate.extractDate(combined, 'DD/MM/YYYY HH:mm:ss.SSS');
-      if (!parsed || isNaN(parsed.getTime()) || parsed.getFullYear() < 1970) {
-        return null;
-      }
-      return parsed;
+      return parseCalendarDateTimeEditInTimeZone(combined, sourceDate, timeZone);
     });
 
-    const isValid = computed(
-      () => Boolean(state.type) && state.name.trim().length > 0 && parsedDateTime.value !== null
-    );
+    const endTimeTooEarly = computed(() => !!props.minDateTime && !!parsedDateTime.value
+      && parsedDateTime.value.getTime() <= props.minDateTime.getTime());
+    const isValid = computed(() => Boolean(state.type) && state.name.trim().length > 0
+      && parsedDateTime.value !== null && !endTimeTooEarly.value);
 
     const onOKClick = () => {
       if (!isValid.value || !parsedDateTime.value) return;
@@ -478,6 +487,8 @@ export default defineComponent({
       labelRequiredRule,
       isObservableOptionDisabled,
       isValid,
+      parsedDateTime,
+      endTimeTooEarly,
       onOKClick,
       onCancelClick: onDialogCancel,
     };

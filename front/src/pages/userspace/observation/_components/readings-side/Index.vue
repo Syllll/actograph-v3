@@ -17,10 +17,12 @@
 
       <div class="col table-wrapper">
         <readings-table
+          ref="readingsTableRef"
           :readings="filteredReadings"
           :can-clear-all="hasReadings"
           @remove-reading="handleRemoveReading"
           @clear-all="handleClearAllWithConfirm"
+          @invalid-timestamps="hasInvalidTimestamps = $event"
         />
       </div>
 
@@ -45,6 +47,7 @@ import { useI18n } from 'vue-i18n';
 import { hasReadingsAfterLastStop as detectReadingsAfterLastStop } from '@actograph/core';
 import { Dialog } from 'quasar';
 import AutoCorrectReadingsDialog from './AutoCorrectReadingsDialog.vue';
+import EditReadingDialog, { type EditReadingPayload } from './EditReadingDialog.vue';
 import AddCommentDialog from './AddCommentDialog.vue';
 import ReadingsConfirmDialog from './ReadingsConfirmDialog.vue';
 
@@ -69,6 +72,8 @@ export default defineComponent({
 
     // Local state for this component
     const search = ref('');
+    const readingsTableRef = ref<InstanceType<typeof ReadingsTable> | null>(null);
+    const hasInvalidTimestamps = ref(false);
     const contentRef = ref<HTMLElement | null>(null);
     let contentResizeObserver: ResizeObserver | null = null;
 
@@ -176,8 +181,17 @@ export default defineComponent({
     
     // Handler for auto-correcting readings
     const handleAutoCorrectReadings = async () => {
+      if (hasInvalidTimestamps.value) {
+        $q.notify({ type: 'negative', message: t('readingsUi.autoCorrectInvalidTimestamps') });
+        return;
+      }
+      readingsTableRef.value?.resetChronologicalSort();
       // Analyser les relevés et obtenir les actions proposées
       const result = methods.autoCorrectReadings(false);
+      if (result.invalidReadings.length > 0) {
+        $q.notify({ type: 'negative', message: t('readingsUi.autoCorrectInvalidTimestamps') });
+        return;
+      }
       
       if (result.actions.length === 0) {
         $q.notify({
@@ -188,23 +202,53 @@ export default defineComponent({
         return;
       }
 
-      // Afficher le dialog avec les actions proposées
+      const applyCorrections = (stopDateTime?: Date) => {
+        let applied;
+        try {
+          applied = methods.autoCorrectReadings(true, stopDateTime);
+        } catch (error) {
+          if (!(error instanceof RangeError)) throw error;
+          $q.notify({ type: 'negative', message: t('readingsUi.endMustFollowReadings') });
+          return;
+        }
+        if (applied.invalidReadings.length > 0) {
+          $q.notify({ type: 'negative', message: t('readingsUi.autoCorrectInvalidTimestamps') });
+          return;
+        }
+        $q.notify({
+          type: 'positive',
+          message: t('readingsUi.autoCorrectApplied'),
+          caption: t('readingsUi.autoCorrectAppliedCaption', { count: result.actions.length }),
+        });
+      };
+
+      // A generated STOP has a technical default, not the observed end time.
+      const endAction = result.actions.find((action) =>
+        action.reason === 'add_missing_stop' || action.reason === 'reposition_stop_after_last'
+      );
       Dialog.create({
         component: AutoCorrectReadingsDialog,
         componentProps: {
           actions: result.actions,
+          requiresEndTime: !!endAction,
         },
-      }).onOk(async () => {
-        // Appliquer les corrections
-        methods.autoCorrectReadings(true);
-        
-        $q.notify({
-          type: 'positive',
-          message: t('readingsUi.autoCorrectApplied'),
-          caption: t('readingsUi.autoCorrectAppliedCaption', {
-            count: result.actions.length,
-          }),
-        });
+      }).onOk(() => {
+        if (!endAction) { applyCorrections(); return; }
+        const generatedReadings = result.actions.flatMap((action) => action.newReading ? [action.newReading] : []);
+        const lastTime = Math.max(...[...sharedState.currentReadings, ...generatedReadings]
+          .filter((reading) => reading.type !== ReadingTypeEnum.STOP)
+          .map((reading) => new Date(reading.dateTime!).getTime()));
+        Dialog.create({
+          component: EditReadingDialog,
+          componentProps: {
+            reading: {
+              name: t('readings.defaultChronicleEnd'),
+              type: ReadingTypeEnum.STOP,
+              dateTime: new Date(lastTime + 1),
+            },
+            minDateTime: new Date(lastTime),
+          },
+        }).onOk((payload: EditReadingPayload) => applyCorrections(payload.dateTime));
       });
     };
 
@@ -379,6 +423,8 @@ export default defineComponent({
     });
 
     return {
+      readingsTableRef,
+      hasInvalidTimestamps,
       t,
       search,
       contentRef,

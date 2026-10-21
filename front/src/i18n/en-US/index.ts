@@ -118,7 +118,7 @@ export default {
     sessionPaused: 'Observation paused',
     sessionStart: 'Start',
     manualEntryLabel: 'Manual entry',
-    manualEntryHint: 'Add readings with + or the protocol observables, then enter their timestamps. No recording to start.',
+    manualEntryHint: 'Adjust the Start timestamp to the desired time, then add readings with + or the protocol observable buttons. No recording to start. At the end of your sequence, add an End reading.',
     popoutVideoTooltip: 'Open video in a separate window',
     popoutButtonsTooltip: 'Detach buttons',
     resizeReadingsPanesTooltip: 'Resize the panes',
@@ -322,6 +322,10 @@ export default {
     unrecognizedObservableTooltip:
       'Unrecognized observable: "{name}" is not in the current protocol',
     emptyCell: '—',
+    autoCorrectInvalidTimestamps: 'Some dates or times are invalid. Fix the highlighted fields before running automatic correction again.',
+    autoCorrectEndTimeHint: 'You will need to confirm the actual end time before applying corrections. Adjust the proposed time just after the last reading.',
+    confirmEndTimeTitle: 'Confirm the actual end time',
+    endMustFollowReadings: 'The end must be after the last reading.',
     autoCorrectDialogTitle: 'Auto-correct readings',
     autoCorrectActionsIntro:
       'The following actions will be applied to fix the readings:',
@@ -447,6 +451,8 @@ export default {
   statisticsUi: {
     emptyTitle: 'No readings yet',
     emptyHint: 'Add readings on the Observation page to see statistics.',
+    missingStopWarning: 'Unfinished sequence: statistics are provisional. Add an End reading to finalize them.',
+    colStatus: 'Statistics status',
     missingStartWarning:
       'The chronicle has no START marker: the statistics below are computed from the existing readings and may be incomplete or misleading. Start the observation on the Observation page for reliable statistics.',
     tabGeneral: 'Overview',

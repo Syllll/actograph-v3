@@ -379,6 +379,11 @@ export const useObservation = (options?: { init?: boolean }) => {
         await readings.methods.loadReadings(observation);
         await protocol.methods.loadProtocol(observation);
         sharedState.currentObservation = observation;
+        if (windowSync.isOwner && observation.meta?.entryMode === 'manual'
+          && readings.sharedState.currentReadings.length === 0) {
+          await readings.methods.addStartReading();
+          readings.methods.selectReading(readings.sharedState.currentReadings[0]);
+        }
       } finally {
         sharedState.loading = false;
       }

@@ -127,6 +127,10 @@
             @cancel="clearCalendarDraft(props.row)"
             @click.stop="selectReading(props.row)"
           />
+          <div v-if="calendarErrors[getRowKey(props.row)] || durationErrors[getRowKey(props.row)]"
+            class="text-negative text-caption" role="alert">
+            {{ t('readingsUi.invalidTimestamp') }}
+          </div>
         </q-td>
 
         <q-td key="name" :props="props">
@@ -264,7 +268,7 @@ export default defineComponent({
     },
   },
 
-  emits: ['remove-reading', 'clear-all'],
+  emits: ['remove-reading', 'clear-all', 'invalid-timestamps'],
 
   setup(props, { emit }) {
     const { t } = useI18n();
@@ -364,6 +368,9 @@ export default defineComponent({
     const calendarErrors = ref<Record<string, boolean>>({});
     const durationDrafts = ref<Record<string, string>>({});
     const durationErrors = ref<Record<string, boolean>>({});
+    watch(() => observation.readings.sharedState.currentReadings.some((row) =>
+      calendarErrors.value[getRowKey(row)] || durationErrors.value[getRowKey(row)]
+    ), (invalid) => emit('invalid-timestamps', invalid), { immediate: true });
     const observableDrafts = ref<Record<string, string>>({});
 
     const observableOptions = computed(() => {
@@ -464,7 +471,7 @@ export default defineComponent({
       calendarDrafts.value[getRowKey(row)] ?? formatDateTime(row.dateTime);
 
     const setCalendarDraft = (row: IReading, val: string | number | null) => {
-      delete calendarErrors.value[getRowKey(row)];
+      calendarErrors.value[getRowKey(row)] = !isValidSegmentedTime(String(val ?? ''), 'calendar');
       calendarDrafts.value = {
         ...calendarDrafts.value,
         [getRowKey(row)]: val == null ? '' : String(val),
@@ -484,7 +491,7 @@ export default defineComponent({
       durationDrafts.value[getRowKey(row)] ?? formatDurationCompactFromRow(row);
 
     const setDurationDraft = (row: IReading, val: string | number | null) => {
-      delete durationErrors.value[getRowKey(row)];
+      durationErrors.value[getRowKey(row)] = !isValidSegmentedTime(String(val ?? ''), 'duration');
       durationDrafts.value = {
         ...durationDrafts.value,
         [getRowKey(row)]: val == null ? '' : String(val),
@@ -675,6 +682,7 @@ export default defineComponent({
 
     return {
       t,
+      resetChronologicalSort: () => { pagination.value = { ...pagination.value, sortBy: 'dateTime', descending: false }; },
       tableRef,
       isSelectedReading,
       selectReading,

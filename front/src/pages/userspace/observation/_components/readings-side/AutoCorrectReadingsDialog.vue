@@ -13,6 +13,9 @@
       </div>
 
       <div v-else class="column q-gutter-md">
+        <q-banner v-if="requiresEndTime" class="bg-orange-1" role="status">
+          {{ t('readingsUi.autoCorrectEndTimeHint') }}
+        </q-banner>
         <div class="text-body2">
           {{ t('readingsUi.autoCorrectActionsIntro') }}
         </div>
@@ -66,6 +69,7 @@ export default defineComponent({
   name: 'AutoCorrectReadingsDialog',
   components: { DDialogCard, DCancelBtn, DSubmitBtn },
   props: {
+    requiresEndTime: { type: Boolean, default: false },
     actions: {
       type: Array as () => AutoCorrectAction[],
       required: true,

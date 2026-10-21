@@ -1,4 +1,5 @@
 import { computed, reactive, watch } from 'vue';
+import { hasMissingStopReading } from '@actograph/core';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { exportData } from '@lib-improba/utils/export.utils';
@@ -9,6 +10,7 @@ import { useStatistics } from './index';
 import {
   buildStatisticsExportFileName,
   buildStatisticsWorksheets,
+  markProvisionalStatisticsWorksheets,
   StatisticsExportTab,
 } from './statistics-export.utils';
 
@@ -40,7 +42,7 @@ export const useStatisticsExport = (getActiveTab: () => StatisticsExportTab) => 
   });
 
   const worksheetsForExport = computed(() =>
-    buildStatisticsWorksheets({
+    markProvisionalStatisticsWorksheets(buildStatisticsWorksheets({
       activeTab: getActiveTab(),
       generalStatistics: statistics.sharedState.generalStatistics,
       categoryStatistics: statistics.sharedState.categoryStatistics,
@@ -48,7 +50,8 @@ export const useStatisticsExport = (getActiveTab: () => StatisticsExportTab) => 
       targetCategoryIsContinuous: targetCategoryIsContinuous.value,
       t,
       formatDuration: statistics.methods.formatDuration,
-    }),
+    }), hasMissingStopReading(observation.readings.sharedState.currentReadings)
+      ? t('statisticsUi.missingStopWarning') : null, t),
   );
 
   const requiresExcelOnly = computed(

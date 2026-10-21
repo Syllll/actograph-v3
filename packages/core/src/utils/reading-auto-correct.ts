@@ -57,6 +57,7 @@ export interface IAutoCorrectAction {
 export interface IAutoCorrectResult {
   actions: IAutoCorrectAction[];
   correctedReadings: IReading[];
+  invalidReadings: IReading[];
 }
 
 /**
@@ -80,6 +81,13 @@ export function autoCorrectReadings(
 ): IAutoCorrectResult {
   const actions: IAutoCorrectAction[] = [];
   const correctedReadings: IReading[] = [];
+  const invalidReadings = readings.filter((reading) =>
+    !Number.isFinite(new Date(reading.dateTime).getTime())
+  );
+  // An invalid timestamp has no chronological position. Never guess or discard it.
+  if (invalidReadings.length > 0) {
+    return { actions, correctedReadings, invalidReadings };
+  }
 
   // 1. Sort readings chronologically
   const sortedReadings = [...readings].sort((a, b) => {
@@ -89,13 +97,7 @@ export function autoCorrectReadings(
   });
 
   // Check if sorting is needed
-  const needsSorting = sortedReadings.some((reading, index) => {
-    const originalIndex = readings.findIndex(r => 
-      (r.id && reading.id && r.id === reading.id) ||
-      (r.tempId && reading.tempId && r.tempId === reading.tempId)
-    );
-    return originalIndex !== index;
-  });
+  const needsSorting = sortedReadings.some((reading, index) => reading !== readings[index]);
 
   if (needsSorting) {
     actions.push({
@@ -322,7 +324,7 @@ export function autoCorrectReadings(
   // If applyCorrections is true, apply the corrections
   if (applyCorrections) {
     // STEP 1: Sort first chronologically
-    const workingReadings = [...readings].sort((a, b) => {
+    const workingReadings = readings.map((reading) => ({ ...reading })).sort((a, b) => {
       const dateA = a.dateTime instanceof Date ? a.dateTime : new Date(a.dateTime);
       const dateB = b.dateTime instanceof Date ? b.dateTime : new Date(b.dateTime);
       return dateA.getTime() - dateB.getTime();
@@ -427,7 +429,7 @@ export function autoCorrectReadings(
           ? startReading.dateTime 
           : new Date(startReading.dateTime);
         // If START is not before the first reading, reposition it
-        if (startDate.getTime() >= earliestDate.getTime()) {
+        if (startDate.getTime() > earliestDate.getTime()) {
           startReading.dateTime = new Date(earliestDate.getTime() - 1);
         }
       } else {
@@ -498,6 +500,6 @@ export function autoCorrectReadings(
   return {
     actions,
     correctedReadings: applyCorrections ? correctedReadings : [],
+    invalidReadings,
   };
 }
-

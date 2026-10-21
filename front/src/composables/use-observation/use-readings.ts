@@ -550,11 +550,13 @@ export const useReadings = (options: {
       const source = sharedState.currentReadings.find(
         (reading) => sameReading(reading, sharedState.selectedReading),
       ) ?? sharedState.currentReadings[sharedState.currentReadings.length - 1];
+      const followsManualBoundary = observationSharedState.currentObservation?.meta?.entryMode === 'manual'
+        && source && source.type !== ReadingTypeEnum.DATA;
       const reading = source
         ? methods.addReading({
-          name: source.name,
-          description: source.description,
-          type: source.type,
+          name: followsManualBoundary ? t('readings.defaultNewReading') : source.name,
+          description: followsManualBoundary ? undefined : source.description,
+          type: followsManualBoundary ? ReadingTypeEnum.DATA : source.type,
           dateTime: new Date(source.dateTime),
         }, source)
         : methods.addReading({
@@ -822,15 +824,30 @@ export const useReadings = (options: {
      * @returns Objet contenant la liste des actions proposées et les relevés corrigés (si applyCorrections est true)
      */
     autoCorrectReadings: (
-      applyCorrections = false
+      applyCorrections = false,
+      stopDateTime?: Date,
     ): {
       actions: IAutoCorrectAction[];
       correctedReadings: IReading[];
+      invalidReadings: IReading[];
     } => {
       const readings = [...sharedState.currentReadings];
       
       // Use shared auto-correction function
       const result = coreAutoCorrectReadings(readings, applyCorrections);
+      // These are references to our original frontend readings, not synthesized core rows.
+      const invalidReadings = result.invalidReadings as IReading[];
+      if (invalidReadings.length > 0) return { actions: result.actions, correctedReadings: [], invalidReadings };
+      if (applyCorrections && stopDateTime) {
+        const stop = result.correctedReadings.find((reading) => reading.type === ReadingTypeEnum.STOP);
+        const lastTime = Math.max(...result.correctedReadings
+          .filter((reading) => reading.type !== ReadingTypeEnum.STOP)
+          .map((reading) => new Date(reading.dateTime).getTime()));
+        if (!Number.isFinite(stopDateTime.getTime()) || stopDateTime.getTime() <= lastTime) {
+          throw new RangeError('End time must follow all corrected readings');
+        }
+        if (stop) stop.dateTime = new Date(stopDateTime);
+      }
 
       const currentObservation = observationSharedState.currentObservation;
       const timeZone = currentObservation?.mode === 'calendar'
@@ -899,6 +916,7 @@ export const useReadings = (options: {
       return {
         actions,
         correctedReadings,
+        invalidReadings,
       };
     },
 

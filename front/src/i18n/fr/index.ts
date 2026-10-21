@@ -118,7 +118,7 @@ export default {
     sessionPaused: 'Observation en pause',
     sessionStart: 'Démarrer',
     manualEntryLabel: 'Saisie manuelle',
-    manualEntryHint: 'Ajoutez vos relevés avec + ou les observables du protocole, puis renseignez leurs horaires. Aucun enregistrement à lancer.',
+    manualEntryHint: 'Ajustez l’horodatage de « Début » au moment souhaité, puis ajoutez vos relevés avec + ou les boutons des observables du protocole. Aucun enregistrement à lancer. À la fin de votre séquence, ajoutez un relevé « Fin ».',
     popoutVideoTooltip: 'Ouvrir la vidéo dans une fenêtre séparée',
     popoutButtonsTooltip: 'Détacher les boutons',
     resizeReadingsPanesTooltip: 'Redimensionner les panneaux',
@@ -326,6 +326,10 @@ export default {
     unrecognizedObservableTooltip:
       'Observable non reconnu : « {name} » n\'existe pas dans le protocole actuel',
     emptyCell: '—',
+    autoCorrectInvalidTimestamps: 'Des dates ou heures sont invalides. Corrigez les champs signalés avant de relancer la correction automatique.',
+    autoCorrectEndTimeHint: 'Vous devrez confirmer l’heure réelle de fin avant d’appliquer les corrections. L’heure proposée juste après le dernier relevé est à ajuster.',
+    confirmEndTimeTitle: 'Confirmer l’heure réelle de fin',
+    endMustFollowReadings: 'La fin doit se situer après le dernier relevé.',
     autoCorrectDialogTitle: 'Correction automatique des relevés',
     autoCorrectActionsIntro:
       'Les actions suivantes seront appliquées pour corriger les relevés :',
@@ -454,6 +458,8 @@ export default {
     emptyTitle: 'Aucun relevé disponible',
     emptyHint:
       'Créez des relevés dans la page Observation pour voir les statistiques.',
+    missingStopWarning: 'Séquence non terminée : les statistiques sont provisoires. Ajoutez un relevé Fin pour les finaliser.',
+    colStatus: 'État des statistiques',
     missingStartWarning:
       'La chronique n\'a pas de repère de départ (START) : les statistiques ci-dessous sont calculées à partir des relevés existants et peuvent être incomplètes ou trompeuses. Démarrez l\'observation dans la page Observation pour des statistiques fiables.',
     tabGeneral: 'Vue globale',
