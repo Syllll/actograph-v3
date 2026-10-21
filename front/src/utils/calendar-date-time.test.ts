@@ -33,3 +33,12 @@ describe('parseCalendarDateTimeEditInTimeZone', () => {
       .toBeNull();
   });
 });
+
+
+it.each([
+  '31/02/2026 12:00:00.000', '29/02/2025 12:00:00.000',
+  '21/10/2026 24:00:00.000', '21/10/2026 12:60:00.000',
+  '21/10/2026 12:00:60.000', '21/10/2026 12:00:00.___',
+])('rejects impossible or incomplete timestamp %s without normalizing it', (text) => {
+  expect(parseCalendarDateTimeEditInTimeZone(text, new Date('2026-10-21T08:00:00Z'), 'Europe/Paris')).toBeNull();
+});

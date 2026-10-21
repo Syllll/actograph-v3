@@ -1,6 +1,7 @@
 import {
   buildStatisticsExportFileName,
   buildStatisticsWorksheets,
+  markProvisionalStatisticsWorksheets,
   formatObservableOnPercentage,
   resolveTotalCategoryDuration,
 } from '../statistics-export.utils';
@@ -200,5 +201,32 @@ describe('buildStatisticsWorksheets', () => {
     );
     expect(worksheets?.[0].rows?.[0].onDuration).toBe('');
     expect(worksheets?.[0].rows?.[0].onCount).toBe(3);
+  });
+});
+
+
+describe('provisional statistics exports', () => {
+  const sheet = { name: 'Stats', columns: [{ header: 'Count', key: 'count', width: 20 }], rows: [{ count: 2 }] };
+  it('marks every Excel worksheet while keeping their data', () => {
+    const sheets = markProvisionalStatisticsWorksheets([sheet, { ...sheet, name: 'Categories' }], 'Missing End', t)!;
+    expect(sheets).toHaveLength(2);
+    for (const result of sheets) {
+      expect(result.columns[result.columns.length - 1]).toMatchObject({ key: 'observationStatus' });
+      expect(result.rows[0]).toEqual({ count: 2, observationStatus: 'Missing End' });
+    }
+    expect(sheet.rows).toEqual([{ count: 2 }]);
+    expect(sheet.columns).toHaveLength(1);
+  });
+  it('keeps a single-sheet export eligible for CSV and includes the warning', () => {
+    const sheets = markProvisionalStatisticsWorksheets([sheet], 'Missing End', t)!;
+    expect(sheets).toHaveLength(1);
+    expect(sheets[0].rows[0].observationStatus).toBe('Missing End');
+  });
+  it('leaves completed exports unchanged', () => {
+    const sheets = [sheet];
+    expect(markProvisionalStatisticsWorksheets(sheets, null, t)).toBe(sheets);
+  });
+  it('returns no sheets when there are no results', () => {
+    expect(markProvisionalStatisticsWorksheets(null, 'Missing End', t)).toBeNull();
   });
 });

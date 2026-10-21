@@ -11,6 +11,14 @@ function sortReadingsByTime(readings: IReading[]): IReading[] {
     .sort((a, b) => getReadingTimeMs(a) - getReadingTimeMs(b));
 }
 
+/** Statistics remain provisional until the observation's last session has a STOP. */
+export function hasMissingStopReading(readings: IReading[]): boolean {
+  if (readings.length === 0) return false;
+  const validReadings = sortReadingsByTime(readings);
+  return !validReadings.some((reading) => reading.type === ReadingTypeEnum.STOP)
+    || isRecordingActiveFromReadings(validReadings);
+}
+
 /**
  * True when the chronologically last START/STOP marker is a START (recording active).
  */

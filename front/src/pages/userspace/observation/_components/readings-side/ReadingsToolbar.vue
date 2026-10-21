@@ -5,7 +5,7 @@
     </div>
 
     <div
-      class="observation-toolbar-row observation-toolbar-row--nowrap justify-between"
+      class="observation-toolbar-row justify-between readings-toolbar__row"
       :class="state.showReplace ? 'items-start' : 'items-center'"
     >
       <div class="readings-search col-auto q-mr-sm" :class="{ 'readings-search--open': state.showReplace }">
@@ -256,7 +256,8 @@ export default defineComponent({
 }
 
 .readings-search {
-  min-width: 16rem;
+  min-width: 8rem;
+  flex: 1 1 16rem;
   max-width: 22rem;
   box-sizing: border-box;
   height: var(--observation-toolbar-h);
@@ -350,7 +351,14 @@ export default defineComponent({
 }
 
 .readings-toolbar__actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   height: var(--observation-toolbar-h);
+}
+
+.readings-toolbar__row {
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .readings-toolbar__action.q-btn {

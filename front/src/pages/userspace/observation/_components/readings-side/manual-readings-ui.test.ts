@@ -36,9 +36,10 @@ jest.mock('src/pages/userspace/_components/ReadingsAfterLastStopBanner.vue', () 
 jest.mock('quasar', () => ({
   ...jest.requireActual('quasar'),
   Dialog: { create: jest.fn() },
-  useQuasar: () => ({ notify: jest.fn() }),
+  useQuasar: () => ({ notify: mockNotify }),
 }));
 
+const mockNotify = jest.fn();
 const origin = new Date('2026-10-20T08:00:00.000Z');
 const reading = (tempId: string, offset = 0, extra: Partial<IReading> = {}): IReading => ({
   tempId,
@@ -68,6 +69,7 @@ const makeObservation = () => {
     readings: {
       sharedState,
       methods: {
+        autoCorrectReadings: jest.fn(() => ({ actions: [] as Array<{ reason: string; type: string; description: string; newReading?: Partial<IReading> }>, correctedReadings: [] as IReading[], invalidReadings: [] as IReading[] })),
         selectReading: jest.fn((row: IReading) => { sharedState.selectedReading = row; }),
         addManualReading: jest.fn(),
         addReading: jest.fn(),
@@ -440,5 +442,74 @@ describe('real Quasar table integration', () => {
     expect(relocated.exists()).toBe(true);
     expect((relocated.find('.readings-observable-input').element as HTMLInputElement).value).toBe('Observation inserted');
     expect((relocated.find('input').element as HTMLInputElement).value).toBe('000j 00:05:00.000');
+  });
+});
+
+
+describe('automatic correction through the readings interface', () => {
+  const mountSide = () => {
+    const wrapper = mount(ReadingsSide, { global: readingsUiGlobal });
+    wrappers.push(wrapper);
+    return wrapper;
+  };
+  it('restores chronological display even when there is nothing else to correct', async () => {
+    mockObservation.readings.sharedState.currentReadings = [reading('early'), reading('late', 1000)];
+    const wrapper = mountSide();
+    const table = wrapper.findComponent(ReadingsTable);
+    (table.vm as unknown as { pagination: { descending: boolean } }).pagination.descending = true;
+    await settle();
+    expect(tableRows(wrapper)[0].attributes('data-reading-key')).toContain('late');
+    await wrapper.find('button[data-icon="auto_fix_high"]').trigger('click');
+    await settle();
+    expect(tableRows(wrapper)[0].attributes('data-reading-key')).toContain('early');
+    expect(mockObservation.readings.methods.autoCorrectReadings).toHaveBeenCalledWith(false);
+  });
+
+  it('blocks the wand for invalid drafts, even when the search filter hides them', async () => {
+    mockObservation.readings.sharedState.currentReadings = [reading('one'), reading('two', 1000)];
+    const wrapper = mountSide();
+    await wrapper.find('.reading-time-input').setValue('31/02/2026 12:00:00.000');
+    await settle();
+    expect(wrapper.find('[role="alert"]').text()).toBe('readingsUi.invalidTimestamp');
+    await wrapper.findComponent(ReadingsToolbar).vm.$emit('update:search', 'two');
+    await settle();
+    await wrapper.find('button[data-icon="auto_fix_high"]').trigger('click');
+    expect(mockObservation.readings.methods.autoCorrectReadings).not.toHaveBeenCalled();
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ type: 'negative' }));
+  });
+
+  it('reports invalid persisted timestamps without opening the correction dialog', async () => {
+    const invalid = reading('bad', 0, { dateTime: new Date(NaN) });
+    mockObservation.readings.methods.autoCorrectReadings.mockReturnValueOnce({ actions: [], correctedReadings: [], invalidReadings: [invalid] });
+    const wrapper = mountSide();
+    await wrapper.find('button[data-icon="auto_fix_high"]').trigger('click');
+    expect(Dialog.create).not.toHaveBeenCalled();
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ message: 'readingsUi.autoCorrectInvalidTimestamps' }));
+  });
+
+  it('leaves readings unchanged if end-time confirmation is cancelled', async () => {
+    mockObservation.readings.sharedState.currentReadings = [reading('start', 0, { type: ReadingTypeEnum.START })];
+    mockObservation.readings.methods.autoCorrectReadings.mockReturnValueOnce({
+      actions: [{ reason: 'add_missing_stop', type: 'add_missing_pause', description: 'Add End', newReading: { type: ReadingTypeEnum.STOP, dateTime: new Date(+origin + 1) } }],
+      correctedReadings: [], invalidReadings: [],
+    });
+    const wrapper = mountSide();
+    await wrapper.find('button[data-icon="auto_fix_high"]').trigger('click');
+    const confirmation = (Dialog.create as jest.Mock).mock.results[0].value.onOk;
+    confirmation.mock.calls[0][0]();
+    expect(Dialog.create).toHaveBeenCalledTimes(2);
+    expect((Dialog.create as jest.Mock).mock.calls[1][0].componentProps).toMatchObject({ minDateTime: origin });
+    expect(mockObservation.readings.methods.autoCorrectReadings).toHaveBeenCalledTimes(1);
+    // Confirming the actual time is the only path that applies the changes.
+    const end = new Date(+origin + 60000);
+    const endDialog = (Dialog.create as jest.Mock).mock.results[1].value.onOk;
+    endDialog.mock.calls[endDialog.mock.calls.length - 1][0]({ dateTime: end });
+    expect(mockObservation.readings.methods.autoCorrectReadings).toHaveBeenLastCalledWith(true, end);
+  });
+
+  it('keeps the add button available with no readings', () => {
+    const wrapper = mountSide();
+    expect(tableRows(wrapper)).toHaveLength(0);
+    expect(wrapper.find('button[data-icon="add"]').attributes('disabled')).toBeUndefined();
   });
 });

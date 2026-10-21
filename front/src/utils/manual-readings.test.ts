@@ -301,3 +301,51 @@ describe('manual readings synchronization', () => {
     await nextTick();
   });
 });
+
+
+describe('manual initialization and correction integration', () => {
+  it.each([ObservationModeEnum.Calendar, ObservationModeEnum.Chronometer])('creates a correctly timestamped START for manual %s', async (mode) => {
+    state.currentObservation = { id: 7, mode };
+    const before = Date.now();
+    await methods.addStartReading();
+    expect(sharedState.currentReadings[0].type).toBe(ReadingTypeEnum.START);
+    if (mode === ObservationModeEnum.Chronometer) expect(sharedState.currentReadings[0].dateTime).toEqual(CHRONOMETER_T0);
+    else expect(+sharedState.currentReadings[0].dateTime).toBeGreaterThanOrEqual(before);
+  });
+
+  it('adds a data reading after a manual START rather than duplicating the marker', async () => {
+    Object.assign(state.currentObservation, { meta: { entryMode: 'manual' } });
+    await methods.addStartReading();
+    const start = sharedState.currentReadings[0];
+    methods.selectReading(start);
+    const added = methods.addManualReading();
+    expect(added.type).toBe(ReadingTypeEnum.DATA);
+    expect(added.name).toBe('readings.defaultNewReading');
+    expect(added.dateTime).toEqual(start.dateTime);
+    expect(sharedState.currentReadings.filter((r) => r.type === ReadingTypeEnum.START)).toHaveLength(1);
+  });
+
+  it('preserves all readings when automatic correction encounters an invalid timestamp', async () => {
+    await load([row(1, 'Invalid', new Date(NaN)), row(2, 'Valid')]);
+    const before = [...sharedState.currentReadings];
+    const result = methods.autoCorrectReadings(true);
+    expect(result.invalidReadings).toHaveLength(1);
+    expect(sharedState.currentReadings).toEqual(before);
+  });
+
+  it('uses the confirmed end time and preserves equal-time data order', async () => {
+    await load([{ ...row(1, 'Start'), type: ReadingTypeEnum.START }, row(2, 'A'), row(3, 'B')]);
+    const end = new Date(+time + 60000);
+    methods.autoCorrectReadings(true, end);
+    expect(sharedState.currentReadings.map((r) => r.name)).toEqual(['Start', 'A', 'B', 'readings.defaultChronicleEnd']);
+    expect(sharedState.currentReadings[3].dateTime).toEqual(end);
+    expect(sharedState.currentReadings[0].dateTime).toEqual(time);
+  });
+
+  it('rejects an end time before the last reading without changing the original readings', async () => {
+    await load([{ ...row(1, 'Start'), type: ReadingTypeEnum.START }, row(2, 'Data', new Date(+time + 1000))]);
+    const before = sharedState.currentReadings.map((r) => ({ ...r }));
+    expect(() => methods.autoCorrectReadings(true, time)).toThrow(RangeError);
+    expect(sharedState.currentReadings).toEqual(before);
+  });
+});

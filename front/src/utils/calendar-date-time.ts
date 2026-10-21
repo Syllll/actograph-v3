@@ -2,6 +2,7 @@ import {
   formatCalendarDateTime,
   parseCalendarDateTimeInTimeZone,
 } from '@actograph/core';
+import { isValidSegmentedTime } from './segmented-time';
 
 /** Parse edited calendar text in the observation zone, keeping the source pass during a DST fold. */
 export function parseCalendarDateTimeEditInTimeZone(
@@ -9,6 +10,7 @@ export function parseCalendarDateTimeEditInTimeZone(
   sourceDate: Date,
   timeZone: string,
 ): Date | null {
+  if (!isValidSegmentedTime(wallText, 'calendar')) return null;
   const format = 'DD/MM/YYYY HH:mm:ss.SSS';
   const sourceWallText = formatCalendarDateTime(sourceDate, timeZone, format);
   if (wallText === sourceWallText) return sourceDate;

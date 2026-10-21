@@ -11,6 +11,20 @@ export type StatisticsExportTab = 'general' | 'category' | 'advanced';
 type TranslateFn = (key: string) => string;
 type FormatDurationFn = (ms: number) => string;
 
+/** Keep the warning inside every sheet, including single-sheet CSV exports. */
+export const markProvisionalStatisticsWorksheets = (
+  worksheets: IWorksheet[] | null,
+  warning: string | null,
+  t: TranslateFn,
+): IWorksheet[] | null => {
+  if (!worksheets || !warning) return worksheets;
+  return worksheets.map((sheet) => ({
+    ...sheet,
+    columns: [...sheet.columns, { header: t('statisticsUi.colStatus'), key: 'observationStatus', width: 90 }],
+    rows: (sheet.rows.length ? sheet.rows : [{}]).map((row) => ({ ...row, observationStatus: warning })),
+  }));
+};
+
 export const buildStatisticsExportFileName = (observationName?: string | null): string => {
   const safeName = (
     (observationName || 'statistics').replace(/[<>:"/\\|?*]/g, '-').trim() || 'statistics'

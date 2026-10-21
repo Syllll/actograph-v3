@@ -85,6 +85,11 @@
         class="readings-scope-warning q-ma-sm"
       />
 
+      <q-banner v-if="hasMissingStop" dense rounded class="readings-scope-warning q-ma-sm" role="alert">
+        <template #avatar><q-icon name="warning" color="warning" /></template>
+        {{ t('statisticsUi.missingStopWarning') }}
+      </q-banner>
+
       <q-tab-panels v-model="state.activeTab" animated class="col">
         <!-- Vue globale -->
         <q-tab-panel name="general" class="q-pa-md">
@@ -120,7 +125,7 @@
 <script lang="ts">
 import { defineComponent, reactive, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { hasReadingsAfterLastStop as detectReadingsAfterLastStop, ReadingTypeEnum } from '@actograph/core';
+import { hasReadingsAfterLastStop as detectReadingsAfterLastStop, hasMissingStopReading, ReadingTypeEnum } from '@actograph/core';
 import { useStatistics } from 'src/composables/use-statistics';
 import { useStatisticsExport } from 'src/composables/use-statistics/use-statistics-export';
 import { StatisticsExportTab } from 'src/composables/use-statistics/statistics-export.utils';
@@ -184,6 +189,9 @@ export default defineComponent({
     const hasReadingsAfterLastStop = computed(() =>
       detectReadingsAfterLastStop(observation.readings.sharedState.currentReadings)
     );
+    const hasMissingStop = computed(() =>
+      hasMissingStopReading(observation.readings.sharedState.currentReadings)
+    );
 
     // La chronique n'a jamais été démarrée (pas de repère START) : les statistiques
     // affichées se basent alors sur l'étendue des relevés bruts et peuvent être
@@ -204,6 +212,7 @@ export default defineComponent({
       isStudentAccess,
       hasReadingsAfterLastStop,
       hasStarted,
+      hasMissingStop,
     };
   },
 });

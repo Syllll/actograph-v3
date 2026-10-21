@@ -2,6 +2,7 @@ import { ReadingTypeEnum } from '../../enums';
 import { IReading } from '../../types';
 import {
   getActiveRecordingElapsedMs,
+  hasMissingStopReading,
   isRecordingActiveFromReadings,
   isRecordingPausedFromReadings,
 } from '../../utils/reading-recording-state';
@@ -103,5 +104,22 @@ describe('getActiveRecordingElapsedMs', () => {
     ];
 
     expect(getActiveRecordingElapsedMs(readings, Date.parse('2024-01-01T10:00:25.000Z'))).toBe(15_000);
+  });
+});
+
+
+describe('hasMissingStopReading', () => {
+  const start = mk({ type: ReadingTypeEnum.START, dateTime: new Date(1000) });
+  const data = mk({ type: ReadingTypeEnum.DATA, dateTime: new Date(2000) });
+  const stop = mk({ type: ReadingTypeEnum.STOP, dateTime: new Date(3000) });
+  it('does not warn for an empty chronicle', () => expect(hasMissingStopReading([])).toBe(false));
+  it('warns for raw readings without any session markers', () => expect(hasMissingStopReading([data])).toBe(true));
+  it('warns for an unfinished session', () => expect(hasMissingStopReading([start, data])).toBe(true));
+  it('accepts a completed session regardless of array order', () => expect(hasMissingStopReading([stop, data, start])).toBe(false));
+  it('warns again when a new session starts after a previous STOP', () => {
+    expect(hasMissingStopReading([start, stop, { ...start, dateTime: new Date(4000) }])).toBe(true);
+  });
+  it('does not treat an invalid STOP as a completed session', () => {
+    expect(hasMissingStopReading([start, { ...stop, dateTime: new Date(NaN) }])).toBe(true);
   });
 });
