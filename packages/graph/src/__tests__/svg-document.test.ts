@@ -14,6 +14,20 @@ describe('SVG document composition', () => {
     expect(body).not.toContain('<svg');
   });
 
+  it('prefixes SVG references without changing text or font-family attributes', () => {
+    const markup = '<svg><defs><pattern id="p"/></defs><rect fill="url(#p)"/>'
+      + '<text font-family="url(#p)">Étude url(#p), href=&quot;#p&quot;</text></svg>';
+    const body = svgBody(markup, 'graph');
+    expect(body).toContain('id="graph-p"');
+    expect(body).toContain('fill="url(#graph-p)"');
+    expect(body).toContain('font-family="url(#p)"');
+    expect(body).toContain('Étude url(#p), href=&quot;#p&quot;');
+  });
+
+  it('removes invalid XML code points while preserving supplementary Unicode characters', () => {
+    expect(escapeXml('α 😀\ufffe\uffff\ud800Z\udfff')).toBe('α 😀Z');
+  });
+
   it('composes graph and legend with their full dimensions and independent definitions', () => {
     const body = '<defs><pattern id="p"/></defs><rect fill="url(#p)"/>';
     const result = combineSvgDocuments(createSvgDocument(800, 1200, body), createSvgDocument(900, 300, body));

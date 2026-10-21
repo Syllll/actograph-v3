@@ -5,7 +5,8 @@ export interface SvgDocument {
 }
 
 export function escapeXml(value: string): string {
-  return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '')
+  // XML 1.0 excludes unpaired surrogates and U+FFFE/U+FFFF as well as controls.
+  return value.replace(/[^\u0009\u000a\u000d\u0020-\ud7ff\ue000-\ufffd\u{10000}-\u{10ffff}]/gu, '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
@@ -27,9 +28,18 @@ export function createSvgDocument(width: number, height: number, body: string): 
 /** Keep original drawing coordinates when embedding a Pixi SVG with a nonzero viewBox. */
 export function svgBody(markup: string, prefix: string): string {
   const body = markup.replace(/^<svg\b[^>]*>/, '').replace(/<\/svg>\s*$/, '');
-  return body.replace(/\bid="([^"]+)"/g, `id="${prefix}-$1"`)
-    .replace(/url\(#([^)]+)\)/g, `url(#${prefix}-$1)`)
-    .replace(/\bhref="#([^"]+)"/g, `href="#${prefix}-$1"`);
+  // These documents come from our generators. Rewrite only reference attributes
+  // within tags: user labels and font names may literally contain "url(#...)".
+  return body.replace(/<[^>]+>/g, (tag) => tag.replace(
+    /(\s)(id|href|xlink:href|fill|stroke|clip-path|mask|filter|marker-start|marker-mid|marker-end)="([^"]*)"/g,
+    (_attribute, space: string, name: string, value: string) => {
+      let next = value;
+      if (name === 'id') next = `${prefix}-${value}`;
+      else if (name === 'href' || name === 'xlink:href') next = value.replace(/^#(.+)$/, `#${prefix}-$1`);
+      else next = value.replace(/url\(#([^)]+)\)/g, `url(#${prefix}-$1)`);
+      return `${space}${name}="${next}"`;
+    },
+  ));
 }
 
 export function combineSvgDocuments(graph: SvgDocument, legend: SvgDocument): SvgDocument {
