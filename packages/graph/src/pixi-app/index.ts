@@ -1,9 +1,10 @@
-import { Application, Container, EventEmitter } from 'pixi.js';
+import { Application, Container, EventEmitter, Graphics } from 'pixi.js';
 import { xAxis } from './axis/x-axis';
 import { YAxis } from './axis/y-axis';
 import { DataArea } from './data-area';
 import type { IObservation, IProtocol, IGraphPreferences, IProtocolItem, IPeriod } from '@actograph/core';
 import { filterReadingsForGraphDisplay } from '@actograph/core';
+import { PIXI_DESTROY_OWNED } from '../utils/display-object.utils';
 import { getGraphPausePeriods } from '../utils/pause-periods.utils';
 import { getObservableGraphPreferences, hydrateProtocolItemsFromStringIfNeeded } from '../utils/protocol.utils';
 import { bindPatternTextureStore, unbindPatternTextureStore } from '../lib/pattern-textures';
@@ -49,6 +50,7 @@ import {
 interface IPixiAppInitOptions {
   view: HTMLCanvasElement;
   interactive?: boolean;
+  reserveAxisLabelSpace?: boolean;
 }
 
 /**
@@ -82,6 +84,9 @@ export class PixiApp {
   private app: Application;
   private viewport!: Container;
   private overlayRoot!: Container;
+  private reserveAxisLabelSpace = false;
+  private selectedReadingTime: number | null = null;
+  private selectedReadingMarker: Graphics | null = null;
   private plot!: Container;
   private xAxis!: xAxis;
   private yAxis!: YAxis;
@@ -237,6 +242,7 @@ export class PixiApp {
     this.viewCanvas = canvas;
     this.isDestroyed = false;
     this.isInteractive = options.interactive ?? true;
+    this.reserveAxisLabelSpace = options.reserveAxisLabelSpace ?? false;
     const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
     
     // Lire les dimensions CSS actuelles du canvas
@@ -407,6 +413,7 @@ export class PixiApp {
       return;
     }
     if (isAuthoritativePaintReason(reason)) {
+      this.syncSelectedReadingMarker(reason === 'draw-complete');
       this.app.render();
       return;
     }
@@ -420,7 +427,8 @@ export class PixiApp {
         }) &&
         this.hasCommittedAxisStrokes()
       ) {
-        this.app.render();
+        this.syncSelectedReadingMarker();
+      this.app.render();
       }
       return;
     }
@@ -437,7 +445,8 @@ export class PixiApp {
     ) {
       return;
     }
-    this.app.render();
+    this.syncSelectedReadingMarker();
+      this.app.render();
   }
 
   private cancelDrawFailureAutoRetryRaf(): void {
@@ -1308,9 +1317,13 @@ export class PixiApp {
   }
 
   private getCanvasSize(): { width: number; height: number } {
+    const { width, height } = this.app.screen;
+    // Labels remain in screen pixels when the world shrinks. Fit AND pan clamps
+    // use the same inner rectangle, leaving real pixel space below/right.
+    const margin = this.reserveAxisLabelSpace ? this.xAxis.getRequiredBottomMargin() : 0;
     return {
-      width: this.app.screen.width,
-      height: this.app.screen.height,
+      width: Math.max(1, width - Math.min(width * 0.25, margin)),
+      height: Math.max(1, height - Math.min(height * 0.45, margin)),
     };
   }
 
@@ -1340,12 +1353,46 @@ export class PixiApp {
 
   private recalculateFitViewport(): void {
     const canvasSize = this.getCanvasSize();
+    const bounds = this.reserveAxisLabelSpace ? {
+      width: this.worldBounds.width * this.axisStretch.x,
+      height: this.worldBounds.height * this.axisStretch.y,
+    } : this.worldBounds;
     this.fitViewport = computeFitViewport(
-      this.worldBounds,
+      bounds,
       canvasSize,
       this.zoomState.minScale,
       this.zoomState.maxScale,
     );
+  }
+
+  /** Selection is a persistent screen-space overlay, independent of hover and world builds. */
+  public setSelectedReadingTime(time: number | null): void {
+    this.selectedReadingTime = time !== null && Number.isFinite(time) ? time : null;
+    this.requestRender();
+  }
+
+  private syncSelectedReadingMarker(committingWorld = false): void {
+    if (this.selectedReadingTime === null || (!this.hasCommittedWorld && !committingWorld)) {
+      this.selectedReadingMarker?.clear();
+      return;
+    }
+    if (!this.overlayRoot || !this.lastObservation) return;
+    if (!this.selectedReadingMarker) {
+      this.selectedReadingMarker = new Graphics();
+      this.selectedReadingMarker.eventMode = 'none';
+      this.overlayRoot.addChild(this.selectedReadingMarker);
+    }
+    const marker = this.selectedReadingMarker;
+    marker.clear();
+    const bounds = this.getPlotBoundsInOverlay();
+    if (!bounds) return;
+    const worldX = this.xAxis.getPosFromDateTime(new Date(this.selectedReadingTime));
+    const point = this.overlayRoot.toLocal(this.xAxis.toGlobal({ x: worldX, y: 0 }));
+    const top = Math.max(0, bounds.topY);
+    const bottom = Math.min(this.app.screen.height, bounds.bottomY);
+    if (!Number.isFinite(point.x) || !Number.isFinite(top) || !Number.isFinite(bottom)
+      || point.x < bounds.leftX || point.x > bounds.rightX || bottom <= top) return;
+    marker.moveTo(point.x, top).lineTo(point.x, bottom).stroke({ color: '#d33b68', width: 2 });
   }
 
   private getPlotBoundsInOverlay() {
@@ -1884,6 +1931,7 @@ export class PixiApp {
     this.isInitialized = false;
     this.layoutFitPending = false;
     this.hasCommittedWorld = false;
+    this.selectedReadingTime = null;
     this.teardownPixiResources();
   }
 
@@ -1913,12 +1961,14 @@ export class PixiApp {
         this.sceneTornDown = true;
         this.axisLabelOverlay?.destroy();
         this.hoverLayer?.destroy();
+        this.graphEngine?.clearAll?.();
         this.graphEngine?.clearPatternSprites();
       }
       const overlayRoot = this.overlayRoot as Container | undefined;
       if (overlayRoot) {
         overlayRoot.destroy({ children: true, context: true });
         this.overlayRoot = undefined as unknown as Container;
+        this.selectedReadingMarker = null;
       }
       this.patternStore.evict();
       unbindPatternTextureStore(this.patternStore);
@@ -1953,7 +2003,7 @@ export class PixiApp {
     }
     this.applicationDestroyed = true;
     try {
-      this.app.destroy();
+      this.app.destroy(false, PIXI_DESTROY_OWNED);
     } catch (error) {
       console.warn('[PixiApp] app.destroy failed:', error);
     }

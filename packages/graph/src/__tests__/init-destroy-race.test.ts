@@ -94,7 +94,7 @@ describe('PixiApp destroy during init', () => {
     releaseInit();
     await initPromise;
 
-    expect(app.destroy).toHaveBeenCalled();
+    expect(app.destroy).toHaveBeenCalledWith(false, { children: true, context: true });
     expect(addChildSpy).not.toHaveBeenCalled();
     expect((pixiApp as unknown as { isInitialized: boolean }).isInitialized).toBe(false);
     expect(pixiApp.isEngineReady()).toBe(false);
@@ -123,4 +123,18 @@ describe('PixiApp destroy during init', () => {
     expect(app.destroy).toHaveBeenCalledTimes(1);
     expect(app.renderer).toBeUndefined();
   });
+});
+
+
+it('clears active and retired graphics stores before destroying the complete stage', () => {
+  const engine = new PixiApp();
+  const app = getApp(engine);
+  app.renderer = {};
+  const clearAll = jest.fn();
+  Object.assign(engine, { dataArea: {}, graphEngine: { clearAll, clearPatternSprites: jest.fn() } });
+  engine.destroy();
+  engine.destroy();
+  expect(clearAll).toHaveBeenCalledTimes(1);
+  expect(app.destroy).toHaveBeenCalledTimes(1);
+  expect(app.destroy).toHaveBeenCalledWith(false, { children: true, context: true });
 });
