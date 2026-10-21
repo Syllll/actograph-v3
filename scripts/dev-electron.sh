@@ -127,10 +127,14 @@ if [ ! -x "./node_modules/electron/dist/electron" ]; then
 fi
 
 # vite-plugin-checker copies typescript into typescript-vue-tsc once.
-# A partial copy leaves lib.esnext.d.ts / lib.dom.d.ts missing and vue-tsc reports 11 bogus errors.
+# A partial copy can also truncate typescript.js and crash Vite's checker worker.
 vue_tsc_ts_dir="./node_modules/vite-plugin-checker/dist/cjs/checkers/vueTsc/typescript-vue-tsc"
-if [ -d "$vue_tsc_ts_dir" ] && [ ! -f "$vue_tsc_ts_dir/lib/lib.esnext.d.ts" ]; then
-    echo "Fixture typescript-vue-tsc incomplet — suppression pour reconstruction..."
+if [ -d "$vue_tsc_ts_dir" ] && {
+    [ ! -f "$vue_tsc_ts_dir/lib/lib.esnext.d.ts" ] ||
+    [ ! -f "$vue_tsc_ts_dir/lib/lib.dom.d.ts" ] ||
+    ! node --check "$vue_tsc_ts_dir/lib/typescript.js" >/dev/null 2>&1
+}; then
+    echo "Cache typescript-vue-tsc incomplet ou corrompu : suppression pour reconstruction..."
     rm -rf "$vue_tsc_ts_dir"
 fi
 

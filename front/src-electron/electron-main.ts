@@ -226,12 +226,12 @@ async function createWindow() {
   });
 
   // Load the URL with query parameters
-  const loadPromise = mainWindow.loadURL(
-    <string>process.env.APP_URL +
-      '?serverPort=' +
-      serverPort +
-      '&targetRoute=/gateway'
-  );
+  const appUrl = new URL(<string>process.env.APP_URL);
+  if (serverPort !== undefined) {
+    appUrl.searchParams.set('serverPort', String(serverPort));
+  }
+  appUrl.searchParams.set('targetRoute', '/gateway');
+  const loadPromise = mainWindow.loadURL(appUrl.toString());
 
   if (process.env.DEBUGGING) {
     // if on DEV or Production with debug enabled

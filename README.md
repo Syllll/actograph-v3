@@ -88,6 +88,8 @@ yarn quasar dev -m electron
 
 L'API utilise SQLite et applique les migrations au démarrage (`migrationsRun: true`). En développement, Electron utilise cette API séparée ; dans l'installeur, il démarre et supervise l'API embarquée automatiquement. Une VM sans affichage nécessite un serveur graphique, puis un `DISPLAY` adapté.
 
+Si Electron affiche `ERR_CONNECTION_REFUSED`, consulter aussi le terminal Quasar : le serveur frontend peut avoir quitté avant le chargement de la fenêtre. Une erreur `SyntaxError: Unexpected end of input` dans `vite-plugin-checker/.../typescript-vue-tsc/lib/typescript.js` signale un cache TypeScript tronqué. Le script assisté le détecte et le supprime avant de lancer Quasar, qui le reconstruit. Pour un lancement manuel, arrêter Quasar, supprimer uniquement `front/node_modules/vite-plugin-checker/dist/cjs/checkers/vueTsc/typescript-vue-tsc`, puis relancer Quasar.
+
 **Après une modification de `packages/core/src`, reconstruire `core` pour l'API.** Les alias Vite frontend et mobile pointent vers les sources, y compris lors de leurs builds ; le mapping TypeScript de l'API pointe vers `packages/core/dist`.
 
 ### Mode web alternatif
