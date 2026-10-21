@@ -239,7 +239,9 @@ import {
 } from '@services/observations/protocol-graph-preferences.utils';
 import StudentWatermark from '@components/student-watermark/Index.vue';
 import ReadingsAfterLastStopBanner from 'src/pages/userspace/_components/ReadingsAfterLastStopBanner.vue';
-import { payloadFromImageDataUrl } from 'src/utils/image-data-url';
+import { graphExportFile, type GraphExportFormat } from 'src/utils/graph-export-file';
+import { buildLegendSvg, LEGEND_LAYOUT, type GraphLegendRow } from 'src/utils/graph-legend-export';
+import { combineSvgDocuments, type SvgDocument } from '@actograph/graph';
 import { mergeMetaIfSameObservation, observationGraphMetaPersistQueue } from 'src/utils/observation-meta-update';
 
 /**
@@ -282,7 +284,7 @@ export default defineComponent({
     });
 
     // Sélection courante du panneau d'export : contenu × format, indépendants.
-    type ExportFormat = 'png' | 'jpeg';
+    type ExportFormat = GraphExportFormat;
     type ExportContent = 'graph' | 'legend' | 'combined';
 
     const exportSelection = reactive<{
@@ -296,6 +298,7 @@ export default defineComponent({
     const exportFormatOptions: Array<{ label: string; value: ExportFormat }> = [
       { label: 'PNG', value: 'png' },
       { label: 'JPEG', value: 'jpeg' },
+      { label: 'SVG', value: 'svg' },
     ];
 
     // Format d'affichage du temps sur l'axe X / le survol du graphe.
@@ -458,13 +461,11 @@ export default defineComponent({
           persistObservationGraphMeta,
         );
       },
-      // Construit le canvas de légende (noms de catégories/observables + pastilles
-      // de couleur). Partagé par tous les exports impliquant la légende (légende
-      // seule ou combinée graphe + légende), pour garantir un contenu identique.
-      buildLegendCanvas: (): HTMLCanvasElement | null => {
-        const protocol = observation.protocol.sharedState.currentProtocol as any;
+      // Données communes aux légendes PNG, JPEG et SVG, seules ou combinées.
+      buildLegendRows: (): GraphLegendRow[] | null => {
+        const protocol = observation.protocol.sharedState.currentProtocol;
         const items = protocol?._items || [];
-        if (!Array.isArray(items) || items.length === 0) {
+        if (!protocol || !Array.isArray(items) || items.length === 0) {
           $q.notify({
             type: 'warning',
             message: t('graphUi.noLegendToExport'),
@@ -472,7 +473,7 @@ export default defineComponent({
           return null;
         }
 
-        const rows: Array<{ label: string; color: string; isCategory?: boolean }> = [];
+        const rows: GraphLegendRow[] = [];
         for (const category of items) {
           if (String(category?.type ?? '').toLowerCase() !== 'category') continue;
           if (!isCategoryVisible(category)) continue;
@@ -506,10 +507,12 @@ export default defineComponent({
           return null;
         }
 
-        const rowHeight = 28;
-        const padding = 18;
-        const swatch = 14;
-        const width = 900;
+        return rows;
+      },
+      buildLegendCanvas: (): HTMLCanvasElement | null => {
+        const rows = methods.buildLegendRows();
+        if (!rows) return null;
+        const { rowHeight, padding, swatch, width } = LEGEND_LAYOUT;
         const height = padding * 2 + rows.length * rowHeight;
         const legendCanvas = document.createElement('canvas');
         legendCanvas.width = width;
@@ -604,7 +607,7 @@ export default defineComponent({
         return combined;
       },
       // Export unique piloté par les sélecteurs du panneau : contenu (graphe /
-      // légende / combiné) × format (PNG / JPEG).
+      // légende / combiné) × format (PNG / JPEG / SVG).
       runExport: async () => {
         try {
           await methods.exportSelectedImage();
@@ -616,6 +619,24 @@ export default defineComponent({
       exportSelectedImage: async () => {
         const content = exportSelection.content;
         const format = exportSelection.format;
+        if (format === 'svg') {
+          let document: SvgDocument | null = null;
+          if (content !== 'legend') {
+            document = await graph.sharedState.pixiApp?.exportAsSvg() ?? null;
+            if (!document) {
+              $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
+              return;
+            }
+          }
+          if (content !== 'graph') {
+            const rows = methods.buildLegendRows();
+            if (!rows) return;
+            const legend = buildLegendSvg(rows);
+            document = document ? combineSvgDocuments(document, legend) : legend;
+          }
+          if (document) await methods.saveImageFile(document.markup, format, content);
+          return;
+        }
         const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
 
         let dataUrl: string | null = null;
@@ -641,15 +662,16 @@ export default defineComponent({
 
         await methods.saveImageFile(dataUrl, format, content);
       },
-      saveImageFile: async (dataUrl: string, format: 'png' | 'jpeg', kind: 'graph' | 'legend' | 'combined') => {
+      saveImageFile: async (dataUrl: string, format: ExportFormat, kind: 'graph' | 'legend' | 'combined') => {
         const observationName =
           observation.sharedState.currentObservation?.name || 'graph';
         const safeName = (observationName.replace(/[<>:"/\\|?*]/g, '-').trim() || 'graph').slice(0, 100);
-        const ext = format === 'jpeg' ? 'jpg' : 'png';
+        const file = graphExportFile(format, dataUrl);
+        const ext = file.extension;
         const kindSuffix = kind === 'combined' ? 'graph-legend' : kind;
         const fileName = `${safeName}-${kindSuffix}.${ext}`;
 
-        const electronResult = await methods.saveImageViaElectron(dataUrl, fileName, format);
+        const electronResult = await methods.saveImageViaElectron(file, fileName, format);
         if (electronResult === 'cancelled') {
           return;
         }
@@ -668,10 +690,15 @@ export default defineComponent({
 
         const link = document.createElement('a');
         link.download = fileName;
-        link.href = dataUrl;
+        const url = URL.createObjectURL(file.blob);
+        link.href = url;
         document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        try {
+          link.click();
+        } finally {
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
 
         const whatLabel =
           kind === 'graph' ? t('graphUi.exportContentGraph')
@@ -684,18 +711,14 @@ export default defineComponent({
         });
       },
       saveImageViaElectron: async (
-        dataUrl: string,
+        file: ReturnType<typeof graphExportFile>,
         fileName: string,
-        format: 'png' | 'jpeg',
+        format: ExportFormat,
       ): Promise<'saved' | 'cancelled' | 'unavailable'> => {
         if (!window.api?.showSaveDialog || !window.api.writeFile) {
           return 'unavailable';
         }
-        const base64 = payloadFromImageDataUrl(dataUrl);
-        if (!base64) {
-          return 'unavailable';
-        }
-        const ext = format === 'jpeg' ? 'jpg' : 'png';
+        const ext = file.extension;
         try {
           const dialogResult = await window.api.showSaveDialog({
             defaultPath: fileName,
@@ -709,8 +732,8 @@ export default defineComponent({
           }
           const writeResult = await window.api.writeFile(
             dialogResult.filePath,
-            base64,
-            { encoding: 'base64' },
+            file.data,
+            { encoding: file.encoding },
           );
           if (!writeResult.success) {
             $q.notify({

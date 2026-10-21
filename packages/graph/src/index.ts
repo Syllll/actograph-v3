@@ -56,4 +56,5 @@ export {
 export type { DrawError } from './engine/types';
 export { AxisLabelOverlay } from './layers/AxisLabelOverlay';
 export type { AxisLabelDescriptor, AxisLabelKind } from './layers/AxisLabelOverlay';
-
+export { createSvgDocument, combineSvgDocuments, escapeXml } from './utils/svg-document';
+export type { SvgDocument } from './utils/svg-document';

@@ -2,6 +2,34 @@ import { Application } from 'pixi.js';
 import { ExportPipeline } from '../engine/ExportPipeline';
 
 describe('ExportPipeline', () => {
+  it('restores viewport, canvas size and hover after SVG serialization fails', async () => {
+    const stage = {} as Application['stage'];
+    const app = { canvas: {}, stage, screen: { width: 800, height: 400 }, renderer: {} } as unknown as Application;
+    const savedViewport = { scale: 2, x: 20, y: 30 };
+    const setViewportTransform = jest.fn();
+    const setHoverSuppressed = jest.fn();
+    const resizeRenderer = jest.fn((width: number, height: number) => {
+      Object.assign(app.screen, { width, height });
+    });
+    const pipeline = new ExportPipeline({
+      app, isInteractive: () => true, getRequiredCanvasHeight: () => 900,
+      enqueueDrawBody: jest.fn().mockResolvedValue(undefined), setViewportTransform,
+      setHoverSuppressed, resizeRenderer, updateWorldBounds: jest.fn(),
+      recalculateFitViewport: jest.fn(), getWorldBounds: () => ({ width: 800, height: 900 }),
+      getZoomState: () => ({ scale: 2, minScale: 0.1, maxScale: 5 }),
+      getViewportTransform: () => savedViewport, presentCommittedScene: jest.fn(),
+    });
+    const capture = jest.fn(() => { throw new Error('Unsupported SVG object'); });
+    await expect(pipeline.capturePreparedScene(capture)).rejects.toThrow('Unsupported SVG object');
+    expect(capture).toHaveBeenCalledWith(stage, 800, 900);
+    expect(resizeRenderer.mock.calls).toEqual([[800, 900], [800, 400]]);
+    expect(setViewportTransform).toHaveBeenLastCalledWith(savedViewport, { emitZoom: false, skipRender: true });
+    expect(setHoverSuppressed).toHaveBeenLastCalledWith(false);
+    expect(app.screen.height).toBe(400);
+    await expect(pipeline.capturePreparedScene(() => '<svg/>')).resolves.toBe('<svg/>');
+    expect(app.screen.height).toBe(400);
+  });
+
   it.each(['draw', 'extract', 'restore'] as const)(
     'cancels safely when the graph is destroyed during %s',
     async (phase) => {

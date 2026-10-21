@@ -14,6 +14,8 @@ import { GraphEngine } from '../engine/GraphEngine';
 import type { DrawError } from '../engine/types';
 import { toDrawErrorMessage } from '../engine/types';
 import { ExportPipeline } from '../engine/ExportPipeline';
+import { exportSvgScene } from '../engine/svg-scene-exporter';
+import type { SvgDocument } from '../utils/svg-document';
 import { HoverLayer } from '../layers/HoverLayer';
 import { AxisLabelOverlay } from '../layers/AxisLabelOverlay';
 import { computePlotBoundsInOverlay } from '../utils/hover-bounds.utils';
@@ -1837,7 +1839,25 @@ export class PixiApp {
     format: 'png' | 'jpeg' = 'png',
     quality = 0.92,
   ): Promise<string | null> {
-    const task = this.exportQueue.then(() => this.runExportAsImage(format, quality));
+    return this.queueExport(() => this.exportPipeline.exportAsImage(format, quality));
+  }
+
+  public async exportAsSvg(): Promise<SvgDocument | null> {
+    return this.queueExport(() => this.exportPipeline.capturePreparedScene(
+      (stage) => {
+        // Match renderer.extract's local-bounds frame, including labels that
+        // extend outside the canvas (long Y labels and rotated X labels).
+        const bounds = stage.getLocalBounds();
+        return exportSvgScene(
+          stage, Math.max(1, Math.floor(bounds.width)), Math.max(1, Math.floor(bounds.height)),
+          new Set([this.hoverLayer.container]), { x: bounds.minX, y: bounds.minY },
+        );
+      },
+    ));
+  }
+
+  private queueExport<T>(capture: () => Promise<T | null>): Promise<T | null> {
+    const task = this.exportQueue.then(() => this.runExport(capture));
     this.exportQueue = task.then(
       () => undefined,
       () => undefined,
@@ -1845,17 +1865,14 @@ export class PixiApp {
     return task;
   }
 
-  private async runExportAsImage(
-    format: 'png' | 'jpeg',
-    quality: number,
-  ): Promise<string | null> {
+  private async runExport<T>(capture: () => Promise<T | null>): Promise<T | null> {
     if (!this.isEngineReady() || !this.getInitializedCanvas()) {
       return null;
     }
 
     this.exportInProgress = true;
     try {
-      return await this.exportPipeline.exportAsImage(format, quality);
+      return await capture();
     } finally {
       this.exportInProgress = false;
       if (this.isEngineReady()) this.consumePendingCanvasResizeAfterIdle();

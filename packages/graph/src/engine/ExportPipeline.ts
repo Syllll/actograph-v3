@@ -1,4 +1,4 @@
-import type { Application } from 'pixi.js';
+import type { Application, Container } from 'pixi.js';
 import { computeFitViewport } from '../utils/viewport.utils';
 import type { WorldBounds } from '../utils/viewport.utils';
 
@@ -28,6 +28,20 @@ export class ExportPipeline {
   constructor(private readonly deps: ExportPipelineDeps) {}
 
   async exportAsImage(format: 'png' | 'jpeg', quality = 0.92): Promise<string | null> {
+    return this.capturePreparedScene(async (stage) => {
+      return this.deps.app.renderer.extract.base64({
+        target: stage,
+        format: format === 'jpeg' ? 'jpg' : 'png',
+        quality,
+        clearColor: '#ffffff',
+      });
+    });
+  }
+
+  /** Shared export transaction: fit all categories, capture, restore even on error. */
+  async capturePreparedScene<T>(
+    capture: (stage: Container, width: number, height: number) => T | Promise<T>,
+  ): Promise<T | null> {
     const { app, isInteractive, setHoverSuppressed } = this.deps;
 
     const renderer = app.renderer;
@@ -49,7 +63,7 @@ export class ExportPipeline {
     const savedViewport = this.deps.getViewportTransform();
 
     let resizedForExport = false;
-    let image: string | null = null;
+    let image: T | null = null;
     try {
       if (isInteractive()) {
         if (exportHeight !== originalHeight) {
@@ -82,15 +96,7 @@ export class ExportPipeline {
       await this.deps.enqueueDrawBody();
       if (!isAvailable()) return null;
 
-      const extractFormat = format === 'jpeg' ? 'jpg' : 'png';
-      image = await renderer.extract.base64({
-        target: stage,
-        format: extractFormat,
-        quality,
-        // extract() does not inherit Application background; without this the
-        // PNG is transparent and JPEG composites on black (unreadable axes).
-        clearColor: '#ffffff',
-      });
+      image = await capture(stage, app.screen.width, app.screen.height);
     } catch (error) {
       if (!isAvailable()) return null;
       throw error;

@@ -2,6 +2,7 @@ import { Texture, TilingSprite } from 'pixi.js';
 import { BackgroundPatternEnum, normalizeGraphColor } from '@actograph/core';
 import { DEFAULT_GRAPH_COLOR } from '../lib/graph-defaults';
 import { createPatternCanvas } from './pattern-canvas';
+import { registerPatternDescriptor } from './pattern-descriptor';
 
 export function buildPatternCacheKey(pattern: BackgroundPatternEnum, color: string): string {
   const hexColor = normalizeGraphColor(color, DEFAULT_GRAPH_COLOR);
@@ -96,6 +97,7 @@ export class PatternTextureStore {
 
     tilingSprite.x = x;
     tilingSprite.y = y;
+    registerPatternDescriptor(tilingSprite, { pattern, color });
 
     return tilingSprite;
   }
