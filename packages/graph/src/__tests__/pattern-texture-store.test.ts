@@ -9,44 +9,10 @@ jest.mock('../gpu/pattern-canvas', () => ({
   createPatternCanvas: jest.fn(() => ({})),
 }));
 
-jest.mock('@actograph/core', () => ({
-  BackgroundPatternEnum: {
-    Solid: 'solid',
-    Horizontal: 'horizontal',
-    Vertical: 'vertical',
-    Diagonal: 'diagonal',
-    Grid: 'grid',
-    Dots: 'dots',
-  },
-  normalizeGraphColor: (color: string, fallback: string) => {
-    const trimmed = color.trim().toLowerCase();
-    if (trimmed === '#abc' || trimmed === 'abc') {
-      return '#aabbcc';
-    }
-    if (trimmed === '#ff0000' || trimmed === 'ff0000') {
-      return '#ff0000';
-    }
-    if (trimmed === '#00ff00' || trimmed === '00ff00') {
-      return '#00ff00';
-    }
-    if (trimmed === '#123456') {
-      return '#123456';
-    }
-    if (trimmed === '#abcdef' || trimmed === 'abcdef') {
-      return '#abcdef';
-    }
-    if (trimmed === '#111111') {
-      return '#111111';
-    }
-    if (trimmed === '#ff00ff') {
-      return '#ff00ff';
-    }
-    return fallback;
-  },
-}));
-
 import { BackgroundPatternEnum } from '@actograph/core';
 import { Texture } from 'pixi.js';
+import { getPatternDescriptor } from '../gpu/pattern-descriptor';
+import { DEFAULT_GRAPH_COLOR } from '../lib/graph-defaults';
 import {
   PatternTextureStore,
   buildPatternCacheKey,
@@ -81,6 +47,14 @@ describe('PatternTextureStore', () => {
     const store = createStore();
     expect(store.acquire(BackgroundPatternEnum.Solid, '#ffffff')).toBeNull();
   });
+
+  it.each([['abc', '#aabbcc'], ['invalid-color', DEFAULT_GRAPH_COLOR]])(
+    'exports the same normalized color as the canvas for %s', (color, expected) => {
+      const sprite = createStore().createTilingSprite(BackgroundPatternEnum.Grid, color, 0, 0, 80, 40);
+      expect(sprite).not.toBeNull();
+      expect(getPatternDescriptor(sprite!)).toEqual({ pattern: BackgroundPatternEnum.Grid, color: expected });
+    },
+  );
 
   it('caches textures per pattern and color', () => {
     const store = createStore();

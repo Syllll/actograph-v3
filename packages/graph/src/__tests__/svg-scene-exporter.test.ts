@@ -95,4 +95,16 @@ describe('SVG scene export with real Pixi Graphics', () => {
     stage.addChild(new Sprite(Texture.EMPTY));
     expect(() => exportSvgScene(stage, 100, 100)).toThrow('unsupported object');
   });
+
+  it.each([BackgroundPatternEnum.Grid, BackgroundPatternEnum.Dots])(
+    'preserves RGBA transparency in pattern %s', (pattern) => {
+      const stage = new Container();
+      const sprite = stage.addChild(new TilingSprite({ texture: Texture.EMPTY, width: 80, height: 40 }));
+      registerPatternDescriptor(sprite, { pattern, color: 'rgba(255, 0, 0, 0.25)' });
+      const { markup } = exportSvgScene(stage, 100, 100);
+      expect(markup).toContain('#ff0000');
+      expect(markup).toContain('fill-opacity="0.25"');
+      expect(markup).toContain('stroke-opacity="0.25"');
+    },
+  );
 });

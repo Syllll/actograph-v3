@@ -27,7 +27,9 @@ function exportText(text: Text): string {
 function exportPattern(sprite: TilingSprite, id: string): string {
   const descriptor = getPatternDescriptor(sprite);
   if (!descriptor) throw new Error('SVG export: unregistered pattern');
-  const color = Color.shared.setValue(descriptor.color).toHex();
+  const parsedColor = Color.shared.setValue(descriptor.color);
+  const color = parsedColor.toHex();
+  const opacity = svgNumber(parsedColor.alpha);
   const horizontal = '<path d="M0 4H16M0 12H16"/>';
   const vertical = '<path d="M4 0V16M12 0V16"/>';
   let tile: string;
@@ -47,7 +49,7 @@ function exportPattern(sprite: TilingSprite, id: string): string {
   const x = -sprite.anchor.x * sprite.width;
   const y = -sprite.anchor.y * sprite.height;
   return `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${PATTERN_SIZE}" height="${PATTERN_SIZE}" patternTransform="matrix(${transform})">`
-    + `<g fill="${dots ? color : 'none'}" stroke="${dots ? 'none' : color}" stroke-width="1">${tile}</g></pattern></defs>`
+    + `<g fill="${dots ? color : 'none'}" stroke="${dots ? 'none' : color}" fill-opacity="${opacity}" stroke-opacity="${opacity}" stroke-width="1">${tile}</g></pattern></defs>`
     + `<rect x="${svgNumber(x)}" y="${svgNumber(y)}" width="${svgNumber(sprite.width)}" height="${svgNumber(sprite.height)}" fill="url(#${id})"/>`;
 }
 

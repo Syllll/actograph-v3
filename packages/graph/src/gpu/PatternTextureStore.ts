@@ -84,7 +84,8 @@ export class PatternTextureStore {
       return null;
     }
 
-    const texture = this.acquire(pattern, color);
+    const normalizedColor = normalizeGraphColor(color, DEFAULT_GRAPH_COLOR);
+    const texture = this.acquire(pattern, normalizedColor);
     if (!texture) {
       return null;
     }
@@ -97,7 +98,7 @@ export class PatternTextureStore {
 
     tilingSprite.x = x;
     tilingSprite.y = y;
-    registerPatternDescriptor(tilingSprite, { pattern, color });
+    registerPatternDescriptor(tilingSprite, { pattern, color: normalizedColor });
 
     return tilingSprite;
   }
