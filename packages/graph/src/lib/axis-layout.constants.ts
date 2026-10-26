@@ -1,3 +1,5 @@
+import { normalizeAxisFontSize } from '../types/graph-render-options';
+
 /**
  * Hauteurs monde de l'axe Y. Partagées entre le layout des ticks et
  * le calcul de la bande verticale d'un arrière-plan ciblé.
@@ -17,3 +19,8 @@ export const FRIEZE_SEGMENT_STROKE = {
   color: '#969696',
   width: 1,
 } as const;
+
+/** Keep the historical row rhythm when the user enlarges or reduces Y text. */
+export function getYAxisObservableHeight(fontSize: number | undefined): number {
+  return Y_AXIS_LAYOUT.OBSERVABLE_HEIGHT * normalizeAxisFontSize(fontSize) / 12;
+}

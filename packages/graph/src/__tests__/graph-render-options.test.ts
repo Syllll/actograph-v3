@@ -1,6 +1,7 @@
 import { TimeDisplayFormatEnum } from '@actograph/core';
 import {
   DEFAULT_GRAPH_RENDER_OPTIONS,
+  normalizeGraphRenderOptions,
   hasGraphRenderOptionsChanged,
   isTimeFormatOnlyChange,
 } from '../types/graph-render-options';
@@ -84,5 +85,31 @@ describe('isTimeFormatOnlyChange', () => {
         { timeDisplayFormat: TimeDisplayFormatEnum.HourMinute, maskPauses: false },
       ),
     ).toBe(true);
+  });
+});
+
+
+describe('axis render options', () => {
+  it('preserves historical defaults and normalizes corrupt or out-of-range values', () => {
+    expect(normalizeGraphRenderOptions({})).toMatchObject({
+      xAxisFontSize: 12, yAxisFontSize: 12, xAxisLabelOrientation: 45,
+    });
+    expect(normalizeGraphRenderOptions({ xAxisFontSize: 100, yAxisFontSize: NaN,
+      xAxisLabelOrientation: 90 as never })).toMatchObject({
+      xAxisFontSize: 24, yAxisFontSize: 12, xAxisLabelOrientation: 45,
+    });
+    expect(normalizeGraphRenderOptions({ xAxisFontSize: 2, yAxisFontSize: 18.4,
+      xAxisLabelOrientation: 'auto' })).toMatchObject({
+      xAxisFontSize: 10, yAxisFontSize: 18, xAxisLabelOrientation: 'auto',
+    });
+  });
+
+  it.each([
+    { xAxisFontSize: 24 }, { yAxisFontSize: 20 }, { xAxisLabelOrientation: -45 as const },
+    { xAxisLabelOrientation: 'auto' as const },
+  ])('rebuilds axis geometry for %p, even together with a time-format change', (options) => {
+    expect(hasGraphRenderOptionsChanged({}, options)).toBe(true);
+    expect(isTimeFormatOnlyChange({}, { ...options,
+      timeDisplayFormat: TimeDisplayFormatEnum.Full })).toBe(false);
   });
 });

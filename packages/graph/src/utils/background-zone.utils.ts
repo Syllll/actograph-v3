@@ -1,7 +1,7 @@
 import { DisplayModeEnum, ProtocolItemTypeEnum } from '@actograph/core';
 import type { ProtocolItem } from './protocol.utils';
 import type { GraphContext } from '../engine/GraphContext';
-import { Y_AXIS_LAYOUT } from '../lib/axis-layout.constants';
+import { getYAxisObservableHeight } from '../lib/axis-layout.constants';
 
 export interface BackgroundZone {
   topY: number;
@@ -102,7 +102,7 @@ export function getBackgroundZoneForCategory(
     return emptyZone(fullZoneTopY);
   }
 
-  const rowHalfHeight = Y_AXIS_LAYOUT.OBSERVABLE_HEIGHT / 2;
+  const rowHalfHeight = getYAxisObservableHeight(ctx.graphRenderOptions.yAxisFontSize) / 2;
   return clampVerticalBand(
     Math.min(...supportYPositions) - rowHalfHeight,
     Math.max(...supportYPositions) + rowHalfHeight,

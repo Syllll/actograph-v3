@@ -46,6 +46,14 @@ export function createObservationMetaPersistQueue() {
   };
 
   return {
+    async whenIdle(observationId: string | number): Promise<void> {
+      const key = bucketKey(observationId);
+      let chain: Promise<void> | undefined;
+      do {
+        chain = buckets.get(key)?.chain;
+        await chain;
+      } while (chain !== buckets.get(key)?.chain);
+    },
     hasPending(observationId: string | number): boolean {
       return buckets.get(bucketKey(observationId))?.pending != null;
     },

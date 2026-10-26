@@ -65,11 +65,12 @@
           dense
           icon="mdi-tune"
           color="grey-8"
+          :aria-label="$t('graphUi.axesTitle')"
         >
-          <q-tooltip>{{ $t('graphUi.axisScaleTooltip') }}</q-tooltip>
+          <q-tooltip>{{ $t('graphUi.axesTitle') }}</q-tooltip>
           <q-menu anchor="bottom right" self="top right" :offset="[0, 8]">
             <div class="q-pa-md" style="min-width: 260px">
-              <div class="text-weight-medium q-mb-sm">{{ $t('graphUi.axisScaleTitle') }}</div>
+              <div class="text-weight-medium q-mb-sm">{{ $t('graphUi.axesTitle') }}</div>
 
               <div class="text-caption text-grey-7">{{ $t('graphUi.axisScaleXLabel') }}</div>
               <q-slider
@@ -99,14 +100,39 @@
                 @update:model-value="methods.onAxisStretchYChange"
               />
 
+              <q-separator class="q-mb-md" />
+              <div class="row justify-between text-caption text-grey-7">
+                <span>{{ $t('graphUi.xAxisFontSize') }}</span><span>{{ axisLabels.xAxisFontSize }} px</span>
+              </div>
+              <q-slider
+                :model-value="axisLabels.xAxisFontSize" :min="10" :max="24" :step="1"
+                dense label :label-value="`${axisLabels.xAxisFontSize} px`"
+                :aria-label="$t('graphUi.xAxisFontSize')"
+                @update:model-value="methods.setAxisLabels({ xAxisFontSize: $event })"
+              />
+              <div class="row justify-between text-caption text-grey-7">
+                <span>{{ $t('graphUi.yAxisFontSize') }}</span><span>{{ axisLabels.yAxisFontSize }} px</span>
+              </div>
+              <q-slider
+                :model-value="axisLabels.yAxisFontSize" :min="10" :max="24" :step="1"
+                dense label :label-value="`${axisLabels.yAxisFontSize} px`"
+                :aria-label="$t('graphUi.yAxisFontSize')"
+                @update:model-value="methods.setAxisLabels({ yAxisFontSize: $event })"
+              />
+              <q-select
+                class="q-my-md" dense outlined emit-value map-options options-dense
+                :model-value="axisLabels.xAxisLabelOrientation" :options="axisOrientationOptions"
+                :label="$t('graphUi.xAxisOrientation')"
+                @update:model-value="methods.setAxisLabels({ xAxisLabelOrientation: $event })"
+              />
               <q-btn
                 flat
                 dense
                 no-caps
                 color="primary"
-                :label="$t('graphUi.axisScaleReset')"
+                :label="$t('graphUi.axesReset')"
                 class="full-width"
-                @click="methods.resetAxisStretch"
+                @click="methods.resetAxes"
               />
             </div>
           </q-menu>
@@ -149,6 +175,12 @@
                   @click="exportSelection.format = opt.value"
                 />
               </div>
+              <q-checkbox
+                v-if="exportSelection.format === 'png'"
+                v-model="exportSelection.transparentBackground"
+                :label="$t('graphUi.transparentBackground')"
+                dense class="q-mb-md"
+              />
               <q-btn
                 color="primary"
                 no-caps
@@ -240,8 +272,12 @@ import {
 import StudentWatermark from '@components/student-watermark/Index.vue';
 import ReadingsAfterLastStopBanner from 'src/pages/userspace/_components/ReadingsAfterLastStopBanner.vue';
 import { graphExportFile, type GraphExportFormat } from 'src/utils/graph-export-file';
-import { buildLegendSvg, LEGEND_LAYOUT, type GraphLegendRow } from 'src/utils/graph-legend-export';
+import { buildLegendSvg, type GraphLegendRow } from 'src/utils/graph-legend-export';
 import { combineSvgDocuments, type SvgDocument } from '@actograph/graph';
+import { graphRenderOptionsFromMeta } from 'src/utils/graph-render-meta';
+import { normalizeGraphRenderOptions, type XAxisLabelOrientation } from '@actograph/graph/types/graph-render-options';
+import { readPngTransparentBackground, persistPngTransparentBackground } from 'src/utils/graph-export-preferences';
+import { buildGraphLegendCanvas, combineGraphLegendCanvas } from 'src/utils/graph-raster-export';
 import { mergeMetaIfSameObservation, observationGraphMetaPersistQueue } from 'src/utils/observation-meta-update';
 
 /**
@@ -290,10 +326,14 @@ export default defineComponent({
     const exportSelection = reactive<{
       content: ExportContent;
       format: ExportFormat;
+      transparentBackground: boolean;
     }>({
       content: 'graph',
       format: 'png',
+      transparentBackground: readPngTransparentBackground(),
     });
+
+    watch(() => exportSelection.transparentBackground, persistPngTransparentBackground);
 
     const exportFormatOptions: Array<{ label: string; value: ExportFormat }> = [
       { label: 'PNG', value: 'png' },
@@ -313,6 +353,14 @@ export default defineComponent({
     // timeDisplayFormat ci-dessus : restauré à l'ouverture, sauvegardé à
     // chaque changement de réglage.
     const axisStretch = reactive({ x: 1, y: 1 });
+    const axisLabels = reactive({ xAxisFontSize: 12, yAxisFontSize: 12,
+      xAxisLabelOrientation: 45 as XAxisLabelOrientation });
+    const axisOrientationOptions = computed(() => [
+      { label: t('graphUi.orientationAuto'), value: 'auto' },
+      { label: t('graphUi.orientationHorizontal'), value: 0 },
+      { label: t('graphUi.orientationRight'), value: 45 },
+      { label: t('graphUi.orientationLeft'), value: -45 },
+    ]);
 
     const timeFormatOptions = computed(() => {
       void locale.value;
@@ -435,8 +483,29 @@ export default defineComponent({
         if (value === null) return;
         methods.setAxisStretch({ y: value });
       },
-      resetAxisStretch: () => {
+      resetAxes: () => {
         methods.setAxisStretch({ x: 1, y: 1 });
+        methods.setAxisLabels({ xAxisFontSize: 12, yAxisFontSize: 12, xAxisLabelOrientation: 45 });
+      },
+      setAxisLabels: (next: {
+        xAxisFontSize?: number | null; yAxisFontSize?: number | null;
+        xAxisLabelOrientation?: XAxisLabelOrientation;
+      }) => {
+        const normalized = normalizeGraphRenderOptions({ ...axisLabels,
+          ...Object.fromEntries(Object.entries(next).filter(([, value]) => value != null)),
+        });
+        Object.assign(axisLabels, { xAxisFontSize: normalized.xAxisFontSize,
+          yAxisFontSize: normalized.yAxisFontSize, xAxisLabelOrientation: normalized.xAxisLabelOrientation });
+        graph.setAxisLabelOptions(axisLabels);
+        const current = observation.sharedState.currentObservation;
+        if (!current?.id) return;
+        const patch = { graphXAxisFontSize: axisLabels.xAxisFontSize,
+          graphYAxisFontSize: axisLabels.yAxisFontSize,
+          graphXAxisLabelOrientation: axisLabels.xAxisLabelOrientation };
+        observation.sharedState.currentObservation = {
+          ...current, meta: { ...(current.meta ?? {}), ...patch },
+        } as typeof observation.sharedState.currentObservation;
+        persistGraphMetaQueue.schedule(current.id, patch, persistObservationGraphMeta);
       },
       setAxisStretch: (next: { x?: number; y?: number }) => {
         axisStretch.x = next.x ?? axisStretch.x;
@@ -509,65 +578,27 @@ export default defineComponent({
 
         return rows;
       },
-      buildLegendCanvas: (): HTMLCanvasElement | null => {
+      buildLegendCanvas: (transparent = false): HTMLCanvasElement | null => {
         const rows = methods.buildLegendRows();
         if (!rows) return null;
-        const { rowHeight, padding, swatch, width } = LEGEND_LAYOUT;
-        const height = padding * 2 + rows.length * rowHeight;
-        const legendCanvas = document.createElement('canvas');
-        legendCanvas.width = width;
-        legendCanvas.height = height;
-        const ctx = legendCanvas.getContext('2d');
-        if (!ctx) {
-          $q.notify({
-            type: 'negative',
-            message: t('graphUi.legendImageFailed'),
-          });
-          return null;
-        }
-
-        // Fond blanc opaque : indispensable pour le JPEG (pas de transparence),
-        // et cohérent avec le rendu PNG existant.
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        ctx.strokeStyle = '#d1d5db';
-        ctx.strokeRect(0, 0, width, height);
-        ctx.font = '14px Arial';
-        ctx.fillStyle = '#111827';
-
-        rows.forEach((row, index) => {
-          const y = padding + index * rowHeight;
-          if (row.isCategory) {
-            ctx.font = 'bold 14px Arial';
-            ctx.fillStyle = '#111827';
-            ctx.fillText(row.label, padding, y + 18);
-            ctx.font = '14px Arial';
-          } else {
-            ctx.fillStyle = row.color;
-            ctx.fillRect(padding + 8, y + 6, swatch, swatch);
-            ctx.strokeStyle = '#111827';
-            ctx.strokeRect(padding + 8, y + 6, swatch, swatch);
-            ctx.fillStyle = '#111827';
-            ctx.fillText(row.label, padding + 8 + swatch + 12, y + 18);
-          }
-        });
-
-        return legendCanvas;
+        const canvas = buildGraphLegendCanvas(rows, transparent);
+        if (!canvas) $q.notify({ type: 'negative', message: t('graphUi.legendImageFailed') });
+        return canvas;
       },
       // Construit un canvas combinant le graphe (à gauche) et la légende (à
       // droite). Le graphe est capturé en PNG (sans pertes) comme source quel
       // que soit le format final, pour éviter d'empiler les artefacts JPEG.
-      buildCombinedCanvas: async (): Promise<HTMLCanvasElement | null> => {
+      buildCombinedCanvas: async (transparent = false): Promise<HTMLCanvasElement | null> => {
         if (!graph.sharedState.pixiApp) {
           $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
           return null;
         }
-        const graphDataUrl = await graph.sharedState.pixiApp.exportAsImage('png');
+        const graphDataUrl = await graph.sharedState.pixiApp.exportAsImage('png', 0.92, { transparentBackground: transparent });
         if (!graphDataUrl) {
           $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
           return null;
         }
-        const legendCanvas = methods.buildLegendCanvas();
+        const legendCanvas = methods.buildLegendCanvas(transparent);
         if (!legendCanvas) return null;
 
         const graphImg = await new Promise<HTMLImageElement | null>((resolve) => {
@@ -581,30 +612,9 @@ export default defineComponent({
           return null;
         }
 
-        const padding = 16;
-        const gap = 24;
-        const graphW = graphImg.naturalWidth;
-        const graphH = graphImg.naturalHeight;
-        const legendW = legendCanvas.width;
-        const legendH = legendCanvas.height;
-        const width = padding * 2 + graphW + gap + legendW;
-        const height = padding * 2 + Math.max(graphH, legendH);
-
-        const combined = document.createElement('canvas');
-        combined.width = width;
-        combined.height = height;
-        const ctx = combined.getContext('2d');
-        if (!ctx) {
-          $q.notify({ type: 'negative', message: t('graphUi.legendImageFailed') });
-          return null;
-        }
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
-        // Graphe à gauche, légende à droite (alignée en haut).
-        ctx.drawImage(graphImg, padding, padding);
-        ctx.drawImage(legendCanvas, padding + graphW + gap, padding);
-        return combined;
+        const canvas = combineGraphLegendCanvas(graphImg, legendCanvas, transparent);
+        if (!canvas) $q.notify({ type: 'negative', message: t('graphUi.legendImageFailed') });
+        return canvas;
       },
       // Export unique piloté par les sélecteurs du panneau : contenu (graphe /
       // légende / combiné) × format (PNG / JPEG / SVG).
@@ -619,6 +629,7 @@ export default defineComponent({
       exportSelectedImage: async () => {
         const content = exportSelection.content;
         const format = exportSelection.format;
+        const transparent = format === 'png' && exportSelection.transparentBackground;
         if (format === 'svg') {
           let document: SvgDocument | null = null;
           if (content !== 'legend') {
@@ -645,17 +656,17 @@ export default defineComponent({
             $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
             return;
           }
-          dataUrl = await graph.sharedState.pixiApp.exportAsImage(format, 0.92);
+          dataUrl = await graph.sharedState.pixiApp.exportAsImage(format, 0.92, { transparentBackground: transparent });
           if (!dataUrl) {
             $q.notify({ type: 'warning', message: t('graphUi.exportNotReady') });
             return;
           }
         } else if (content === 'legend') {
-          const canvas = methods.buildLegendCanvas();
+          const canvas = methods.buildLegendCanvas(transparent);
           if (!canvas) return;
           dataUrl = canvas.toDataURL(mimeType, 0.92);
         } else {
-          const canvas = await methods.buildCombinedCanvas();
+          const canvas = await methods.buildCombinedCanvas(transparent);
           if (!canvas) return;
           dataUrl = canvas.toDataURL(mimeType, 0.92);
         }
@@ -722,6 +733,7 @@ export default defineComponent({
         try {
           const dialogResult = await window.api.showSaveDialog({
             defaultPath: fileName,
+            exportContext: 'graph',
             filters: [
               { name: format.toUpperCase(), extensions: [ext] },
               { name: t('dialogs.createObservation.allFiles'), extensions: ['*'] },
@@ -841,6 +853,18 @@ export default defineComponent({
       { immediate: true }
     );
 
+    watch(
+      () => observation.sharedState.currentObservation,
+      (current) => {
+        if (!current) return;
+        const options = graphRenderOptionsFromMeta(current.meta);
+        Object.assign(axisLabels, { xAxisFontSize: options.xAxisFontSize,
+          yAxisFontSize: options.yAxisFontSize, xAxisLabelOrientation: options.xAxisLabelOrientation });
+        graph.setAxisLabelOptions(axisLabels);
+      },
+      { immediate: true },
+    );
+
     const graphControlsDisabled = computed(
       () => !graph.sharedState.ready || graph.sharedState.loading,
     );
@@ -872,6 +896,8 @@ export default defineComponent({
       timeDisplayFormat,
       timeFormatOptions,
       axisStretch,
+      axisLabels,
+      axisOrientationOptions,
       methods,
       customization,
       props,

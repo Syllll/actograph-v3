@@ -19,6 +19,8 @@ jest.mock('quasar', () => ({ useQuasar: () => ({ notify: mockNotify }) }));
 jest.mock('vue-router', () => ({ useRouter: () => ({ push: mockRouterPush }) }));
 jest.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 jest.mock('src/composables/use-observation', () => ({ useObservation: () => mockObservation }));
+jest.mock('src/composables/use-observation/use-readings', () => ({ waitForPendingReadingSynchronization: jest.fn() }));
+jest.mock('@services/observations/index.service', () => ({ observationService: {} }));
 jest.mock('src/composables/use-cloud', () => ({ useCloud: () => ({}) }));
 jest.mock('@lib-improba/utils/dialog.utils', () => ({ createDialog: () => mockCreateDialog() }));
 jest.mock('@services/observations/export.service', () => ({ exportService: {} }));

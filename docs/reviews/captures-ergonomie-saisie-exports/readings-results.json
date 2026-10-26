@@ -1,0 +1,42 @@
+{
+  "picker": {
+    "left": 94.25,
+    "right": 446.25,
+    "columns": 2,
+    "background": "rgb(255, 255, 255)",
+    "menuOpacity": "1"
+  },
+  "geometry": [
+    {
+      "width": 24,
+      "height": 24,
+      "x": 308.453125,
+      "y": 154.921875,
+      "source": "id-3"
+    }
+  ],
+  "before": 500,
+  "insertion": {
+    "length": 501,
+    "selected": {
+      "name": "Déplacement",
+      "description": "Notes conservées",
+      "type": "data",
+      "dateTime": "2026-10-20T08:00:02.123Z",
+      "tempId": "b888ee79-c7bb-4c97-ba6f-44b4e5b5dd7e"
+    },
+    "focused": "reading-time-input readings-inline-control"
+  },
+  "assignedIdFocus": {
+    "sameElement": true,
+    "beforeKey": "tempId-b888ee79-c7bb-4c97-ba6f-44b4e5b5dd7e",
+    "afterKey": "tempId-b888ee79-c7bb-4c97-ba6f-44b4e5b5dd7e"
+  },
+  "headerFocus": "reading-time-input readings-inline-control",
+  "scroll": {
+    "height": 538,
+    "scrollHeight": 15016,
+    "scrollTop": 14478,
+    "spacer": "467.078px"
+  }
+}

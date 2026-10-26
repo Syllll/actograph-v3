@@ -18,6 +18,7 @@ declare global {
       showItemInFolder: (filePath: string) => Promise<{ success: boolean; error?: string }>;
       showSaveDialog: (options: {
         defaultPath?: string;
+        exportContext?: 'chronicle' | 'graph';
         filters?: { name: string; extensions: string[] }[];
       }) => Promise<{ canceled: boolean; filePath?: string }>;
       writeFile: (

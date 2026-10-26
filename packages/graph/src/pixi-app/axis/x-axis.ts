@@ -22,7 +22,10 @@ import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphic
 import { worldTickLengthForStretch } from '../../utils/tick-stretch.utils';
 import { AxisStrokeCommitState } from '../../utils/axis-stroke-commit';
 import type { IGraphRenderOptions } from '../../types/graph-render-options';
-import { DEFAULT_GRAPH_RENDER_OPTIONS } from '../../types/graph-render-options';
+import { DEFAULT_GRAPH_RENDER_OPTIONS, normalizeGraphRenderOptions } from '../../types/graph-render-options';
+
+import { measureAxisTextWidth } from '../../utils/text-metrics.utils';
+import { rotatedLabelBounds } from '../../utils/axis-label-layout.utils';
 
 const timeSteps = {
   '10ms': 10,
@@ -217,7 +220,8 @@ export class xAxis extends BaseGroup {
    * chaud sans recharger l'observation.
    */
   public setGraphRenderOptions(options: IGraphRenderOptions): void {
-    this.graphRenderOptions = { ...DEFAULT_GRAPH_RENDER_OPTIONS, ...options };
+    this.graphRenderOptions = normalizeGraphRenderOptions(options);
+    this.styleOptions.label.fontSize = this.graphRenderOptions.xAxisFontSize!;
     if (this.ticks.length > 0) {
       this.ticks = this.ticks.map((tick) => ({
         ...tick,
@@ -247,19 +251,7 @@ export class xAxis extends BaseGroup {
     fontFamily: string,
     fontStyle?: string,
   ): number {
-    if (typeof document === 'undefined') {
-      return text.length * fontSize * 0.6;
-    }
-    if (!xAxis.measureCanvas) {
-      xAxis.measureCanvas = document.createElement('canvas');
-    }
-    const ctx = xAxis.measureCanvas.getContext('2d');
-    if (!ctx) {
-      return text.length * fontSize * 0.6;
-    }
-    const stylePrefix = fontStyle ? `${fontStyle} ` : '';
-    ctx.font = `${stylePrefix}${fontSize}px ${fontFamily}`;
-    return ctx.measureText(text).width;
+    return measureAxisTextWidth(text, fontSize, fontFamily, fontStyle);
   }
 
   private measureLabelWidth(text: string): number {
@@ -271,12 +263,9 @@ export class xAxis extends BaseGroup {
   }
 
   /**
-   * Espace vertical nécessaire sous la ligne de l'axe X pour contenir
-   * entièrement les labels de tick, inclinés à 45°. `getRequiredHeight()` de
-   * YAxis ne réservait qu'une marge fixe de 20px, insuffisante dès que les
-   * labels dépassent quelques caractères (ex. format "Full" : 24 caractères)
-   * — d'où le rognage observé en export PNG/JPEG quand le canvas est
-   * redimensionné exactement à la hauteur "requise".
+   * Space in screen pixels below X labels, including both inclinations.
+   * Auto reserves the inclined case before collision filtering so resizing
+   * cannot create a feedback loop between orientation and the available space.
    */
   public getRequiredBottomMargin(): number {
     if (this.ticks.length === 0) return 0;
@@ -289,19 +278,17 @@ export class xAxis extends BaseGroup {
     }
     if (maxLabelWidth === 0) return 0;
 
-    const angleRad = (45 * Math.PI) / 180;
+    const orientation = this.graphRenderOptions.xAxisLabelOrientation ?? 45;
+    const angle = orientation === 'auto' ? 45 : orientation;
     const fontSize = this.styleOptions.label.fontSize;
-    // Étendue verticale de la boîte de texte pivotée à 45° depuis son point
-    // d'ancrage (proche du coin haut-gauche, voir anchor.set(-0.05, 0) dans draw()).
-    const rotatedExtent = maxLabelWidth * Math.sin(angleRad) + fontSize * Math.cos(angleRad);
+    const bounds = rotatedLabelBounds(maxLabelWidth, fontSize * 1.2, angle,
+      angle < 0 ? 1 : angle === 0 ? 0.5 : 0);
+    const rotatedExtent = bounds.bottom;
     const labelOffsetFromAxis = 12; // doit rester aligné avec `label.y = xAxisStart.y + 12` dans draw()
     const safetyPadding = 8;
 
     return Math.ceil(labelOffsetFromAxis + rotatedExtent + safetyPadding);
   }
-
-  /** Canvas hors-DOM réutilisé pour mesurer les labels (measureText), partagé entre instances. */
-  private static measureCanvas: HTMLCanvasElement | null = null;
 
   private computeLabelForTick(dateTime: Date): string {
     const format = this.graphRenderOptions.timeDisplayFormat ?? TimeDisplayFormatEnum.Auto;
@@ -562,8 +549,11 @@ export class xAxis extends BaseGroup {
         text: tick.label,
         worldX: tick.pos,
         worldY: xAxisStart.y + labelOffsetFromAxis,
-        angleDeg: 45,
-        anchorX: -0.05,
+        angleDeg: this.graphRenderOptions.xAxisLabelOrientation === 'auto'
+          ? 45 : this.graphRenderOptions.xAxisLabelOrientation ?? 45,
+        anchorX: this.graphRenderOptions.xAxisLabelOrientation === -45
+          ? 1 : this.graphRenderOptions.xAxisLabelOrientation === 0 ? 0.5 : 0,
+        automaticOrientation: this.graphRenderOptions.xAxisLabelOrientation === 'auto',
         anchorY: 0,
         fontSize: this.styleOptions.label.fontSize,
         fontFamily: this.styleOptions.label.fontFamily,

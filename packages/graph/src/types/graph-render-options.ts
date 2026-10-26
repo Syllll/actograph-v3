@@ -1,54 +1,61 @@
-/**
- * Graph-level render options (not per-category protocol preferences).
- */
+/** Graph-level render options, separate from category protocol preferences. */
 import { TimeDisplayFormatEnum } from '@actograph/core';
 
+export type XAxisLabelOrientation = 'auto' | 0 | 45 | -45;
+
 export interface IGraphRenderOptions {
-  /** When true, pauses are hidden: no overlay is drawn on pause intervals. When false (default), a fully opaque overlay reveals them. */
   maskPauses?: boolean;
-  /** Format d'affichage du temps sur l'axe X et le label de survol. 'auto' (défaut) reproduit le comportement historique adaptatif. */
   timeDisplayFormat?: TimeDisplayFormatEnum;
-  /** Calendar label timezone; omitted or invalid keeps legacy device-local formatting. */
   timeZone?: string;
+  /** Screen pixels, independent of viewport zoom. */
+  xAxisFontSize?: number;
+  yAxisFontSize?: number;
+  xAxisLabelOrientation?: XAxisLabelOrientation;
 }
 
-export const DEFAULT_GRAPH_RENDER_OPTIONS: Required<Pick<IGraphRenderOptions, 'maskPauses' | 'timeDisplayFormat'>> &
-  Pick<IGraphRenderOptions, 'timeZone'> = {
+export const DEFAULT_GRAPH_RENDER_OPTIONS = {
   maskPauses: false,
   timeDisplayFormat: TimeDisplayFormatEnum.Auto,
+  xAxisFontSize: 12,
+  yAxisFontSize: 12,
+  xAxisLabelOrientation: 45 as XAxisLabelOrientation,
 };
 
-function resolvedMaskPauses(options: IGraphRenderOptions): boolean {
-  return options.maskPauses ?? DEFAULT_GRAPH_RENDER_OPTIONS.maskPauses;
+/** Invalid legacy metadata falls back to the historical 12px/+45° rendering. */
+export function normalizeAxisFontSize(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(10, Math.min(24, Math.round(value)))
+    : 12;
 }
 
-function resolvedTimeDisplayFormat(options: IGraphRenderOptions): TimeDisplayFormatEnum {
-  return options.timeDisplayFormat ?? DEFAULT_GRAPH_RENDER_OPTIONS.timeDisplayFormat;
+export function normalizeXAxisLabelOrientation(value: unknown): XAxisLabelOrientation {
+  return value === 'auto' || value === 0 || value === 45 || value === -45 ? value : 45;
 }
 
-/** True when format or pause-mask actually differ (omitted fields use defaults). */
-export function hasGraphRenderOptionsChanged(
-  previous: IGraphRenderOptions,
-  next: IGraphRenderOptions,
-): boolean {
-  return (
-    resolvedTimeDisplayFormat(previous) !== resolvedTimeDisplayFormat(next) ||
-    resolvedMaskPauses(previous) !== resolvedMaskPauses(next) ||
-    previous.timeZone !== next.timeZone
-  );
+export function normalizeGraphRenderOptions(options: IGraphRenderOptions = {}): IGraphRenderOptions {
+  return {
+    ...options,
+    maskPauses: options.maskPauses ?? false,
+    timeDisplayFormat: Object.values(TimeDisplayFormatEnum).includes(options.timeDisplayFormat as TimeDisplayFormatEnum)
+      ? options.timeDisplayFormat : TimeDisplayFormatEnum.Auto,
+    xAxisFontSize: normalizeAxisFontSize(options.xAxisFontSize),
+    yAxisFontSize: normalizeAxisFontSize(options.yAxisFontSize),
+    xAxisLabelOrientation: normalizeXAxisLabelOrientation(options.xAxisLabelOrientation),
+  };
 }
 
-/**
- * True when the only meaningful change is the time display format.
- * A pause-mask change still needs a world rebuild (pause overlay geometry).
- */
-export function isTimeFormatOnlyChange(
-  previous: IGraphRenderOptions,
-  next: IGraphRenderOptions,
-): boolean {
-  const formatChanged =
-    resolvedTimeDisplayFormat(previous) !== resolvedTimeDisplayFormat(next) ||
-    previous.timeZone !== next.timeZone;
-  const maskPausesChanged = resolvedMaskPauses(previous) !== resolvedMaskPauses(next);
-  return formatChanged && !maskPausesChanged;
+export function hasGraphRenderOptionsChanged(previous: IGraphRenderOptions, next: IGraphRenderOptions): boolean {
+  const a = normalizeGraphRenderOptions(previous);
+  const b = normalizeGraphRenderOptions(next);
+  return a.timeDisplayFormat !== b.timeDisplayFormat || a.maskPauses !== b.maskPauses ||
+    a.timeZone !== b.timeZone || a.xAxisFontSize !== b.xAxisFontSize ||
+    a.yAxisFontSize !== b.yAxisFontSize || a.xAxisLabelOrientation !== b.xAxisLabelOrientation;
+}
+
+export function isTimeFormatOnlyChange(previous: IGraphRenderOptions, next: IGraphRenderOptions): boolean {
+  const a = normalizeGraphRenderOptions(previous);
+  const b = normalizeGraphRenderOptions(next);
+  return (a.timeDisplayFormat !== b.timeDisplayFormat || a.timeZone !== b.timeZone) &&
+    a.maskPauses === b.maskPauses && a.xAxisFontSize === b.xAxisFontSize &&
+    a.yAxisFontSize === b.yAxisFontSize && a.xAxisLabelOrientation === b.xAxisLabelOrientation;
 }

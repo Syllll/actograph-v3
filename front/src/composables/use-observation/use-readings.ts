@@ -12,6 +12,7 @@ import { useI18n } from 'vue-i18n';
 import { readingService } from '@services/observations/reading.service';
 import { v4 as uuidv4 } from 'uuid';
 import { sameReading } from '@utils/reading-identity';
+import { isObservationMutationBlocked } from '@utils/observation-mutation-guard';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
 import {
   chronometerDateTimeFromElapsed,
@@ -41,6 +42,13 @@ const sharedState = reactive({
 
 // Ensure we do not run multiple synchronization loops or overlapping syncs
 let isSyncInFlight = false;
+const synchronizationWaiters = new Set<() => void>();
+
+/** Wait for the current request, including already queued synchronization passes. */
+export const waitForPendingReadingSynchronization = (): Promise<void> => {
+  if (!isSyncInFlight) return Promise.resolve();
+  return new Promise((resolve) => synchronizationWaiters.add(resolve));
+};
 let syncPending = false;
 let hasStartedSyncLoop = false;
 let syncTimeoutId: number | null = null;
@@ -155,13 +163,14 @@ export const useReadings = (options: {
      * @param observation - The observation whose readings should be loaded
      * @returns Promise that resolves when readings are loaded
      */
-    loadReadings: async (observation: IObservation) => {
-      sharedState.selectedReading = null;
+    loadReadings: async (observation: IObservation, shouldApply: () => boolean = () => true) => {
+      if (!shouldApply()) return;
       const readings: IReading[] = [];
       let offset = 0;
       let totalCount = Number.POSITIVE_INFINITY;
 
       while (offset < totalCount) {
+        if (!shouldApply()) return;
         const page = await readingService.findWithPagination(
           {
             offset,
@@ -173,6 +182,7 @@ export const useReadings = (options: {
             observationId: observation.id,
           },
         );
+        if (!shouldApply()) return;
         readings.push(...page.results);
         totalCount = page.count;
         if (page.results.length === 0) {
@@ -197,6 +207,8 @@ export const useReadings = (options: {
             : undefined,
       }));
       
+      if (!shouldApply()) return;
+      sharedState.selectedReading = null;
       // Opening a legacy chronicle must not trigger a write for every row.
       stateless.initialReadings = readingsWithDates.map(cloneReadingSnapshot);
       sharedState.currentReadings = readingsWithDates;
@@ -216,6 +228,7 @@ export const useReadings = (options: {
      * @returns Promise that resolves when synchronization is complete
      */
     synchronizeReadings: async () => {
+      if (isObservationMutationBlocked(options.sharedStateFromObservation.currentObservation?.id)) return;
       if (isSyncInFlight) {
         syncPending = true;
         return;
@@ -432,6 +445,10 @@ export const useReadings = (options: {
           syncPending = false;
           void methods.synchronizeReadings();
         }
+        if (!isSyncInFlight) {
+          for (const resolve of synchronizationWaiters) resolve();
+          synchronizationWaiters.clear();
+        }
       }
     },
     
@@ -545,11 +562,14 @@ export const useReadings = (options: {
       applyChronologicalOrder();
     },
 
-    /** The table's single add action: copy the selection, otherwise the last row. */
-    addManualReading: () => {
-      const source = sharedState.currentReadings.find(
-        (reading) => sameReading(reading, sharedState.selectedReading),
-      ) ?? sharedState.currentReadings[sharedState.currentReadings.length - 1];
+    /** Copy an explicit row, otherwise the selection or the last reading. */
+    addManualReading: (explicitSource?: IReading) => {
+      const source = explicitSource
+        ? sharedState.currentReadings.find((reading) => sameReading(reading, explicitSource))
+        : sharedState.currentReadings.find((reading) => sameReading(reading, sharedState.selectedReading))
+          ?? sharedState.currentReadings[sharedState.currentReadings.length - 1];
+      // Never silently copy another row if a local source disappeared meanwhile.
+      if (explicitSource && !source) throw new RangeError('Reading source is no longer available');
       const followsManualBoundary = observationSharedState.currentObservation?.meta?.entryMode === 'manual'
         && source && source.type !== ReadingTypeEnum.DATA;
       const reading = source
@@ -982,7 +1002,8 @@ export const useReadings = (options: {
     // Appliquer les relevés reçus d'une autre fenêtre. On conserve les `id`
     // déjà connus localement (mapping tempId -> id) pour rendre l'assignation
     // d'id monotone et résister aux races de réplication.
-    windowSync.on('state:readings', (payload: IReading[]) => {
+    windowSync.on('state:readings', (payload: IReading[], message) => {
+      if (isObservationMutationBlocked(message?.obsId ?? observationSharedState.currentObservation?.id)) return;
       if (!Array.isArray(payload)) return;
       // Un suiveur est désormais aligné sur l'état partagé : il peut diffuser
       // ses futures mutations locales.

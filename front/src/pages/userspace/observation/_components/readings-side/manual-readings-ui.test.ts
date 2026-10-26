@@ -340,56 +340,144 @@ describe('fixed timestamp table integration', () => {
   });
 });
 
-describe('manual add toolbar integration', () => {
-  it('has one accessible add button which emits the manual action without opening a dialog', async () => {
-    const wrapper = mount(ReadingsToolbar, { global: readingsUiGlobal });
-    wrappers.push(wrapper);
-    const button = wrapper.find('button[data-icon="add"]');
-    expect(button.attributes('aria-label')).toBeTruthy();
+describe('manual add table integration', () => {
+  it('keeps the main add action next to the label header and out of the toolbar', async () => {
+    const wrapper = mountTable([reading('one')]);
+    const button = wrapper.find('thead button[data-icon="add"]');
+    expect(button.attributes('aria-label')).toBe('readingsUi.addReadingTooltip');
     await button.trigger('click');
-    expect(wrapper.emitted('add-reading')).toHaveLength(1);
-    expect(Dialog.create).not.toHaveBeenCalled();
+    expect(wrapper.emitted('add-reading')).toEqual([[undefined]]);
+    const toolbar = mount(ReadingsToolbar, { global: readingsUiGlobal });
+    wrappers.push(toolbar);
+    expect(toolbar.find('button[data-icon="add"]').exists()).toBe(false);
   });
 
-  it('keeps a disabled add button inactive', async () => {
-    const wrapper = mount(ReadingsToolbar, { props: { isAddDisabled: true }, global: readingsUiGlobal });
-    wrappers.push(wrapper);
-    const button = wrapper.find('button[data-icon="add"]');
-    expect(button.attributes('disabled')).toBeDefined();
-    await button.trigger('click');
-    expect(wrapper.emitted('add-reading')).toBeUndefined();
+  it('emits the explicit source from the interline button without selecting another row', async () => {
+    const wrapper = mountTable([reading('one'), reading('two', 1000)]);
+    await tableRows(wrapper)[1].trigger('click');
+    mockObservation.readings.methods.selectReading.mockClear();
+    await tableRows(wrapper)[0].trigger('mouseenter');
+    expect(tableRows(wrapper)[0].classes()).toContain('reading-row--insertion-active');
+    await tableRows(wrapper)[0].find('.readings-insertion-add').trigger('click');
+    expect(wrapper.emitted('add-reading')?.[0][0]).toMatchObject({ tempId: 'one' });
+    expect(mockObservation.readings.methods.selectReading).not.toHaveBeenCalled();
+    expect(tableRows(wrapper)).toHaveLength(2);
   });
 
-  it('clears a search filter before adding so the selected new reading is shown and scrolled into view', async () => {
-    const first = reading('first');
-    mockObservation.readings.sharedState.currentReadings = [first];
+  it('offers local insertion to keyboard and touch without adding hidden tab stops', async () => {
+    const wrapper = mountTable([reading('one'), reading('two', 1000)]);
+    expect(tableRows(wrapper)[0].find('.readings-insertion-add').attributes('tabindex')).toBe('-1');
+    await tableRows(wrapper)[0].trigger('focusin');
+    expect(tableRows(wrapper)[0].find('.readings-insertion-add').attributes('tabindex')).toBe('0');
+    await tableRows(wrapper)[0].trigger('keydown', { key: 'Insert' });
+    expect(wrapper.emitted('add-reading')?.[0][0]).toMatchObject({ tempId: 'one' });
+    await tableRows(wrapper)[1].trigger('pointerdown', { pointerType: 'touch' });
+    await tableRows(wrapper)[0].trigger('focusout');
+    expect(tableRows(wrapper)[1].classes()).toContain('reading-row--insertion-active');
+  });
+
+  it('keeps a search filter and offers an explicit reveal action for a hidden addition', async () => {
+    mockObservation.readings.sharedState.currentReadings = [reading('first')];
     mockObservation.readings.methods.addManualReading.mockImplementation(() => {
       const added = reading('new');
       mockObservation.readings.sharedState.currentReadings.push(added);
       mockObservation.readings.sharedState.selectedReading = added;
+      return added;
     });
     const wrapper = mount(ReadingsSide, { global: readingsUiGlobal });
     wrappers.push(wrapper);
     await wrapper.find('.readings-search__field').setValue('no matching rows');
-    expect(tableRows(wrapper)).toHaveLength(0);
-    await wrapper.find('button[data-icon="add"]').trigger('click');
+    await wrapper.find('thead button[data-icon="add"]').trigger('click');
     await settle();
     expect(mockObservation.readings.methods.addManualReading).toHaveBeenCalledTimes(1);
-    expect(mockObservation.readings.methods.addReading).not.toHaveBeenCalled();
-    expect((wrapper.find('.readings-search__field').element as HTMLInputElement).value).toBe('');
-    expect(tableRows(wrapper)).toHaveLength(2);
-    expect(tableRows(wrapper)[1].attributes('aria-selected')).toBe('true');
-    expect(scrollToReading).toHaveBeenLastCalledWith(1, 'center');
-    expect(Dialog.create).not.toHaveBeenCalled();
+    expect((wrapper.find('.readings-search__field').element as HTMLInputElement).value).toBe('no matching rows');
+    expect(tableRows(wrapper)).toHaveLength(0);
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'readingsUi.addHiddenByFilter', actions: [expect.objectContaining({ label: 'readingsUi.clearFilter', handler: expect.any(Function) })],
+    }));
+  });
+
+  it('keeps invalid drafts and prevents copying an older saved timestamp', async () => {
+    mockObservation.readings.sharedState.currentReadings = [reading('one')];
+    const wrapper = mount(ReadingsSide, { global: readingsUiGlobal });
+    wrappers.push(wrapper);
+    await wrapper.find('.reading-time-input').setValue('31/02/2026 12:00:00.000');
+    await wrapper.find('thead button[data-icon="add"]').trigger('click');
+    await settle();
+    expect(mockObservation.readings.methods.addManualReading).not.toHaveBeenCalled();
+    expect((wrapper.find('.reading-time-input').element as HTMLInputElement).value).toBe('31/02/2026 12:00:00.000');
+    expect(mockNotify).toHaveBeenCalledWith(expect.objectContaining({ message: 'readingsUi.addInvalidTimestamp' }));
+  });
+
+  it('commits a retained valid draft even when a filter has hidden its source row', async () => {
+    const wrapper = mountTable([reading('one'), reading('two', 1000)]);
+    await tableRows(wrapper)[0].find('.reading-time-input').setValue('21/10/2026 11:12:13.456');
+    await wrapper.setProps({ readings: [mockObservation.readings.sharedState.currentReadings[1]] });
+    expect(wrapper.vm.prepareForAdd()).toBe(true);
+    expect(mockObservation.readings.sharedState.currentReadings.find((row) => row.tempId === 'one')?.dateTime.toISOString())
+      .toBe('2026-10-21T09:12:13.456Z');
+  });
+
+  it('does not scroll when clicking a row or when the server assigns an ID', async () => {
+    const wrapper = mountTable([reading('one'), reading('two', 1000)]);
+    await settle();
+    scrollToReading.mockClear();
+    await tableRows(wrapper)[1].trigger('click');
+    await settle();
+    mockObservation.readings.sharedState.currentReadings[1].id = 88;
+    await settle();
+    expect(scrollToReading).not.toHaveBeenCalled();
   });
 });
 
 // Exercise Quasar itself as well as the controlled virtualization contract above.
 describe('real Quasar table integration', () => {
-  it.each([false, true])('reveals and relocates an equal-time manual copy in a 240-row virtual table with descending=%p', async (descending) => {
+  it('keeps a resized terminal workspace outside virtualized reading data and cleans its observer', async () => {
+    jest.useFakeTimers();
+    const OriginalResizeObserver = global.ResizeObserver;
+    let onResize: () => void = () => undefined;
+    const disconnect = jest.fn();
+    global.ResizeObserver = jest.fn().mockImplementation((callback: () => void) => {
+      onResize = callback;
+      return { observe: jest.fn(), unobserve: jest.fn(), disconnect };
+    });
+    try {
+      mockObservation.readings.sharedState.currentReadings = Array.from({ length: 500 }, (_, index) => reading(`row-${index}`, index * 1000));
+      const wrapper = mount(ReadingsTable, {
+        props: { readings: mockObservation.readings.sharedState.currentReadings },
+        global: {
+          ...readingsUiGlobal, directives: {},
+          plugins: [{ install: (app: App) => Reflect.apply(Quasar.install, Quasar, [app, { config: {} }, { req: { headers: {} } }]) }],
+          stubs: { ...readingsUiGlobal.stubs, QTable: false },
+        },
+      });
+      await settle();
+      jest.advanceTimersByTime(100);
+      await settle();
+      const middle = wrapper.get('.q-table__middle').element;
+      Object.defineProperty(middle, 'clientHeight', { configurable: true, value: 600 });
+      jest.spyOn(wrapper.get('thead').element, 'getBoundingClientRect').mockReturnValue({ height: 48 } as DOMRect);
+      jest.spyOn(tableRows(wrapper)[0].element, 'getBoundingClientRect').mockReturnValue({ height: 28 } as DOMRect);
+      onResize();
+      await settle();
+      expect(wrapper.get('.readings-workspace-spacer td').attributes('style')).toContain('height: 524px');
+      expect(wrapper.findComponent(QTable).vm.filteredSortedRows).toHaveLength(500);
+      expect(wrapper.get('.readings-workspace-spacer').attributes('data-reading-key')).toBeUndefined();
+      Object.defineProperty(middle, 'clientHeight', { configurable: true, value: 300 });
+      onResize();
+      await settle();
+      expect(wrapper.get('.readings-workspace-spacer td').attributes('style')).toContain('height: 224px');
+      wrapper.unmount();
+      expect(disconnect).toHaveBeenCalled();
+    } finally {
+      global.ResizeObserver = OriginalResizeObserver;
+    }
+  });
+
+  it.each([false, true])('reveals and relocates an equal-time manual copy in a 500-row virtual table with descending=%p', async (descending) => {
     jest.useFakeTimers();
     mockObservation.isChronometerMode.value = true;
-    const rowCount = 240;
+    const rowCount = 500;
     const sourceIndex = 70;
     mockObservation.readings.sharedState.currentReadings = Array.from(
       { length: rowCount }, (_, index) => reading(`existing-${index}`, index * 1000),
@@ -430,7 +518,7 @@ describe('real Quasar table integration', () => {
     expect(selected.classes()).toContain('reading-row--selected');
 
     // Edit the actual virtualized input so the row moves beyond the last event.
-    await selected.find('input').setValue('000j 00:05:00.000');
+    await selected.find('input').setValue('000j 00:10:00.000');
     await selected.find('input').trigger('blur');
     await settle();
     jest.advanceTimersByTime(100);
@@ -441,7 +529,7 @@ describe('real Quasar table integration', () => {
     const relocated = wrapper.find('tr[aria-selected="true"]');
     expect(relocated.exists()).toBe(true);
     expect((relocated.find('.readings-observable-input').element as HTMLInputElement).value).toBe('Observation inserted');
-    expect((relocated.find('input').element as HTMLInputElement).value).toBe('000j 00:05:00.000');
+    expect((relocated.find('input').element as HTMLInputElement).value).toBe('000j 00:10:00.000');
   });
 });
 

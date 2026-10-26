@@ -84,20 +84,6 @@
       <div class="row q-gutter-sm items-center col readings-toolbar__actions">
         <q-btn
           color="primary"
-          icon="add"
-          :aria-label="$t('readingsUi.addReadingTooltip')"
-          :disable="isAddDisabled"
-          @click="$emit('add-reading')"
-          flat
-          round
-          dense
-          class="readings-toolbar__action"
-        >
-          <q-tooltip>{{ $t('readingsUi.addReadingTooltip') }}</q-tooltip>
-        </q-btn>
-
-        <q-btn
-          color="primary"
           icon="mdi-comment-text-outline"
           @click="$emit('add-comment')"
           flat
@@ -152,10 +138,6 @@ export default defineComponent({
       type: Number,
       default: 0,
     },
-    isAddDisabled: {
-      type: Boolean,
-      default: false,
-    },
     canActivateChronometerMode: {
       type: Boolean,
       default: false,
@@ -164,7 +146,6 @@ export default defineComponent({
   
   emits: [
     'update:search',
-    'add-reading',
     'add-comment',
     'activate-chronometer-mode',
     'auto-correct-readings',

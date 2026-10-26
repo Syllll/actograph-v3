@@ -8,7 +8,9 @@ import { parseProtocolItems, ProtocolItem } from '../../utils/protocol.utils';
 import { safeMoveTo, safeLineTo, safeStrokeLine } from '../../utils/safe-graphics.utils';
 import { worldTickLengthForStretch } from '../../utils/tick-stretch.utils';
 import { AxisStrokeCommitState } from '../../utils/axis-stroke-commit';
-import { Y_AXIS_LAYOUT } from '../../lib/axis-layout.constants';
+import { normalizeAxisFontSize } from '../../types/graph-render-options';
+import { measureAxisTextWidth } from '../../utils/text-metrics.utils';
+import { Y_AXIS_LAYOUT, getYAxisObservableHeight } from '../../lib/axis-layout.constants';
 
 // ============================================================================
 // Constants
@@ -22,7 +24,6 @@ const AXIS_CONFIG = {
 } as const;
 
 const TICK_CONFIG = {
-  OBSERVABLE_HEIGHT: Y_AXIS_LAYOUT.OBSERVABLE_HEIGHT,
   FRIEZE_HEIGHT: Y_AXIS_LAYOUT.FRIEZE_HEIGHT,
   CATEGORY_SPACING: Y_AXIS_LAYOUT.CATEGORY_SPACING,
   TICK_LENGTH: 10,
@@ -33,7 +34,6 @@ const TICK_CONFIG = {
 
 const LABEL_CONFIG = {
   OFFSET: 12,
-  FONT_SIZE: 12,
   FONT_FAMILY: 'Arial',
   COLOR: 'black',
 } as const;
@@ -82,6 +82,11 @@ export class YAxis extends BaseGroup {
    */
   private axisStretch = { x: 1, y: 1 };
   private readonly strokeCommit = new AxisStrokeCommitState();
+  private fontSize = 12;
+
+  public setFontSize(value: number | undefined): void {
+    this.fontSize = normalizeAxisFontSize(value);
+  }
 
   constructor(app: Application) {
     super(app);
@@ -324,17 +329,13 @@ export class YAxis extends BaseGroup {
    */
   private computeAxisOffsetX(ticks: ITick[]): number {
     const screenWidth = this.app.screen.width;
-    const longestLabelLength = ticks.reduce((max, tick) => {
-      return Math.max(max, tick.label.length);
-    }, 0);
-
-    const estimatedLabelWidth = Math.min(
-      longestLabelLength * LABEL_CONFIG.FONT_SIZE * 0.58,
-      screenWidth * 0.35
-    );
+    const measuredLabelWidth = ticks.reduce((max, tick) => Math.max(max,
+      measureAxisTextWidth(tick.label, this.fontSize, LABEL_CONFIG.FONT_FAMILY,
+        tick.isFrieze ? 'bold' : undefined)), 0);
+    const estimatedLabelWidth = Math.min(measuredLabelWidth, screenWidth * 0.35);
 
     const minOffset = 80;
-    const maxOffset = AXIS_CONFIG.OFFSET_X;
+    const maxOffset = Math.max(AXIS_CONFIG.OFFSET_X, screenWidth * 0.5);
     const estimatedOffset = Math.ceil(
       estimatedLabelWidth + LABEL_CONFIG.OFFSET + TICK_CONFIG.TICK_LENGTH + 6
     );
@@ -437,7 +438,7 @@ export class YAxis extends BaseGroup {
         angleDeg: 0,
         anchorX: 1,
         anchorY: 0.5,
-        fontSize: LABEL_CONFIG.FONT_SIZE,
+        fontSize: this.fontSize,
         fontFamily: LABEL_CONFIG.FONT_FAMILY,
         fill: LABEL_CONFIG.COLOR,
         fontWeight: tick.isFrieze ? 'bold' : 'normal',
@@ -494,7 +495,7 @@ export class YAxis extends BaseGroup {
       } else {
         const reversedChildren = [...category.children].reverse();
         for (const observable of reversedChildren) {
-          axisLength += TICK_CONFIG.OBSERVABLE_HEIGHT;
+          axisLength += getYAxisObservableHeight(this.fontSize);
           ticks.push({
             label: observable.name,
             pos: axisLength,

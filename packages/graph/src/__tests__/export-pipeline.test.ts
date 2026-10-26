@@ -186,3 +186,30 @@ describe('ExportPipeline', () => {
     ]);
   });
 });
+
+it.each(['webgl', 'webgpu'] as const)('keeps transparent PNG semantic colors with %s readback', async (rendererKind) => {
+  const rawPixels = new Uint8ClampedArray(rendererKind === 'webgl' ? [0, 0, 51, 51] : [0, 0, 255, 51]);
+  const image = { data: new Uint8ClampedArray(4) };
+  const context = { createImageData: () => image, putImageData: jest.fn() };
+  const canvas = { getContext: () => context, toDataURL: () => JSON.stringify([...image.data]) };
+  const originalDocument = globalThis.document;
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => canvas } });
+  try {
+    const renderer = { ...(rendererKind === 'webgl' ? { gl: {} } : {}),
+      extract: { pixels: jest.fn(() => ({ pixels: rawPixels, width: 1, height: 1 })) } };
+    const app = { canvas: {}, stage: {}, screen: { width: 1, height: 1 }, renderer } as unknown as Application;
+    const pipeline = new ExportPipeline({
+      app, isInteractive: () => false, getRequiredCanvasHeight: () => 1,
+      enqueueDrawBody: jest.fn().mockResolvedValue(undefined), setViewportTransform: jest.fn(),
+      setHoverSuppressed: jest.fn(), resizeRenderer: jest.fn(), updateWorldBounds: jest.fn(),
+      recalculateFitViewport: jest.fn(), getWorldBounds: () => ({ width: 1, height: 1 }),
+      getZoomState: () => ({ scale: 1, minScale: 0.1, maxScale: 5 }),
+      getViewportTransform: () => ({ scale: 1, x: 0, y: 0 }), presentCommittedScene: jest.fn(),
+    });
+    await expect(pipeline.exportAsImage('png', 0.92, { transparentBackground: true }))
+      .resolves.toBe('[0,0,255,51]');
+  } finally {
+    if (originalDocument === undefined) delete (globalThis as { document?: Document }).document;
+    else Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument });
+  }
+});

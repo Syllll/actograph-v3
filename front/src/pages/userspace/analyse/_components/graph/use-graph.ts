@@ -5,6 +5,7 @@ import { DEFAULT_GRAPH_RENDER_OPTIONS, TimeDisplayFormatEnum } from '@actograph/
 import { useObservation } from 'src/composables/use-observation';
 import { useAppResume } from 'src/composables/use-app-resume';
 import { isElementVisible } from 'src/utils/dom.utils';
+import { graphRenderOptionsFromMeta } from 'src/utils/graph-render-meta';
 import { getObservationTimeZone } from '@actograph/core';
 import { shouldCommitGraphInit } from 'src/utils/graph-init-ownership';
 import { IObservation, IReading } from '@services/observations/interface';
@@ -117,6 +118,7 @@ export const useGraph = (options?: {
       const normalizedReadings = normalizeReadingsForGraph(readings as IReading[]);
       pixiApp.setGraphRenderOptions({
         ...sharedState.graphRenderOptions,
+        ...graphRenderOptionsFromMeta(obs.meta),
         timeZone: getObservationTimeZone(obs.meta),
       }, { redraw: false });
       if (generation !== redrawGeneration || sharedState.pixiApp !== pixiApp) return;
@@ -199,6 +201,14 @@ export const useGraph = (options?: {
     if (previous === format) return;
     if (observation.sharedState.loading) return;
     if (sharedState.ready && sharedState.pixiApp) {
+      sharedState.pixiApp.setGraphRenderOptions(sharedState.graphRenderOptions);
+    }
+  };
+
+  const setAxisLabelOptions = (next: Pick<IGraphRenderOptions,
+    'xAxisFontSize' | 'yAxisFontSize' | 'xAxisLabelOrientation'>): void => {
+    sharedState.graphRenderOptions = { ...sharedState.graphRenderOptions, ...next };
+    if (!observation.sharedState.loading && sharedState.ready && sharedState.pixiApp) {
       sharedState.pixiApp.setGraphRenderOptions(sharedState.graphRenderOptions);
     }
   };
@@ -394,6 +404,7 @@ export const useGraph = (options?: {
     sharedState,
     onCanvasResize,
     setTimeDisplayFormat,
+    setAxisLabelOptions,
     setAxisStretch,
     /** Redessin complet immédiat (setData + draw). */
     requestRedraw,

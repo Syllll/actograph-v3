@@ -1,0 +1,350 @@
+{
+  "axes": [
+    {
+      "angle": 0,
+      "stats": {
+        "width": 1000,
+        "height": 326,
+        "transparent": 314606,
+        "opaque": 3453,
+        "red": 1264,
+        "colored": 1264,
+        "corner": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "labels": [
+        {
+          "text": "26.10.2026 09:00:00:000",
+          "angle": 0,
+          "size": 24
+        },
+        {
+          "text": "26.10.2026 09:03:00:000",
+          "angle": 0,
+          "size": 24
+        },
+        {
+          "text": "(JJ.MM.AAAA hh:mn:sec:ms)",
+          "angle": 0,
+          "size": 11
+        },
+        {
+          "text": "Activité à libellé long",
+          "angle": 0,
+          "size": 24
+        }
+      ],
+      "svg": {
+        "width": 1000,
+        "height": 326
+      }
+    },
+    {
+      "angle": 45,
+      "stats": {
+        "width": 1000,
+        "height": 507,
+        "transparent": 492834,
+        "opaque": 3487,
+        "red": 1264,
+        "colored": 1264,
+        "corner": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "labels": [
+        {
+          "text": "26.10.2026 09:00:00:000",
+          "angle": 45,
+          "size": 24
+        },
+        {
+          "text": "(JJ.MM.AAAA hh:mn:sec:ms)",
+          "angle": 0,
+          "size": 11
+        },
+        {
+          "text": "Activité à libellé long",
+          "angle": 0,
+          "size": 24
+        },
+        {
+          "text": "26.10.2026 09:02:00:000",
+          "angle": 45,
+          "size": 24
+        },
+        {
+          "text": "26.10.2026 09:04:00:000",
+          "angle": 45,
+          "size": 24
+        }
+      ],
+      "svg": {
+        "width": 1000,
+        "height": 507
+      }
+    },
+    {
+      "angle": -45,
+      "stats": {
+        "width": 1000,
+        "height": 507,
+        "transparent": 492872,
+        "opaque": 3487,
+        "red": 1264,
+        "colored": 1264,
+        "corner": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "labels": [
+        {
+          "text": "26.10.2026 09:00:00:000",
+          "angle": -45,
+          "size": 24
+        },
+        {
+          "text": "(JJ.MM.AAAA hh:mn:sec:ms)",
+          "angle": 0,
+          "size": 11
+        },
+        {
+          "text": "Activité à libellé long",
+          "angle": 0,
+          "size": 24
+        },
+        {
+          "text": "26.10.2026 09:02:00:000",
+          "angle": -45,
+          "size": 24
+        },
+        {
+          "text": "26.10.2026 09:04:00:000",
+          "angle": -45,
+          "size": 24
+        }
+      ],
+      "svg": {
+        "width": 1000,
+        "height": 507
+      }
+    },
+    {
+      "angle": "auto",
+      "stats": {
+        "width": 1000,
+        "height": 507,
+        "transparent": 492834,
+        "opaque": 3487,
+        "red": 1264,
+        "colored": 1264,
+        "corner": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "labels": [
+        {
+          "text": "26.10.2026 09:00:00:000",
+          "angle": 45,
+          "size": 24
+        },
+        {
+          "text": "(JJ.MM.AAAA hh:mn:sec:ms)",
+          "angle": 0,
+          "size": 11
+        },
+        {
+          "text": "Activité à libellé long",
+          "angle": 0,
+          "size": 24
+        },
+        {
+          "text": "26.10.2026 09:02:00:000",
+          "angle": 45,
+          "size": 24
+        },
+        {
+          "text": "26.10.2026 09:04:00:000",
+          "angle": 45,
+          "size": 24
+        }
+      ],
+      "svg": {
+        "width": 1000,
+        "height": 507
+      }
+    }
+  ],
+  "legendAlpha": {
+    "width": 900,
+    "height": 92,
+    "transparent": 79841,
+    "opaque": 319,
+    "red": 144,
+    "colored": 480,
+    "corner": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "combinedAlpha": {
+    "width": 1956,
+    "height": 539,
+    "transparent": 1037159,
+    "opaque": 3806,
+    "red": 1408,
+    "colored": 1744,
+    "corner": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "graphWhite": {
+    "width": 1000,
+    "height": 507,
+    "transparent": 0,
+    "opaque": 507000,
+    "red": 1264,
+    "colored": 1264,
+    "corner": [
+      255,
+      255,
+      255,
+      255
+    ]
+  },
+  "graphJpeg": {
+    "width": 1000,
+    "height": 507,
+    "transparent": 0,
+    "opaque": 507000,
+    "red": 1260,
+    "colored": 8003,
+    "corner": [
+      255,
+      255,
+      255,
+      255
+    ]
+  },
+  "legendWhite": {
+    "width": 900,
+    "height": 92,
+    "transparent": 0,
+    "opaque": 82800,
+    "red": 144,
+    "colored": 2898,
+    "corner": [
+      255,
+      255,
+      255,
+      255
+    ]
+  },
+  "combinedWhite": {
+    "width": 1956,
+    "height": 539,
+    "transparent": 0,
+    "opaque": 1054284,
+    "red": 1408,
+    "colored": 4162,
+    "corner": [
+      255,
+      255,
+      255,
+      255
+    ]
+  },
+  "autoHorizontal": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "semanticBackground": {
+    "blueFill": 40764,
+    "whitePause": 4725,
+    "colors": [
+      [
+        "0,0,0,0",
+        249291
+      ],
+      [
+        "0,0,255,51",
+        40764
+      ],
+      [
+        "136,136,136,255",
+        4725
+      ],
+      [
+        "0,0,0,255",
+        1488
+      ],
+      [
+        "255,0,0,255",
+        1138
+      ],
+      [
+        "0,0,51,255",
+        627
+      ],
+      [
+        "0,0,0,94",
+        44
+      ],
+      [
+        "0,0,0,182",
+        38
+      ],
+      [
+        "0,0,0,125",
+        38
+      ],
+      [
+        "0,0,0,121",
+        37
+      ],
+      [
+        "0,0,0,160",
+        35
+      ],
+      [
+        "0,0,0,36",
+        34
+      ],
+      [
+        "0,0,0,118",
+        31
+      ],
+      [
+        "0,0,0,98",
+        31
+      ],
+      [
+        "0,0,0,155",
+        31
+      ]
+    ]
+  }
+}

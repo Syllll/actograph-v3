@@ -12,6 +12,7 @@ import {
 } from '@services/observations/protocol.service';
 import { reactive, watch } from 'vue';
 import { useWindowSync } from '../use-window-sync';
+import { isObservationMutationBlocked } from '@utils/observation-mutation-guard';
 
 /**
  * Shared reactive state for protocol management
@@ -46,13 +47,20 @@ export const useProtocol = (options: { sharedStateFromObservation: any }) => {
      * @param observation - The observation to load the protocol for
      * @returns The loaded protocol
      */
-    loadProtocol: async (observation: IObservation) => {
+    loadProtocol: async (observation: IObservation, shouldApply?: () => boolean) => {
+      const canApply = () => !isObservationMutationBlocked(observation.id)
+        && (shouldApply
+          ? shouldApply()
+          : sharedStateFromObservation.currentObservation?.id === observation.id);
+      if (!canApply()) return;
       const protocol = await protocolService.findOneFromObservationId(
         observation.id,
         {
           includes: [],
         }
       );
+
+      if (!canApply()) return;
 
       // Update the current protocol in the shared state
       // Ensure reactivity by creating a new object reference
@@ -239,7 +247,8 @@ export const useProtocol = (options: { sharedStateFromObservation: any }) => {
       { deep: true }
     );
 
-    windowSync.on('state:protocol', (payload: IProtocol | null) => {
+    windowSync.on('state:protocol', (payload: IProtocol | null, message) => {
+      if (isObservationMutationBlocked(message?.obsId ?? sharedStateFromObservation.currentObservation?.id)) return;
       if (!windowSync.isOwner) followerProtocolHydrated = true;
       windowSync.applyRemote(() => {
         sharedState.currentProtocol = payload

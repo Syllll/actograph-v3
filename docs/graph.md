@@ -48,11 +48,19 @@ PixiJS est fixé à **8.18.1** dans `front`, `mobile` et `packages/graph`. `grap
 
 `PixiApp.exportAsSvg()` retourne `Promise<SvgDocument | null>`, avec `markup`, `width` et `height`. L'export partage la file d'attente et la transaction `ExportPipeline.capturePreparedScene()` des images : adaptation au graphe complet, suppression du survol, capture puis restauration du zoom et de la taille, même en cas d'erreur. Le cadrage utilise les limites locales de la scène, comme l'extraction PNG, pour conserver les libellés longs et les graduations tournées. Les tailles SVG sont exprimées en unités CSS, indépendamment du facteur HiDPI.
 
-Les lignes de légende sont communes aux trois formats. `graph-legend-export.ts` produit la légende vectorielle, `combineSvgDocuments()` assemble graphe et légende. Electron enregistre le SVG en UTF-8 avec son dialogue existant ; le navigateur télécharge un `Blob` `image/svg+xml`. Aucun changement du pont IPC n'est nécessaire.
+Les lignes de légende sont communes aux trois formats. `graph-legend-export.ts` produit la légende vectorielle, `combineSvgDocuments()` assemble graphe et légende. Electron enregistre le SVG en UTF-8 avec son dialogue existant ; le navigateur télécharge un `Blob` `image/svg+xml`. Le dialogue d'enregistrement utilise le contexte `graph`, qui retient le dernier dossier choisi sur cette machine pour tous les formats du graphe, séparément des exports de chronique.
 
 L'exporteur refuse explicitement les objets ou effets non pris en charge, plutôt que de produire un dessin incomplet. Les filtres GPU, sprites arbitraires et textures intégrées aux instructions `Graphics` ne font pas partie du rendu actuel du graphe et ne sont pas convertis.
 
 Les tests couvrent l'assemblage, les caractères XML/Unicode, les motifs, les buffers masqués, les transformations, les textes et la restauration après erreur. Les vérifications visuelles ont été réalisées dans Chrome et avec un rendu Inkscape du SVG combiné, sur des séries continues/discrètes, frises, arrière-plans, pauses, catégories masquées et étirements des axes.
+
+Le menu d'export propose **Fond transparent** pour le PNG seulement. Le choix, désactivé par défaut, est mémorisé localement et s'applique au graphe seul, à la légende seule ou à leur combinaison. Seul le fond général est retiré : fonds de catégories, motifs et pauses restent représentés. Le JPEG reste sur fond blanc et le SVG conserve son comportement actuel. L'extraction WebGL transparente remet les composantes RGB sous forme non prémultipliée avant l'encodage pour conserver les teintes semi-transparentes.
+
+## Réglages des axes
+
+Le menu **Axes** conserve les commandes d'étirement et ajoute des tailles de texte indépendantes pour X et Y, de 10 à 24 px. L'orientation des libellés X peut être **Auto**, **0°**, **+45°** ou **-45°**. Auto choisit l'horizontale quand les libellés tiennent sans collision, sinon +45°. Le placement, l'espacement et les marges prennent en compte la taille et les deux sens d'inclinaison.
+
+Ces réglages sont conservés dans les métadonnées de la chronique, partagés avec le mini-graphe et appliqués aux exports. Les chroniques sans ces valeurs gardent les réglages historiques, 12 px et +45°. La normalisation est commune au moteur et à l'interface ; les écritures des métadonnées restent fusionnées et ordonnées par chronique.
 
 ## Classe PixiApp
 
@@ -74,7 +82,7 @@ L'application PixiJS est configurée avec :
 - **Background** : Fond blanc
 - **Dimensions** : contrôlées manuellement (pas de `resizeTo` Pixi)
 - **View** : Canvas HTML fourni
-- **preserveDrawingBuffer** : `false` (export via `renderer.extract.base64`, pas `canvas.toDataURL`)
+- **preserveDrawingBuffer** : `false` (export via `renderer.extract`, avec extraction des pixels et encodage Canvas 2D pour le PNG transparent)
 
 ### Formatage selon le mode
 
@@ -140,7 +148,7 @@ stage
 4. **`refreshAfterResume()`** (mobile, `webglcontextrestored`) : garde `isInitialized` + `!contextRestoring` → clear hover → marque `needsPatternTextureRefresh` + `needsLabelTextureRefresh` + `needsInitialFit` → réapplication de `lastObservation` → `resizeFromCanvas({ skipRender: true })` → `scheduleDraw('resume')`. Le cache motifs (`PatternTextureStore` par instance) est vidé au début de `executeDrawBody` seulement s'il y a des sprites motifs ou après une perte WebGL (`forcePatternTextureClear`).
 5. **`refreshGraph()` desktop** (visibility resume) : retry si canvas pas encore visible → `prepareForResumeRefresh()` → `waitForIdle()` → `resizeFromCanvas({ skipRender: true })` → `redrawFromObservation()`.
 6. **`webglcontextlost`** : `preventDefault()` + `contextRestoring` + clear hover + `needsPatternTextureRefresh` + `needsLabelTextureRefresh` + `forcePatternTextureClear` + `DirtyRegistry.invalidateAll('full')` + `markAllMidDraw` + `wasDegenerateCanvas`. **`webglcontextrestored`** : double rAF puis `refreshAfterResume()`.
-7. **Export** : `ExportPipeline` via `renderer.extract.base64` (pas `app.canvas.toDataURL`) ; hover supprimé pendant l’export. Chaque `renderer.resize` (agrandissement ou restore) passe par `resizeRenderer` (`needsLabelTextureRefresh`) puis **present immédiat** (`paint('export')`, autoritaire) avant le `enqueueDrawBody` async, pour ne pas laisser le framebuffer vidé visible sous Windows/ANGLE.
+7. **Export** : `ExportPipeline` via `renderer.extract.base64` pour le fond blanc ou `renderer.extract.pixels` puis Canvas 2D pour le PNG transparent ; hover supprimé pendant l’export. Chaque `renderer.resize` (agrandissement ou restore) passe par `resizeRenderer` (`needsLabelTextureRefresh`) puis **present immédiat** (`paint('export')`, autoritaire) avant le `enqueueDrawBody` async, pour ne pas laisser le framebuffer vidé visible sous Windows/ANGLE.
 8. **`waitForIdle()`** : attend drawChain, exportQueue et `renderScheduler.flush()`.
 9. **Échec de draw** : pas de reprise auto du hover ; `midDraw` + `needsInitialFit` pour un retry.
 10. **Labels après resize** : present resize committed recrée les Text tout de suite (`syncAxisLabelOverlay`) ; `needsLabelTextureRefresh` force aussi `recreate: true` au prochain draw complet.

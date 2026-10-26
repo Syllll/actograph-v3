@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { nextTick } from 'vue';
-import { useReadings } from '../composables/use-observation/use-readings';
+import { useReadings, waitForPendingReadingSynchronization } from '../composables/use-observation/use-readings';
+import { setObservationMutationBlocked } from './observation-mutation-guard';
 import { readingService } from '../services/observations/reading.service';
 import { IObservation, IReading, ObservationModeEnum, ReadingTypeEnum } from '../services/observations/interface';
 import { CHRONOMETER_T0 } from './chronometer.constants';
@@ -58,6 +59,26 @@ describe('manual addition through the real readings composable', () => {
     expect(added.dateTime).not.toBe(sharedState.currentReadings[0].dateTime);
     expect(sameReading(sharedState.selectedReading, added)).toBe(true);
     expect(sharedState.currentReadings.map((r) => r.sortOrder)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('copies an explicit source rather than the selected row and resolves its newest values', async () => {
+    await load([row(1, 'A'), row(2, 'B')]);
+    const source = sharedState.currentReadings[0];
+    methods.selectReading(sharedState.currentReadings[1]);
+    methods.updateReading({ id: 1 }, { name: 'Edited A', description: 'Source notes' });
+    const added = methods.addManualReading(source);
+    expect(added).toMatchObject({ name: 'Edited A', description: 'Source notes', dateTime: time });
+    expect(sharedState.currentReadings.map((reading) => reading.name)).toEqual(['Edited A', 'Edited A', 'B']);
+  });
+
+  it('copies an explicit pending source and never falls back if it was removed', async () => {
+    const source = methods.addManualReading();
+    const next = methods.addManualReading(source);
+    expect(next.tempId).not.toBe(source.tempId);
+    methods.removeReading(source);
+    const count = sharedState.currentReadings.length;
+    expect(() => methods.addManualReading(source)).toThrow(RangeError);
+    expect(sharedState.currentReadings).toHaveLength(count);
   });
 
   it('chains repeated additions from the newly selected copy', async () => {
@@ -348,4 +369,50 @@ describe('manual initialization and correction integration', () => {
     expect(() => methods.autoCorrectReadings(true, time)).toThrow(RangeError);
     expect(sharedState.currentReadings).toEqual(before);
   });
+});
+
+
+describe('reading synchronization mutation barrier', () => {
+  it('waits for an in-flight write and blocks the queued pass until deletion finishes', async () => {
+    const request = gate<IReading[]>();
+    api.createMany.mockReturnValueOnce(request.promise);
+    const added = methods.addManualReading();
+    const synchronize = methods.synchronizeReadings();
+    let idle = false;
+    const waiting = waitForPendingReadingSynchronization().then(() => { idle = true; });
+    await nextTick();
+    expect(idle).toBe(false);
+    setObservationMutationBlocked(7, true);
+    try {
+      await methods.synchronizeReadings();
+      expect(api.createMany).toHaveBeenCalledTimes(1);
+      request.resolve([{ ...added, id: 909 }]);
+      await synchronize;
+      await waiting;
+      expect(idle).toBe(true);
+      expect(sharedState.currentReadings[0].id).toBe(909);
+      expect(api.createMany).toHaveBeenCalledTimes(1);
+    } finally {
+      setObservationMutationBlocked(7, false);
+    }
+  });
+});
+
+
+it('does not let an obsolete readings load overwrite a newer chronicle or its selection', async () => {
+  const pending = gate<{ results: IReading[]; count: number }>();
+  api.findWithPagination.mockReturnValueOnce(pending.promise as never);
+  let applyOldLoad = true;
+  const oldLoad = methods.loadReadings(state.currentObservation as IObservation, () => applyOldLoad);
+  applyOldLoad = false;
+  await load([row(50, 'New chronicle')]);
+  methods.selectReading(sharedState.currentReadings[0]);
+  pending.resolve({ results: [row(1, 'Old chronicle')], count: 1 });
+  await oldLoad;
+  expect(sharedState.currentReadings.map((reading) => reading.name)).toEqual(['New chronicle']);
+  expect(sharedState.selectedReading?.id).toBe(50);
+  await methods.synchronizeReadings();
+  expect(api.createMany).not.toHaveBeenCalled();
+  expect(api.updateMany).not.toHaveBeenCalled();
+  expect(api.deleteMany).not.toHaveBeenCalled();
 });

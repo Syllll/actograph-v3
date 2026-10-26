@@ -12,6 +12,7 @@ import { useReadings } from './use-readings';
 import { useDuration } from '../use-duration';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
 import { useWindowSync } from '../use-window-sync';
+import { isObservationMutationBlocked, trackObservationTask } from '@utils/observation-mutation-guard';
 
 const sharedState = reactive({
   loading: false,
@@ -32,6 +33,7 @@ export function getCurrentObservationSummary(): string {
 let intervalId: number | null = null;
 let hasSetupObservationWindowSync = false;
 let followerObservationMetaHydrated = false;
+let observationLoadRevision = 0;
 
 type ObservationMetaPayload = Pick<
   IObservation,
@@ -97,7 +99,7 @@ export const useObservation = (options?: { init?: boolean }) => {
 
   const applyObservationMeta = (payload: ObservationMetaPayload) => {
     const current = sharedState.currentObservation;
-    if (!current || current.id !== payload.id) return;
+    if (!current || current.id !== payload.id || isObservationMutationBlocked(current.id)) return;
 
     sharedState.currentObservation = {
       ...current,
@@ -135,6 +137,7 @@ export const useObservation = (options?: { init?: boolean }) => {
 
   const timerMethods = {
     startTimer: () => {
+      if (isObservationMutationBlocked(sharedState.currentObservation?.id)) return;
       if (sharedState.currentObservation?.meta?.entryMode === 'manual') return;
       if (sharedState.isPlaying) return;
 
@@ -174,6 +177,7 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
 
     pauseTimer: () => {
+      if (isObservationMutationBlocked(sharedState.currentObservation?.id)) return;
       if (sharedState.currentObservation?.meta?.entryMode === 'manual') return;
       // Dernier refresh avant de figer : le relevé "début de pause" doit
       // porter l'horodatage absolu de l'instant de pause (currentDate), pas
@@ -191,6 +195,7 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
 
     stopTimer: () => {
+      if (isObservationMutationBlocked(sharedState.currentObservation?.id)) return;
       if (sharedState.currentObservation?.meta?.entryMode === 'manual') return;
       if (intervalId) {
         clearInterval(intervalId);
@@ -281,13 +286,20 @@ export const useObservation = (options?: { init?: boolean }) => {
     },
 
     loadObservation: async (id: number) => {
+      if (isObservationMutationBlocked(id)) return;
+      const revision = ++observationLoadRevision;
       sharedState.loading = true;
       try {
-        const response = await observationService.findOne(id);
-        await methods._loadObservation(response);
-      } catch (error) {
-        sharedState.loading = false;
-        throw error;
+        await trackObservationTask(id, async () => {
+          const response = await observationService.findOne(id);
+          if (revision !== observationLoadRevision || isObservationMutationBlocked(id)) return;
+          await methods._loadObservation(response, revision);
+        });
+      } finally {
+        if (revision === observationLoadRevision
+          && !isObservationMutationBlocked(sharedState.currentObservation?.id)) {
+          sharedState.loading = false;
+        }
       }
     },
 
@@ -314,7 +326,10 @@ export const useObservation = (options?: { init?: boolean }) => {
       videoPath?: string;
       mode?: ObservationModeEnum;
     }) => {
+      const revision = observationLoadRevision;
       const response = await observationService.update(id, updateData);
+
+      if (isObservationMutationBlocked(id) || revision !== observationLoadRevision) return response;
 
       // Ne pas recharger toute l'observation ici : dans une fenêtre pop-out déjà
       // hydratée, un reload complet peut rediffuser des relevés persistés mais
@@ -325,15 +340,13 @@ export const useObservation = (options?: { init?: boolean }) => {
           ...sharedState.currentObservation,
           ...response,
         };
-      } else {
-        await methods.loadObservation(id);
+        broadcastObservationMeta();
       }
-
-      broadcastObservationMeta();
       return response;
     },
 
     closeObservation: () => {
+      observationLoadRevision += 1;
       windowSync.setObservationId(null);
       followerObservationMetaHydrated = false;
 
@@ -353,40 +366,55 @@ export const useObservation = (options?: { init?: boolean }) => {
       protocol.sharedState.currentProtocol = null;
     },
 
-    _loadObservation: async (observation: IObservation) => {
-      windowSync.setObservationId(observation?.id ?? null);
-      sharedState.loading = true;
-      sharedState.currentObservation = null;
-      readings.sharedState.currentReadings = [];
-      readings.sharedState.selectedReading = null;
-      protocol.sharedState.currentProtocol = null;
+    _loadObservation: async (observation: IObservation, requestedRevision?: number) => {
+      if (isObservationMutationBlocked(observation.id)) return;
+      const revision = requestedRevision ?? ++observationLoadRevision;
+      const shouldApply = () => revision === observationLoadRevision
+        && !isObservationMutationBlocked(observation.id);
+      if (!shouldApply()) return;
 
-      // sharedState est un singleton partagé par toute l'appli : sans ce reset,
-      // currentDate/elapsedTime/startTime d'une précédente observation en mode
-      // chronomètre (basée sur CHRONOMETER_T0, 9 février 1989) fuitent vers
-      // l'observation qu'on charge ici (ex: une chronique dupliquée), qui les
-      // réutilise ensuite via le fallback `currentDate || new Date()`.
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-      }
-      sharedState.isPlaying = false;
-      sharedState.elapsedTime = 0;
-      sharedState.startTime = null;
-      sharedState.currentDate = null;
+      await trackObservationTask(observation.id, async () => {
+        if (!shouldApply()) return;
+        windowSync.setObservationId(observation?.id ?? null);
+        sharedState.loading = true;
+        sharedState.currentObservation = null;
+        readings.sharedState.currentReadings = [];
+        readings.sharedState.selectedReading = null;
+        protocol.sharedState.currentProtocol = null;
 
-      try {
-        await readings.methods.loadReadings(observation);
-        await protocol.methods.loadProtocol(observation);
-        sharedState.currentObservation = observation;
-        if (windowSync.isOwner && observation.meta?.entryMode === 'manual'
-          && readings.sharedState.currentReadings.length === 0) {
-          await readings.methods.addStartReading();
-          readings.methods.selectReading(readings.sharedState.currentReadings[0]);
+        // sharedState est un singleton partagé par toute l'appli : sans ce reset,
+        // currentDate/elapsedTime/startTime d'une précédente observation en mode
+        // chronomètre (basée sur CHRONOMETER_T0, 9 février 1989) fuitent vers
+        // l'observation qu'on charge ici (ex: une chronique dupliquée), qui les
+        // réutilise ensuite via le fallback `currentDate || new Date()`.
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
         }
-      } finally {
-        sharedState.loading = false;
-      }
+        sharedState.isPlaying = false;
+        sharedState.elapsedTime = 0;
+        sharedState.startTime = null;
+        sharedState.currentDate = null;
+
+        try {
+          await readings.methods.loadReadings(observation, shouldApply);
+          if (!shouldApply()) return;
+          await protocol.methods.loadProtocol(observation, shouldApply);
+          if (!shouldApply()) return;
+          sharedState.currentObservation = observation;
+          if (windowSync.isOwner && observation.meta?.entryMode === 'manual'
+            && readings.sharedState.currentReadings.length === 0) {
+            await readings.methods.addStartReading();
+            if (!shouldApply()) return;
+            readings.methods.selectReading(readings.sharedState.currentReadings[0]);
+          }
+        } finally {
+          if (revision === observationLoadRevision
+            && !isObservationMutationBlocked(sharedState.currentObservation?.id)) {
+            sharedState.loading = false;
+          }
+        }
+      });
     },
   };
 
@@ -481,8 +509,8 @@ export const useObservation = (options?: { init?: boolean }) => {
       },
     );
 
-    windowSync.on('state:observation', (payload: Record<string, unknown>) => {
-      if (!payload) return;
+    windowSync.on('state:observation', (payload: Record<string, unknown>, message) => {
+      if (!payload || isObservationMutationBlocked(message?.obsId ?? sharedState.currentObservation?.id)) return;
       windowSync.applyRemote(() => {
         sharedState.isPlaying = !!payload.isPlaying;
         sharedState.startTime =

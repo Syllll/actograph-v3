@@ -80,6 +80,7 @@
       "^@services/(.*)$": "<rootDir>/src/services/$1",
       "^@actograph/core$": "<rootDir>/../packages/core/src/index.ts",
       "^@actograph/graph$": "<rootDir>/../packages/graph/src/index.ts",
+      "^@actograph/graph/(.*)$": "<rootDir>/../packages/graph/src/$1",
       "^src/(.*)$": "<rootDir>/src/$1",
       "^@utils/(.*)$": "<rootDir>/src/utils/$1",
       "^@lib-improba/(.*)$": "<rootDir>/lib-improba/$1",

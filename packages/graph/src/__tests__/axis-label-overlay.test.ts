@@ -260,3 +260,21 @@ describe('AxisLabelOverlay', () => {
     expect(text.x).toBe(80);
   });
 });
+
+it('recomputes Auto before collisions on zoom, while keeping text at the requested screen size', () => {
+  const overlay = new AxisLabelOverlay();
+  overlay.setProjectors({ worldToOverlay: p => p });
+  const descriptors = [0, 100].map((x, index) => ({
+    ...makeDescriptor({ id: `auto-${index}`, kind: 'x-tick', worldX: x,
+      labelWidth: 80, fontSize: 24 }), automaticOrientation: true,
+  }));
+  overlay.sync(descriptors);
+  expect(overlay.container.children.map(child => (child as Text).angle)).toEqual([0, 0]);
+  overlay.setProjectors({ worldToOverlay: p => ({ x: p.x / 2, y: p.y }) });
+  overlay.syncPositions();
+  expect(overlay.container.children.filter(c => c.visible).map(c => (c as Text).angle)).toEqual([45]);
+  expect((overlay.container.children[0] as Text).style.fontSize).toBe(24);
+  overlay.setProjectors({ worldToOverlay: p => p });
+  overlay.syncPositions();
+  expect(overlay.container.children.map(c => (c as Text).angle)).toEqual([0, 0]);
+});
