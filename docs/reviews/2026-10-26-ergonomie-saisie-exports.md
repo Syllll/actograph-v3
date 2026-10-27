@@ -2,6 +2,8 @@
 
 Compte rendu du 26 octobre 2026. Branche `feat/ergonomie-saisie-exports`, créée depuis `main` au commit `a4ed44a` (3.0.190). Implémentation autorisée par Sylvain après préparation du [plan](../plans/20261026140525-ergonomie-saisie-exports-Sylvain-Meylan.md), répartie entre trois sous-agents puis intégrée et revue.
 
+Le [complément du 27 octobre](#ajustements-du-27-octobre-2026) décrit le remplacement du + interligne, la correction des couleurs et les nouvelles vérifications. Les résultats et captures du 26 octobre ci-dessous conservent leur contexte historique ; le [guide des relevés](../reading.md) décrit le comportement actuel.
+
 ## Comportements livrés
 
 - Suppression depuis les listes récente et complète, avec confirmation nominative, compteurs actualisés et conservation des exports et copies cloud. Une session en cours ou en pause doit être terminée. Les écritures en vol sont attendues ; les réponses tardives ne peuvent pas recharger une chronique supprimée. La suppression des relations est transactionnelle dans SQLite. Les modifications tardives de protocole et de chronique ne restaurent plus une entité supprimée.
@@ -58,3 +60,22 @@ Les dialogues natifs Windows/macOS, le packaging d'un installateur et le parcour
 La mémoire des dossiers est couverte par des tests sur le vrai système de fichiers, y compris recréation de l'instance, annulation et dossiers indisponibles. Cela ne remplace pas un essai des boîtes de fichier natives sur chaque système. La vérification finale du confort de saisie sur petit et grand écran et l'insertion du PNG dans une présentation restent à faire avant publication d'une version.
 
 Les guides [bureau](../desktop.md), [relevés](../reading.md) et [graphe](../graph.md) décrivent les comportements livrés.
+
+## Ajustements du 27 octobre 2026
+
+Sylvain a autorisé les recommandations de la revue, avec intervention des sous-agents Sol et Luna et revue croisée. Un seul + local reste dans chaque ligne, toujours visible juste avant le crayon, accompagné du + d'en-tête. Le bouton interligne, la gouttière de 30 px et leurs états de visibilité ont été retirés. L'ajout conserve sa source explicite, son horodatage, ses notes, la validation des brouillons, le tri et la recherche.
+
+La vérification Chromium a révélé que la copie du dernier relevé pouvait perdre le focus lors du rendu différé de Quasar. La table attend désormais la finalisation du défilement virtuel avant de focaliser le nouvel horodatage, avec un positionnement demandé au centre. Une nouvelle sélection, un autre contrôle focalisé ou le démontage annule la demande de focus. Le cas sans nouvel événement de défilement reste couvert.
+
+Les couleurs automatiques sont attribuées dans un ordre déterministe des IDs, en réservant d'abord les couleurs explicites. Les équivalences RGB et RGBA opaques avec les couleurs hex sont prises en compte. La palette initiale est parcourue avant d'utiliser des teintes supplémentaires espacées ; les catégories sans ID restent neutres. Le protocole et les couleurs du graphe ne sont pas modifiés.
+
+Vérifications exécutées sur ces ajustements :
+
+- Frontend : `yarn test --runInBand --silent`, **52 suites et 481 tests passent**, dont les régressions de focus, les accès d'ajout et les collisions de couleurs.
+- `yarn typecheck`, `yarn lint` et `git diff --check` passent.
+- Montage Chromium des vrais composants Vue/Quasar, avec données synthétiques : copie par souris, Entrée, Espace et tactile ; ajout d'en-tête ; conservation de l'heure et des notes ; focus conservé après attribution d'un ID serveur et 300 ms après l'ajout du dernier relevé d'une table de 500 lignes.
+- Sur un panneau de 440 px, 54 lignes sont rendues, avec une cible d'ajout de 24 × 24 px. La hauteur des lignes reste de 36,5 px, comme dans le montage précédent. Les actions sont accessibles par défilement horizontal ; le panneau de 900 px les affiche sans débordement horizontal. Les huit couleurs de test produisent huit valeurs RGB distinctes dans le navigateur.
+
+Captures et mesures : [table en clair](captures-ergonomie-saisie-exports-2026-10-27/wide.png), [panneau étroit sombre](captures-ergonomie-saisie-exports-2026-10-27/narrow-dark.png), [focus du dernier relevé ajouté](captures-ergonomie-saisie-exports-2026-10-27/last-add.png), [résultats](captures-ergonomie-saisie-exports-2026-10-27/results.json).
+
+Ces essais utilisent un montage isolé avec état d'observation simulé. Ils ne remplacent pas une recette complète dans Electron, dont les styles globaux et le parcours natif restent à valider. La modification préexistante de `front/yarn.lock` est conservée hors de ces ajustements.

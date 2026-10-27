@@ -1,6 +1,6 @@
 # Relevés : collecte, édition et synchronisation
 
-Référence bureau mise à jour le 26 octobre 2026. Un relevé (`reading`) porte un nom, une description optionnelle, un type et un horodatage dans une observation. Les types frontend sont dans `front/src/services/observations/interface.ts`, les types communs dans `packages/core/src/`.
+Référence bureau mise à jour le 27 octobre 2026. Un relevé (`reading`) porte un nom, une description optionnelle, un type et un horodatage dans une observation. Les types frontend sont dans `front/src/services/observations/interface.ts`, les types communs dans `packages/core/src/`.
 
 ## Types et temps
 
@@ -43,20 +43,20 @@ En calendrier, les observables sont verrouillés pendant la pause ; en chronomè
 - Le bouton **+** de l'en-tête Libellé copie le relevé sélectionné, avec le
   même horodatage, type, nom et description. Sans sélection, il copie le
   dernier relevé ; dans une table vide, il crée le premier relevé.
-- Un **+** sur la séparation sous chaque relevé copie explicitement celui-ci,
-  indépendamment de la sélection. Il apparaît au survol ou au focus de la
-  ligne, ainsi qu'après un contact tactile. La touche **Inser** ou **+** sur
-  une ligne focalisée déclenche le même ajout local. La cible de 24 × 24 px
-  occupe une gouttière réservée dans la cellule Libellé sans changer la hauteur
-  des relevés ni masquer leurs champs. Un seul point d'insertion est actif.
+- Un **+** toujours visible dans les actions de chaque ligne, juste avant le
+  crayon, copie explicitement ce relevé, indépendamment de la sélection.
+  Le bouton fonctionne à la souris, au clavier et au tactile, avec une cible
+  d'au moins 24 × 24 px. La touche **Inser** ou **+** sur une ligne focalisée
+  déclenche le même ajout local. Le bouton interligne et sa gouttière dans
+  la cellule Libellé ont été retirés.
 - L'ajout valide d'abord les brouillons des champs. Un horodatage invalide
   bloque la copie et conserve le brouillon pour correction. Aucun dialogue
   d'édition ne s'ouvre ; la nouvelle ligne est sélectionnée et son horodatage
-  reçoit le focus, avec une position de travail vers le tiers supérieur.
+  reçoit le focus, avec une position de travail au centre de la zone visible.
   La copie conserve l'heure de la source, sans inventer un instant intermédiaire.
   Le tri d'affichage reste inchangé. Une recherche active est conservée ; si
   elle masque le nouveau relevé, une notification propose **Effacer le filtre**
-  pour le révéler et lui rendre le focus.
+  pour le révéler et lui rendre le focus s'il reste sélectionné.
 - Cliquer sur une ligne, entrer dans un de ses champs ou utiliser Entrée/Espace
   sur la ligne permet de la sélectionner. Le crayon ouvre son formulaire
   d'édition. Les touches des champs conservent leur comportement habituel.
@@ -73,8 +73,9 @@ En calendrier, les observables sont verrouillés pendant la pause ; en chronomè
   reste disponible pour la description et les autres champs.
 - Un repère coloré près du libellé indique la catégorie, dont le nom apparaît
   aussi dans l'information accessible. La couleur explicite de la catégorie
-  est prioritaire ; sinon une palette fondée sur son ID reste stable après
-  renommage ou réordonnancement. Les anciens homonymes restent neutres. Ce
+  est prioritaire ; sinon une attribution fondée sur les IDs évite les
+  collisions de couleurs automatiques et reste stable après renommage ou
+  réordonnancement. Les anciens homonymes restent neutres. Ce
   repérage ne modifie pas les préférences du protocole ni les graphes ; les
   commentaires, événements de session et erreurs gardent leur traitement.
 - Les horodatages utilisent des chiffres à position fixe :

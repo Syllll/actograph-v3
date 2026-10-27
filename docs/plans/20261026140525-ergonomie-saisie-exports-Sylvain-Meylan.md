@@ -6,6 +6,8 @@ Date : 26 octobre 2026, Europe/Paris. Rédaction : Codex pour Sylvain Meylan.
 
 Résultats et captures : [compte rendu du 26 octobre](../reviews/2026-10-26-ergonomie-saisie-exports.md).
 
+Mise à jour du 27 octobre 2026, autorisée par Sylvain après revue des demandes de Valérie et de Laurent : le lot B remplace le + interligne par un + permanent près du crayon ; le lot D évite les collisions de couleurs automatiques. Les captures du 26 octobre conservent la trace du prototype précédent.
+
 Source : retour de Laurent Van Belleghem du 26 octobre, confronté au code de `main`, commit `a4ed44a`. L'analyse initiale était fondée sur les sources. L'implémentation a ensuite été vérifiée par tests automatisés et par des essais Chromium des composants et du moteur graphique ; ces essais ne constituent pas une recette complète dans Electron. La modification préexistante de `front/yarn.lock` est hors périmètre.
 
 ## Objectif et périmètre
@@ -59,11 +61,9 @@ Hors périmètre : remplacement du protocole d'une chronique déjà renseignée,
 
 **Existant.** `addManualReading()` copie la sélection, sinon le dernier relevé, puis sélectionne la nouvelle ligne. L'insertion après une source explicite existe dans `addReading(options, insertAfter)`. Le + est actuellement dans la barre d'outils, à distance de la colonne Libellé.
 
-**Choix UX retenu après prototype Chromium.** Déplacer le + principal dans l'en-tête fixe de la colonne Libellé et le garder toujours visible. Pour l'ajout local, privilégier un petit + sur la séparation sous un relevé, à une position horizontale fixe près du début des libellés. Le survol de la ligne révèle cette commande et souligne discrètement le point d'insertion ; sa découverte ne demande pas de viser d'abord un filet de séparation. L'infobulle indique « Ajouter une ligne à partir de ce relevé ». Ne pas ajouter simultanément un troisième bouton dans la colonne d'actions.
+**Choix UX révisé le 27 octobre.** Garder le + principal dans l'en-tête fixe de la colonne Libellé. Placer un seul + local, toujours visible, dans la colonne d'actions juste avant le crayon, conformément à la demande de Laurent. L'infobulle indique « Ajouter une ligne à partir de ce relevé ». Retirer le + interligne, sa gouttière et les états de visibilité associés.
 
-Le signe peut être petit, mais sa zone cliquable doit être confortable : viser au moins 24 × 24 pixels CSS, sans empiéter sur les champs éditables ni sur la cible d'une autre séparation. Garder un seul point d'insertion actif à la fois et ne pas déplacer ou agrandir les lignes à son apparition. Vérifier ce compromis sur la table dense réelle : si une cible correcte exige d'augmenter toutes les hauteurs ou recouvre la saisie, préférer le + dans les actions de la ligne. Le choix définitif dépend de ce prototype, pas de la seule discrétion visuelle.
-
-Le survol ne constitue pas l'unique accès : conserver le + d'en-tête utilisable avec la sélection au clavier ; rendre la commande locale visible au focus et après sélection au tactile, sans imposer un arrêt de tabulation supplémentaire sur chaque séparateur masqué. Le + local utilise une source explicite correspondant au relevé au-dessus de sa séparation ; le + d'en-tête conserve la règle sélection, puis dernier relevé.
+La cible locale mesure au moins 24 × 24 pixels CSS, sans recouvrir les champs éditables. Le bouton natif reste accessible à la souris, au clavier et au tactile. Les touches Inser et + sur une ligne focalisée restent disponibles. Le + local utilise explicitement le relevé de sa ligne ; le + d'en-tête conserve la règle sélection, puis dernier relevé.
 
 **Travail prévu.**
 
@@ -73,12 +73,12 @@ Le survol ne constitue pas l'unique accès : conserver le + d'en-tête utilisabl
 4. Retirer le + de l'ancienne barre d'outils. Préserver son rôle pour recherche, commentaires et autres actions.
 5. Après insertion, sélectionner la nouvelle ligne et placer le focus sur son horodatage. Ne pas déclencher le clic de la ligne source depuis le bouton.
 6. Respecter le tri d'affichage. Si un filtre masque le nouveau relevé, le signaler avec une action explicite pour effacer le filtre, sans modifier silencieusement la recherche.
-7. Prototyper le + interligne dans la largeur réelle du panneau Relevés, indépendamment de celle de la fenêtre. Conserver les hauteurs de ligne et les mesures du virtualiseur ; éviter une fausse ligne de données par point d'insertion. Maintenir l'identité de la source pendant le passage de la souris au bouton, et masquer ou repositionner la commande au défilement, au filtrage et au recyclage d'une ligne. La zone d'interaction ne doit ni voler les clics d'édition ni devenir une grande bande invisible qui insère au simple clic sur un séparateur.
+7. Vérifier les trois actions +, crayon et suppression sur panneau étroit et large. Conserver les hauteurs de ligne et les mesures du virtualiseur ; retirer l'ancien espace réservé à l'interligne. Contrôler la source après défilement et recyclage d'une ligne, ainsi que l'activation par Entrée, Espace et contact tactile.
 8. Vérifier la compréhension avec un tri décroissant, des dates identiques et un filtre : la commande crée une copie à partir de la source explicite, sans inventer un horaire entre les deux lignes visibles. Les voisins visibles peuvent masquer d'autres relevés ; la nouvelle ligne peut ensuite changer de place si son heure est modifiée. Ne pas modifier silencieusement le tri pour conserver artificiellement une position.
 
 **Fichiers principaux.** `front/src/composables/use-observation/use-readings.ts`, `front/src/pages/userspace/observation/_components/readings-side/{Index,ReadingsToolbar,ReadingsTable,ReadingTimeInput}.vue`.
 
-**Acceptation.** L'ajout fonctionne sur une ligne ancienne, sur la dernière ligne et sans sélection ; un clic sur un point d'insertion utilise bien la source correspondante ; le temps, le nom, les notes et les règles de type sont préservés ; le focus suit la nouvelle identité avant et après attribution d'un ID serveur. Le + d'en-tête reste visible et l'ajout local reste accessible au clavier et au tactile. Le + interligne ne provoque aucun saut de hauteur, clic parasite dans un champ ou erreur de source après un défilement ; il reste visible pendant son activation et n'est pas coupé par les bords du tableau. La cible reste confortable sur panneau étroit. Le prototype Chromium sur une table de 500 relevés, dans un panneau de 440 px, a confirmé la cible de 24 × 24 px dans une gouttière réservée, sans changement de hauteur. La recette métier reste à effectuer dans l'application native.
+**Acceptation.** L'ajout fonctionne sur une ligne ancienne, sur la dernière ligne et sans sélection ; le + local utilise bien sa propre ligne ; le temps, le nom, les notes et les règles de type sont préservés ; le focus suit la nouvelle identité avant et après attribution d'un ID serveur. Les deux accès restent visibles et utilisables au clavier et au tactile. Aucun bouton interligne ne subsiste. La cible locale reste confortable, sans changement de hauteur ni clic parasite dans un champ ; le panneau étroit conserve un accès aux actions par défilement horizontal si nécessaire. La recette métier reste à effectuer dans l'application native.
 
 **Référence et limites.** Dans la v1 disponible, un principe d'ajout entre éléments est présent dans `v1/actograph/Gui/Observation/Buttons/AddArea/ObsAddArea.qml`, pour les observables du protocole. Le tableau des relevés consulté, `Gui/Observation/Data/DataArea.qml`, utilise un + dans sa barre d'outils ; la variante exacte décrite par Sylvain n'y est pas confirmée. Pour la taille de cible et l'accès au clavier, voir les explications W3C sur [la taille minimale des cibles](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum) et [l'accès clavier](https://www.w3.org/WAI/WCAG22/Understanding/keyboard-accessible.html). Ces références ne remplacent pas la vérification de la géométrie réelle et des usages dans Actograph.
 
@@ -107,7 +107,7 @@ Le survol ne constitue pas l'unique accès : conserver le + d'en-tête utilisabl
 **Travail prévu.**
 
 1. Construire un index réactif nom d'observable vers catégorie, partagé avec le sélecteur. En présence d'homonymes hérités, utiliser un état neutre plutôt qu'une association arbitraire.
-2. Réutiliser la couleur graphique explicite de la catégorie lorsqu'elle existe. Sinon, appliquer une palette de repérage déterministe fondée sur son identité, stable à la réouverture, au renommage et au réordonnancement. Les labels restent nécessaires quand la palette se répète sur un grand protocole.
+2. Réutiliser la couleur graphique explicite de la catégorie lorsqu'elle existe et la réserver avant d'attribuer les couleurs automatiques. Pour celles-ci, utiliser les IDs dans un ordre déterministe afin d'éviter les collisions, y compris lorsque la palette initiale est épuisée, tout en conservant la stabilité à la réouverture, au renommage et au réordonnancement. Les labels restent nécessaires pour identifier les catégories dans les grands protocoles. Les catégories anciennes sans ID restent neutres.
 3. Appliquer la même résolution dans le sélecteur et les cellules. Cette couleur identifie la catégorie ; une éventuelle couleur propre à un observable continue de décrire sa série graphique.
 4. Ne pas écrire de couleurs dans le protocole à sa simple lecture et ne pas recolorer implicitement les graphiques historiques. Une personnalisation graphique existante reste prioritaire sur la palette de secours.
 5. Garder les commentaires, événements de session et observables inconnus dans leurs traitements actuels. Éviter un parcours complet du protocole pour chaque cellule à chaque rendu.
@@ -120,7 +120,7 @@ Le survol ne constitue pas l'unique accès : conserver le + d'en-tête utilisabl
 
 **Existant.** La table est virtualisée. Elle appelle déjà `scrollTo(index, 'center')` lors d'un changement de sélection, mais ne réserve pas d'espace de travail après le dernier relevé. Le `QTable` installé expose le slot `bottom-row`, y compris dans son chemin virtualisé.
 
-**Choix UX.** Permettre de faire défiler la dernière ligne jusqu'en haut de la zone de lecture, sous l'en-tête fixe. À l'ajout, placer le relevé dans une zone confortable, environ au tiers supérieur. Un simple clic dans une ligne déjà visible ne doit plus provoquer un recentrage intempestif.
+**Choix UX.** Permettre de faire défiler la dernière ligne jusqu'en haut de la zone de lecture, sous l'en-tête fixe. À l'ajout, centrer le relevé dans la zone visible et attendre la fin du rendu virtuel avant de focaliser son horodatage. Un simple clic dans une ligne déjà visible ne doit plus provoquer un recentrage intempestif.
 
 **Travail prévu.**
 

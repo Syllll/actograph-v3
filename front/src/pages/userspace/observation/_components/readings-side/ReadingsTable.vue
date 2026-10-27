@@ -1,5 +1,5 @@
 <template>
-  <div ref="rootRef" class="readings-table" @scroll.capture="onTableScroll">
+  <div ref="rootRef" class="readings-table">
     <q-table
       ref="tableRef"
       class="readings-q-table"
@@ -15,6 +15,7 @@
     :rows-per-page-options="[0]"
     hide-pagination
     hide-bottom
+    @virtual-scroll="onVirtualScroll"
   >
     <template v-slot:header="props">
       <q-tr :props="props">
@@ -56,17 +57,12 @@
         :class="{
           'unrecognized-observable-row': isUnrecognizedObservable(props.row),
           'reading-row--selected': isSelectedReading(props.row),
-          'reading-row--insertion-active': activeInsertionKey === getRowKey(props.row),
         }"
         :aria-selected="isSelectedReading(props.row)"
         :data-reading-key="getRowKey(props.row)"
         tabindex="0"
         @click="selectReading(props.row)"
-        @focusin="onRowFocus(props.row)"
-        @focusout="onRowFocusOut($event)"
-        @mouseenter="hoveredInsertionKey = getRowKey(props.row)"
-        @mouseleave="hoveredInsertionKey = null"
-        @pointerdown="onRowPointerDown(props.row, $event)"
+        @focusin="selectReading(props.row)"
         @keydown="onRowKeydown(props.row, $event)"
       >
         <q-td key="order" :props="props">
@@ -143,15 +139,7 @@
           </div>
         </q-td>
 
-        <q-td key="name" :props="props" class="readings-name-cell">
-          <q-btn flat round dense icon="add" size="xs" class="readings-insertion-add"
-            :tabindex="activeInsertionKey === getRowKey(props.row) ? 0 : -1"
-            :aria-label="t('readingsUi.addReadingFromSource')"
-            @focus="focusedInsertionButtonKey = getRowKey(props.row)"
-            @blur="focusedInsertionButtonKey = null"
-            @click.stop="requestAdd(props.row)">
-            <q-tooltip>{{ t('readingsUi.addReadingFromSource') }}</q-tooltip>
-          </q-btn>
+        <q-td key="name" :props="props">
           <span class="readings-label-cell">
             <span v-if="getReadingCategory(props.row)" class="readings-category-dot"
               :style="{ backgroundColor: getReadingCategory(props.row)?.color }"
@@ -211,6 +199,11 @@
         </q-td>
 
         <q-td key="actions" :props="props" class="text-right">
+          <q-btn flat round dense icon="add" size="xs" class="readings-row-add"
+            :aria-label="t('readingsUi.addReadingFromSource')"
+            @click.stop="requestAdd(props.row)">
+            <q-tooltip>{{ t('readingsUi.addReadingFromSource') }}</q-tooltip>
+          </q-btn>
           <q-btn
             flat
             round
@@ -353,31 +346,15 @@ export default defineComponent({
     const selectedReading = computed(() => observation.readings.sharedState.selectedReading);
     const isSelectedReading = (row: IReading) => sameReading(row, selectedReading.value);
     const rootRef = ref<HTMLElement | null>(null);
-    const hoveredInsertionKey = ref<string | null>(null);
-    const focusedInsertionKey = ref<string | null>(null);
-    const focusedInsertionButtonKey = ref<string | null>(null);
-    const touchedInsertionKey = ref<string | null>(null);
     const openObservableRowKey = ref<string | null>(null);
     const onObservableMenuHide = (row: IReading) => {
       if (openObservableRowKey.value === readingKey(row)) openObservableRowKey.value = null;
     };
-    const activeInsertionKey = computed(() => focusedInsertionButtonKey.value ?? hoveredInsertionKey.value ?? focusedInsertionKey.value ?? touchedInsertionKey.value);
     let localSelectionKey: string | null = null;
     const selectReading = (row: IReading) => {
       localSelectionKey = readingKey(row);
       observation.readings.methods.selectReading(row);
       void nextTick(() => { localSelectionKey = null; });
-    };
-    const onRowFocus = (row: IReading) => { focusedInsertionKey.value = readingKey(row); selectReading(row); };
-    const onRowFocusOut = (event: FocusEvent) => {
-      if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) focusedInsertionKey.value = null;
-    };
-    const onTableScroll = () => {
-      hoveredInsertionKey.value = null;
-      focusedInsertionButtonKey.value = null;
-    };
-    const onRowPointerDown = (row: IReading, event: PointerEvent) => {
-      if (event.pointerType === 'touch' || event.pointerType === 'pen') touchedInsertionKey.value = readingKey(row);
     };
     const requestAdd = (source?: IReading) => emit('add-reading', source);
     const onRowKeydown = (row: IReading, event: KeyboardEvent) => {
@@ -420,18 +397,68 @@ export default defineComponent({
       },
       { flush: 'post', immediate: true },
     );
-    const focusReading = async (reading: IReading) => {
-      await nextTick();
-      const rows = tableRef.value?.filteredSortedRows ?? props.readings;
-      const index = rows.findIndex((row: IReading) => sameReading(row, reading));
-      if (index < 0) return;
-      tableRef.value?.scrollTo(index, 'start');
-      await nextTick();
-      const container = getScrollContainer();
-      if (container) container.scrollTop = Math.max(0, container.scrollTop - container.clientHeight / 3);
-      // Quasar schedules virtual row rendering; one frame lets the new identity mount.
-      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-      getRenderedRow(reading)?.querySelector<HTMLInputElement>('.reading-time-input')?.focus({ preventScroll: true });
+    let focusRevision = 0;
+    let focusFrame: number | null = null;
+    let pendingFocus: { reading: IReading; initialElement: Element | null; finish: () => void } | null = null;
+    let isUnmounted = false;
+    const cancelPendingFocus = () => {
+      focusRevision += 1;
+      if (focusFrame !== null) window.cancelAnimationFrame(focusFrame);
+      focusFrame = null;
+      const request = pendingFocus;
+      pendingFocus = null;
+      request?.finish();
+    };
+    const onVirtualScroll = () => {
+      const request = pendingFocus;
+      if (!request) return;
+      const revision = ++focusRevision;
+      if (focusFrame !== null) window.cancelAnimationFrame(focusFrame);
+      // Quasar renders the two ends of a new slice in separate frames and can
+      // temporarily refocus its tbody. Restart after its final scroll event.
+      void nextTick(() => {
+        if (revision !== focusRevision) return;
+        focusFrame = window.requestAnimationFrame(() => {
+          void nextTick(() => {
+            if (revision !== focusRevision) return;
+            focusFrame = window.requestAnimationFrame(() => {
+              if (revision !== focusRevision) return;
+              focusFrame = null;
+              const input = getRenderedRow(request.reading)?.querySelector<HTMLInputElement>('.reading-time-input');
+              const active = document.activeElement;
+              const retainedFocus = active === request.initialElement || active === document.body
+                || active === input || active?.classList.contains('q-virtual-scroll__content');
+              if (!isUnmounted && sameReading(request.reading, selectedReading.value) && retainedFocus) {
+                input?.focus({ preventScroll: true });
+              }
+              cancelPendingFocus();
+            });
+          });
+        });
+      });
+    };
+    watch(selectedReading, (reading) => {
+      if (pendingFocus && !sameReading(pendingFocus.reading, reading)) cancelPendingFocus();
+    }, { flush: 'sync' });
+    const focusReading = (reading: IReading): Promise<void> => {
+      cancelPendingFocus();
+      if (isUnmounted || !sameReading(reading, selectedReading.value)) return Promise.resolve();
+      return new Promise<void>((finish) => {
+        const request = { reading, initialElement: document.activeElement, finish };
+        pendingFocus = request;
+        void nextTick(() => {
+          if (pendingFocus !== request) return;
+          const rows = tableRef.value?.filteredSortedRows ?? props.readings;
+          const index = rows.findIndex((row: IReading) => sameReading(row, reading));
+          if (index < 0) {
+            cancelPendingFocus();
+            return;
+          }
+          tableRef.value?.scrollTo(index, 'center');
+          // An already current virtual index does not emit another scroll event.
+          onVirtualScroll();
+        });
+      });
     };
     const workspaceHeight = ref(0);
     let workspaceObserver: ResizeObserver | null = null;
@@ -442,8 +469,6 @@ export default defineComponent({
       workspaceHeight.value = Math.max(0, (container?.clientHeight ?? 0) - headerHeight - rowHeight);
     };
     watch(() => props.readings, () => {
-      hoveredInsertionKey.value = null;
-      touchedInsertionKey.value = null;
       void nextTick(measureWorkspace);
     });
     onMounted(() => {
@@ -454,7 +479,11 @@ export default defineComponent({
         workspaceObserver.observe(container);
       }
     });
-    onBeforeUnmount(() => workspaceObserver?.disconnect());
+    onBeforeUnmount(() => {
+      isUnmounted = true;
+      cancelPendingFocus();
+      workspaceObserver?.disconnect();
+    });
     const isChronometerMode = computed(() => observation.isChronometerMode.value);
 
     const getRowKey = readingKey;
@@ -774,18 +803,12 @@ export default defineComponent({
       t,
       rootRef,
       workspaceHeight,
-      hoveredInsertionKey,
-      focusedInsertionButtonKey,
       openObservableRowKey,
       onObservableMenuHide,
-      activeInsertionKey,
-      onRowFocus,
-      onRowFocusOut,
-      onRowPointerDown,
-      onTableScroll,
       requestAdd,
       prepareForAdd,
       focusReading,
+      onVirtualScroll,
       getReadingCategory,
       resetChronologicalSort: () => { pagination.value = { ...pagination.value, sortBy: 'dateTime', descending: false }; },
       tableRef,
@@ -944,37 +967,15 @@ export default defineComponent({
 </style>
 
 <style scoped>
-.readings-name-cell { position: relative; padding-left: 30px !important; }
 .readings-label-header { display: inline-flex; align-items: center; gap: 4px; }
 .readings-header-add { min-width: 24px; min-height: 24px; color: var(--accent-strong); }
 .readings-label-cell { display: inline-flex; align-items: center; gap: 5px; }
 .readings-category-dot { display: inline-block; flex: 0 0 7px; height: 7px; border-radius: 50%; }
-.readings-insertion-add {
-  position: absolute;
-  left: 2px;
-  bottom: -12px;
-  z-index: 2;
-  width: 24px;
-  height: 24px;
+.readings-row-add {
   min-width: 24px;
   min-height: 24px;
   color: var(--accent-strong);
-  background: var(--secondary);
-  box-shadow: 0 0 0 1px var(--neutral-low);
-  visibility: hidden;
-  pointer-events: none;
 }
-.reading-row--insertion-active .readings-insertion-add { visibility: visible; pointer-events: auto; }
-.readings-insertion-add:focus-visible { outline: 2px solid var(--accent); }
-.reading-row--insertion-active .readings-name-cell::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 28px;
-  right: 0;
-  height: 1px;
-  background: var(--accent);
-  pointer-events: none;
-}
+.readings-row-add:focus-visible { outline: 2px solid var(--accent); }
 .readings-workspace-spacer { pointer-events: none; }
 </style>

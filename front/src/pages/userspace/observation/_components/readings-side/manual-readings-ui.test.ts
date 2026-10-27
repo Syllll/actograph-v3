@@ -91,9 +91,12 @@ const makeObservation = () => {
 
 let mockObservation: ReturnType<typeof makeObservation>;
 const wrappers: VueWrapper[] = [];
-const mountTable = (rows: IReading[]) => {
+const mountTable = (rows: IReading[], attach = false) => {
   mockObservation.readings.sharedState.currentReadings = rows;
-  const wrapper = mount(ReadingsTable, { props: { readings: mockObservation.readings.sharedState.currentReadings }, global: readingsUiGlobal });
+  const wrapper = mount(ReadingsTable, {
+    ...(attach ? { attachTo: document.body } : {}),
+    props: { readings: mockObservation.readings.sharedState.currentReadings }, global: readingsUiGlobal,
+  });
   wrappers.push(wrapper);
   return wrapper;
 };
@@ -175,15 +178,83 @@ describe('manual reading table selection', () => {
     expect(tableRows(wrapper)[1].attributes('aria-selected')).toBe('true');
   });
 
-  it('exposes editing and deletion but no redundant duplicate action', () => {
+  it('groups one local add action with editing and deletion', () => {
     const wrapper = mountTable([reading('one')]);
-    expect(tableRows(wrapper)[0].find('button[data-icon="edit"]').exists()).toBe(true);
-    expect(tableRows(wrapper)[0].find('button[data-icon="delete"]').exists()).toBe(true);
+    const row = tableRows(wrapper)[0];
+    expect(row.findAll('td:last-child button').map((button) => button.attributes('data-icon')))
+      .toEqual(['add', 'edit', 'delete']);
+    expect(row.findAll('button[data-icon="add"]')).toHaveLength(1);
     expect(wrapper.find('button[data-icon="content_copy"]').exists()).toBe(false);
   });
 });
 
 describe('manual reading visibility in the virtual table', () => {
+  const advanceFrames = async (count = 6) => {
+    for (let frame = 0; frame < count; frame += 1) {
+      jest.advanceTimersByTime(16);
+      await settle();
+    }
+  };
+
+  it('waits for the completed virtual slice and tbody refocus before focusing a distant copy', async () => {
+    jest.useFakeTimers();
+    const wrapper = mountTable([reading('source'), reading('copy', 500000)], true);
+    const content = wrapper.get('tbody').element;
+    content.classList.add('q-virtual-scroll__content');
+    content.tabIndex = -1;
+    const sourceInput = tableRows(wrapper)[0].get('input').element as HTMLInputElement;
+    sourceInput.focus();
+    const copyRow = tableRows(wrapper)[1].element;
+    const copyInput = copyRow.querySelector('input');
+    // Model Quasar's two-ended slice update: the target mounts on its second
+    // frame, and recycling the source restores focus to its virtual tbody.
+    copyRow.remove();
+    mockObservation.readings.sharedState.selectedReading = mockObservation.readings.sharedState.currentReadings[1];
+    const focused = wrapper.vm.focusReading(mockObservation.readings.sharedState.currentReadings[1]);
+    window.requestAnimationFrame(() => {
+      content.focus();
+      window.requestAnimationFrame(() => {
+        content.appendChild(copyRow);
+        wrapper.vm.onVirtualScroll();
+      });
+    });
+    await settle();
+    await advanceFrames();
+    await focused;
+    expect(scrollToReading).toHaveBeenLastCalledWith(1, 'center');
+    expect(document.activeElement).toBe(copyInput);
+    await advanceFrames();
+    expect(document.activeElement).toBe(copyInput);
+  });
+
+  it('focuses an already rendered row when Quasar emits no virtual scroll event', async () => {
+    jest.useFakeTimers();
+    const wrapper = mountTable([reading('copy')], true);
+    mockObservation.readings.sharedState.selectedReading = mockObservation.readings.sharedState.currentReadings[0];
+    const focused = wrapper.vm.focusReading(mockObservation.readings.sharedState.currentReadings[0]);
+    await settle();
+    await advanceFrames();
+    await focused;
+    expect(document.activeElement).toBe(tableRows(wrapper)[0].get('input').element);
+  });
+
+  it.each(['selection', 'unmount', 'other-control'])('cancels pending focus after %s', async (reason) => {
+    jest.useFakeTimers();
+    const wrapper = mountTable([reading('copy'), reading('other', 1000)], true);
+    mockObservation.readings.sharedState.selectedReading = mockObservation.readings.sharedState.currentReadings[0];
+    const input = tableRows(wrapper)[0].get('input').element as HTMLInputElement;
+    const focus = jest.spyOn(input, 'focus');
+    const focused = wrapper.vm.focusReading(mockObservation.readings.sharedState.currentReadings[0]);
+    await settle();
+    if (reason === 'selection') mockObservation.readings.sharedState.selectedReading = mockObservation.readings.sharedState.currentReadings[1];
+    if (reason === 'unmount') wrapper.unmount();
+    if (reason === 'other-control') (tableRows(wrapper)[0].get('.readings-observable-input').element as HTMLInputElement).focus();
+    await advanceFrames();
+    await focused;
+    expect(focus).not.toHaveBeenCalled();
+    focus.mockRestore();
+  });
+
   it.each([false, true])('scrolls to the selected inserted row with descending=%p', async (descending) => {
     const wrapper = mountTable([reading('first'), reading('middle', 3000), reading('last', 5000)]);
     wrapper.findComponent(QTableStub).vm.$emit('update:pagination', {
@@ -352,28 +423,40 @@ describe('manual add table integration', () => {
     expect(toolbar.find('button[data-icon="add"]').exists()).toBe(false);
   });
 
-  it('emits the explicit source from the interline button without selecting another row', async () => {
-    const wrapper = mountTable([reading('one'), reading('two', 1000)]);
+  it('emits the explicit source from the row action without requiring a hover', async () => {
+    const wrapper = mountTable([reading('one', 0, { description: 'Source notes' }), reading('two', 1000)]);
     await tableRows(wrapper)[1].trigger('click');
     mockObservation.readings.methods.selectReading.mockClear();
-    await tableRows(wrapper)[0].trigger('mouseenter');
-    expect(tableRows(wrapper)[0].classes()).toContain('reading-row--insertion-active');
-    await tableRows(wrapper)[0].find('.readings-insertion-add').trigger('click');
-    expect(wrapper.emitted('add-reading')?.[0][0]).toMatchObject({ tempId: 'one' });
+    const button = tableRows(wrapper)[0].find('.readings-row-add');
+    expect(button.attributes('aria-label')).toBe('readingsUi.addReadingFromSource');
+    expect((button.element as HTMLButtonElement).tabIndex).toBe(0);
+    await button.trigger('click');
+    expect(wrapper.emitted('add-reading')?.[0][0]).toMatchObject({ tempId: 'one', dateTime: origin, description: 'Source notes' });
     expect(mockObservation.readings.methods.selectReading).not.toHaveBeenCalled();
     expect(tableRows(wrapper)).toHaveLength(2);
   });
 
-  it('offers local insertion to keyboard and touch without adding hidden tab stops', async () => {
-    const wrapper = mountTable([reading('one'), reading('two', 1000)]);
-    expect(tableRows(wrapper)[0].find('.readings-insertion-add').attributes('tabindex')).toBe('-1');
+  it.each(['Insert', '+'])('keeps the %p shortcut on a focused row without intercepting its controls', async (key) => {
+    const wrapper = mountTable([reading('one')]);
     await tableRows(wrapper)[0].trigger('focusin');
-    expect(tableRows(wrapper)[0].find('.readings-insertion-add').attributes('tabindex')).toBe('0');
-    await tableRows(wrapper)[0].trigger('keydown', { key: 'Insert' });
+    await tableRows(wrapper)[0].trigger('keydown', { key });
     expect(wrapper.emitted('add-reading')?.[0][0]).toMatchObject({ tempId: 'one' });
-    await tableRows(wrapper)[1].trigger('pointerdown', { pointerType: 'touch' });
-    await tableRows(wrapper)[0].trigger('focusout');
-    expect(tableRows(wrapper)[1].classes()).toContain('reading-row--insertion-active');
+    await tableRows(wrapper)[0].find('input').trigger('keydown', { key });
+    await tableRows(wrapper)[0].find('.readings-row-add').trigger('keydown', { key });
+    expect(wrapper.emitted('add-reading')).toHaveLength(1);
+  });
+
+  it('commits the local source draft before forwarding its timestamp and notes for addition', async () => {
+    mockObservation.readings.sharedState.currentReadings = [reading('one', 0, { description: 'Keep these notes' }), reading('two', 1000)];
+    const wrapper = mount(ReadingsSide, { global: readingsUiGlobal });
+    wrappers.push(wrapper);
+    await tableRows(wrapper)[1].trigger('click');
+    await tableRows(wrapper)[0].find('.reading-time-input').setValue('21/10/2026 11:12:13.456');
+    await tableRows(wrapper)[0].find('.readings-row-add').trigger('click');
+    await settle();
+    expect(mockObservation.readings.methods.addManualReading).toHaveBeenCalledWith(expect.objectContaining({
+      tempId: 'one', dateTime: new Date('2026-10-21T09:12:13.456Z'), description: 'Keep these notes',
+    }));
   });
 
   it('keeps a search filter and offers an explicit reveal action for a hidden addition', async () => {

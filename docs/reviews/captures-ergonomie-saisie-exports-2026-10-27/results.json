@@ -1,0 +1,97 @@
+{
+  "colors": [
+    {
+      "id": "a",
+      "color": "#8a62ac",
+      "rendered": "rgb(138, 98, 172)"
+    },
+    {
+      "id": "b",
+      "color": "#258979",
+      "rendered": "rgb(37, 137, 121)"
+    },
+    {
+      "id": "c",
+      "color": "#b16a36",
+      "rendered": "rgb(177, 106, 54)"
+    },
+    {
+      "id": "d",
+      "color": "#b34f79",
+      "rendered": "rgb(179, 79, 121)"
+    },
+    {
+      "id": "e",
+      "color": "#737b31",
+      "rendered": "rgb(115, 123, 49)"
+    },
+    {
+      "id": "f",
+      "color": "#3077a8",
+      "rendered": "rgb(48, 119, 168)"
+    },
+    {
+      "id": "g",
+      "color": "hsl(105.048 55% 45%)",
+      "rendered": "rgb(83, 178, 52)"
+    },
+    {
+      "id": "h",
+      "color": "hsl(242.556 55% 45%)",
+      "rendered": "rgb(57, 52, 178)"
+    }
+  ],
+  "narrow": {
+    "renderedRows": 54,
+    "rowHeight": 36.5,
+    "target": {
+      "width": 24,
+      "height": 24
+    },
+    "icons": [
+      "add",
+      "edit",
+      "delete"
+    ],
+    "headerAdds": 1,
+    "interlineAdds": 0,
+    "labelPadding": "4px",
+    "viewport": 438,
+    "content": 500,
+    "visible": "visible",
+    "previousRowHeight": 36.5
+  },
+  "pointer": {
+    "sourceTime": "2026-10-20T08:00:02.123Z",
+    "copyTime": "2026-10-20T08:00:02.123Z",
+    "name": "Déplacement",
+    "notes": "Notes conservées",
+    "sameElementAfterServerId": true,
+    "focusWithinSelectedRow": true
+  },
+  "keyboard": {
+    "enterAndSpace": true
+  },
+  "headerAdd": true,
+  "finalFocus": {
+    "focused": "reading-time-input readings-inline-control",
+    "selectedKey": "tempId-050f65a2-b87a-48ba-b6ad-e6ac8edf764a",
+    "rowFound": true,
+    "scrollTop": 15012
+  },
+  "recycledSource": {
+    "time": "2026-10-20T08:08:19.123Z",
+    "renderedRows": 54,
+    "selectedTop": 111.921875,
+    "viewportTop": 33,
+    "viewportHeight": 538
+  },
+  "wide": {
+    "viewport": 500,
+    "content": 500
+  },
+  "touch": {
+    "time": "2026-10-20T08:00:02.123Z"
+  },
+  "errors": []
+}
