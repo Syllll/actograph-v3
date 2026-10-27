@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import {
+  Protocol,
   ProtocolItem,
   IGraphPreferences,
 } from '@core/observations/entities/protocol.entity';
@@ -22,6 +23,7 @@ import {
 } from '@actograph/core';
 import { randomUUID } from 'node:crypto';
 import { UpdateProtocolItemGraphPreferencesDto } from '../../dtos/protocol-item-graph-preferences.dto';
+import { IsNull } from 'typeorm';
 
 export class Items {
   constructor(
@@ -37,6 +39,20 @@ export class Items {
     }
 
     return JSON.parse(itemsStr);
+  }
+
+  private async saveActiveItems(protocol: Partial<Protocol>): Promise<void> {
+    if (protocol.id == null || protocol.items == null) {
+      throw new NotFoundException('Protocol was not found');
+    }
+    // A stale request must never restore deletedAt from its earlier snapshot.
+    const result = await this.protocolRepository.update(
+      { id: protocol.id, deletedAt: IsNull() },
+      { items: protocol.items },
+    );
+    if (result.affected === 0) {
+      throw new NotFoundException('Protocol was not found');
+    }
   }
 
   /** Une cible d'arrière-plan supprimée ou devenue fond ne doit plus être référencée. */
@@ -101,7 +117,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.protocolRepository.save(protocol);
+    await this.saveActiveItems(protocol);
 
     // Return the new category
     return categories[order];
@@ -148,7 +164,7 @@ export class Items {
     protocol.items = JSON.stringify(items);
 
     // Save the protocol
-    await this.protocolRepository.save(protocol);
+    await this.saveActiveItems(protocol);
   }
 
   public async removeCategory(options: {
@@ -183,7 +199,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.protocolRepository.save(protocol);
+    await this.saveActiveItems(protocol);
 
     // Return the new items
     return categories;
@@ -288,7 +304,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.protocolRepository.save(protocol);
+    await this.saveActiveItems(protocol);
 
     // Find the new index of the category (in case order changed)
     const newCategoryIndex = categories.findIndex(
@@ -373,7 +389,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.protocolRepository.save(protocol);
+    await this.saveActiveItems(protocol);
 
     // Return the added observable
     return category.children[order];
@@ -426,7 +442,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.protocolRepository.save(protocol);
+    await this.saveActiveItems(protocol);
 
     // Return the new items
     return categories;
@@ -529,7 +545,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.protocolRepository.save(protocol);
+    await this.saveActiveItems(protocol);
 
     // Find the new index of the observable (in case order changed)
     const newObservableIndex = category.children.findIndex(
@@ -654,7 +670,7 @@ export class Items {
     protocol.items = JSON.stringify(items);
 
     // Save the protocol
-    await this.protocolRepository.save(protocol);
+    await this.saveActiveItems(protocol);
 
     return targetItem;
   }

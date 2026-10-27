@@ -98,6 +98,12 @@
             </q-td>
           </template>
 
+          <template v-slot:body-cell-actions="cellProps">
+            <q-td :props="cellProps" @click.stop>
+              <ChronicleActionsMenu :observation="cellProps.row" />
+            </q-td>
+          </template>
+
           <template v-slot:no-data>
             <div class="full-width column items-center q-pa-lg text-neutral-high">
               <q-icon name="mdi-magnify" size="48px" class="q-mb-md" />
@@ -142,11 +148,14 @@ import { IObservation } from '@services/observations/interface';
 import { DSearchInput } from '@lib-improba/components/app/inputs';
 import { useObservation } from 'src/composables/use-observation';
 import { relativeDay } from '@lib-improba/utils/date-format.utils';
+import ChronicleActionsMenu from './ChronicleActionsMenu.vue';
+import { deletingObservationIds, observationDeletionRevision, isObservationDeleted } from 'src/utils/observation-mutation-guard';
 
 export default defineComponent({
   name: 'AllChroniclesDialog',
   components: {
     DSearchInput,
+    ChronicleActionsMenu,
   },
   props: {
     modelValue: {
@@ -183,6 +192,7 @@ export default defineComponent({
           field: 'updatedAt',
           style: 'width: 200px',
         },
+        { name: 'actions', label: '', field: 'id', align: 'right' as const, style: 'width: 48px' },
       ];
     });
 
@@ -209,6 +219,7 @@ export default defineComponent({
       set: (value) => emit('update:modelValue', value),
     });
 
+    let fetchGeneration = 0;
     const methods = {
       handleSearch() {
         if (state.searchDebounceTimeout) {
@@ -224,6 +235,7 @@ export default defineComponent({
       },
 
       async fetchAll(options?: { silent?: boolean }) {
+        const generation = ++fetchGeneration;
         const silent = options?.silent === true;
         if (!silent) {
           state.loading = true;
@@ -240,26 +252,26 @@ export default defineComponent({
               searchString: state.searchText || undefined,
             }
           );
-          state.rows = response.results;
-          state.totalCount = response.count;
+          if (generation !== fetchGeneration) return;
+          state.rows = response.results.filter((obs) => !isObservationDeleted(obs.id));
+          state.totalCount = Math.max(0, response.count - (response.results.length - state.rows.length));
         } catch (error) {
           console.error('Error fetching all observations:', error);
-          if (!silent) {
+          if (!silent && generation === fetchGeneration) {
             $q.notify({
               type: 'negative',
               message: t('observationsList.loadError'),
             });
-            state.rows = [];
-            state.totalCount = 0;
           }
         } finally {
-          if (!silent) {
+          if (generation === fetchGeneration) {
             state.loading = false;
           }
         }
       },
 
       handleRowClick(_evt: Event, row: IObservation) {
+        if (deletingObservationIds.size) return;
         emit('selected', row.id);
       },
 
@@ -299,7 +311,14 @@ export default defineComponent({
       }
     });
 
+    watch(observationDeletionRevision, (revision, previous) => {
+      state.rows = state.rows.filter((obs) => !isObservationDeleted(obs.id));
+      state.totalCount = Math.max(0, state.totalCount - (revision - previous));
+      if (props.modelValue) void methods.fetchAll();
+    });
+
     onUnmounted(() => {
+      fetchGeneration += 1;
       if (state.searchDebounceTimeout) {
         clearTimeout(state.searchDebounceTimeout);
       }

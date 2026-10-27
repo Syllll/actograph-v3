@@ -20,6 +20,9 @@
           <q-item-section side>
             <q-item-label caption>{{ methods.formatDate(obs.updatedAt) }}</q-item-label>
           </q-item-section>
+          <q-item-section side>
+            <ChronicleActionsMenu :observation="obs" />
+          </q-item-section>
         </q-item>
 
         <q-item v-if="!state.loading && state.recentObservations.length === 0">
@@ -65,6 +68,8 @@ import { IObservation } from '@services/observations/interface';
 import { useObservation } from 'src/composables/use-observation';
 import { relativeDay } from '@lib-improba/utils/date-format.utils';
 import AllChroniclesDialog from './AllChroniclesDialog.vue';
+import ChronicleActionsMenu from './ChronicleActionsMenu.vue';
+import { deletingObservationIds, observationDeletionRevision, isObservationDeleted } from 'src/utils/observation-mutation-guard';
 
 const MAX_RECENT_ITEMS = 8;
 
@@ -72,6 +77,7 @@ export default defineComponent({
   name: 'MyObservations',
   components: {
     AllChroniclesDialog,
+    ChronicleActionsMenu,
   },
   setup() {
     const $q = useQuasar();
@@ -95,8 +101,10 @@ export default defineComponent({
       return t('observationsList.searchChronicle');
     });
 
+    let fetchGeneration = 0;
     const methods = {
       async fetchRecent(options?: { silent?: boolean }) {
+        const generation = ++fetchGeneration;
         const silent = options?.silent === true;
         if (!silent) {
           state.loading = true;
@@ -108,26 +116,26 @@ export default defineComponent({
             orderBy: 'updatedAt',
             order: 'DESC',
           });
-          state.recentObservations = response.results;
-          state.totalCount = response.count;
+          if (generation !== fetchGeneration) return;
+          state.recentObservations = response.results.filter((obs) => !isObservationDeleted(obs.id));
+          state.totalCount = Math.max(0, response.count - (response.results.length - state.recentObservations.length));
         } catch (error) {
           console.error('Error fetching recent observations:', error);
-          if (!silent) {
+          if (!silent && generation === fetchGeneration) {
             $q.notify({
               type: 'negative',
               message: t('observationsList.loadError'),
             });
-            state.recentObservations = [];
-            state.totalCount = 0;
           }
         } finally {
-          if (!silent) {
+          if (generation === fetchGeneration) {
             state.loading = false;
           }
         }
       },
 
       async loadObservation(id: number) {
+        if (deletingObservationIds.size) return;
         await observation.methods.loadObservation(id);
       },
 
@@ -152,6 +160,12 @@ export default defineComponent({
 
     onMounted(() => {
       methods.fetchRecent();
+    });
+
+    watch(observationDeletionRevision, (revision, previous) => {
+      state.recentObservations = state.recentObservations.filter((obs) => !isObservationDeleted(obs.id));
+      state.totalCount = Math.max(0, state.totalCount - (revision - previous));
+      void methods.fetchRecent();
     });
 
     useAppResume(() => {

@@ -9,9 +9,12 @@
 export { PixiApp } from './pixi-app';
 
 // Options de rendu graphe (niveau session, pas par catégorie)
-export type { IGraphRenderOptions } from './types/graph-render-options';
+export type { IGraphRenderOptions, XAxisLabelOrientation } from './types/graph-render-options';
 export {
   DEFAULT_GRAPH_RENDER_OPTIONS,
+  normalizeGraphRenderOptions,
+  normalizeAxisFontSize,
+  normalizeXAxisLabelOrientation,
   hasGraphRenderOptionsChanged,
   isTimeFormatOnlyChange,
 } from './types/graph-render-options';
@@ -58,3 +61,5 @@ export { AxisLabelOverlay } from './layers/AxisLabelOverlay';
 export type { AxisLabelDescriptor, AxisLabelKind } from './layers/AxisLabelOverlay';
 export { createSvgDocument, combineSvgDocuments, escapeXml } from './utils/svg-document';
 export type { SvgDocument } from './utils/svg-document';
+
+export type { GraphImageExportOptions } from './engine/ExportPipeline';

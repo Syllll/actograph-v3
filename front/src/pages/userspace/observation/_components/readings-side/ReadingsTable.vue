@@ -1,5 +1,5 @@
 <template>
-  <div class="readings-table">
+  <div ref="rootRef" class="readings-table">
     <q-table
       ref="tableRef"
       class="readings-q-table"
@@ -15,6 +15,7 @@
     :rows-per-page-options="[0]"
     hide-pagination
     hide-bottom
+    @virtual-scroll="onVirtualScroll"
   >
     <template v-slot:header="props">
       <q-tr :props="props">
@@ -38,9 +39,14 @@
             />
             <q-tooltip>{{ t('readingsUi.clearAllReadingsTooltip') }}</q-tooltip>
           </span>
-          <template v-else>
+          <span v-else-if="col.name === 'name'" class="readings-label-header">
+            <q-btn flat round dense icon="add" size="sm" class="readings-header-add"
+              :aria-label="t('readingsUi.addReadingTooltip')" @click.stop="requestAdd()">
+              <q-tooltip>{{ t('readingsUi.addReadingTooltip') }}</q-tooltip>
+            </q-btn>
             {{ col.label }}
-          </template>
+          </span>
+          <template v-else>{{ col.label }}</template>
         </q-th>
       </q-tr>
     </template>
@@ -135,6 +141,10 @@
 
         <q-td key="name" :props="props">
           <span class="readings-label-cell">
+            <span v-if="getReadingCategory(props.row)" class="readings-category-dot"
+              :style="{ backgroundColor: getReadingCategory(props.row)?.color }"
+              :title="t('readingsUi.categoryLabel', { name: getReadingCategory(props.row)?.name })"
+              role="img" :aria-label="t('readingsUi.categoryLabel', { name: getReadingCategory(props.row)?.name })" />
             <input
               v-if="isCommentReading(props.row)"
               class="readings-inline-control comment-reading"
@@ -170,30 +180,16 @@
                 :aria-label="t('readingsUi.chooseObservable')"
                 @click.stop="selectReading(props.row)"
               >
-                <q-tooltip>{{ t('readingsUi.chooseObservable') }}</q-tooltip>
-                <q-menu>
-                  <q-list dense class="readings-observable-options">
-                    <template v-for="group in observableOptions" :key="group.name">
-                      <q-item dense class="text-weight-bold" aria-disabled="true">
-                        <q-item-section>{{ group.name }}</q-item-section>
-                      </q-item>
-                      <q-item
-                        v-for="name in group.names"
-                        :key="name"
-                        clickable dense v-close-popup
-                        :active="props.row.name === name"
-                        :data-observable-option="name"
-                        @click="chooseObservable(props.row, name)"
-                      >
-                        <q-item-section>{{ name }}</q-item-section>
-                      </q-item>
-                    </template>
-                  </q-list>
+                <q-tooltip v-if="openObservableRowKey !== getRowKey(props.row)">{{ t('readingsUi.chooseObservable') }}</q-tooltip>
+                <q-menu @before-show="openObservableRowKey = getRowKey(props.row)"
+                  @hide="onObservableMenuHide(props.row)" anchor="bottom right" self="top right">
+                  <observable-picker :groups="observableOptions" :model-value="props.row.name"
+                    @select="chooseObservable(props.row, $event)" />
                 </q-menu>
               </q-btn>
             </span>
             <q-tooltip
-              v-if="getLabelTooltip(props.row)"
+              v-if="getLabelTooltip(props.row) && !openObservableRowKey"
               anchor="top middle"
               self="bottom middle"
             >
@@ -203,6 +199,11 @@
         </q-td>
 
         <q-td key="actions" :props="props" class="text-right">
+          <q-btn flat round dense icon="add" size="xs" class="readings-row-add"
+            :aria-label="t('readingsUi.addReadingFromSource')"
+            @click.stop="requestAdd(props.row)">
+            <q-tooltip>{{ t('readingsUi.addReadingFromSource') }}</q-tooltip>
+          </q-btn>
           <q-btn
             flat
             round
@@ -230,15 +231,19 @@
         </q-td>
       </q-tr>
     </template>
+    <template #bottom-row>
+      <tr class="q-virtual-scroll--skip readings-workspace-spacer" aria-hidden="true">
+        <td :colspan="columns.length" :style="{ height: `${workspaceHeight}px`, padding: 0, border: 0 }" />
+      </tr>
+    </template>
   </q-table>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, ref, watch, nextTick } from 'vue';
+import { defineComponent, computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
-import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { QTableColumn, QTable, Dialog } from 'quasar';
 import { readingKey, sameReading } from 'src/utils/reading-identity';
 import { date as qDate } from 'quasar';
@@ -252,10 +257,12 @@ import {
 import { parseCalendarDateTimeEditInTimeZone } from 'src/utils/calendar-date-time';
 import EditReadingDialog from './EditReadingDialog.vue';
 import ReadingTimeInput from './ReadingTimeInput.vue';
+import ObservablePicker from './ObservablePicker.vue';
+import { buildObservableCategories, indexObservableCategories } from './observable-categories';
 
 export default defineComponent({
   name: 'ReadingsTable',
-  components: { ReadingTimeInput },
+  components: { ReadingTimeInput, ObservablePicker },
 
   props: {
     readings: {
@@ -268,7 +275,7 @@ export default defineComponent({
     },
   },
 
-  emits: ['remove-reading', 'clear-all', 'invalid-timestamps'],
+  emits: ['remove-reading', 'clear-all', 'invalid-timestamps', 'add-reading'],
 
   setup(props, { emit }) {
     const { t } = useI18n();
@@ -338,10 +345,26 @@ export default defineComponent({
     const tableRef = ref<QTable | null>(null);
     const selectedReading = computed(() => observation.readings.sharedState.selectedReading);
     const isSelectedReading = (row: IReading) => sameReading(row, selectedReading.value);
-    const selectReading = (row: IReading) => observation.readings.methods.selectReading(row);
+    const rootRef = ref<HTMLElement | null>(null);
+    const openObservableRowKey = ref<string | null>(null);
+    const onObservableMenuHide = (row: IReading) => {
+      if (openObservableRowKey.value === readingKey(row)) openObservableRowKey.value = null;
+    };
+    let localSelectionKey: string | null = null;
+    const selectReading = (row: IReading) => {
+      localSelectionKey = readingKey(row);
+      observation.readings.methods.selectReading(row);
+      void nextTick(() => { localSelectionKey = null; });
+    };
+    const requestAdd = (source?: IReading) => emit('add-reading', source);
     const onRowKeydown = (row: IReading, event: KeyboardEvent) => {
       // Let inputs, buttons and menu controls handle their own keystrokes.
       if (event.target !== event.currentTarget) return;
+      if (event.key === 'Insert' || event.key === '+') {
+        event.preventDefault();
+        requestAdd(row);
+        return;
+      }
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         selectReading(row);
@@ -351,15 +374,116 @@ export default defineComponent({
       const rows = tableRef.value?.filteredSortedRows ?? props.readings;
       return rows.findIndex((row: IReading) => sameReading(row, selectedReading.value));
     });
+    const getScrollContainer = () => rootRef.value?.querySelector<HTMLElement>('.q-table__middle');
+    const getRenderedRow = (reading: IReading) => Array.from(rootRef.value?.querySelectorAll<HTMLElement>('[data-reading-key]') ?? [])
+      .find((element) => element.dataset.readingKey === readingKey(reading));
+    const isRowVisible = (reading: IReading) => {
+      const container = getScrollContainer();
+      const row = getRenderedRow(reading);
+      if (!container || !row || container.clientHeight === 0) return false;
+      const bounds = container.getBoundingClientRect();
+      const rowBounds = row.getBoundingClientRect();
+      const header = rootRef.value?.querySelector('thead')?.getBoundingClientRect().height ?? 0;
+      return rowBounds.top >= bounds.top + header && rowBounds.bottom <= bounds.bottom;
+    };
     watch(
       [() => selectedReading.value ? readingKey(selectedReading.value) : null, selectedDisplayIndex],
-      async () => {
+      async ([key, index]) => {
+        if (index < 0 || !selectedReading.value) return;
+        // Clicking or focusing an already visible row never changes the viewport.
+        if (key === localSelectionKey) return;
         await nextTick();
-        const index = selectedDisplayIndex.value;
-        if (index >= 0) tableRef.value?.scrollTo(index, 'center');
+        if (selectedReading.value && !isRowVisible(selectedReading.value)) tableRef.value?.scrollTo(index, 'center');
       },
       { flush: 'post', immediate: true },
     );
+    let focusRevision = 0;
+    let focusFrame: number | null = null;
+    let pendingFocus: { reading: IReading; initialElement: Element | null; finish: () => void } | null = null;
+    let isUnmounted = false;
+    const cancelPendingFocus = () => {
+      focusRevision += 1;
+      if (focusFrame !== null) window.cancelAnimationFrame(focusFrame);
+      focusFrame = null;
+      const request = pendingFocus;
+      pendingFocus = null;
+      request?.finish();
+    };
+    const onVirtualScroll = () => {
+      const request = pendingFocus;
+      if (!request) return;
+      const revision = ++focusRevision;
+      if (focusFrame !== null) window.cancelAnimationFrame(focusFrame);
+      // Quasar renders the two ends of a new slice in separate frames and can
+      // temporarily refocus its tbody. Restart after its final scroll event.
+      void nextTick(() => {
+        if (revision !== focusRevision) return;
+        focusFrame = window.requestAnimationFrame(() => {
+          void nextTick(() => {
+            if (revision !== focusRevision) return;
+            focusFrame = window.requestAnimationFrame(() => {
+              if (revision !== focusRevision) return;
+              focusFrame = null;
+              const input = getRenderedRow(request.reading)?.querySelector<HTMLInputElement>('.reading-time-input');
+              const active = document.activeElement;
+              const retainedFocus = active === request.initialElement || active === document.body
+                || active === input || active?.classList.contains('q-virtual-scroll__content');
+              if (!isUnmounted && sameReading(request.reading, selectedReading.value) && retainedFocus) {
+                input?.focus({ preventScroll: true });
+              }
+              cancelPendingFocus();
+            });
+          });
+        });
+      });
+    };
+    watch(selectedReading, (reading) => {
+      if (pendingFocus && !sameReading(pendingFocus.reading, reading)) cancelPendingFocus();
+    }, { flush: 'sync' });
+    const focusReading = (reading: IReading): Promise<void> => {
+      cancelPendingFocus();
+      if (isUnmounted || !sameReading(reading, selectedReading.value)) return Promise.resolve();
+      return new Promise<void>((finish) => {
+        const request = { reading, initialElement: document.activeElement, finish };
+        pendingFocus = request;
+        void nextTick(() => {
+          if (pendingFocus !== request) return;
+          const rows = tableRef.value?.filteredSortedRows ?? props.readings;
+          const index = rows.findIndex((row: IReading) => sameReading(row, reading));
+          if (index < 0) {
+            cancelPendingFocus();
+            return;
+          }
+          tableRef.value?.scrollTo(index, 'center');
+          // An already current virtual index does not emit another scroll event.
+          onVirtualScroll();
+        });
+      });
+    };
+    const workspaceHeight = ref(0);
+    let workspaceObserver: ResizeObserver | null = null;
+    const measureWorkspace = () => {
+      const container = getScrollContainer();
+      const headerHeight = rootRef.value?.querySelector('thead')?.getBoundingClientRect().height ?? 48;
+      const rowHeight = rootRef.value?.querySelector('[data-reading-key]')?.getBoundingClientRect().height || 28;
+      workspaceHeight.value = Math.max(0, (container?.clientHeight ?? 0) - headerHeight - rowHeight);
+    };
+    watch(() => props.readings, () => {
+      void nextTick(measureWorkspace);
+    });
+    onMounted(() => {
+      measureWorkspace();
+      const container = getScrollContainer();
+      if (container && typeof ResizeObserver !== 'undefined') {
+        workspaceObserver = new ResizeObserver(measureWorkspace);
+        workspaceObserver.observe(container);
+      }
+    });
+    onBeforeUnmount(() => {
+      isUnmounted = true;
+      cancelPendingFocus();
+      workspaceObserver?.disconnect();
+    });
     const isChronometerMode = computed(() => observation.isChronometerMode.value);
 
     const getRowKey = readingKey;
@@ -373,16 +497,10 @@ export default defineComponent({
     ), (invalid) => emit('invalid-timestamps', invalid), { immediate: true });
     const observableDrafts = ref<Record<string, string>>({});
 
-    const observableOptions = computed(() => {
-      const items = observation.protocol.sharedState.currentProtocol?._items ?? [];
-      return items
-        .filter((item) => item.type === ProtocolItemTypeEnum.Category)
-        .map((item) => ({
-          name: item.name,
-          names: (item.children ?? []).map((child) => child.name).filter((name): name is string => Boolean(name)),
-        }))
-        .filter((group) => group.names.length > 0);
-    });
+    const observableOptions = computed(() => buildObservableCategories(observation.protocol.sharedState.currentProtocol?._items));
+    const observableCategoryIndex = computed(() => indexObservableCategories(observableOptions.value));
+    const getReadingCategory = (row: IReading) => row.type === ReadingTypeEnum.DATA && !isCommentReading(row)
+      ? observableCategoryIndex.value.get(row.name) ?? null : null;
 
     const getObservableValue = (row: IReading) => observableDrafts.value[getRowKey(row)] ?? row.name;
     const setObservableDraft = (row: IReading, event: Event) => {
@@ -406,25 +524,10 @@ export default defineComponent({
       selectReading(row);
     };
 
-    const protocolObservableNames = computed(() => {
-      const protocol = observation.protocol.sharedState.currentProtocol;
-      if (!protocol?._items) return new Set<string>();
-      const names = new Set<string>();
-      for (const item of protocol._items) {
-        const isCategory = item.type === ProtocolItemTypeEnum.Category;
-        if (isCategory && item.children) {
-          for (const child of item.children) {
-            if (child.name) names.add(child.name);
-          }
-        }
-      }
-      return names;
-    });
-
     const isUnrecognizedObservable = (row: IReading): boolean => {
       if (row.type !== ReadingTypeEnum.DATA || !row.name) return false;
       if (row.name.startsWith('#')) return false;
-      return !protocolObservableNames.value.has(row.name);
+      return !observableCategoryIndex.value.has(row.name);
     };
 
     const getUnrecognizedObservableTitle = (row: IReading): string | undefined => {
@@ -442,6 +545,7 @@ export default defineComponent({
     const getLabelTooltip = (row: IReading): string | undefined => {
       const parts = [
         getUnrecognizedObservableTitle(row),
+        getReadingCategory(row) ? t('readingsUi.categoryLabel', { name: getReadingCategory(row)?.name }) : undefined,
         getDescriptionTooltip(row),
       ].filter((part): part is string => Boolean(part));
       return parts.length > 0 ? parts.join('\n') : undefined;
@@ -508,7 +612,7 @@ export default defineComponent({
     };
 
     const findRowSafe = (row: IReading): IReading | undefined => {
-      return props.readings.find((r: IReading) =>
+      return observation.readings.sharedState.currentReadings.find((r: IReading) =>
         (row.id && r.id === row.id) || (row.tempId && r.tempId === row.tempId) || r === row
       );
     };
@@ -649,7 +753,9 @@ export default defineComponent({
       if (!targetRow) return;
       const body = commentBodyFromName(targetRow.name).trim();
       if (restoreNameIfEmpty(row, body)) return;
-      targetRow.name = `# ${body}`;
+      const name = `# ${body}`;
+      if (targetRow.name === name) return;
+      targetRow.name = name;
       targetRow.updatedAt = new Date();
     };
 
@@ -680,8 +786,30 @@ export default defineComponent({
       });
     };
 
+    const prepareForAdd = () => {
+      // Commit all retained drafts, including a field virtualized or filtered out.
+      for (const row of observation.readings.sharedState.currentReadings) {
+        const key = getRowKey(row);
+        if (key in calendarDrafts.value) commitCalendarDateTime(row);
+        if (key in durationDrafts.value) commitDuration(row);
+        if (key in observableDrafts.value) commitObservable(row);
+        if (isCommentReading(row) && key in nameSnapshots.value) commitComment(row);
+      }
+      return !observation.readings.sharedState.currentReadings.some((row) =>
+        calendarErrors.value[getRowKey(row)] || durationErrors.value[getRowKey(row)]);
+    };
+
     return {
       t,
+      rootRef,
+      workspaceHeight,
+      openObservableRowKey,
+      onObservableMenuHide,
+      requestAdd,
+      prepareForAdd,
+      focusReading,
+      onVirtualScroll,
+      getReadingCategory,
       resetChronologicalSort: () => { pagination.value = { ...pagination.value, sortBy: 'dateTime', descending: false }; },
       tableRef,
       isSelectedReading,
@@ -776,7 +904,7 @@ export default defineComponent({
 }
 
 .readings-type-option {
-  color: var(--primary);
+  color: var(--text);
 }
 
 .readings-type-option--active {
@@ -817,7 +945,7 @@ export default defineComponent({
   position: sticky;
   top: 0;
   z-index: 1;
-  background-color: white;
+  background-color: var(--secondary);
 }
 
 .readings-q-table :deep(.q-table) {
@@ -836,4 +964,18 @@ export default defineComponent({
 .readings-q-table :deep(td:last-child) {
   padding-right: 4px;
 }
+</style>
+
+<style scoped>
+.readings-label-header { display: inline-flex; align-items: center; gap: 4px; }
+.readings-header-add { min-width: 24px; min-height: 24px; color: var(--accent-strong); }
+.readings-label-cell { display: inline-flex; align-items: center; gap: 5px; }
+.readings-category-dot { display: inline-block; flex: 0 0 7px; height: 7px; border-radius: 50%; }
+.readings-row-add {
+  min-width: 24px;
+  min-height: 24px;
+  color: var(--accent-strong);
+}
+.readings-row-add:focus-visible { outline: 2px solid var(--accent); }
+.readings-workspace-spacer { pointer-events: none; }
 </style>

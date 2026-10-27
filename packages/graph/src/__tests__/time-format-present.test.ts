@@ -45,7 +45,7 @@ function patchFormatReady(
   syncAxisLabelOverlay: jest.Mock;
   paint: jest.Mock;
   xAxis: { setGraphRenderOptions: jest.Mock; hasTicks: jest.Mock; hasDrawnContent: jest.Mock };
-  yAxis: { hasTicks: jest.Mock; hasDrawnContent: jest.Mock };
+  yAxis: { hasTicks: jest.Mock; hasDrawnContent: jest.Mock; setFontSize: jest.Mock };
   dataArea: { setGraphRenderOptions: jest.Mock };
   hoverLayer: { setGraphRenderOptions: jest.Mock; clear: jest.Mock };
 } {
@@ -57,6 +57,7 @@ function patchFormatReady(
     hasDrawnContent: jest.fn(() => true),
   };
   const yAxis = {
+    setFontSize: jest.fn(),
     hasTicks: jest.fn(() => true),
     hasDrawnContent: jest.fn(() => true),
   };

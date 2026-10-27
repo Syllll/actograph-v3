@@ -1,5 +1,5 @@
 import { Container, Text, type TextStyleFontStyle, type TextStyleFontWeight } from 'pixi.js';
-import { selectNonOverlappingLabels } from '../utils/axis-label-layout.utils';
+import { selectNonOverlappingLabels, rotatedLabelBounds, resolveAutomaticLabelAngle } from '../utils/axis-label-layout.utils';
 
 export type AxisLabelKind = 'x-tick' | 'y-tick' | 'format-mention';
 
@@ -20,6 +20,8 @@ export type AxisLabelDescriptor = {
   kind: AxisLabelKind;
   /** Largeur horizontale estimée pour l'anti-collision des ticks X. */
   labelWidth?: number;
+  /** Resolve from all projected tick candidates before hiding collisions. */
+  automaticOrientation?: boolean;
 };
 
 export interface AxisLabelOverlayProjectors {
@@ -90,6 +92,7 @@ export class AxisLabelOverlay {
       return;
     }
 
+    descriptors = this.resolveOrientations(descriptors);
     const descriptorIds = new Set(descriptors.map((d) => d.id));
 
     for (const id of this.labelById.keys()) {
@@ -162,13 +165,34 @@ export class AxisLabelOverlay {
         const overlay = this.worldToOverlay!({ x: d.worldX, y: d.worldY });
         return {
           id: d.id,
-          x: overlay.x,
-          width: d.labelWidth ?? d.text.length * d.fontSize * 0.6,
-          anchorX: d.anchorX,
+          ...this.horizontalCollisionBox(d, overlay.x),
         };
       });
 
     return selectNonOverlappingLabels(xTickItems);
+  }
+
+  private horizontalCollisionBox(descriptor: AxisLabelDescriptor, x: number) {
+    const bounds = rotatedLabelBounds(
+      descriptor.labelWidth ?? descriptor.text.length * descriptor.fontSize * 0.6,
+      descriptor.fontSize * 1.2, descriptor.angleDeg, descriptor.anchorX, descriptor.anchorY,
+    );
+    return { x: x + bounds.left, width: bounds.right - bounds.left, anchorX: 0 };
+  }
+
+  private resolveOrientations(descriptors: AxisLabelDescriptor[]): AxisLabelDescriptor[] {
+    const candidates = descriptors.filter(d => d.kind === 'x-tick');
+    if (!candidates.some(d => d.automaticOrientation)) return descriptors;
+    const angle = resolveAutomaticLabelAngle(candidates.map(d => {
+      const projected = this.worldToOverlay!({ x: d.worldX, y: d.worldY });
+      return {
+        id: d.id, x: projected.x,
+        width: d.labelWidth ?? d.text.length * d.fontSize * 0.6, anchorX: 0.5,
+      };
+    }));
+    return descriptors.map(d => d.automaticOrientation
+      ? { ...d, angleDeg: angle, anchorX: angle === 0 ? 0.5 : 0 }
+      : d);
   }
 
   private createText(descriptor: AxisLabelDescriptor): Text {

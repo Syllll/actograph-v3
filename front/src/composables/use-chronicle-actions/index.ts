@@ -13,6 +13,20 @@ import SaveAsDialog from '@pages/userspace/home/_components/active-chronicle/Sav
 import MergeObservationsDialog from '@pages/userspace/home/_components/my-observations/MergeObservationsDialog.vue';
 import CloudLoginDialog from '@pages/userspace/home/_components/cloud/CloudLoginDialog.vue';
 import CloudSyncDialog from '@pages/userspace/home/_components/cloud/CloudSyncDialog.vue';
+import { observationService } from '@services/observations/index.service';
+import type { IObservation } from '@services/observations/interface';
+import { usePopout } from 'src/composables/use-popout';
+import { useMiniGraph } from 'src/composables/use-mini-graph';
+import { waitForPendingReadingSynchronization } from 'src/composables/use-observation/use-readings';
+import { observationGraphMetaPersistQueue } from 'src/utils/observation-meta-update';
+import {
+  deletingObservationIds,
+  observationDeletionRevision,
+  isObservationMutationBlocked,
+  setObservationMutationBlocked,
+  markObservationDeleted,
+  waitForObservationTasks,
+} from 'src/utils/observation-mutation-guard';
 
 /**
  * Single source of truth for all chronicle-related actions
@@ -27,6 +41,60 @@ export const useChronicleActions = () => {
   const { t } = useI18n();
   const observation = useObservation();
   const cloud = useCloud();
+
+  const deleteObservation = async (target: Pick<IObservation, 'id' | 'name'>): Promise<boolean> => {
+    if (!target.id || isObservationMutationBlocked(target.id)) return false;
+    const recording = () => observation.sharedState.currentObservation?.id === target.id
+      && (observation.sharedState.isPlaying || observation.sharedState.startTime != null);
+    if (recording()) {
+      $q.notify({ type: 'warning', message: t('chronicleActions.deleteRecording') });
+      return false;
+    }
+    const confirmed = await new Promise<boolean>((resolve) => {
+      $q.dialog({
+        title: t('chronicleActions.deleteTitle'),
+        message: t('chronicleActions.deleteMessage', { name: target.name }),
+        cancel: { label: t('dialogs.cancel'), flat: true, noCaps: true },
+        ok: { label: t('chronicleActions.deleteConfirm'), color: 'negative', noCaps: true },
+      }).onOk(() => resolve(true)).onDismiss(() => resolve(false));
+    });
+    if (!confirmed || isObservationMutationBlocked(target.id)) return false;
+    if (recording()) {
+      $q.notify({ type: 'warning', message: t('chronicleActions.deleteRecording') });
+      return false;
+    }
+    const active = observation.sharedState.currentObservation?.id === target.id;
+    setObservationMutationBlocked(target.id, true);
+    try {
+      if (active) {
+        observation.sharedState.loading = true;
+        const popout = usePopout();
+        popout.requestClose('buttons');
+        popout.requestClose('video');
+        useMiniGraph().requested.value = false;
+        await waitForPendingReadingSynchronization();
+      }
+      await observationGraphMetaPersistQueue.whenIdle(target.id);
+      await waitForObservationTasks(target.id);
+      await observationService.delete(target.id);
+      markObservationDeleted(target.id);
+      if (observation.sharedState.currentObservation?.id === target.id) {
+        observation.methods.closeObservation();
+        void router.push({ name: 'user_home' }).catch((error: unknown) => console.error('Navigation after deletion failed:', error));
+      }
+      $q.notify({ type: 'positive', message: t('chronicleActions.deleteSuccess', { name: target.name }) });
+      return true;
+    } catch (error) {
+      console.error('deleteObservation failed:', error);
+      $q.notify({ type: 'negative', message: t('chronicleActions.deleteError') });
+      return false;
+    } finally {
+      setObservationMutationBlocked(target.id, false);
+      if (active && observation.sharedState.currentObservation?.id === target.id) {
+        observation.sharedState.loading = false;
+      }
+    }
+  };
 
   const createObservation = async () => {
     const diagRes = await createDialog({
@@ -368,6 +436,9 @@ export const useChronicleActions = () => {
   };
 
   return {
+    deleteObservation,
+    deletingObservationIds,
+    observationDeletionRevision,
     createObservation,
     importObservation,
     exportObservation,

@@ -7,6 +7,7 @@ import {
 import { IUser } from '@services/users/user.interface';
 import { IObservation, ObservationModeEnum } from './interface';
 import { IChronicExport } from './export.interface';
+import { trackObservationTask } from 'src/utils/observation-mutation-guard';
 
 const apiUrl = httpUtils.apiUrl();
 
@@ -137,8 +138,10 @@ export const observationService: IObservationService = {
       meta?: Record<string, any>;
     }
   ): Promise<IObservation> => {
-    const response = await api().patch(`${apiUrl}/observations/${id}`, updateData);
-    return response.data;
+    return trackObservationTask(id, async () => {
+      const response = await api().patch(`${apiUrl}/observations/${id}`, updateData);
+      return response.data;
+    });
   },
   exportObservation: async (id: number): Promise<IChronicExport> => {
     const response = await api().get(`${apiUrl}/observations/${id}/export`);

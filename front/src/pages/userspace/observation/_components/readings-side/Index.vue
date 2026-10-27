@@ -1,14 +1,12 @@
 <template>
   <div class="readings-side-container">
     <div ref="contentRef" class="readings-side-content q-pa-sm column">
-      <!-- Toolbar with search, add, and remove buttons -->
+      <!-- Search and observation actions stay outside the table. -->
       <readings-toolbar
         class="col-auto"
         v-model:search="search"
         :match-count="filteredReadings.length"
-        :is-add-disabled="false"
         :can-activate-chronometer-mode="canActivateChronometerMode"
-        @add-reading="handleAddReading"
         @add-comment="handleAddComment"
         @activate-chronometer-mode="handleActivateChronometerMode"
         @auto-correct-readings="handleAutoCorrectReadings"
@@ -20,6 +18,7 @@
           ref="readingsTableRef"
           :readings="filteredReadings"
           :can-clear-all="hasReadings"
+          @add-reading="handleAddReading"
           @remove-reading="handleRemoveReading"
           @clear-all="handleClearAllWithConfirm"
           @invalid-timestamps="hasInvalidTimestamps = $event"
@@ -36,7 +35,6 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
-import { useReadings } from 'src/composables/use-observation/use-readings';
 import { IReading, ReadingTypeEnum, ObservationModeEnum } from '@services/observations/interface';
 import ReadingsToolbar from './ReadingsToolbar.vue';
 import ReadingsTable from './ReadingsTable.vue';
@@ -112,10 +110,34 @@ export default defineComponent({
       return result;
     });
 
-    const handleAddReading = () => {
-      // A filter may hide the new default row or a copy of a hidden selection.
-      search.value = '';
-      methods.addManualReading();
+    const handleAddReading = async (source?: IReading) => {
+      if (!readingsTableRef.value?.prepareForAdd()) {
+        $q.notify({ type: 'negative', message: t('readingsUi.addInvalidTimestamp') });
+        return;
+      }
+      let added: IReading;
+      try {
+        added = methods.addManualReading(source);
+      } catch (error) {
+        if (!(error instanceof RangeError)) throw error;
+        $q.notify({ type: 'warning', message: t('readingsUi.addSourceUnavailable') });
+        return;
+      }
+      if (!added) return;
+      await nextTick();
+      if (!filteredReadings.value.some((row) => row === added || (row.tempId && row.tempId === added.tempId) || (row.id != null && row.id === added.id))) {
+        $q.notify({
+          type: 'info',
+          message: t('readingsUi.addHiddenByFilter'),
+          timeout: 0,
+          actions: [{ label: t('readingsUi.clearFilter'), color: 'white', handler: () => {
+            search.value = '';
+            void nextTick(() => readingsTableRef.value?.focusReading(added));
+          } }],
+        });
+        return;
+      }
+      await readingsTableRef.value?.focusReading(added);
     };
 
     // Handler for adding a comment (Bug 2.7 - Bouton Commentaire BULLE)

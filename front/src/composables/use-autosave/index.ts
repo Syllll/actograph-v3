@@ -7,6 +7,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useObservation } from 'src/composables/use-observation';
 import { autosaveService } from '@services/observations/autosave.service';
 import { IObservation, IReading, IProtocol } from '@services/observations/interface';
+import { isObservationMutationBlocked, trackObservationTask } from 'src/utils/observation-mutation-guard';
 
 const AUTOSAVE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_AUTOSAVE_FILES = 20; // Keep only the 20 most recent autosave files
@@ -195,7 +196,7 @@ export const useAutosave = () => {
     performAutosave: async () => {
       const currentObservation = observation.sharedState.currentObservation;
 
-      if (!currentObservation || !currentObservation.id) {
+      if (!currentObservation || !currentObservation.id || isObservationMutationBlocked(currentObservation.id)) {
         return;
       }
 
@@ -221,7 +222,9 @@ export const useAutosave = () => {
 
       // Save to autosave folder
       // Note: autosaveService will fetch fresh data from backend, so we pass the observation
-      const filePath = await autosaveService.saveToAutosave(currentObservation);
+      const filePath = await trackObservationTask(currentObservation.id, () =>
+        autosaveService.saveToAutosave(currentObservation),
+      );
 
       if (filePath) {
         sharedState.lastSaveTime.value = new Date();
@@ -292,4 +295,3 @@ export const useAutosave = () => {
     sharedState,
   };
 };
-

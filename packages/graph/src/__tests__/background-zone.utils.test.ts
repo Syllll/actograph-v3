@@ -162,3 +162,16 @@ describe('getBackgroundZoneForCategory', () => {
     });
   });
 });
+
+it('keeps targeted background bands aligned when Y text enlarges the rows', () => {
+  const support = { id: 'support', name: 'Support', type: 'category',
+    children: [{ id: 'a', name: 'A', type: 'observable' }] } as ProtocolItem;
+  const category = { ...backgroundCategory,
+    graphPreferences: { displayMode: DisplayModeEnum.Background, supportCategoryId: support.id } };
+  const ctx = createMockGraphContext({
+    graphRenderOptions: { yAxisFontSize: 24 },
+    getCategoryById: () => support, getEffectiveDisplayMode: () => DisplayModeEnum.Normal,
+    getYPos: () => 100,
+  });
+  expect(getBackgroundZoneForCategory(ctx, category, 0, 400)).toEqual({ topY: 70, height: 60 });
+});

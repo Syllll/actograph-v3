@@ -17,6 +17,8 @@ import { fork } from 'child_process';
 import { randomBytes } from 'crypto';
 import { BackendSupervisor } from './backend-supervisor';
 import { UpdateController } from './update-controller';
+import { ExportDirectoryPreferences } from './export-directory-preferences';
+import type { ExportContext } from './export-directory-preferences';
 import {
   isTrustedAppUrl,
   isSafeExternalUrl,
@@ -28,6 +30,11 @@ const log = require('electron-log');
 
 autoUpdater.logger = log;
 log.transports.file.level = 'info';
+
+const exportDirectoryPreferences = new ExportDirectoryPreferences(
+  path.join(app.getPath('userData'), 'export-directories.json'),
+  (error) => log.warn('Could not load/save export directory preferences:', error)
+);
 
 // needed in case process is undefined under Linux
 const platform = process.platform || os.platform();
@@ -850,6 +857,7 @@ handleIpc(
     event,
     options: {
       defaultPath?: string;
+      exportContext?: ExportContext;
       filters?: { name: string; extensions: string[] }[];
     }
   ) => {
@@ -877,12 +885,10 @@ handleIpc(
       defaultFolder = app.getPath('documents');
     }
 
-    // Use the provided defaultPath or construct one in the Actograph folder
-    const defaultPath = options.defaultPath
-      ? path.isAbsolute(options.defaultPath)
-        ? options.defaultPath
-        : path.join(defaultFolder, options.defaultPath)
-      : path.join(defaultFolder, 'chronique.jchronic');
+    const defaultPath = exportDirectoryPreferences.resolveDefaultPath(
+      options,
+      defaultFolder
+    );
 
     const result = await dialog.showSaveDialog(mainWindow, {
       defaultPath,
@@ -891,6 +897,8 @@ handleIpc(
         { name: 'Tous les fichiers', extensions: ['*'] },
       ],
     });
+
+    exportDirectoryPreferences.rememberSelection(options.exportContext, result);
 
     return result;
   }

@@ -14,7 +14,7 @@ import { DirtyRegistry } from '../engine/DirtyRegistry';
 import { GraphEngine } from '../engine/GraphEngine';
 import type { DrawError } from '../engine/types';
 import { toDrawErrorMessage } from '../engine/types';
-import { ExportPipeline } from '../engine/ExportPipeline';
+import { ExportPipeline, type GraphImageExportOptions } from '../engine/ExportPipeline';
 import { exportSvgScene } from '../engine/svg-scene-exporter';
 import type { SvgDocument } from '../utils/svg-document';
 import { HoverLayer } from '../layers/HoverLayer';
@@ -32,6 +32,7 @@ import {
 import {
   DEFAULT_GRAPH_RENDER_OPTIONS,
   hasGraphRenderOptionsChanged,
+  normalizeGraphRenderOptions,
   isTimeFormatOnlyChange,
   type IGraphRenderOptions,
 } from '../types/graph-render-options';
@@ -848,6 +849,7 @@ export class PixiApp {
 
     this.pausePeriods = getGraphPausePeriods(graphObservation.readings ?? []);
 
+    this.yAxis.setFontSize(this.graphRenderOptions.yAxisFontSize);
     this.yAxis.setData(graphObservation);
     this.xAxis.setGraphRenderOptions(this.graphRenderOptions);
     this.xAxis.setData(graphObservation);
@@ -905,10 +907,11 @@ export class PixiApp {
     drawOptions?: { redraw?: boolean },
   ): void {
     const previous = this.graphRenderOptions;
-    this.graphRenderOptions = {
+    this.graphRenderOptions = normalizeGraphRenderOptions({
       ...this.graphRenderOptions,
       ...options,
-    };
+    });
+    this.yAxis.setFontSize(this.graphRenderOptions.yAxisFontSize);
     this.xAxis.setGraphRenderOptions(this.graphRenderOptions);
     this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
     this.hoverLayer.setGraphRenderOptions(this.graphRenderOptions);
@@ -1330,7 +1333,7 @@ export class PixiApp {
   /**
    * Hauteur totale requise pour un rendu hors-écran complet (export, mobile),
    * en tenant compte de la marge réelle nécessaire sous l'axe X pour les
-   * labels inclinés à 45° (peut dépasser largement les 20px fixes de
+   * labels selon leur taille et leur orientation (peut dépasser les 20px de
    * `YAxis.getRequiredHeight()` selon le format de temps choisi, ex. "Full").
    */
   private getRequiredCanvasHeight(): number {
@@ -1885,8 +1888,10 @@ export class PixiApp {
   public async exportAsImage(
     format: 'png' | 'jpeg' = 'png',
     quality = 0.92,
+    options: GraphImageExportOptions = {},
   ): Promise<string | null> {
-    return this.queueExport(() => this.exportPipeline.exportAsImage(format, quality));
+    const snapshot = { ...options };
+    return this.queueExport(() => this.exportPipeline.exportAsImage(format, quality, snapshot));
   }
 
   public async exportAsSvg(): Promise<SvgDocument | null> {

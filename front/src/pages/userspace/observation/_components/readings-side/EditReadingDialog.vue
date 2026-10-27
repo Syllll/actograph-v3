@@ -33,49 +33,26 @@
           :label="t('readingsUi.editCommentTitle')"
           :rules="[labelRequiredRule]"
         />
-        <q-select
-          v-else-if="!minDateTime && protocolObservableOptions.length > 0"
-          v-model="state.name"
-          :options="filteredObservableOptions"
-          option-label="label"
-          option-value="value"
-          :option-disable="isObservableOptionDisabled"
-          use-input
-          fill-input
-          hide-selected
-          input-debounce="0"
-          emit-value
-          map-options
-          outlined
-          dense
-          hide-bottom-space
-          color="accent"
-          new-value-mode="add-unique"
-          :label="t('readingsUi.colLabel')"
-          :rules="[labelRequiredRule]"
-          @filter="filterObservables"
+        <q-input
+          v-else-if="!minDateTime && observableGroups.length > 0"
+          ref="observableInputRef" v-model="state.name"
+          outlined dense hide-bottom-space color="accent"
+          :label="t('readingsUi.colLabel')" :rules="[labelRequiredRule]"
+          @update:model-value="onObservableInput"
+          @keydown.down.prevent="openObservablePicker"
         >
-          <template v-slot:option="optScope">
-            <q-item
-              v-if="optScope.opt.isCategory"
-              dense
-              class="text-weight-bold non-selectable"
-              :style="{ color: optScope.opt.categoryColor || 'var(--primary)' }"
-            >
-              <q-item-section>{{ optScope.opt.label }}</q-item-section>
-            </q-item>
-            <q-item v-else v-bind="optScope.itemProps" dense class="q-pl-lg">
-              <q-item-section>{{ optScope.opt.label }}</q-item-section>
-            </q-item>
+          <template #append>
+            <q-btn flat round dense icon="arrow_drop_down" size="sm"
+              :aria-label="t('readingsUi.chooseObservable')" @click="openObservablePicker">
+              <q-tooltip v-if="!observableMenuOpen">{{ t('readingsUi.chooseObservable') }}</q-tooltip>
+              <q-menu ref="observableMenuRef" no-parent-event no-focus
+                @before-show="observableMenuOpen = true" @hide="observableMenuOpen = false" anchor="bottom right" self="top right">
+                <observable-picker ref="observablePickerRef" :groups="observableGroups"
+                  :model-value="state.name" :search="observableSearch" @select="chooseObservable" />
+              </q-menu>
+            </q-btn>
           </template>
-          <template v-slot:no-option>
-            <q-item dense>
-              <q-item-section class="text-grey text-italic">
-                {{ t('readingsUi.freeLabelAutocompleteHint') }}
-              </q-item-section>
-            </q-item>
-          </template>
-        </q-select>
+        </q-input>
         <q-input
           v-else
           v-show="!minDateTime"
@@ -248,11 +225,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, computed, ref, PropType } from 'vue';
+import { defineComponent, reactive, computed, ref, nextTick, PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { date as qDate, useDialogPluginComponent } from 'quasar';
+import { date as qDate, useDialogPluginComponent, type QInput, type QMenu } from 'quasar';
 import { IReading, ReadingTypeEnum } from '@services/observations/interface';
-import { ProtocolItemTypeEnum } from '@services/observations/protocol.service';
 import { useObservation } from 'src/composables/use-observation';
 import { useDuration } from 'src/composables/use-duration';
 import {
@@ -262,14 +238,8 @@ import {
 } from '@actograph/core';
 import { parseCalendarDateTimeEditInTimeZone } from 'src/utils/calendar-date-time';
 import { isValidSegmentedTime } from 'src/utils/segmented-time';
-
-type ProtocolObservableOption = {
-  label: string;
-  value: string;
-  isCategory?: boolean;
-  categoryColor?: string;
-  disable?: boolean;
-};
+import ObservablePicker from './ObservablePicker.vue';
+import { buildObservableCategories } from './observable-categories';
 
 export type EditReadingPayload = {
   id?: number;
@@ -282,6 +252,7 @@ export type EditReadingPayload = {
 
 export default defineComponent({
   name: 'EditReadingDialog',
+  components: { ObservablePicker },
   props: {
     minDateTime: { type: Date, default: undefined },
     reading: {
@@ -345,61 +316,26 @@ export default defineComponent({
       { label: t('readingsUi.readingTypeData'), value: ReadingTypeEnum.DATA },
     ]);
 
-    const protocolObservableOptions = computed((): ProtocolObservableOption[] => {
-      const protocol = observation.protocol.sharedState.currentProtocol;
-      if (!protocol?._items) return [];
-      const options: ProtocolObservableOption[] = [];
-      for (const item of protocol._items) {
-        if (item.type !== ProtocolItemTypeEnum.Category) continue;
-        options.push({
-          label: item.name,
-          value: `__cat_${item.id}`,
-          isCategory: true,
-          categoryColor: item.graphPreferences?.color || undefined,
-          disable: true,
-        });
-        if (item.children) {
-          for (const child of item.children) {
-            if (child.name) {
-              options.push({ label: child.name, value: child.name });
-            }
-          }
-        }
-      }
-      return options;
-    });
-
-    const filteredObservableOptions = ref<ProtocolObservableOption[]>(
-      protocolObservableOptions.value
-    );
-
-    const filterObservables = (val: string, update: (fn: () => void) => void) => {
-      update(() => {
-        if (!val) {
-          filteredObservableOptions.value = protocolObservableOptions.value;
-          return;
-        }
-        const needle = val.toLowerCase();
-        const allOptions = protocolObservableOptions.value;
-        const result: ProtocolObservableOption[] = [];
-        for (let i = 0; i < allOptions.length; i++) {
-          const opt = allOptions[i];
-          if (opt.isCategory) {
-            const children: ProtocolObservableOption[] = [];
-            let j = i + 1;
-            while (j < allOptions.length && !allOptions[j].isCategory) {
-              if (allOptions[j].label.toLowerCase().includes(needle)) {
-                children.push(allOptions[j]);
-              }
-              j += 1;
-            }
-            if (children.length > 0) {
-              result.push(opt, ...children);
-            }
-          }
-        }
-        filteredObservableOptions.value = result;
-      });
+    const observableGroups = computed(() => buildObservableCategories(observation.protocol.sharedState.currentProtocol?._items));
+    const observableSearch = ref('');
+    const observableMenuOpen = ref(false);
+    const observableInputRef = ref<QInput | null>(null);
+    const observableMenuRef = ref<QMenu | null>(null);
+    const observablePickerRef = ref<InstanceType<typeof ObservablePicker> | null>(null);
+    const openObservablePicker = async () => {
+      observableSearch.value = '';
+      observableMenuRef.value?.show();
+      await nextTick();
+      observablePickerRef.value?.focusFirst();
+    };
+    const onObservableInput = (value: string | number | null) => {
+      observableSearch.value = String(value ?? '');
+      observableMenuRef.value?.show();
+    };
+    const chooseObservable = (name: string) => {
+      state.name = name;
+      observableMenuRef.value?.hide();
+      observableInputRef.value?.focus();
     };
 
     const timePartWithoutMs = computed(() => {
@@ -423,9 +359,6 @@ export default defineComponent({
 
     const labelRequiredRule = (val: string | null | undefined): boolean | string =>
       Boolean(val && val.trim().length > 0) || t('readingsUi.labelRequired');
-
-    const isObservableOptionDisabled = (opt: ProtocolObservableOption): boolean =>
-      opt.disable === true;
 
     const parsedDateTime = computed((): Date | null => {
       if (isChronometerMode.value) {
@@ -477,15 +410,20 @@ export default defineComponent({
       isComment,
       isChronometerMode,
       readingTypeOptions,
-      protocolObservableOptions,
-      filteredObservableOptions,
-      filterObservables,
+      observableGroups,
+      observableSearch,
+      observableMenuOpen,
+      observableInputRef,
+      observableMenuRef,
+      observablePickerRef,
+      onObservableInput,
+      openObservablePicker,
+      chooseObservable,
       timePartWithoutMs,
       onDatePartChange,
       onTimePartChange,
       onTimePickerChange,
       labelRequiredRule,
-      isObservableOptionDisabled,
       isValid,
       parsedDateTime,
       endTimeTooEarly,

@@ -1,6 +1,6 @@
 # Relevés : collecte, édition et synchronisation
 
-Référence bureau revue le 11 octobre 2026. Un relevé (`reading`) porte un nom, une description optionnelle, un type et un horodatage dans une observation. Les types frontend sont dans `front/src/services/observations/interface.ts`, les types communs dans `packages/core/src/`.
+Référence bureau mise à jour le 27 octobre 2026. Un relevé (`reading`) porte un nom, une description optionnelle, un type et un horodatage dans une observation. Les types frontend sont dans `front/src/services/observations/interface.ts`, les types communs dans `packages/core/src/`.
 
 ## Types et temps
 
@@ -40,21 +40,44 @@ En calendrier, les observables sont verrouillés pendant la pause ; en chronomè
 
 `front/src/pages/userspace/observation/_components/readings-side/` regroupe la table, la barre d'outils et les dialogues :
 
-- Le bouton **+** copie le relevé sélectionné juste après celui-ci, avec le même
-  horodatage, type, nom et description. Sans sélection, il copie le dernier
-  relevé ; dans une table vide, il crée le premier relevé. Aucun dialogue ne
-  s'ouvre. La nouvelle ligne est sélectionnée et le tableau défile pour la
-  montrer, en tenant compte du sens de tri. Une recherche active est effacée
-  lors de l'ajout pour ne pas masquer la nouvelle ligne.
+- Le bouton **+** de l'en-tête Libellé copie le relevé sélectionné, avec le
+  même horodatage, type, nom et description. Sans sélection, il copie le
+  dernier relevé ; dans une table vide, il crée le premier relevé.
+- Un **+** toujours visible dans les actions de chaque ligne, juste avant le
+  crayon, copie explicitement ce relevé, indépendamment de la sélection.
+  Le bouton fonctionne à la souris, au clavier et au tactile, avec une cible
+  d'au moins 24 × 24 px. La touche **Inser** ou **+** sur une ligne focalisée
+  déclenche le même ajout local. Le bouton interligne et sa gouttière dans
+  la cellule Libellé ont été retirés.
+- L'ajout valide d'abord les brouillons des champs. Un horodatage invalide
+  bloque la copie et conserve le brouillon pour correction. Aucun dialogue
+  d'édition ne s'ouvre ; la nouvelle ligne est sélectionnée et son horodatage
+  reçoit le focus, avec une position de travail au centre de la zone visible.
+  La copie conserve l'heure de la source, sans inventer un instant intermédiaire.
+  Le tri d'affichage reste inchangé. Une recherche active est conservée ; si
+  elle masque le nouveau relevé, une notification propose **Effacer le filtre**
+  pour le révéler et lui rendre le focus s'il reste sélectionné.
 - Cliquer sur une ligne, entrer dans un de ses champs ou utiliser Entrée/Espace
   sur la ligne permet de la sélectionner. Le crayon ouvre son formulaire
   d'édition. Les touches des champs conservent leur comportement habituel.
 - Ajout d'un commentaire.
 - Le libellé d'un observable s'édite directement dans la ligne. La flèche
-  adjacente propose les observables du protocole regroupés par catégorie.
+  adjacente et le formulaire du crayon utilisent le même sélecteur : une
+  colonne par catégorie, un repère coloré et la sélection courante. Les
+  colonnes reviennent à la ligne et le panneau défile si nécessaire. Les
+  flèches, Début/Fin, Tab et les boutons natifs permettent la navigation au
+  clavier ; Échap ferme le menu. Le formulaire conserve la saisie libre et
+  filtre les propositions pendant la frappe, sans imposer un nom du protocole.
   Les notes et l'horodatage sont conservés lors du changement de libellé. Un
   libellé vide est annulé ; Échap restaure la valeur précédente. Le crayon
   reste disponible pour la description et les autres champs.
+- Un repère coloré près du libellé indique la catégorie, dont le nom apparaît
+  aussi dans l'information accessible. La couleur explicite de la catégorie
+  est prioritaire ; sinon une attribution fondée sur les IDs évite les
+  collisions de couleurs automatiques et reste stable après renommage ou
+  réordonnancement. Les anciens homonymes restent neutres. Ce
+  repérage ne modifie pas les préférences du protocole ni les graphes ; les
+  commentaires, événements de session et erreurs gardent leur traitement.
 - Les horodatages utilisent des chiffres à position fixe :
   `JJ/MM/AAAA HH:mm:ss.SSS` en calendrier, `DDDj HH:mm:ss.SSS` en durée.
   La saisie peut commencer dans n'importe quel segment et avancer à la suite.
@@ -74,7 +97,11 @@ En calendrier, les observables sont verrouillés pendant la pause ; en chronomè
   anciennes chroniques sans ce champ restent compatibles et leur ouverture
   ne déclenche pas de réécriture des relevés.
 
-Le panneau se dimensionne selon le contenu, avec un splitter pour l'ajuster. Le bandeau `ReadingsAfterLastStopBanner` signale les relevés après le dernier STOP. Ces données restent visibles pour correction ; ne pas supposer qu'elles ont été effacées.
+Le panneau se dimensionne selon le contenu, avec un splitter pour l'ajuster.
+Un espace de présentation après le dernier relevé permet de l'amener sous
+l'en-tête fixe, sans ajouter de donnée aux compteurs ou exports. Sa hauteur
+suit les redimensionnements du tableau. Une sélection par clic ou focus ne
+recentre pas la vue ; les sélections externes hors écran restent révélées. Le bandeau `ReadingsAfterLastStopBanner` signale les relevés après le dernier STOP. Ces données restent visibles pour correction ; ne pas supposer qu'elles ont été effacées.
 
 ## Parcours de saisie manuelle
 

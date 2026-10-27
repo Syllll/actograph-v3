@@ -40,6 +40,27 @@ describe('mergeMetaIfSameObservation', () => {
 });
 
 describe('createObservationMetaPersistQueue', () => {
+  it('waits for a write added while an idle barrier is already waiting', async () => {
+    const queue = createObservationMetaPersistQueue();
+    let releaseFirst: () => void = () => undefined;
+    let releaseSecond: () => void = () => undefined;
+    const first = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const second = new Promise<void>((resolve) => { releaseSecond = resolve; });
+    const persist = jest.fn().mockImplementationOnce(() => first).mockImplementationOnce(() => second);
+    void queue.schedule('deletion-target', { graphXStretch: 2 }, persist);
+    await Promise.resolve();
+    let idle = false;
+    const barrier = queue.whenIdle('deletion-target').then(() => { idle = true; });
+    void queue.schedule('deletion-target', { graphYCompact: 0.8 }, persist);
+    releaseFirst();
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+    expect(persist).toHaveBeenCalledTimes(2);
+    expect(idle).toBe(false);
+    releaseSecond();
+    await barrier;
+    expect(idle).toBe(true);
+  });
+
   it('coordinates old and remounted graph consumers until both saves finish', async () => {
     const queue = observationGraphMetaPersistQueue;
     let release: () => void = () => undefined;

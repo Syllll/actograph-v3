@@ -1,6 +1,12 @@
 import type { Application, Container } from 'pixi.js';
 import { computeFitViewport } from '../utils/viewport.utils';
+import { unpremultiplyRgba } from '../utils/image-alpha.utils';
 import type { WorldBounds } from '../utils/viewport.utils';
+
+export interface GraphImageExportOptions {
+  /** Only PNG can have a transparent global background. Data fills are preserved. */
+  transparentBackground?: boolean;
+}
 
 export interface ExportPipelineDeps {
   app: Application;
@@ -27,8 +33,25 @@ export interface ExportPipelineDeps {
 export class ExportPipeline {
   constructor(private readonly deps: ExportPipelineDeps) {}
 
-  async exportAsImage(format: 'png' | 'jpeg', quality = 0.92): Promise<string | null> {
+  async exportAsImage(format: 'png' | 'jpeg', quality = 0.92, options: GraphImageExportOptions = {}): Promise<string | null> {
+    const transparent = format === 'png' && options.transparentBackground === true;
     return this.capturePreparedScene(async (stage) => {
+      if (transparent) {
+        // Pixi 8 WebGL readback keeps premultiplied RGB. Canvas2D ImageData
+        // expects straight alpha; WebGPU/Canvas readbacks already provide it.
+        const { pixels, width, height } = this.deps.app.renderer.extract.pixels({
+          target: stage, clearColor: [0, 0, 0, 0],
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('PNG export: Canvas2D unavailable');
+        const image = context.createImageData(width, height);
+        image.data.set('gl' in this.deps.app.renderer ? unpremultiplyRgba(pixels) : pixels);
+        context.putImageData(image, 0, 0);
+        return canvas.toDataURL('image/png');
+      }
       return this.deps.app.renderer.extract.base64({
         target: stage,
         format: format === 'jpeg' ? 'jpg' : 'png',

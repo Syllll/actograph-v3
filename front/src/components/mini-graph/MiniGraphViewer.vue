@@ -18,8 +18,9 @@
 
 <script lang="ts">
 import { computed, defineComponent, onMounted, onBeforeUnmount, ref, watch, type PropType } from 'vue';
-import { getObservationTimeZone, TimeDisplayFormatEnum, ReadingTypeEnum, type IObservation } from '@actograph/core';
+import { ReadingTypeEnum, type IObservation } from '@actograph/core';
 import { buildMiniGraphObservation } from 'src/utils/mini-graph-data';
+import { graphRenderOptionsFromMeta } from 'src/utils/graph-render-meta';
 import { MiniGraphRenderer } from 'src/utils/mini-graph-renderer';
 
 export default defineComponent({
@@ -40,12 +41,8 @@ export default defineComponent({
     let mounted = false;
 
     const update = () => {
-      const format = props.observation.meta?.timeDisplayFormat;
-      renderer?.update(buildMiniGraphObservation(props.observation, null), {
-        timeZone: getObservationTimeZone(props.observation.meta),
-        timeDisplayFormat: Object.values(TimeDisplayFormatEnum).includes(format as TimeDisplayFormatEnum)
-          ? format : TimeDisplayFormatEnum.Auto,
-      });
+      renderer?.update(buildMiniGraphObservation(props.observation, null),
+        { ...graphRenderOptionsFromMeta(props.observation.meta) });
     };
     const restart = async () => {
       const run = ++generation;

@@ -7,11 +7,12 @@
  */
 
 import { IReading, IObservation, ReadingTypeEnum } from '@services/observations/interface';
-import { reactive, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { readingService } from '@services/observations/reading.service';
 import { v4 as uuidv4 } from 'uuid';
 import { sameReading } from '@utils/reading-identity';
+import { isObservationMutationBlocked } from '@utils/observation-mutation-guard';
 import { CHRONOMETER_T0 } from '@utils/chronometer.constants';
 import {
   chronometerDateTimeFromElapsed,
@@ -41,6 +42,13 @@ const sharedState = reactive({
 
 // Ensure we do not run multiple synchronization loops or overlapping syncs
 let isSyncInFlight = false;
+const synchronizationWaiters = new Set<() => void>();
+
+/** Wait for the current request, including already queued synchronization passes. */
+export const waitForPendingReadingSynchronization = (): Promise<void> => {
+  if (!isSyncInFlight) return Promise.resolve();
+  return new Promise((resolve) => synchronizationWaiters.add(resolve));
+};
 let syncPending = false;
 let hasStartedSyncLoop = false;
 let syncTimeoutId: number | null = null;
@@ -62,24 +70,54 @@ const cloneReadingSnapshot = (reading: IReading): IReading => ({
       : undefined,
 });
 
-const findInitialReadingIndex = (reading: IReading): number =>
-  stateless.initialReadings.findIndex((initial) => {
-    if (reading.tempId && initial.tempId && reading.tempId === initial.tempId) {
-      return true;
-    }
-    if (reading.id && initial.id && reading.id === initial.id) {
-      return true;
-    }
-    return false;
-  });
+// Vue invalidates this snapshot synchronously for both inline edits and array
+// changes. Idle timer ticks reuse it without cloning or traversing every row.
+const synchronizationSnapshot = computed(() =>
+  sharedState.currentReadings.map(cloneReadingSnapshot),
+);
+let lastUnchangedSnapshot: IReading[] | null = null;
+let lastUnchangedObservationId: number | null = null;
 
-const upsertInitialReading = (reading: IReading): void => {
-  const snapshot = cloneReadingSnapshot(reading);
-  const index = findInitialReadingIndex(reading);
-  if (index >= 0) {
-    stateless.initialReadings[index] = snapshot;
-  } else {
-    stateless.initialReadings.push(snapshot);
+// Numeric server IDs and string temporary IDs occupy separate keys. Keep both
+// aliases, including the first match if legacy data contains duplicate IDs.
+type ReadingIdentityIndex = Map<number | string, number>;
+
+const indexReadingIdentity = (index: ReadingIdentityIndex, reading: IReading, position: number): void => {
+  for (const identity of [reading.id, reading.tempId]) {
+    if (!identity) continue;
+    const previous = index.get(identity);
+    if (previous === undefined || position < previous) index.set(identity, position);
+  }
+};
+
+const indexReadingIdentities = (readings: IReading[]): ReadingIdentityIndex => {
+  const index: ReadingIdentityIndex = new Map();
+  readings.forEach((reading, position) => indexReadingIdentity(index, reading, position));
+  return index;
+};
+
+const findReadingPosition = (index: ReadingIdentityIndex, reading: IReading): number => {
+  const byId = reading.id ? index.get(reading.id) : undefined;
+  const byTempId = reading.tempId ? index.get(reading.tempId) : undefined;
+  // Match the previous array search when either alias identifies a row.
+  if (byId === undefined) return byTempId ?? -1;
+  return byTempId === undefined ? byId : Math.min(byId, byTempId);
+};
+
+const upsertInitialReadings = (readings: IReading[]): void => {
+  let index = indexReadingIdentities(stateless.initialReadings);
+  for (const reading of readings) {
+    const snapshot = cloneReadingSnapshot(reading);
+    const position = findReadingPosition(index, reading);
+    const target = position >= 0 ? position : stateless.initialReadings.length;
+    const previous = stateless.initialReadings[target];
+    stateless.initialReadings[target] = snapshot;
+    if ((previous?.id && previous.id !== snapshot.id)
+      || (previous?.tempId && previous.tempId !== snapshot.tempId)) {
+      // An alias was replaced, rather than just gaining its server ID.
+      index = indexReadingIdentities(stateless.initialReadings);
+    }
+    indexReadingIdentity(index, snapshot, target);
   }
 };
 
@@ -155,13 +193,14 @@ export const useReadings = (options: {
      * @param observation - The observation whose readings should be loaded
      * @returns Promise that resolves when readings are loaded
      */
-    loadReadings: async (observation: IObservation) => {
-      sharedState.selectedReading = null;
+    loadReadings: async (observation: IObservation, shouldApply: () => boolean = () => true) => {
+      if (!shouldApply()) return;
       const readings: IReading[] = [];
       let offset = 0;
       let totalCount = Number.POSITIVE_INFINITY;
 
       while (offset < totalCount) {
+        if (!shouldApply()) return;
         const page = await readingService.findWithPagination(
           {
             offset,
@@ -173,6 +212,7 @@ export const useReadings = (options: {
             observationId: observation.id,
           },
         );
+        if (!shouldApply()) return;
         readings.push(...page.results);
         totalCount = page.count;
         if (page.results.length === 0) {
@@ -197,6 +237,8 @@ export const useReadings = (options: {
             : undefined,
       }));
       
+      if (!shouldApply()) return;
+      sharedState.selectedReading = null;
       // Opening a legacy chronicle must not trigger a write for every row.
       stateless.initialReadings = readingsWithDates.map(cloneReadingSnapshot);
       sharedState.currentReadings = readingsWithDates;
@@ -216,6 +258,7 @@ export const useReadings = (options: {
      * @returns Promise that resolves when synchronization is complete
      */
     synchronizeReadings: async () => {
+      if (isObservationMutationBlocked(options.sharedStateFromObservation.currentObservation?.id)) return;
       if (isSyncInFlight) {
         syncPending = true;
         return;
@@ -224,11 +267,12 @@ export const useReadings = (options: {
       if (syncObservationId === null) {
         return;
       }
+      const currentReadings = synchronizationSnapshot.value;
+      if (currentReadings === lastUnchangedSnapshot && syncObservationId === lastUnchangedObservationId) {
+        return;
+      }
       isSyncInFlight = true;
       try {
-      // Make a local copy of the current readings
-      const currentReadings = sharedState.currentReadings.map(cloneReadingSnapshot);
-
       const isStaleSync = () =>
         syncObservationId !== (options.sharedStateFromObservation.currentObservation?.id ?? null);
 
@@ -236,29 +280,8 @@ export const useReadings = (options: {
         return;
       }
 
-      const doesReadingExistInInitialReadings = (reading: IReading) => {
-        return stateless.initialReadings.some((initial) => {
-          if (reading.tempId && initial.tempId && reading.tempId === initial.tempId) {
-            return true;
-          }
-          if (reading.id && initial.id && reading.id === initial.id) {
-            return true;
-          }
-          return false;
-        });
-      }
-
-      const doesReadingExistInCurrentReadings = (reading: IReading) => {
-        return currentReadings.some((current) => {
-          if (reading.tempId && current.tempId && reading.tempId === current.tempId) {
-            return true;
-          }
-          if (reading.id && current.id && reading.id === current.id) {
-            return true;
-          }
-          return false;
-        });
-      }
+      const initialIndex = indexReadingIdentities(stateless.initialReadings);
+      const currentIndex = indexReadingIdentities(currentReadings);
       // Find the differences between the initial readings and the current readings:
       
       // 1. Find new readings (present in currentReadings but not in initialReadings)
@@ -266,20 +289,12 @@ export const useReadings = (options: {
         // For each current reading, check if it has a tempId or an id
         // If it has a tempId, check if it is present in the initial readings
         // If it has an id, check if it is present in the initial readings
-        (current) => !doesReadingExistInInitialReadings(current)
+        (current) => findReadingPosition(initialIndex, current) < 0
       );
 
       // 2. Find updated readings (present in both, but with property changes)
       const updatedReadings = currentReadings.filter((current) => {
-        const initialReading = stateless.initialReadings.find((initial) => {
-          if (current.tempId && initial.tempId && current.tempId === initial.tempId) {
-            return true;
-          }
-          if (current.id && initial.id && current.id === initial.id) {
-            return true;
-          }
-          return false;
-        });
+        const initialReading = stateless.initialReadings[findReadingPosition(initialIndex, current)];
         if (!initialReading) {
           return false;
         }
@@ -304,9 +319,17 @@ export const useReadings = (options: {
       // 3. Find deleted readings (present in initialReadings but not in currentReadings)
       const deletedReadings = stateless.initialReadings.filter(
         (initial) => {
-          return !doesReadingExistInCurrentReadings(initial);
+          return findReadingPosition(currentIndex, initial) < 0;
         }
       );
+
+      // Only a comparison with no outstanding changes may enable the idle
+      // shortcut. Failed or partially acknowledged requests must be retried.
+      if (newReadings.length === 0 && updatedReadings.length === 0 && deletedReadings.length === 0) {
+        lastUnchangedSnapshot = currentReadings;
+        lastUnchangedObservationId = syncObservationId;
+        return;
+      }
 
       const maxTryCount = 3; // Maximum number of retry attempts
       
@@ -360,9 +383,7 @@ export const useReadings = (options: {
         if (isStaleSync()) {
           return;
         }
-        for (const reading of readingsToUpdate) {
-          upsertInitialReading(reading);
-        }
+        upsertInitialReadings(readingsToUpdate);
       }
 
       // Persist shifted positions before inserting a copy. If insertion fails,
@@ -382,14 +403,19 @@ export const useReadings = (options: {
         }
         // Merge server-assigned IDs into local state using tempId
         if (Array.isArray(created)) {
+          const sentIndex = indexReadingIdentities(newReadings);
+          // Rebuild after the request: local rows may have moved or disappeared.
+          const localIndex = indexReadingIdentities(sharedState.currentReadings);
+          const acknowledgedReadings: IReading[] = [];
           for (const createdReading of created) {
             if (!createdReading?.tempId) continue;
-            const sentReading = newReadings.find((reading) => reading.tempId === createdReading.tempId);
+            const sentPosition = sentIndex.get(createdReading.tempId);
+            const sentReading = sentPosition === undefined ? undefined : newReadings[sentPosition];
             // Track even a row deleted locally during POST, so the next sync
             // removes its server copy instead of resurrecting it on reopening.
-            if (sentReading) upsertInitialReading({ ...sentReading, id: createdReading.id });
-            const idx = sharedState.currentReadings.findIndex(r => r.tempId && r.tempId === createdReading.tempId);
-            if (idx !== -1) {
+            if (sentReading) acknowledgedReadings.push({ ...sentReading, id: createdReading.id });
+            const idx = localIndex.get(createdReading.tempId);
+            if (idx !== undefined) {
               sharedState.currentReadings[idx] = {
                 ...sharedState.currentReadings[idx],
                 id: createdReading.id,
@@ -402,6 +428,7 @@ export const useReadings = (options: {
               }
             }
           }
+          upsertInitialReadings(acknowledgedReadings);
         }
       }
 
@@ -431,6 +458,10 @@ export const useReadings = (options: {
         if (syncPending) {
           syncPending = false;
           void methods.synchronizeReadings();
+        }
+        if (!isSyncInFlight) {
+          for (const resolve of synchronizationWaiters) resolve();
+          synchronizationWaiters.clear();
         }
       }
     },
@@ -545,11 +576,14 @@ export const useReadings = (options: {
       applyChronologicalOrder();
     },
 
-    /** The table's single add action: copy the selection, otherwise the last row. */
-    addManualReading: () => {
-      const source = sharedState.currentReadings.find(
-        (reading) => sameReading(reading, sharedState.selectedReading),
-      ) ?? sharedState.currentReadings[sharedState.currentReadings.length - 1];
+    /** Copy an explicit row, otherwise the selection or the last reading. */
+    addManualReading: (explicitSource?: IReading) => {
+      const source = explicitSource
+        ? sharedState.currentReadings.find((reading) => sameReading(reading, explicitSource))
+        : sharedState.currentReadings.find((reading) => sameReading(reading, sharedState.selectedReading))
+          ?? sharedState.currentReadings[sharedState.currentReadings.length - 1];
+      // Never silently copy another row if a local source disappeared meanwhile.
+      if (explicitSource && !source) throw new RangeError('Reading source is no longer available');
       const followsManualBoundary = observationSharedState.currentObservation?.meta?.entryMode === 'manual'
         && source && source.type !== ReadingTypeEnum.DATA;
       const reading = source
@@ -982,7 +1016,8 @@ export const useReadings = (options: {
     // Appliquer les relevés reçus d'une autre fenêtre. On conserve les `id`
     // déjà connus localement (mapping tempId -> id) pour rendre l'assignation
     // d'id monotone et résister aux races de réplication.
-    windowSync.on('state:readings', (payload: IReading[]) => {
+    windowSync.on('state:readings', (payload: IReading[], message) => {
+      if (isObservationMutationBlocked(message?.obsId ?? observationSharedState.currentObservation?.id)) return;
       if (!Array.isArray(payload)) return;
       // Un suiveur est désormais aligné sur l'état partagé : il peut diffuser
       // ses futures mutations locales.

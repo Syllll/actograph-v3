@@ -42,7 +42,10 @@ import { ReadingService } from '../reading.service';
 import { Example } from './example';
 import { Export } from './export';
 import { Import } from './import';
-import { ProtocolItem } from '../../entities/protocol.entity';
+import { Protocol, ProtocolItem } from '../../entities/protocol.entity';
+import { Reading } from '../../entities/reading.entity';
+import { ActivityGraph } from '../../entities/activity-graph.entity';
+import { IsNull } from 'typeorm';
 
 @Injectable()
 export class ObservationService extends BaseService<
@@ -88,12 +91,18 @@ export class ObservationService extends BaseService<
       throw new NotFoundException('Observation not found');
     }
 
-    const updatedObservation = {
-      ...observation,
-      ...updateData,
-    };
-
-    return await this.observationRepository.save(updatedObservation as Observation);
+    const result = await this.observationRepository.update(
+      { id, deletedAt: IsNull() },
+      updateData,
+    );
+    if (result.affected === 0) {
+      throw new NotFoundException('Observation not found');
+    }
+    const updatedObservation = await this.observationRepository.findOneBy({ id });
+    if (!updatedObservation) {
+      throw new NotFoundException('Observation not found');
+    }
+    return updatedObservation;
   }
 
   public async remove(id: number) {
@@ -119,10 +128,24 @@ export class ObservationService extends BaseService<
   }
 
   public override async delete(id: number): Promise<Observation | undefined> {
-    // Clean up sub-entities first
-    await this.remove(id);
-    // Then soft-delete the observation
-    return await super.delete(id);
+    return this.observationRepository.manager.transaction(async (manager) => {
+      const observation = await manager.findOne(Observation, { where: { id } });
+      if (!observation) {
+        throw new NotFoundException('Observation not found');
+      }
+
+      // Every write uses the transaction manager: a failed child or observation
+      // deletion must leave the entire chronicle available for retry.
+      const childrenCriteria = {
+        observation: { id },
+        deletedAt: IsNull(),
+      };
+      await manager.softDelete(Reading, childrenCriteria);
+      await manager.softDelete(Protocol, childrenCriteria);
+      await manager.softDelete(ActivityGraph, childrenCriteria);
+      await manager.softDelete(Observation, id);
+      return observation;
+    });
   }
 
   public async clone(observationId: number, newUserId: number) {
