@@ -79,3 +79,27 @@ Vérifications exécutées sur ces ajustements :
 Captures et mesures : [table en clair](captures-ergonomie-saisie-exports-2026-10-27/wide.png), [panneau étroit sombre](captures-ergonomie-saisie-exports-2026-10-27/narrow-dark.png), [focus du dernier relevé ajouté](captures-ergonomie-saisie-exports-2026-10-27/last-add.png), [résultats](captures-ergonomie-saisie-exports-2026-10-27/results.json).
 
 Ces essais utilisent un montage isolé avec état d'observation simulé. Ils ne remplacent pas une recette complète dans Electron, dont les styles globaux et le parcours natif restent à valider. La modification préexistante de `front/yarn.lock` est conservée hors de ces ajustements.
+
+## Fusion et revue finale sur main, 27 octobre 2026
+
+Sylvain a autorisé la fusion, une revue attentive sur `main`, la correction des défauts trouvés puis le push et la publication bureau. La branche a été fusionnée avec un commit de merge. La revue croisée Sol/Luna a conduit aux corrections suivantes avant publication :
+
+- Les dates en format Full à 24 px pouvaient déborder à gauche et en bas dans l'analyse et le mini-graphe. Le cadrage et les limites de déplacement prennent désormais en compte les boîtes des libellés en pixels, leur rotation et l'étirement des axes. La caméra historique reste conservée avec les réglages par défaut et un zoom volontaire reste conservé lors d'un changement d'axe. Les nouveaux textes Pixi reçoivent des styles de police valides, y compris lorsqu'une mention de format est ajoutée après un changement de taille.
+- Une création de relevé pouvait passer après la suppression de sa chronique ; une modification tardive pouvait aussi réactiver un relevé supprimé. Les créations et modifications de relevés, ainsi que la suppression de leur chronique, prennent maintenant le même verrou sur le parent actif dans leur transaction. SQLite utilise en plus une file commune au DataSource, incluant les suppressions de relevés, pour empêcher les SAVEPOINT concurrents d'annuler une écriture ou une suppression déjà confirmée. Les modifications de relevés appliquent uniquement les champs métier, avec une condition `deletedAt IS NULL`.
+- Le guide bureau décrit maintenant le + toujours visible dans la ligne, avant le crayon, et l'attente du rendu virtuel avant le focus.
+
+Les nouvelles régressions API utilisent une vraie base SQLite et suspendent des requêtes SQL pour contrôler les deux ordres création/suppression et modification/suppression. Elles vérifient aussi qu'un rollback de modification n'annule ni une écriture sur une autre chronique, ni une suppression individuelle ou complète de relevés. Le SQL PostgreSQL du verrou a été vérifié par génération, sans connexion à un serveur PostgreSQL.
+
+Résultats après corrections :
+
+| Ensemble | Résultat |
+| --- | --- |
+| Frontend et modules Electron | 52 suites, 481 tests passent |
+| Cœur partagé, inchangé par les corrections finales | 21 suites, 174 tests passent |
+| Moteur graphique | 44 suites, 371 tests passent |
+| API | 14 suites, 112 tests passent |
+| Total | **131 suites, 1 138 tests passent** |
+
+Les contrôles de types frontend/mobile/API, ESLint frontend et ciblé sur les corrections, la compilation du moteur graphique et `git diff --check` passent. La compilation de production de l'interface Electron, du processus principal et du preload passe. Nest et le bundle API compilent dans une copie temporaire, sans utiliser les anciens artefacts locaux. Le test réel de cycle de vie passe sur le bundle : migrations, disponibilité IPC, jeton de session, CORS, connexion locale, accès atomique, récupération après plantage et arrêt.
+
+Chromium valide les douze combinaisons analyse/mini-graphe, panneaux de 800 × 400 et 440 × 300, axes X/Y à 24 px et orientations X 0°/+45°/-45°. Les libellés restent dans le canvas ; le zoom volontaire et le cadrage après export sont conservés. Les exports PNG/SVG, l'alpha sémantique et les variantes opaques JPEG ont été revérifiés. Les signatures, la notarisation et l'assemblage des installeurs Windows, macOS Intel/Apple Silicon et Linux sont les contrôles de la CI de publication ; les dialogues natifs n'ont pas été manipulés sur ces systèmes dans cette revue.
