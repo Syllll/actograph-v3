@@ -443,6 +443,8 @@ export class YAxis extends BaseGroup {
         fill: LABEL_CONFIG.COLOR,
         fontWeight: tick.isFrieze ? 'bold' : 'normal',
         kind: 'y-tick',
+        labelWidth: measureAxisTextWidth(tick.label, this.fontSize, LABEL_CONFIG.FONT_FAMILY,
+          tick.isFrieze ? 'bold' : undefined),
       });
     }
 

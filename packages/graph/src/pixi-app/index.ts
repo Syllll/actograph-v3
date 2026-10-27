@@ -19,6 +19,7 @@ import { exportSvgScene } from '../engine/svg-scene-exporter';
 import type { SvgDocument } from '../utils/svg-document';
 import { HoverLayer } from '../layers/HoverLayer';
 import { AxisLabelOverlay } from '../layers/AxisLabelOverlay';
+import { clampAxisLabelViewport, fitAxisLabelViewport } from '../utils/axis-label-viewport.utils';
 import { computePlotBoundsInOverlay } from '../utils/hover-bounds.utils';
 import {
   clampViewport,
@@ -586,7 +587,7 @@ export class PixiApp {
     if (this.isInteractive) {
       this.updateWorldBounds();
       this.recalculateFitViewport();
-      const clamped = preserveViewportOnResize(
+      const clamped = this.usesAxisLabelBounds() ? this.viewport : preserveViewportOnResize(
         {
           scaleX: this.zoomState.scale * this.axisStretch.x,
           scaleY: this.zoomState.scale * this.axisStretch.y,
@@ -911,6 +912,12 @@ export class PixiApp {
       ...this.graphRenderOptions,
       ...options,
     });
+    if (previous.xAxisFontSize !== this.graphRenderOptions.xAxisFontSize ||
+        previous.yAxisFontSize !== this.graphRenderOptions.yAxisFontSize ||
+        previous.xAxisLabelOrientation !== this.graphRenderOptions.xAxisLabelOrientation) {
+      // A fitted view stays fitted when its screen-space labels change size.
+      if (Math.abs(this.zoomState.scale - this.fitViewport.scaleX) < 1e-6) this.needsInitialFit = true;
+    }
     this.yAxis.setFontSize(this.graphRenderOptions.yAxisFontSize);
     this.xAxis.setGraphRenderOptions(this.graphRenderOptions);
     this.dataArea.setGraphRenderOptions(this.graphRenderOptions);
@@ -961,6 +968,12 @@ export class PixiApp {
   }
 
   private presentTimeFormatChange(): void {
+    if (this.usesAxisLabelBounds()) {
+      const fitted = Math.abs(this.zoomState.scale - this.fitViewport.scaleX) < 1e-6;
+      this.recalculateFitViewport();
+      this.setViewportTransform(fitted ? { scale: this.fitViewport.scaleX, x: this.fitViewport.x, y: this.fitViewport.y } : {},
+        { emitZoom: false, skipRender: true, skipLabelRefresh: true });
+    }
     this.hoverLayer.clear({ cancelPending: true });
     this.syncAxisLabelOverlay();
     this.paint('draw-complete');
@@ -1319,8 +1332,19 @@ export class PixiApp {
     this.dirtyRegistry.markAllMidDraw();
   }
 
+  private usesAxisLabelBounds(): boolean {
+    // Preserve the historical camera for chronicles using the default axes.
+    return this.graphRenderOptions.xAxisFontSize !== 12 || this.graphRenderOptions.yAxisFontSize !== 12 ||
+      this.graphRenderOptions.xAxisLabelOrientation !== 45;
+  }
+
+  private getAxisLabelDescriptors() {
+    return [...this.xAxis.getLabelDescriptors(), ...this.yAxis.getLabelDescriptors()];
+  }
+
   private getCanvasSize(): { width: number; height: number } {
     const { width, height } = this.app.screen;
+    if (this.usesAxisLabelBounds()) return { width, height };
     // Labels remain in screen pixels when the world shrinks. Fit AND pan clamps
     // use the same inner rectangle, leaving real pixel space below/right.
     const margin = this.reserveAxisLabelSpace ? this.xAxis.getRequiredBottomMargin() : 0;
@@ -1356,6 +1380,11 @@ export class PixiApp {
 
   private recalculateFitViewport(): void {
     const canvasSize = this.getCanvasSize();
+    if (this.usesAxisLabelBounds()) {
+      this.fitViewport = fitAxisLabelViewport(this.worldBounds, canvasSize, this.getAxisLabelDescriptors(),
+        this.axisStretch, this.zoomState.minScale, this.zoomState.maxScale);
+      return;
+    }
     const bounds = this.reserveAxisLabelSpace ? {
       width: this.worldBounds.width * this.axisStretch.x,
       height: this.worldBounds.height * this.axisStretch.y,
@@ -1420,7 +1449,11 @@ export class PixiApp {
     options?: { emitZoom?: boolean; skipRender?: boolean; skipLabelRefresh?: boolean },
   ): void {
     const baseScale = transform.scale ?? this.zoomState.scale;
-    const clamped = clampViewport(
+    const clamp = this.usesAxisLabelBounds()
+      ? (viewport: ViewportState, world: WorldBounds, canvas: { width: number; height: number }) =>
+        clampAxisLabelViewport(viewport, world, canvas, this.getAxisLabelDescriptors())
+      : clampViewport;
+    const clamped = clamp(
       {
         scaleX: baseScale * this.axisStretch.x,
         scaleY: baseScale * this.axisStretch.y,

@@ -68,3 +68,28 @@ it('fits the mini graph with persisted axis stretch included', () => {
   expect(internal.fitViewport.x).toBe(0);
   expect(internal.fitViewport.y).toBeCloseTo(74.25);
 });
+
+it.each([false, true])('fits custom axes for analysis and mini graph (reserve=%s), preserving an explicit zoom', reserve => {
+  const { engine } = setup();
+  const descriptor = { id: 'origin', kind: 'x-tick', text: '26.10.2026 09:00:00:000',
+    worldX: 80, worldY: 77, fontSize: 24, fontFamily: 'Arial', fill: 'black',
+    labelWidth: 267, angleDeg: -45, anchorX: 1, anchorY: 0 };
+  Object.assign(engine, { reserveAxisLabelSpace: reserve,
+    app: { screen: { width: 800, height: 400 } },
+    xAxis: { getLabelDescriptors: () => [descriptor] }, yAxis: { getLabelDescriptors: () => [] },
+    graphRenderOptions: { xAxisFontSize: 24, yAxisFontSize: 12, xAxisLabelOrientation: -45 },
+    worldBounds: { width: 740, height: 85 }, axisStretch: { x: 1, y: 1 },
+    zoomState: { scale: 2, minScale: 0.1, maxScale: 5 },
+    viewport: { scale: { set: jest.fn() }, x: 0, y: 0 },
+    updateWorldTransforms: jest.fn(), hoverLayer: { clear: jest.fn() },
+  });
+  const internal = engine as unknown as { recalculateFitViewport(): void;
+    fitViewport: { scaleX: number; x: number; y: number };
+    setViewportTransform(transform: { scale: number; x: number; y: number }, options: unknown): void };
+  internal.recalculateFitViewport();
+  expect(internal.fitViewport.scaleX).toBeLessThan(1);
+  expect(internal.fitViewport.x).toBeGreaterThan(100);
+  internal.setViewportTransform({ scale: 2, x: 0, y: 0 },
+    { emitZoom: false, skipRender: true, skipLabelRefresh: true });
+  expect(engine.getZoomLevel()).toBe(2);
+});

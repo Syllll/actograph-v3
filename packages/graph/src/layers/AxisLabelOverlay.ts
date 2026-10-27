@@ -202,8 +202,8 @@ export class AxisLabelOverlay {
         fontSize: descriptor.fontSize,
         fill: descriptor.fill,
         fontFamily: descriptor.fontFamily,
-        fontWeight: descriptor.fontWeight as TextStyleFontWeight | undefined,
-        fontStyle: descriptor.fontStyle as TextStyleFontStyle | undefined,
+        fontWeight: (descriptor.fontWeight ?? 'normal') as TextStyleFontWeight,
+        fontStyle: (descriptor.fontStyle ?? 'normal') as TextStyleFontStyle,
       },
     );
     text.eventMode = 'none';

@@ -28,8 +28,9 @@ jest.mock('pixi.js', () => {
   }
 
   class MockText extends MockDisplayObject {
-    constructor(content?: string) {
+    constructor(content?: string, style: Record<string, unknown> = {}) {
       super();
+      this.style = style;
       if (content !== undefined) {
         this.text = content;
       }
@@ -277,4 +278,17 @@ it('recomputes Auto before collisions on zoom, while keeping text at the request
   overlay.setProjectors({ worldToOverlay: p => p });
   overlay.syncPositions();
   expect(overlay.container.children.map(c => (c as Text).angle)).toEqual([0, 0]);
+});
+
+
+it('gives newly created labels valid font defaults, including a format mention added after font resizing', () => {
+  const overlay = new AxisLabelOverlay();
+  overlay.setProjectors({ worldToOverlay: p => p });
+  overlay.sync([makeDescriptor({ id: 'large', kind: 'x-tick', fontSize: 24 })]);
+  overlay.sync([makeDescriptor({ id: 'large', kind: 'x-tick', fontSize: 24 }),
+    makeDescriptor({ id: 'mention', kind: 'format-mention', fontSize: 11, fontStyle: 'italic' })]);
+  const mention = overlay.container.children.find(child => (child as Text).text === 'mention') as Text;
+  expect(mention.style.fontSize).toBe(11);
+  expect(mention.style.fontStyle).toBe('italic');
+  expect(mention.style.fontWeight).toBe('normal');
 });
