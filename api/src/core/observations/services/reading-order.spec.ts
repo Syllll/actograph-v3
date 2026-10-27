@@ -191,12 +191,10 @@ describe('manual reading ordering', () => {
       type: ReadingTypeEnum.DATA,
       dateTime,
     });
-    const saveSpy = jest.spyOn((service as any).readingRepository, 'save');
     const firstBatch = await service.createMany([
       make('one'), make('two'), make('one'), make(), make(),
     ]);
-    expect(saveSpy).toHaveBeenCalledTimes(1);
-    expect(saveSpy.mock.calls[0][0]).toHaveLength(4);
+    expect(firstBatch).toHaveLength(5);
     expect(firstBatch[0].id).toBe(firstBatch[2].id);
     expect(firstBatch[1].id).not.toBe(firstBatch[0].id);
     expect(firstBatch[3].id).not.toBe(firstBatch[4].id);

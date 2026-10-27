@@ -12,7 +12,7 @@ import { ObservationRepository } from '../repositories/obsavation.repository';
 import { ReadingRepository } from '../repositories/reading.repository';
 import { Reading } from '../entities/reading.entity';
 import { ReadingTypeEnum } from '@actograph/core';
-import { In } from 'typeorm';
+import { In, IsNull } from 'typeorm';
 import {
   IPaginationOptions,
   IConditions,
@@ -21,6 +21,7 @@ import {
   TypeEnum,
 } from '@utils/repositories/base.repositories';
 import { ObservationService } from './observation/index.service';
+import { lockActiveObservationWrite, withObservationWriteLocks } from './observation-write-lock';
 
 @Injectable()
 export class ReadingService extends BaseService<Reading, ReadingRepository> {
@@ -90,17 +91,24 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
     dateTime: Date;
     sortOrder?: number | null;
   }) {
-    const reading = this.readingRepository.create({
-      name: options.name,
-      description: options.description,
-      observation: {
-        id: options.observationId,
-      },
-      type: options.type,
-      dateTime: options.dateTime,
-      sortOrder: options.sortOrder,
-    });
-    return this.readingRepository.save(reading);
+    return withObservationWriteLocks(
+      this.readingRepository.manager.connection,
+      [options.observationId],
+      () =>
+        this.readingRepository.manager.transaction(async (manager) => {
+          await lockActiveObservationWrite(manager, options.observationId);
+          const repository = manager.getRepository(Reading);
+          const reading = repository.create({
+            name: options.name,
+            description: options.description,
+            observation: { id: options.observationId },
+            type: options.type,
+            dateTime: options.dateTime,
+            sortOrder: options.sortOrder,
+          });
+          return repository.save(reading);
+        }),
+    );
   }
 
   // Create several readings at once
@@ -113,85 +121,107 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
       type: ReadingTypeEnum;
       dateTime: Date;
       sortOrder?: number | null;
-    }[]
+    }[],
   ) {
-    const idsByObservation = new Map<number, Set<string>>();
-    for (const reading of readings) {
-      if (!reading.tempId) continue;
-      const tempIds = idsByObservation.get(reading.observationId) ?? new Set<string>();
-      tempIds.add(reading.tempId);
-      idsByObservation.set(reading.observationId, tempIds);
-    }
-
-    const key = (observationId: number, tempId: string) => `${observationId}\0${tempId}`;
-    const existingByKey = new Map<string, Reading>();
-    for (const [observationId, tempIds] of idsByObservation) {
-      const allTempIds = [...tempIds];
-      // Bound SQLite's parameter count for large imports and offline batches.
-      for (let offset = 0; offset < allTempIds.length; offset += 500) {
-        const existing = await this.readingRepository.find({
-          where: {
-            observation: { id: observationId },
-            tempId: In(allTempIds.slice(offset, offset + 500)),
-          },
-          order: { id: 'ASC' },
-        });
-        for (const row of existing) {
-          if (row.tempId) {
-            // A legacy database can already contain duplicated tempIds. Keep
-            // returning its first row without modifying or deleting user data.
-            const rowKey = key(observationId, row.tempId);
-            if (!existingByKey.has(rowKey)) existingByKey.set(rowKey, row);
+    const observationIds = readings.map(({ observationId }) => observationId);
+    return withObservationWriteLocks(
+      this.readingRepository.manager.connection,
+      observationIds,
+      () =>
+        this.readingRepository.manager.transaction(async (manager) => {
+          for (const observationId of [...new Set(observationIds)].sort(
+            (left, right) => left - right,
+          )) {
+            await lockActiveObservationWrite(manager, observationId);
           }
-        }
-      }
-    }
+          const repository = manager.getRepository(Reading);
 
-    const toCreate: Reading[] = [];
-    const pendingByKey = new Map<string, number>();
-    const positions: Array<Reading | number> = [];
-    for (const reading of readings) {
-      const readingKey = reading.tempId
-        ? key(reading.observationId, reading.tempId)
-        : null;
-      if (readingKey && existingByKey.has(readingKey)) {
-        positions.push(existingByKey.get(readingKey)!);
-        continue;
-      }
-      if (readingKey && pendingByKey.has(readingKey)) {
-        positions.push(pendingByKey.get(readingKey)!);
-        continue;
-      }
-      const entity = this.readingRepository.create({
-        name: reading.name,
-        description: reading.description,
-        observation: { id: reading.observationId },
-        type: reading.type,
-        dateTime: reading.dateTime,
-        sortOrder: reading.sortOrder,
-        tempId: reading.tempId,
-      });
-      const index = toCreate.push(entity) - 1;
-      positions.push(index);
-      if (readingKey) pendingByKey.set(readingKey, index);
-    }
-    // TypeORM save(array) uses one transaction. A later invalid row cannot
-    // leave earlier readings committed while the client retries the batch.
-    const created = toCreate.length > 0
-      ? await this.readingRepository.save(toCreate)
-      : [];
-    return positions.map((position) =>
-      typeof position === 'number' ? created[position] : position,
+          const idsByObservation = new Map<number, Set<string>>();
+          for (const reading of readings) {
+            if (!reading.tempId) continue;
+            const tempIds =
+              idsByObservation.get(reading.observationId) ?? new Set<string>();
+            tempIds.add(reading.tempId);
+            idsByObservation.set(reading.observationId, tempIds);
+          }
+
+          const key = (observationId: number, tempId: string) =>
+            `${observationId}\0${tempId}`;
+          const existingByKey = new Map<string, Reading>();
+          for (const [observationId, tempIds] of idsByObservation) {
+            const allTempIds = [...tempIds];
+            // Bound SQLite's parameter count for large imports and offline batches.
+            for (let offset = 0; offset < allTempIds.length; offset += 500) {
+              const existing = await repository.find({
+                where: {
+                  observation: { id: observationId },
+                  tempId: In(allTempIds.slice(offset, offset + 500)),
+                },
+                order: { id: 'ASC' },
+              });
+              for (const row of existing) {
+                if (row.tempId) {
+                  // A legacy database can already contain duplicated tempIds. Keep
+                  // returning its first row without modifying or deleting user data.
+                  const rowKey = key(observationId, row.tempId);
+                  if (!existingByKey.has(rowKey))
+                    existingByKey.set(rowKey, row);
+                }
+              }
+            }
+          }
+
+          const toCreate: Reading[] = [];
+          const pendingByKey = new Map<string, number>();
+          const positions: Array<Reading | number> = [];
+          for (const reading of readings) {
+            const readingKey = reading.tempId
+              ? key(reading.observationId, reading.tempId)
+              : null;
+            if (readingKey && existingByKey.has(readingKey)) {
+              positions.push(existingByKey.get(readingKey)!);
+              continue;
+            }
+            if (readingKey && pendingByKey.has(readingKey)) {
+              positions.push(pendingByKey.get(readingKey)!);
+              continue;
+            }
+            const entity = repository.create({
+              name: reading.name,
+              description: reading.description,
+              observation: { id: reading.observationId },
+              type: reading.type,
+              dateTime: reading.dateTime,
+              sortOrder: reading.sortOrder,
+              tempId: reading.tempId,
+            });
+            const index = toCreate.push(entity) - 1;
+            positions.push(index);
+            if (readingKey) pendingByKey.set(readingKey, index);
+          }
+          // TypeORM save(array) uses one transaction. A later invalid row cannot
+          // leave earlier readings committed while the client retries the batch.
+          const created =
+            toCreate.length > 0 ? await repository.save(toCreate) : [];
+          return positions.map((position) =>
+            typeof position === 'number' ? created[position] : position,
+          );
+        }),
     );
   }
 
   public async removeAllForObservation(observationId: number) {
-    const readings = await this.readingRepository.find({
-      where: { observation: { id: observationId } },
-    });
-    if (readings.length > 0) {
-      await this.readingRepository.softRemove(readings);
-    }
+    return withObservationWriteLocks(
+      this.readingRepository.manager.connection,
+      [observationId],
+      () =>
+        this.readingRepository.manager.transaction(async (manager) => {
+          await manager.softDelete(Reading, {
+            observation: { id: observationId },
+            deletedAt: IsNull(),
+          });
+        }),
+    );
   }
 
   public async cloneAndAttributeToObservation(options: {
@@ -239,90 +269,130 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
     );
   }
 
-  public async removeMany(readings: ({
-    id: number;
-  })[]) {
-    await this.readingRepository.softRemove(readings);
+  public async removeMany(readings: { id: number }[]) {
+    const readingIds = [...new Set(readings.map(({ id }) => id))];
+    if (readingIds.length === 0) return;
+
+    const existingReadings = await this.readingRepository.find({
+      where: { id: In(readingIds) },
+      relations: { observation: true },
+    });
+    const observationIds = existingReadings
+      .map(({ observation }) => observation?.id)
+      .filter((id): id is number => id != null);
+
+    return withObservationWriteLocks(
+      this.readingRepository.manager.connection,
+      observationIds,
+      () =>
+        this.readingRepository.manager.transaction(async (manager) => {
+          await manager.softDelete(Reading, {
+            id: In(readingIds),
+            deletedAt: IsNull(),
+          });
+        }),
+    );
   }
 
-  public async updateMany(readings: {
-    id?: number;
-    tempId?: string | null;
-    name?: string;
-    description?: string | null;
-    type?: ReadingTypeEnum;
-    dateTime?: Date;
-    sortOrder?: number | null;
-  }[], observationId: number) {
-    const readingsToSave = [];
-    for (const reading of readings) {
-      if (reading.id) {
-        // Find the existing reading and update its properties
-        const existingReading = await this.readingRepository.findOne({
-          where: { id: reading.id, observation: { id: observationId } },
-        });
-        if (!existingReading) {
-          throw new NotFoundException(`Reading with id ${reading.id} not found`);
-        }
-        
-        // Update properties
-        if (reading.name !== undefined) {
-          existingReading.name = reading.name;
-        }
-        if (reading.description !== undefined) {
-          existingReading.description = reading.description;
-        }
-        if (reading.type !== undefined) {
-          existingReading.type = reading.type;
-        }
-        if (reading.dateTime !== undefined) {
-          existingReading.dateTime = reading.dateTime instanceof Date 
-            ? reading.dateTime 
-            : new Date(reading.dateTime);
-        }
-        if (reading.tempId !== undefined) {
-          existingReading.tempId = reading.tempId;
-        }
-        if (reading.sortOrder !== undefined) {
-          existingReading.sortOrder = reading.sortOrder;
-        }
-        
-        readingsToSave.push(existingReading);
-      } else {
-        if (!reading.tempId) {
-          throw new BadRequestException('Temp ID is required for readings without id');
-        }
-        const existingReading = await this.readingRepository.findOne({
-          where: { tempId: reading.tempId, observation: { id: observationId } },
-        });
-        if (!existingReading) {
-          throw new NotFoundException('Reading not found with temp ID ' + reading.tempId);
-        }
+  public async updateMany(
+    readings: {
+      id?: number;
+      tempId?: string | null;
+      name?: string;
+      description?: string | null;
+      type?: ReadingTypeEnum;
+      dateTime?: Date;
+      sortOrder?: number | null;
+    }[],
+    observationId: number,
+  ) {
+    return withObservationWriteLocks(
+      this.readingRepository.manager.connection,
+      [observationId],
+      () =>
+        this.readingRepository.manager.transaction(async (manager) => {
+          await lockActiveObservationWrite(manager, observationId);
+          const repository = manager.getRepository(Reading);
+          const updatedReadings: Reading[] = [];
 
-        // Update properties
-        if (reading.name !== undefined) {
-          existingReading.name = reading.name;
-        }
-        if (reading.description !== undefined) {
-          existingReading.description = reading.description;
-        }
-        if (reading.type !== undefined) {
-          existingReading.type = reading.type;
-        }
-        if (reading.dateTime !== undefined) {
-          existingReading.dateTime = reading.dateTime instanceof Date 
-            ? reading.dateTime 
-            : new Date(reading.dateTime);
-        }
-        if (reading.sortOrder !== undefined) {
-          existingReading.sortOrder = reading.sortOrder;
-        }
+          for (const reading of readings) {
+            const existingReading =
+              reading.id != null
+                ? await repository.findOne({
+                    where: {
+                      id: reading.id,
+                      observation: { id: observationId },
+                    },
+                  })
+                : reading.tempId
+                ? await repository.findOne({
+                    where: {
+                      tempId: reading.tempId,
+                      observation: { id: observationId },
+                    },
+                  })
+                : null;
+            if (!existingReading) {
+              if (reading.id == null && !reading.tempId) {
+                throw new BadRequestException(
+                  'Temp ID is required for readings without id',
+                );
+              }
+              throw new NotFoundException(
+                reading.id != null
+                  ? `Reading with id ${reading.id} not found`
+                  : `Reading not found with temp ID ${reading.tempId}`,
+              );
+            }
 
-        readingsToSave.push(existingReading);
-      }
-    }
-    
-    await this.readingRepository.save(readingsToSave);
-    return readingsToSave;
+            const patch: Partial<Reading> = {};
+            if (reading.name !== undefined) patch.name = reading.name;
+            if (reading.description !== undefined)
+              patch.description = reading.description;
+            if (reading.type !== undefined) patch.type = reading.type;
+            if (reading.dateTime !== undefined) {
+              patch.dateTime =
+                reading.dateTime instanceof Date
+                  ? reading.dateTime
+                  : new Date(reading.dateTime);
+            }
+            if (reading.tempId !== undefined) patch.tempId = reading.tempId;
+            if (reading.sortOrder !== undefined)
+              patch.sortOrder = reading.sortOrder;
+
+            if (Object.keys(patch).length > 0) {
+              const result = await manager.update(
+                Reading,
+                {
+                  id: existingReading.id,
+                  observation: { id: observationId },
+                  deletedAt: IsNull(),
+                },
+                patch,
+              );
+              if (!result.affected) {
+                throw new NotFoundException(
+                  `Reading with id ${existingReading.id} not found`,
+                );
+              }
+            }
+
+            const updatedReading = await repository.findOne({
+              where: {
+                id: existingReading.id,
+                observation: { id: observationId },
+              },
+            });
+            if (!updatedReading) {
+              throw new NotFoundException(
+                `Reading with id ${existingReading.id} not found`,
+              );
+            }
+            updatedReadings.push(updatedReading);
+          }
+
+          return updatedReadings;
+        }),
+    );
   }
 }

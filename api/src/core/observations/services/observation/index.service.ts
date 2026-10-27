@@ -46,6 +46,10 @@ import { Protocol, ProtocolItem } from '../../entities/protocol.entity';
 import { Reading } from '../../entities/reading.entity';
 import { ActivityGraph } from '../../entities/activity-graph.entity';
 import { IsNull } from 'typeorm';
+import {
+  lockActiveObservationWrite,
+  withObservationWriteLocks,
+} from '../observation-write-lock';
 
 @Injectable()
 export class ObservationService extends BaseService<
@@ -128,24 +132,32 @@ export class ObservationService extends BaseService<
   }
 
   public override async delete(id: number): Promise<Observation | undefined> {
-    return this.observationRepository.manager.transaction(async (manager) => {
-      const observation = await manager.findOne(Observation, { where: { id } });
-      if (!observation) {
-        throw new NotFoundException('Observation not found');
-      }
+    return withObservationWriteLocks(
+      this.observationRepository.manager.connection,
+      [id],
+      () =>
+        this.observationRepository.manager.transaction(async (manager) => {
+          await lockActiveObservationWrite(manager, id);
+          const observation = await manager.findOne(Observation, {
+            where: { id },
+          });
+          if (!observation) {
+            throw new NotFoundException('Observation not found');
+          }
 
-      // Every write uses the transaction manager: a failed child or observation
-      // deletion must leave the entire chronicle available for retry.
-      const childrenCriteria = {
-        observation: { id },
-        deletedAt: IsNull(),
-      };
-      await manager.softDelete(Reading, childrenCriteria);
-      await manager.softDelete(Protocol, childrenCriteria);
-      await manager.softDelete(ActivityGraph, childrenCriteria);
-      await manager.softDelete(Observation, id);
-      return observation;
-    });
+          // Every write uses the transaction manager: a failed child or observation
+          // deletion must leave the entire chronicle available for retry.
+          const childrenCriteria = {
+            observation: { id },
+            deletedAt: IsNull(),
+          };
+          await manager.softDelete(Reading, childrenCriteria);
+          await manager.softDelete(Protocol, childrenCriteria);
+          await manager.softDelete(ActivityGraph, childrenCriteria);
+          await manager.softDelete(Observation, id);
+          return observation;
+        }),
+    );
   }
 
   public async clone(observationId: number, newUserId: number) {
@@ -267,7 +279,7 @@ export class ObservationService extends BaseService<
       meta: options.meta ?? null,
       type: ObservationType.Normal,
     });
-    
+
     const savedObservation = await this.observationRepository.save(observation);
 
     // Create the protocol
