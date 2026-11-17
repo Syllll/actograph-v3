@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Read-only diagnostics. Never print credentials, JWTs or certificate contents.
 import { createPrivateKey, sign, X509Certificate } from 'node:crypto';
-import { appendFile } from 'node:fs/promises';
+import { appendFile, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -77,6 +77,27 @@ export async function issuerCertificateMetadata(env, fetchImpl = fetch, now = Da
     moreCertificatePages: Boolean(body.links?.next), teamMapping: teamMatches > 0 ? 'confirmed' : 'unknown' };
 }
 
+export function recentSubmissionMetadata(value, since) {
+  const start = Date.parse(since);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(since) || !Number.isFinite(start) ||
+    new Date(start).toISOString().replace('.000Z', 'Z') !== since || !Array.isArray(value?.history)) {
+    throw new Error('Invalid filtered history input');
+  }
+  if (value.history.some((record) => !record || typeof record.name !== 'string' ||
+    typeof record.createdDate !== 'string' || !Number.isFinite(Date.parse(record.createdDate)))) {
+    throw new Error('Inconclusive submission history schema');
+  }
+  const recent = value.history.filter((record) => Date.parse(record.createdDate) >= start &&
+    /^ActoGraph(?:[ ._-]|$)/i.test(record.name));
+  return { since, recentActographCount: recent.length, truncated: recent.length > 10,
+    submissions: recent.slice(0, 10).map((record) => ({
+      date: new Date(record.createdDate).toISOString(),
+      id: /^[a-f0-9-]{36}$/i.test(record.id ?? '') ? record.id : 'unavailable',
+      name: 'ActoGraph',
+      status: ['Accepted', 'In Progress', 'Invalid', 'Rejected'].includes(record.status) ? record.status : 'unknown',
+    })) };
+}
+
 async function main() {
   if (process.argv[2] === '--metadata') {
     const metadata = credentialMetadata(process.env);
@@ -87,8 +108,10 @@ async function main() {
     const metadata = await issuerCertificateMetadata(process.env);
     console.log(JSON.stringify(metadata));
     if (!metadata.signingCertificatePresent) process.exitCode = 1;
+  } else if (process.argv[2] === '--history') {
+    console.log(JSON.stringify(recentSubmissionMetadata(JSON.parse(await readFile(process.argv[3], 'utf8')), process.argv[4])));
   } else {
-    throw new Error('Choose --metadata or --certificates');
+    throw new Error('Choose --metadata, --certificates or --history');
   }
 }
 

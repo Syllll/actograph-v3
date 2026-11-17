@@ -2,6 +2,11 @@ name: Check desktop notarization authentication
 
 on:
   workflow_dispatch:
+    inputs:
+      history_since:
+        description: 'Optional ISO UTC start date for a single filtered submission status check'
+        required: false
+        type: string
 
 jobs:
   check:
@@ -24,6 +29,7 @@ jobs:
           xcrun notarytool --version
 
       - name: Check credential metadata without revealing values
+        if: inputs.history_since == ''
         id: config
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -34,6 +40,7 @@ jobs:
         run: node scripts/diagnose-desktop-notary.mjs --metadata
 
       - name: Check Apple ID authentication
+        if: inputs.history_since == ''
         id: apple-id
         continue-on-error: true
         env:
@@ -60,8 +67,12 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          HISTORY_SINCE: ${{ inputs.history_since }}
         run: |
           set -euo pipefail
+          if [ -n "$HISTORY_SINCE" ]; then
+            node --input-type=module -e 'if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(process.env.HISTORY_SINCE) || !Number.isFinite(Date.parse(process.env.HISTORY_SINCE))) process.exit(1)'
+          fi
           for name in APP_STORE_CONNECT_API_KEY_ID APP_STORE_CONNECT_API_ISSUER_ID APP_STORE_CONNECT_API_KEY_BASE64; do
             if [ -z "${!name:-}" ]; then
               echo "Missing secret: $name" >&2
@@ -75,8 +86,12 @@ jobs:
           xcrun notarytool history --key "$private_key" \
             --key-id "$APP_STORE_CONNECT_API_KEY_ID" --issuer "$APP_STORE_CONNECT_API_ISSUER_ID" \
             --output-format json > "$RUNNER_TEMP/api-notary.json"
+          if [ -n "$HISTORY_SINCE" ]; then
+            node scripts/diagnose-desktop-notary.mjs --history "$RUNNER_TEMP/api-notary.json" "$HISTORY_SINCE"
+          fi
 
       - name: Match API issuer to desktop public signing certificate
+        if: inputs.history_since == ''
         id: certificate-team
         continue-on-error: true
         env:
