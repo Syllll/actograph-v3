@@ -166,6 +166,7 @@
                 :class="{ 'unrecognized-observable': isUnrecognizedObservable(props.row) }"
                 type="text"
                 :value="getObservableValue(props.row)"
+                :placeholder="isUnrecognizedObservable(props.row) && !props.row.name ? t('exchange.unnamed') : undefined"
                 :aria-label="t('readingsUi.colLabel')"
                 @input="setObservableDraft(props.row, $event)"
                 @blur="commitObservable(props.row)"
@@ -502,7 +503,7 @@ export default defineComponent({
     const getReadingCategory = (row: IReading) => row.type === ReadingTypeEnum.DATA && !isCommentReading(row)
       ? observableCategoryIndex.value.get(row.name) ?? null : null;
 
-    const getObservableValue = (row: IReading) => observableDrafts.value[getRowKey(row)] ?? row.name;
+    const getObservableValue = (row: IReading) => observableDrafts.value[getRowKey(row)] ?? row.name ?? '';
     const setObservableDraft = (row: IReading, event: Event) => {
       observableDrafts.value[getRowKey(row)] = (event.target as HTMLInputElement).value;
     };
@@ -525,15 +526,14 @@ export default defineComponent({
     };
 
     const isUnrecognizedObservable = (row: IReading): boolean => {
-      if (row.type !== ReadingTypeEnum.DATA || !row.name) return false;
-      if (row.name.startsWith('#')) return false;
-      return !observableCategoryIndex.value.has(row.name);
+      if (row.type !== ReadingTypeEnum.DATA || row.name?.startsWith('#')) return false;
+      return !row.name || !observableCategoryIndex.value.has(row.name);
     };
 
     const getUnrecognizedObservableTitle = (row: IReading): string | undefined => {
       if (!isUnrecognizedObservable(row)) return undefined;
       return t('readingsUi.unrecognizedObservableTooltip', {
-        name: row.name ?? '',
+        name: row.name || t('exchange.unnamed'),
       });
     };
 

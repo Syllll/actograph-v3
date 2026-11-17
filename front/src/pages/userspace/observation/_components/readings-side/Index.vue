@@ -6,6 +6,7 @@
         class="col-auto"
         v-model:search="search"
         :match-count="filteredReadings.length"
+        :prepare="() => readingsTableRef?.prepareForAdd() ?? false"
         :can-activate-chronometer-mode="canActivateChronometerMode"
         @add-comment="handleAddComment"
         @activate-chronometer-mode="handleActivateChronometerMode"
@@ -13,6 +14,8 @@
         @replace-all="handleReplaceAll"
       />
 
+      <unmatched-readings-banner class="q-mb-sm" @show="search = ''; showUnmatched = true" />
+      <q-btn v-if="showUnmatched" flat dense no-caps :label="$t('exchange.clearFilter')" @click="showUnmatched = false" />
       <div class="col table-wrapper">
         <readings-table
           ref="readingsTableRef"
@@ -37,6 +40,9 @@
 import { defineComponent, ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { IReading, ReadingTypeEnum, ObservationModeEnum } from '@services/observations/interface';
 import ReadingsToolbar from './ReadingsToolbar.vue';
+import UnmatchedReadingsBanner from 'src/pages/userspace/_components/UnmatchedReadingsBanner.vue';
+import { unmatchedReadings, ambiguousReadings } from 'src/utils/unmatched-readings';
+import { useRoute } from 'vue-router';
 import ReadingsTable from './ReadingsTable.vue';
 import ReadingsAfterLastStopBanner from 'src/pages/userspace/_components/ReadingsAfterLastStopBanner.vue';
 import { useObservation } from 'src/composables/use-observation';
@@ -54,6 +60,7 @@ export default defineComponent({
   
   components: {
     ReadingsToolbar,
+    UnmatchedReadingsBanner,
     ReadingsTable,
     ReadingsAfterLastStopBanner,
     AutoCorrectReadingsDialog,
@@ -70,6 +77,9 @@ export default defineComponent({
 
     // Local state for this component
     const search = ref('');
+    const route = useRoute();
+    const showUnmatched = ref(route.query.unmatched === '1');
+    watch(() => route.query.unmatched, (value) => { if (value === '1') showUnmatched.value = true; });
     const readingsTableRef = ref<InstanceType<typeof ReadingsTable> | null>(null);
     const hasInvalidTimestamps = ref(false);
     const contentRef = ref<HTMLElement | null>(null);
@@ -95,6 +105,12 @@ export default defineComponent({
     // This computed property filters the current readings by name, id, or description
     const filteredReadings = computed(() => {
       let result = [...sharedState.currentReadings];
+
+      if (showUnmatched.value) {
+        const items = observation.protocol.sharedState.currentProtocol?._items;
+        const anomalies = new Set([...unmatchedReadings(result, items), ...ambiguousReadings(result, items)]);
+        result = result.filter((row) => anomalies.has(row));
+      }
 
       // Apply search filter if search query exists
       if (search.value) {
@@ -449,6 +465,7 @@ export default defineComponent({
       hasInvalidTimestamps,
       t,
       search,
+      showUnmatched,
       contentRef,
       filteredReadings,
       canActivateChronometerMode,

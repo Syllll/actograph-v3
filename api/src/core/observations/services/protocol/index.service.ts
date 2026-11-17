@@ -7,6 +7,10 @@ import { Find } from './find';
 import { Check } from './check';
 import { Items } from './items';
 import { NotFoundException } from '@nestjs/common';
+import {
+  lockActiveObservationWrite,
+  withObservationWriteLocks,
+} from '../observation-write-lock';
 
 @Injectable()
 export class ProtocolService extends BaseService<Protocol, ProtocolRepository> {
@@ -45,30 +49,44 @@ export class ProtocolService extends BaseService<Protocol, ProtocolRepository> {
     observationIdToCopyTo: number;
     newUserId: number;
   }) {
-    const protocol = await this.findOne(options.protocolId);
-    if (!protocol) {
-      throw new NotFoundException('Protocol not found');
-    }
+    return withObservationWriteLocks(
+      this.protocolRepository.manager.connection,
+      [options.observationIdToCopyTo],
+      () =>
+        this.protocolRepository.manager.transaction(async (manager) => {
+          await lockActiveObservationWrite(
+            manager,
+            options.observationIdToCopyTo,
+          );
+          const repository = manager.getRepository(Protocol);
+          const protocol = await repository.findOneBy({
+            id: options.protocolId,
+          });
+          if (!protocol) {
+            throw new NotFoundException('Protocol not found');
+          }
 
-    // Remove any existing protocol for the target observation
-    // (observation.create always creates an empty protocol placeholder)
-    const existingProtocol = await this.protocolRepository.findOne({
-      where: { observation: { id: options.observationIdToCopyTo } },
-    });
-    if (existingProtocol) {
-      await this.protocolRepository.remove(existingProtocol);
-    }
+          // Remove any existing protocol for the target observation
+          // (observation.create always creates an empty protocol placeholder)
+          const existingProtocol = await repository.findOne({
+            where: { observation: { id: options.observationIdToCopyTo } },
+          });
+          if (existingProtocol) {
+            await repository.remove(existingProtocol);
+          }
 
-    const clonedProtocol = this.protocolRepository.create({
-      ...protocol,
-      id: undefined,
-      observation: {
-        id: options.observationIdToCopyTo,
-      },
-      user: {
-        id: options.newUserId,
-      },
-    });
-    return this.protocolRepository.save(clonedProtocol);
+          const clonedProtocol = repository.create({
+            ...protocol,
+            id: undefined,
+            observation: {
+              id: options.observationIdToCopyTo,
+            },
+            user: {
+              id: options.newUserId,
+            },
+          });
+          return repository.save(clonedProtocol);
+        }),
+    );
   }
 }

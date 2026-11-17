@@ -28,3 +28,6 @@ export * from './utils/index';
 // Export convertMobileObservation explicitly for better tree-shaking and Vite compatibility
 export { convertMobileObservation } from './utils/mobile-compat';
 
+
+// Shared CSV and spreadsheet exchange contracts.
+export * from "./exchange/index";

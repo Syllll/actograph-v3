@@ -15,6 +15,8 @@ import { ReadingController } from './controllers/reading.controller';
 import { ActivityGraphController } from './controllers/activity-graph.controller';
 import { StatisticsController } from './controllers/statistics.controller';
 import { StatisticsService } from './services/statistics.service';
+import { ExchangeController } from './controllers/exchange.controller';
+import { ExchangeService } from './services/exchange.service';
 
 @Module({
   imports: [
@@ -27,6 +29,7 @@ import { StatisticsService } from './services/statistics.service';
     ]),
   ],
   controllers: [
+    ExchangeController,
     ReadingController, // Must be before ObservationController to avoid route conflict (/observations/readings vs /observations/:id)
     ObservationController,
     ProtocolController,
@@ -34,6 +37,7 @@ import { StatisticsService } from './services/statistics.service';
     StatisticsController,
   ],
   providers: [
+    ExchangeService,
     ActivityGraphService,
     ObservationService,
     ProtocolService,

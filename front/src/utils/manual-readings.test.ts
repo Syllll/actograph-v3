@@ -428,6 +428,23 @@ describe('manual readings synchronization', () => {
     expect(idle).toBe(true);
   });
 
+  it('rejects idle waiters when an in-flight synchronization fails', async () => {
+    await load([row(1, 'A')]);
+    methods.updateReading({ id: 1 }, { name: 'Pending' });
+    let rejectRequest!: (reason: Error) => void;
+    const pending = new Promise<IReading[]>((_, reject) => { rejectRequest = reject; });
+    const failure = new Error('offline');
+    api.updateMany.mockReturnValueOnce(pending).mockRejectedValue(failure);
+    const silence = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const saving = methods.synchronizeReadings();
+    const waiting = waitForPendingReadingSynchronization();
+    const saveRejected = expect(saving).rejects.toThrow('offline');
+    const waitRejected = expect(waiting).rejects.toThrow('offline');
+    rejectRequest(failure);
+    await Promise.all([saveRejected, waitRejected]);
+    silence.mockRestore();
+  }, 10000);
+
   it('ignores the response of a chronicle closed while saving', async () => {
     const first = methods.addManualReading();
     const pending = gate<IReading[]>();

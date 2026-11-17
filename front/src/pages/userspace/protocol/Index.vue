@@ -4,7 +4,8 @@
       <div class="col-12">
         <div v-if="state.currentProtocol">
           <q-card-section>
-            <div class="text-h6 q-mb-md">{{ computedState.pageHeading.value }}</div>
+            <div class="row items-center no-wrap q-mb-md"><div class="text-h6 col">{{ computedState.pageHeading.value }}</div><tabular-exchange-actions kind="protocol" @applied="methods.loadProtocol" /></div>
+            <unmatched-readings-banner class="q-mb-sm" />
             <p v-if="state.currentProtocol.description">
               {{ state.currentProtocol.description }}
             </p>
@@ -396,6 +397,8 @@ import {
   type AddObservableDto,
 } from '@services/observations/protocol.service';
 import { useRouter } from 'vue-router';
+import TabularExchangeActions from 'src/pages/userspace/_components/TabularExchangeActions.vue';
+import UnmatchedReadingsBanner from 'src/pages/userspace/_components/UnmatchedReadingsBanner.vue';
 import { useObservation } from 'src/composables/use-observation';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
@@ -428,6 +431,8 @@ const resolveInlineAddExpose = (
 
 export default defineComponent({
   components: {
+    UnmatchedReadingsBanner,
+    TabularExchangeActions,
     EditCategoryModal,
     RemoveCategoryModal,
     EditObservableModal,

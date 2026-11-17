@@ -2,6 +2,7 @@
   <div class="readings-toolbar q-pb-md">
     <div class="col-auto observation-panel-title-row row items-center q-mb-sm dashboard-header">
       <div class="col text-h6 dashboard-title">{{ $t('readingsUi.toolbarTitle') }}</div>
+      <tabular-exchange-actions kind="readings" :prepare="prepare" />
     </div>
 
     <div
@@ -123,13 +124,16 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, reactive, ref, onMounted, onBeforeUnmount } from 'vue';
+import { defineComponent, reactive, ref, onMounted, onBeforeUnmount, type PropType } from 'vue';
 import type { QInput } from 'quasar';
+import TabularExchangeActions from 'src/pages/userspace/_components/TabularExchangeActions.vue';
 
 export default defineComponent({
   name: 'ReadingsToolbar',
+  components: { TabularExchangeActions },
   
   props: {
+    prepare: { type: Function as PropType<() => boolean>, default: () => true },
     search: {
       type: String,
       default: '',
@@ -220,6 +224,7 @@ export default defineComponent({
 </script>
 
 <style scoped lang="scss">
+.readings-toolbar { container-type: inline-size; }
 .observation-panel-title-row {
   min-height: 32px;
   flex-wrap: nowrap;

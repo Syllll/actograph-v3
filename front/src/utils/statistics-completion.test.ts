@@ -21,6 +21,7 @@ jest.mock('../pages/userspace/statistics/_components/GeneralStatisticsView.vue',
 jest.mock('../pages/userspace/statistics/_components/CategoryStatisticsView.vue', () => ({ render: () => null }));
 jest.mock('../pages/userspace/statistics/_components/ConditionalStatisticsView.vue', () => ({ render: () => null }));
 jest.mock('../pages/userspace/_components/ReadingsAfterLastStopBanner.vue', () => ({ render: () => null }));
+jest.mock('../pages/userspace/_components/UnmatchedReadingsBanner.vue', () => ({ render: () => null }));
 
 const mockObservation = {
   sharedState: reactive({ currentObservation: { id: 1 } }),

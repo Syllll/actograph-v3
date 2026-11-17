@@ -65,3 +65,20 @@ La génération compare les entités au schéma de la base courante ; préparer 
 Electron lance le bundle avec `--subprocess`, le port, le chemin `.env` et le dossier `userData`. L'API utilise alors `userData/actograph.sqlite`, écoute sur la boucle locale et exige le secret de session fourni par Electron. Elle signale sa disponibilité par IPC et accepte un arrêt coordonné pour fermer Nest/SQLite.
 
 Les modules natifs sont externalisés du bundle. Un binaire installé pour Node sur l'hôte ne suffit pas : le build doit reconstruire `better-sqlite3` pour l'ABI Electron et l'architecture cible. Les builds officiels injectent le validateur PKV privé avant compilation ; un build public local utilise les bouchons. Voir [architecture](../docs/architecture.md) et [validation des licences](../docs/license-validation.md).
+
+## Échanges tabulaires des relevés et du protocole
+
+Les routes sous `/observations/:id/exchange` exigent une session authentifiée et l’accès propriétaire à la chronique. CSV, XLSX et relevés texte V1 sont convertis côté interface vers les documents versionnés de `@actograph/core`, puis validés à nouveau par l’API.
+
+| Route | Contrat |
+|---|---|
+| `GET /observations/:id/exchange` | Instantané brut `{ revision, observation, readings, protocol }`, sans filtrer les relevés inconnus, commentaires ou marqueurs sans nom. |
+| `POST /observations/:id/exchange/preview` | Corps `{ kind: 'readings' \| 'protocol', mode: 'add' \| 'replace', document }`. Renvoie la révision, les nombres de lignes, les diagnostics avec sévérité et `canApply`. |
+| `POST /observations/:id/exchange/apply` | Même corps, avec `revision` et `confirmReplace: true` pour remplacer. Renvoie `{ imported, diagnostics, revision, backup? }`. |
+| `POST /observations/:id/exchange/legacy-protocol` | Multipart, champ `file`, fichier `.chronic` de 20 Mio maximum. Extraction du protocole uniquement, sans écriture, renvoyée sous forme de document d’échange. |
+
+Chaque remplacement crée dans la même transaction une chronique de sauvegarde complète, datée et accessible dans la bibliothèque du propriétaire. Son identifiant et son nom sont renvoyés dans `backup`. Un échec annule à la fois la sauvegarde et les modifications. L’API conserve les millisecondes et l’ordre des événements simultanés, ignore les identifiants étrangers et ne dédoublonne pas les relevés.
+
+Les correspondances absentes ou ambiguës sont des avertissements. L’import du protocole ne modifie aucun relevé et conserve les préférences graphiques existantes des éléments correspondant sans ambiguïté. Les écritures concurrentes utilisent le verrou de chronique ; un aperçu périmé est rejeté avec HTTP 409 et le code `EXCHANGE_PREVIEW_STALE`. Les erreurs de structure et l’absence de confirmation du remplacement produisent HTTP 400. Un enregistrement actif empêche l’import.
+
+L’extraction du protocole V1 n’appelle pas le normaliseur d’une chronique complète. Les relevés binaires `.chronic` ne sont pas importés par ce parcours ; les relevés texte V1 passent par le même import normalisé que les autres tableaux.

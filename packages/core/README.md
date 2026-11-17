@@ -278,3 +278,29 @@ yarn lint
 ## License
 
 UNLICENSED - Internal use only
+
+
+## CSV, Excel and V1 exchange
+
+The browser-safe root exports `createReadingsExchange`, `createProtocolExchange`,
+`exchangeDocumentToTable`, `parseExchangeTable`, `serializeDelimitedText`,
+`parseDelimitedText`, `validateExchangeDocument`, `exchangeReadingsToReadings`
+and `diagnoseProtocolCorrespondence`. The shared matrix is used for both CSV
+and ExcelJS workbooks; spreadsheet I/O stays in the applications. Native CSV
+records a reversible formula-protection convention in its metadata, preserving
+literal names when reimported. Dates require explicit timezone offsets; elapsed
+times use exact integer milliseconds. Import validation never repairs labels or
+removes unknown readings. Session inconsistencies and missing protocol matches
+are warnings.
+
+`isLegacyReadingsText` and `parseLegacyReadingsText` read the actual ActoGraph V1
+text layout with double-tab separators. Calendar text requires an explicitly
+chosen IANA timezone and rejects ambiguous or nonexistent local times. V1 ODS
+reports and PNG protocol images are not supported exchange formats.
+
+Node callers may use `extractChronicV1Protocol` from
+`@actograph/core/import/chronic-v1` after parsing a `.chronic` buffer. This extracts
+only a structurally representable protocol, preserves source labels and archives
+legacy attributes in `meta.legacyV1`. It never runs the reading normalizer. The
+existing Qt date reader does not retain timeSpec information, so this path does
+not provide a new reading-extraction feature; use V1's text export for readings.

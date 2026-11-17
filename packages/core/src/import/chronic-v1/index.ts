@@ -17,3 +17,5 @@ export type {
   IExtensionDataV1,
 } from './types/chronic-v1.types';
 
+
+export { extractChronicV1Protocol } from './extract-protocol';

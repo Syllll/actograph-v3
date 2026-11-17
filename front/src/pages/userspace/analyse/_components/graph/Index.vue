@@ -198,6 +198,7 @@
       </div>
     </div>
 
+    <unmatched-readings-banner analysis class="q-mx-sm q-mb-xs" />
     <readings-after-last-stop-banner
       v-if="hasReadingsAfterLastStop"
       class="graph-scope-warning q-mx-sm q-mb-xs"
@@ -270,6 +271,7 @@ import {
   resolveGraphColor,
 } from '@services/observations/protocol-graph-preferences.utils';
 import StudentWatermark from '@components/student-watermark/Index.vue';
+import UnmatchedReadingsBanner from 'src/pages/userspace/_components/UnmatchedReadingsBanner.vue';
 import ReadingsAfterLastStopBanner from 'src/pages/userspace/_components/ReadingsAfterLastStopBanner.vue';
 import { graphExportFile, type GraphExportFormat } from 'src/utils/graph-export-file';
 import { buildLegendSvg, type GraphLegendRow } from 'src/utils/graph-legend-export';
@@ -296,6 +298,7 @@ export default defineComponent({
   components: {
     StudentWatermark,
     ReadingsAfterLastStopBanner,
+    UnmatchedReadingsBanner,
   },
   props: {
     drawerWidthPx: {

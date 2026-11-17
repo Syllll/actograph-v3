@@ -24,6 +24,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { UpdateProtocolItemGraphPreferencesDto } from '../../dtos/protocol-item-graph-preferences.dto';
 import { IsNull } from 'typeorm';
+import { lockActiveObservationWrite, withObservationWriteLocks } from '../observation-write-lock';
 
 export class Items {
   constructor(
@@ -41,18 +42,32 @@ export class Items {
     return JSON.parse(itemsStr);
   }
 
-  private async saveActiveItems(protocol: Partial<Protocol>): Promise<void> {
-    if (protocol.id == null || protocol.items == null) {
+  private async saveActiveItems(protocol: Partial<Protocol>, originalItems: string | undefined): Promise<void> {
+    if (protocol.id == null || protocol.items == null || originalItems == null) {
       throw new NotFoundException('Protocol was not found');
     }
-    // A stale request must never restore deletedAt from its earlier snapshot.
-    const result = await this.protocolRepository.update(
-      { id: protocol.id, deletedAt: IsNull() },
-      { items: protocol.items },
+    const source = await this.protocolRepository.findOne({
+      where: { id: protocol.id },
+      relations: ['observation'],
+    });
+    const observationId = source?.observation?.id;
+    if (observationId == null) throw new NotFoundException('Observation not found');
+    const connection = this.protocolRepository.manager.connection;
+    await withObservationWriteLocks(connection, [observationId], () =>
+      connection.transaction(async (manager) => {
+        await lockActiveObservationWrite(manager, observationId);
+        // Optimistic comparison protects the imported protocol from a manual
+        // editor request that read its items before this import committed.
+        const result = await manager.update(
+          Protocol,
+          { id: protocol.id, deletedAt: IsNull(), items: originalItems },
+          { items: protocol.items },
+        );
+        if (!result.affected) {
+          throw new ConflictException('Le protocole a changé. Actualisez-le avant de recommencer.');
+        }
+      }),
     );
-    if (result.affected === 0) {
-      throw new NotFoundException('Protocol was not found');
-    }
   }
 
   /** Une cible d'arrière-plan supprimée ou devenue fond ne doit plus être référencée. */
@@ -87,6 +102,8 @@ export class Items {
       throw new NotFoundException('Protocol was  not found');
     }
 
+    const originalItems = protocol.items;
+
     // Get the array of categories
     const categories = this.getItemsAsJson(protocol.items);
 
@@ -117,7 +134,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.saveActiveItems(protocol);
+    await this.saveActiveItems(protocol, originalItems);
 
     // Return the new category
     return categories[order];
@@ -131,6 +148,8 @@ export class Items {
     if (!protocol) {
       throw new NotFoundException('Protocol was not found');
     }
+
+    const originalItems = protocol.items;
 
     // Get the array of items
     const items = this.getItemsAsJson(protocol.items);
@@ -164,7 +183,7 @@ export class Items {
     protocol.items = JSON.stringify(items);
 
     // Save the protocol
-    await this.saveActiveItems(protocol);
+    await this.saveActiveItems(protocol, originalItems);
   }
 
   public async removeCategory(options: {
@@ -178,6 +197,8 @@ export class Items {
     if (!protocol) {
       throw new NotFoundException('Protocol was not found');
     }
+
+    const originalItems = protocol.items;
 
     // Get the array of categories
     const categories = this.getItemsAsJson(protocol.items);
@@ -199,7 +220,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.saveActiveItems(protocol);
+    await this.saveActiveItems(protocol, originalItems);
 
     // Return the new items
     return categories;
@@ -221,6 +242,8 @@ export class Items {
     if (!protocol) {
       throw new NotFoundException('Protocol was not found');
     }
+
+    const originalItems = protocol.items;
 
     // Get the array of categories
     const categories = this.getItemsAsJson(protocol.items);
@@ -304,7 +327,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.saveActiveItems(protocol);
+    await this.saveActiveItems(protocol, originalItems);
 
     // Find the new index of the category (in case order changed)
     const newCategoryIndex = categories.findIndex(
@@ -332,6 +355,8 @@ export class Items {
     if (!protocol) {
       throw new NotFoundException('Protocol was not found');
     }
+
+    const originalItems = protocol.items;
 
     // Get the array of categories
     const categories = this.getItemsAsJson(protocol.items);
@@ -389,7 +414,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.saveActiveItems(protocol);
+    await this.saveActiveItems(protocol, originalItems);
 
     // Return the added observable
     return category.children[order];
@@ -406,6 +431,8 @@ export class Items {
     if (!protocol) {
       throw new NotFoundException('Protocol was not found');
     }
+
+    const originalItems = protocol.items;
 
     // Get the array of categories
     const categories = this.getItemsAsJson(protocol.items);
@@ -442,7 +469,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.saveActiveItems(protocol);
+    await this.saveActiveItems(protocol, originalItems);
 
     // Return the new items
     return categories;
@@ -462,6 +489,8 @@ export class Items {
     if (!protocol) {
       throw new NotFoundException('Protocol was not found');
     }
+
+    const originalItems = protocol.items;
 
     // Get the array of categories
     const categories = this.getItemsAsJson(protocol.items);
@@ -545,7 +574,7 @@ export class Items {
     protocol.items = JSON.stringify(categories);
 
     // Save the protocol
-    await this.saveActiveItems(protocol);
+    await this.saveActiveItems(protocol, originalItems);
 
     // Find the new index of the observable (in case order changed)
     const newObservableIndex = category.children.findIndex(
@@ -571,6 +600,8 @@ export class Items {
     if (!protocol) {
       throw new NotFoundException('Protocol was not found');
     }
+
+    const originalItems = protocol.items;
 
     // Get the array of items
     const items = this.getItemsAsJson(protocol.items);
@@ -670,7 +701,7 @@ export class Items {
     protocol.items = JSON.stringify(items);
 
     // Save the protocol
-    await this.saveActiveItems(protocol);
+    await this.saveActiveItems(protocol, originalItems);
 
     return targetItem;
   }

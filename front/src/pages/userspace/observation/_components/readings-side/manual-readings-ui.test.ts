@@ -16,6 +16,13 @@ jest.mock('@actograph/core', () => ({
   getLocalTimeZone: () => 'Europe/Paris',
 }));
 
+jest.mock('vue-router', () => ({
+  ...jest.requireActual('vue-router'),
+  useRoute: () => ({ query: {} }),
+  useRouter: () => ({ currentRoute: { value: { name: 'user_observation' } }, push: jest.fn() }),
+}));
+jest.mock('src/pages/userspace/_components/TabularExchangeActions.vue', () => ({ name: 'TabularExchangeActions', render: () => null }));
+jest.mock('src/pages/userspace/_components/UnmatchedReadingsBanner.vue', () => ({ name: 'UnmatchedReadingsBanner', render: () => null }));
 jest.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }));

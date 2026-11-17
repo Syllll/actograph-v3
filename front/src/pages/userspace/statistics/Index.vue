@@ -1,5 +1,6 @@
 <template>
   <DPage>
+    <unmatched-readings-banner analysis class="q-ma-sm" />
     <div v-if="!statistics.computedState.canCalculateStatistics.value" class="fit column items-center justify-center">
       <q-icon name="mdi-chart-box" size="64px" color="grey-6" class="q-mb-md" />
       <div class="text-h4 text-grey-7">{{ t('statisticsUi.emptyTitle') }}</div>
@@ -123,6 +124,7 @@
 </template>
 
 <script lang="ts">
+import UnmatchedReadingsBanner from 'src/pages/userspace/_components/UnmatchedReadingsBanner.vue';
 import { defineComponent, reactive, onMounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { hasReadingsAfterLastStop as detectReadingsAfterLastStop, hasMissingStopReading, ReadingTypeEnum } from '@actograph/core';
@@ -141,6 +143,7 @@ import ReadingsAfterLastStopBanner from 'src/pages/userspace/_components/Reading
 export default defineComponent({
   name: 'StatisticsPage',
   components: {
+    UnmatchedReadingsBanner,
     GeneralStatisticsView,
     CategoryStatisticsView,
     ConditionalStatisticsView,

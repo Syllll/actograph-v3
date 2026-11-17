@@ -216,6 +216,7 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
       [observationId],
       () =>
         this.readingRepository.manager.transaction(async (manager) => {
+          await lockActiveObservationWrite(manager, observationId);
           await manager.softDelete(Reading, {
             observation: { id: observationId },
             deletedAt: IsNull(),
@@ -286,6 +287,11 @@ export class ReadingService extends BaseService<Reading, ReadingRepository> {
       observationIds,
       () =>
         this.readingRepository.manager.transaction(async (manager) => {
+          for (const observationId of [...new Set(observationIds)].sort(
+            (left, right) => left - right,
+          )) {
+            await lockActiveObservationWrite(manager, observationId);
+          }
           await manager.softDelete(Reading, {
             id: In(readingIds),
             deletedAt: IsNull(),

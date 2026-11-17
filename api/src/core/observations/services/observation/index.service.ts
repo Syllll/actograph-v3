@@ -90,23 +90,29 @@ export class ObservationService extends BaseService<
   }
 
   public async update(id: number, updateData: Partial<Observation>): Promise<Observation> {
-    const observation = await this.findOne(id);
-    if (!observation) {
+    if (!(await this.findOne(id))) {
       throw new NotFoundException('Observation not found');
     }
-
-    const result = await this.observationRepository.update(
-      { id, deletedAt: IsNull() },
-      updateData,
+    return withObservationWriteLocks(
+      this.observationRepository.manager.connection,
+      [id],
+      () => this.observationRepository.manager.transaction(async (manager) => {
+        await lockActiveObservationWrite(manager, id);
+        const result = await manager.update(
+          Observation,
+          { id, deletedAt: IsNull() },
+          updateData,
+        );
+        if (result.affected === 0) {
+          throw new NotFoundException('Observation not found');
+        }
+        const updatedObservation = await manager.findOneBy(Observation, { id });
+        if (!updatedObservation) {
+          throw new NotFoundException('Observation not found');
+        }
+        return updatedObservation;
+      }),
     );
-    if (result.affected === 0) {
-      throw new NotFoundException('Observation not found');
-    }
-    const updatedObservation = await this.observationRepository.findOneBy({ id });
-    if (!updatedObservation) {
-      throw new NotFoundException('Observation not found');
-    }
-    return updatedObservation;
   }
 
   public async remove(id: number) {

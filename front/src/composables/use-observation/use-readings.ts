@@ -42,12 +42,12 @@ const sharedState = reactive({
 
 // Ensure we do not run multiple synchronization loops or overlapping syncs
 let isSyncInFlight = false;
-const synchronizationWaiters = new Set<() => void>();
+const synchronizationWaiters = new Set<{ resolve: () => void; reject: (error: unknown) => void }>();
 
 /** Wait for the current request, including already queued synchronization passes. */
 export const waitForPendingReadingSynchronization = (): Promise<void> => {
   if (!isSyncInFlight) return Promise.resolve();
-  return new Promise((resolve) => synchronizationWaiters.add(resolve));
+  return new Promise((resolve, reject) => synchronizationWaiters.add({ resolve, reject }));
 };
 let syncPending = false;
 let hasStartedSyncLoop = false;
@@ -453,14 +453,18 @@ export const useReadings = (options: {
 
       // Only acknowledge the snapshots actually sent. Edits/additions performed
       // while a request is in flight must still be sent by the next sync.
+      } catch (error) {
+        for (const waiter of synchronizationWaiters) waiter.reject(error);
+        synchronizationWaiters.clear();
+        throw error;
       } finally {
         isSyncInFlight = false;
         if (syncPending) {
           syncPending = false;
-          void methods.synchronizeReadings();
+          void methods.synchronizeReadings().catch(() => undefined);
         }
         if (!isSyncInFlight) {
-          for (const resolve of synchronizationWaiters) resolve();
+          for (const waiter of synchronizationWaiters) waiter.resolve();
           synchronizationWaiters.clear();
         }
       }
