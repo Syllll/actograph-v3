@@ -25,11 +25,19 @@ const MAC_CERT_AVAILABLE = Boolean(
     process.env.CSC_KEYCHAIN?.trim() ||
     process.env.CSC_LINK?.trim()
 );
-const MAC_NOTARIZE_READY =
-  MAC_CERT_AVAILABLE &&
+const MAC_NOTARIZE_PASSWORD_READY =
   Boolean(process.env.APPLE_ID?.trim()) &&
   Boolean(process.env.APPLE_APP_SPECIFIC_PASSWORD?.trim()) &&
   Boolean(process.env.APPLE_TEAM_ID?.trim());
+// electron-builder 24 selects Apple ID first when either legacy field is set.
+const MAC_NOTARIZE_API_READY =
+  !process.env.APPLE_ID &&
+  !process.env.APPLE_APP_SPECIFIC_PASSWORD &&
+  Boolean(process.env.APPLE_API_KEY?.trim()) &&
+  Boolean(process.env.APPLE_API_KEY_ID?.trim()) &&
+  Boolean(process.env.APPLE_API_ISSUER?.trim());
+const MAC_NOTARIZE_READY =
+  MAC_CERT_AVAILABLE && (MAC_NOTARIZE_PASSWORD_READY || MAC_NOTARIZE_API_READY);
 
 module.exports = configure(function (/* ctx */) {
   return {
@@ -507,7 +515,7 @@ module.exports = configure(function (/* ctx */) {
                 entitlements: 'build/entitlements.mac.plist',
                 entitlementsInherit: 'build/entitlements.mac.inherit.plist',
                 ...(MAC_NOTARIZE_READY
-                  ? { notarize: { teamId: process.env.APPLE_TEAM_ID } }
+                  ? { notarize: MAC_NOTARIZE_API_READY ? true : { teamId: process.env.APPLE_TEAM_ID } }
                   : {}),
               }
             : {

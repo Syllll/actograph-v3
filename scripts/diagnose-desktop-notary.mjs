@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const expectedTeam = 'JZ2M998YMV';
 const expectedFingerprint = '0CA7BDE7A40516AC7FB6A5FA3B48AEA0DF65E242';
+const expectedSerial = '7A53B092D1315524AFC3B4A354756681';
 const credentialNames = ['APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID',
   'APP_STORE_CONNECT_API_KEY_ID', 'APP_STORE_CONNECT_API_ISSUER_ID'];
 
@@ -43,7 +44,8 @@ export async function issuerCertificateMetadata(env, fetchImpl = fetch, now = Da
   })}`;
   const signature = sign('sha256', Buffer.from(input), { key: privateKey, dsaEncoding: 'ieee-p1363' });
   const url = new URL('https://api.appstoreconnect.apple.com/v1/certificates');
-  url.searchParams.set('filter[certificateType]', 'DEVELOPER_ID_APPLICATION,DEVELOPER_ID_APPLICATION_G2');
+  // Target the known public signer directly; a broad G2 type query can fail upstream.
+  url.searchParams.set('filter[serialNumber]', expectedSerial);
   url.searchParams.set('fields[certificates]', 'certificateContent');
   url.searchParams.set('limit', '200');
   let response;

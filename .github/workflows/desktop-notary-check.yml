@@ -97,8 +97,8 @@ jobs:
           echo "App Store Connect API authentication: $API_KEY_RESULT"
           echo "Configured desktop Team ID matches signer: $TEAM_MATCHES"
           echo "API issuer signing certificate match: $CERTIFICATE_TEAM_RESULT"
-          # The current production build selects Apple ID before API credentials.
-          if [ "$APPLE_ID_RESULT" != success ] || [ "$TEAM_MATCHES" != true ]; then
-            echo "Current production Apple ID method is not ready."
+          # CI uses the API key; Apple ID is checked separately for local fallback.
+          if [ "$API_KEY_RESULT" != success ]; then
+            echo "Production API notarization authentication is not ready."
             exit 1
           fi

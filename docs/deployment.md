@@ -82,6 +82,8 @@ demandé sur [Apple Developer](https://developer.apple.com/account/).
 Apple précise que [le titulaire signe les accords mis à jour pour son équipe](https://developer.apple.com/help/account/access/roles/).
 Changer de méthode d'authentification ne résout pas cet accord manquant.
 
+La CI desktop utilise désormais l’authentification App Store Connect par clé d’équipe pour la notarisation. Elle prépare le fichier `.p8` dans `RUNNER_TEMP` avec des permissions `0600`, puis le supprime dans le nettoyage `always`. Les variables Apple ID sont explicitement vides pendant le build pour éviter leur priorité dans electron-builder 24. Le fallback Apple ID reste disponible pour les builds locaux. La signature Developer ID SymAlgo, le hardened runtime, Gatekeeper et `xcrun stapler validate` restent obligatoires avant publication. Les deux méthodes de connexion sont distinguées dans le diagnostic ; la réussite de l’API n’est pas assimilée à celle d’Apple ID.
+
 Après résolution et réussite du diagnostic, relancer **tout** le workflow de
 publication existant, car l'échec d'une plateforme peut annuler les autres :
 
