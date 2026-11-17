@@ -58,7 +58,7 @@ jobs:
           - os: windows-latest
           - os: macos-15-intel # Intel x64 runner
             electron_arch: "x64"
-          - os: macos-14 # Apple Silicon arm64 runner
+          - os: macos-15 # Apple Silicon arm64 runner
             electron_arch: "arm64"
     runs-on: ${{ matrix.os }}
     environment: deploy
@@ -699,13 +699,13 @@ jobs:
           # Enable nullglob to handle cases where no files match
           shopt -s nullglob
           # Find and rename latest-mac.yml files for macOS builds
-          # Handle macos-14 (arm64)
-          if [ -d "artifacts/electron-artifacts-macos-14" ]; then
-            if [ -f "artifacts/electron-artifacts-macos-14/latest-mac.yml" ]; then
-              mv artifacts/electron-artifacts-macos-14/latest-mac.yml artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml
+          # Handle macos-15 (arm64)
+          if [ -d "artifacts/electron-artifacts-macos-15" ]; then
+            if [ -f "artifacts/electron-artifacts-macos-15/latest-mac.yml" ]; then
+              mv artifacts/electron-artifacts-macos-15/latest-mac.yml artifacts/electron-artifacts-macos-15/latest-mac-arm64.yml
             fi
             # Also handle any other YAML files that might be generated
-            for file in artifacts/electron-artifacts-macos-14/latest-mac*.yml artifacts/electron-artifacts-macos-14/latest-mac*.yaml; do
+            for file in artifacts/electron-artifacts-macos-15/latest-mac*.yml artifacts/electron-artifacts-macos-15/latest-mac*.yaml; do
               if [ -f "$file" ] && [[ ! "$file" =~ (arm64|x64) ]]; then
                 mv "$file" "${file%.*}-arm64.yml"
               fi
@@ -736,12 +736,12 @@ jobs:
           if compgen -G "artifacts/electron-artifacts-macos-15-intel/latest-mac-x64.yml" > /dev/null; then
             cp -f artifacts/electron-artifacts-macos-15-intel/latest-mac-x64.yml artifacts/release/
           fi
-          # macOS arm64 from macos-14 (target is zip, not dmg)
-          if compgen -G "artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.zip" > /dev/null; then
-            cp -f artifacts/electron-artifacts-macos-14/ActoGraph-v3-arm64.zip artifacts/release/
+          # macOS arm64 from macos-15 (target is zip, not dmg)
+          if compgen -G "artifacts/electron-artifacts-macos-15/ActoGraph-v3-arm64.zip" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-15/ActoGraph-v3-arm64.zip artifacts/release/
           fi
-          if compgen -G "artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml" > /dev/null; then
-            cp -f artifacts/electron-artifacts-macos-14/latest-mac-arm64.yml artifacts/release/
+          if compgen -G "artifacts/electron-artifacts-macos-15/latest-mac-arm64.yml" > /dev/null; then
+            cp -f artifacts/electron-artifacts-macos-15/latest-mac-arm64.yml artifacts/release/
           fi
           # Linux
           if compgen -G "artifacts/electron-artifacts-ubuntu-latest/*.AppImage" > /dev/null; then
@@ -804,6 +804,30 @@ jobs:
             cp latest-mac-arm64.yml latest-mac.yml
           fi
         shell: bash
+
+      - name: Verify complete desktop release bundle
+        if: needs.parse.outputs.desktop == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_files=(
+            ActoGraph-v3-arm64.zip
+            ActoGraph-v3-x64.zip
+            ActoGraph-v3-x64.exe
+            ActoGraph-v3-x64.exe.blockmap
+            ActoGraph-v3-x86_64.AppImage
+            latest-linux.yml
+            latest-mac-arm64.yml
+            latest-mac-x64.yml
+            latest-mac.yml
+            latest.yml
+          )
+          for file in "${required_files[@]}"; do
+            if [ ! -s "artifacts/release/$file" ]; then
+              echo "::error::Missing or empty desktop release file: $file" >&2
+              exit 1
+            fi
+          done
 
       - name: Create Release
         uses: softprops/action-gh-release@v1

@@ -308,8 +308,8 @@ Le job bureau, lancé seulement si le tag contient le bureau, build pour 3 plate
 |------------|--------|--------------|----------|
 | Windows | `windows-latest` | x64 | `ActoGraph-v3-x64.exe` |
 | macOS | `macos-15-intel` | x64 | `ActoGraph-v3-x64.zip` |
-| macOS | `macos-14` | arm64 | `ActoGraph-v3-arm64.zip` |
-| Linux | `ubuntu-latest` | x64 | `ActoGraph-v3-x64.AppImage` |
+| macOS | `macos-15` | arm64 | `ActoGraph-v3-arm64.zip` |
+| Linux | `ubuntu-latest` | x64 | `ActoGraph-v3-x86_64.AppImage` |
 
 > **Note** : macOS utilise le format `zip` (pas `dmg`) pour éviter les erreurs `hdiutil "Resource busy"` sur les runners CI GitHub.
 

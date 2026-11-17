@@ -60,6 +60,8 @@ Le workflow `.github/workflows/publish.yml` lit le tag (`scripts/release-tag.sh`
 
 Le bureau produit les installeurs Electron et une release GitHub. En `preprod`, cette release est marquée prerelease, donc les clients Electron de production ne la prennent pas.
 
+La matrice bureau utilise `macos-15` pour Apple Silicon et `macos-15-intel` pour Intel. GitHub a retiré les images macOS 14 le 2 novembre 2026 ; voir les [images prises en charge](https://github.com/actions/runner-images#available-images). Les chemins des artefacts macOS suivent ces labels. Avant de publier une release bureau, la CI vérifie la présence des dix fichiers attendus : les quatre distributions, le blockmap Windows et les cinq métadonnées de mise à jour. Un fichier absent ou vide bloque la publication.
+
 ### Diagnostic de notarisation macOS et reprise
 
 Le workflow manuel `desktop-notary-check.yml` vérifie l'accès à `notarytool`
