@@ -10,6 +10,29 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Checkout diagnostic helpers
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Report toolchain versions
+        run: |
+          xcodebuild -version
+          xcrun notarytool --version
+
+      - name: Check credential metadata without revealing values
+        id: config
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: node scripts/diagnose-desktop-notary.mjs --metadata
+
       - name: Check Apple ID authentication
         id: apple-id
         continue-on-error: true
@@ -53,14 +76,29 @@ jobs:
             --key-id "$APP_STORE_CONNECT_API_KEY_ID" --issuer "$APP_STORE_CONNECT_API_ISSUER_ID" \
             --output-format json > "$RUNNER_TEMP/api-notary.json"
 
+      - name: Match API issuer to desktop public signing certificate
+        id: certificate-team
+        continue-on-error: true
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: node scripts/diagnose-desktop-notary.mjs --certificates
+
       - name: Report authentication results
         if: always()
         env:
           APPLE_ID_RESULT: ${{ steps.apple-id.outcome }}
           API_KEY_RESULT: ${{ steps.api-key.outcome }}
+          TEAM_MATCHES: ${{ steps.config.outputs.team_matches }}
+          CERTIFICATE_TEAM_RESULT: ${{ steps.certificate-team.outcome }}
         run: |
           echo "Apple ID authentication: $APPLE_ID_RESULT"
           echo "App Store Connect API authentication: $API_KEY_RESULT"
-          if [ "$APPLE_ID_RESULT" != success ] && [ "$API_KEY_RESULT" != success ]; then
+          echo "Configured desktop Team ID matches signer: $TEAM_MATCHES"
+          echo "API issuer signing certificate match: $CERTIFICATE_TEAM_RESULT"
+          # The current production build selects Apple ID before API credentials.
+          if [ "$APPLE_ID_RESULT" != success ] || [ "$TEAM_MATCHES" != true ]; then
+            echo "Current production Apple ID method is not ready."
             exit 1
           fi
